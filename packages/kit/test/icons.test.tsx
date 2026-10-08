@@ -37,7 +37,10 @@ describe("@forge-go/dashboard-kit/icons", () => {
     ]) {
       const Icon = icons[name as keyof typeof icons] as ComponentType
       const { container } = render(createElement(Icon))
-      expect(container.querySelector("svg"), `${name} did not render`).toBeTruthy()
+      expect(
+        container.querySelector("svg"),
+        `${name} did not render`
+      ).toBeTruthy()
     }
   })
 })

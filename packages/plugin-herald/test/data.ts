@@ -25,41 +25,116 @@ export const ENGINE: EngineInfoResponse = {
       name: "resend",
       channel: "email",
       fields: [
-        { key: "api_key", label: "API key", required: true, secret: true, placement: "credential" },
-        { key: "base_url", label: "API base URL", help: "Leave empty for Resend's own API.", required: false, secret: false, placement: "setting" },
+        {
+          key: "api_key",
+          label: "API key",
+          required: true,
+          secret: true,
+          placement: "credential",
+        },
+        {
+          key: "base_url",
+          label: "API base URL",
+          help: "Leave empty for Resend's own API.",
+          required: false,
+          secret: false,
+          placement: "setting",
+        },
       ],
     },
     {
       name: "smtp",
       channel: "email",
       fields: [
-        { key: "host", label: "Host", required: true, secret: false, placement: "setting" },
-        { key: "port", label: "Port", help: "Usually 587, or 465 with implicit TLS.", required: true, secret: false, placement: "setting" },
-        { key: "username", label: "Username", required: false, secret: false, placement: "credential" },
-        { key: "password", label: "Password", required: false, secret: true, placement: "credential" },
-        { key: "from", label: "From address", help: "Used when no routing rule sets one.", required: false, secret: false, placement: "setting" },
+        {
+          key: "host",
+          label: "Host",
+          required: true,
+          secret: false,
+          placement: "setting",
+        },
+        {
+          key: "port",
+          label: "Port",
+          help: "Usually 587, or 465 with implicit TLS.",
+          required: true,
+          secret: false,
+          placement: "setting",
+        },
+        {
+          key: "username",
+          label: "Username",
+          required: false,
+          secret: false,
+          placement: "credential",
+        },
+        {
+          key: "password",
+          label: "Password",
+          required: false,
+          secret: true,
+          placement: "credential",
+        },
+        {
+          key: "from",
+          label: "From address",
+          help: "Used when no routing rule sets one.",
+          required: false,
+          secret: false,
+          placement: "setting",
+        },
       ],
     },
     {
       name: "twilio",
       channel: "sms",
       fields: [
-        { key: "account_sid", label: "Account SID", required: true, secret: false, placement: "credential" },
-        { key: "auth_token", label: "Auth token", required: true, secret: true, placement: "credential" },
-        { key: "from_number", label: "From number", required: true, secret: false, placement: "setting" },
+        {
+          key: "account_sid",
+          label: "Account SID",
+          required: true,
+          secret: false,
+          placement: "credential",
+        },
+        {
+          key: "auth_token",
+          label: "Auth token",
+          required: true,
+          secret: true,
+          placement: "credential",
+        },
+        {
+          key: "from_number",
+          label: "From number",
+          required: true,
+          secret: false,
+          placement: "setting",
+        },
       ],
     },
   ],
-  templateFuncs: ["default", "formatDate", "lower", "now", "title", "truncate", "upper"],
+  templateFuncs: [
+    "default",
+    "formatDate",
+    "lower",
+    "now",
+    "title",
+    "truncate",
+    "upper",
+  ],
   encryption: { configured: true, keyId: "k1" },
   apiProtected: false,
 }
 
-export function engine(over: Partial<EngineInfoResponse> = {}): EngineInfoResponse {
+export function engine(
+  over: Partial<EngineInfoResponse> = {}
+): EngineInfoResponse {
   return { ...ENGINE, ...over }
 }
 
-export function providerSummary(over: Partial<ProviderSummary> = {}): ProviderSummary {
+export function providerSummary(
+  over: Partial<ProviderSummary> = {}
+): ProviderSummary {
   return {
     id: "hpvd_01j00000000000000000000001",
     name: "Primary SMTP",
@@ -77,7 +152,9 @@ export function providerSummary(over: Partial<ProviderSummary> = {}): ProviderSu
   }
 }
 
-export function providerDetail(over: Partial<ProviderDetail> = {}): ProviderDetail {
+export function providerDetail(
+  over: Partial<ProviderDetail> = {}
+): ProviderDetail {
   return {
     ...providerSummary(),
     settings: [
@@ -90,7 +167,9 @@ export function providerDetail(over: Partial<ProviderDetail> = {}): ProviderDeta
   }
 }
 
-export function templateSummary(over: Partial<TemplateSummary> = {}): TemplateSummary {
+export function templateSummary(
+  over: Partial<TemplateSummary> = {}
+): TemplateSummary {
   return {
     id: "htpl_01j00000000000000000000015",
     slug: "billing.receipt",
@@ -110,7 +189,9 @@ export function templateSummary(over: Partial<TemplateSummary> = {}): TemplateSu
   }
 }
 
-export function templateDetail(over: Partial<TemplateDetail> = {}): TemplateDetail {
+export function templateDetail(
+  over: Partial<TemplateDetail> = {}
+): TemplateDetail {
   return {
     ...templateSummary(),
     variables: [
@@ -119,28 +200,56 @@ export function templateDetail(over: Partial<TemplateDetail> = {}): TemplateDeta
       { name: "invoice_url", type: "url", required: false },
     ],
     versions: [
-      { id: "htpv_01j00000000000000000000025", locale: "", subject: "Your receipt", html: "<p>Hi {{.customer_name}}</p>", text: "Hi {{.customer_name}}", title: "", active: true, createdAt: "2026-09-20T10:00:00Z", updatedAt: "2026-09-20T10:00:00Z" },
-      { id: "htpv_01j00000000000000000000026", locale: "en", subject: "Your {{.amount}} receipt", html: "<p>Thanks {{.customer_name}}</p>", text: "Thanks {{.customer_name}}", title: "", active: true, createdAt: "2026-09-20T10:00:00Z", updatedAt: "2026-09-20T10:00:00Z" },
+      {
+        id: "htpv_01j00000000000000000000025",
+        locale: "",
+        subject: "Your receipt",
+        html: "<p>Hi {{.customer_name}}</p>",
+        text: "Hi {{.customer_name}}",
+        title: "",
+        active: true,
+        createdAt: "2026-09-20T10:00:00Z",
+        updatedAt: "2026-09-20T10:00:00Z",
+      },
+      {
+        id: "htpv_01j00000000000000000000026",
+        locale: "en",
+        subject: "Your {{.amount}} receipt",
+        html: "<p>Thanks {{.customer_name}}</p>",
+        text: "Thanks {{.customer_name}}",
+        title: "",
+        active: true,
+        createdAt: "2026-09-20T10:00:00Z",
+        updatedAt: "2026-09-20T10:00:00Z",
+      },
     ],
     ...over,
   }
 }
 
-export function messageSummary(over: Partial<MessageSummary> = {}): MessageSummary {
+export function messageSummary(
+  over: Partial<MessageSummary> = {}
+): MessageSummary {
   return {
     id: "hmsg_01j00000000000000000001000",
     recipient: "ada@example.com",
     channel: "email",
     status: "sent",
     templateSlug: "auth.welcome",
-    provider: { id: "hpvd_01j00000000000000000000001", name: "Primary SMTP", driver: "smtp" },
+    provider: {
+      id: "hpvd_01j00000000000000000000001",
+      name: "Primary SMTP",
+      driver: "smtp",
+    },
     createdAt: "2026-09-23T10:00:00Z",
     sentAt: "2026-09-23T10:00:01Z",
     ...over,
   }
 }
 
-export function messageDetail(over: Partial<MessageDetail> = {}): MessageDetail {
+export function messageDetail(
+  over: Partial<MessageDetail> = {}
+): MessageDetail {
   return {
     ...messageSummary(),
     subject: "Welcome to Example!",
@@ -149,12 +258,18 @@ export function messageDetail(over: Partial<MessageDetail> = {}): MessageDetail 
     attempts: 1,
     async: false,
     providerMessageId: "1000.msg@smtp.example.com",
-    template: { id: "htpl_01j00000000000000000000011", slug: "auth.welcome", channel: "email" },
+    template: {
+      id: "htpl_01j00000000000000000000011",
+      slug: "auth.welcome",
+      channel: "email",
+    },
     ...over,
   }
 }
 
-export function notification(over: Partial<NotificationWire> = {}): NotificationWire {
+export function notification(
+  over: Partial<NotificationWire> = {}
+): NotificationWire {
   return {
     id: "hinb_01j00000000000000000002000",
     userId: "usr_ada",
@@ -174,7 +289,11 @@ export function scopeRule(over: Partial<ScopeRule> = {}): ScopeRule {
     scope: "app",
     scopeId: "app_demo",
     providers: {
-      email: { id: "hpvd_01j00000000000000000000001", name: "Primary SMTP", dangling: false },
+      email: {
+        id: "hpvd_01j00000000000000000000001",
+        name: "Primary SMTP",
+        dangling: false,
+      },
     },
     fromEmail: "hello@example.com",
     fromName: "Example",

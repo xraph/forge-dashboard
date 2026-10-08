@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest"
-import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react"
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react"
 import {
   ContractError,
   NavigationProvider,
@@ -38,10 +45,13 @@ interface Harness {
 }
 
 function harness(
-  list: { overrides: unknown[]; total: number } | ((params: unknown) => unknown),
-  commands: Record<string, unknown> = { "overrides.delete": { ok: true, key: "k", tenantId: "t" } },
+  list:
+    { overrides: unknown[]; total: number } | ((params: unknown) => unknown),
+  commands: Record<string, unknown> = {
+    "overrides.delete": { ok: true, key: "k", tenantId: "t" },
+  },
   commandError?: ContractError,
-  hang = false,
+  hang = false
 ): Harness {
   const lists: unknown[] = []
   const sent: Harness["commands"] = []
@@ -53,7 +63,10 @@ function harness(
       extension: "vault",
       query: async (intent: string, params?: unknown) => {
         if (intent !== "overrides.list") {
-          return inner.query(intent, params as Record<string, unknown> | undefined)
+          return inner.query(
+            intent,
+            params as Record<string, unknown> | undefined
+          )
         }
         lists.push(params)
         return typeof list === "function" ? list(params) : list
@@ -83,15 +96,22 @@ function renderOverrides(client: ScopedClient) {
       >
         <OverridesPage params={{}} />
       </NavigationProvider>
-    </PluginProvider>,
+    </PluginProvider>
   )
 }
 
 const tenantBox = () => screen.getByLabelText("Tenant id") as HTMLInputElement
 const keyBox = () => screen.getByLabelText("Config key") as HTMLInputElement
-const showTenant = () => fireEvent.click(screen.getByRole("button", { name: "Show overrides for a tenant" }))
-const showKey = () => fireEvent.click(screen.getByRole("button", { name: "Show overrides for a key" }))
-const rowOf = (text: string) => screen.getByText(text).closest("tr") as HTMLElement
+const showTenant = () =>
+  fireEvent.click(
+    screen.getByRole("button", { name: "Show overrides for a tenant" })
+  )
+const showKey = () =>
+  fireEvent.click(
+    screen.getByRole("button", { name: "Show overrides for a key" })
+  )
+const rowOf = (text: string) =>
+  screen.getByText(text).closest("tr") as HTMLElement
 
 describe("OverridesPage before a choice", () => {
   it("says what to pick and why, and asks nothing", async () => {
@@ -99,8 +119,8 @@ describe("OverridesPage before a choice", () => {
     renderOverrides(h.client)
     expect(
       screen.getByText(
-        "Pick a tenant or a key to see its overrides. The store can only list them one way at a time.",
-      ),
+        "Pick a tenant or a key to see its overrides. The store can only list them one way at a time."
+      )
     ).toBeTruthy()
     await new Promise((r) => setTimeout(r, 20))
     expect(h.lists).toHaveLength(0)
@@ -116,8 +136,11 @@ describe("OverridesPage before a choice", () => {
     await new Promise((r) => setTimeout(r, 20))
     expect(h.lists).toHaveLength(0)
     expect(
-      (screen.getByRole("button", { name: "Show overrides for a tenant" }) as HTMLButtonElement)
-        .disabled,
+      (
+        screen.getByRole("button", {
+          name: "Show overrides for a tenant",
+        }) as HTMLButtonElement
+      ).disabled
     ).toBe(true)
   })
 })
@@ -153,7 +176,9 @@ describe("OverridesPage queries", () => {
     expect(h.lists[1]).toEqual({ key: "app/greeting", limit: 25, offset: 0 })
     expect(tenantBox().value).toBe("")
     for (const params of h.lists) {
-      expect(Object.keys(params as object)).not.toEqual(expect.arrayContaining(["tenantId", "key"]))
+      expect(Object.keys(params as object)).not.toEqual(
+        expect.arrayContaining(["tenantId", "key"])
+      )
     }
   })
 
@@ -169,7 +194,11 @@ describe("OverridesPage queries", () => {
     fireEvent.change(tenantBox(), { target: { value: "wayne" } })
     showTenant()
     await waitFor(() =>
-      expect(h.lists.at(-1)).toEqual({ tenantId: "wayne", limit: 25, offset: 0 }),
+      expect(h.lists.at(-1)).toEqual({
+        tenantId: "wayne",
+        limit: 25,
+        offset: 0,
+      })
     )
   })
 
@@ -177,7 +206,10 @@ describe("OverridesPage queries", () => {
     let total = 26
     const h = harness((params) => {
       const offset = (params as { offset: number }).offset
-      return { overrides: offset >= total ? [] : [ov({ tenantId: `t${offset}` })], total }
+      return {
+        overrides: offset >= total ? [] : [ov({ tenantId: `t${offset}` })],
+        total,
+      }
     })
     renderOverrides(h.client)
     fireEvent.change(tenantBox(), { target: { value: "acme" } })
@@ -189,7 +221,7 @@ describe("OverridesPage queries", () => {
     total = 25
     act(() => queryStore.invalidate("vault", ["overrides.list"]))
     await waitFor(() =>
-      expect(h.lists.at(-1)).toEqual({ tenantId: "acme", limit: 25, offset: 0 }),
+      expect(h.lists.at(-1)).toEqual({ tenantId: "acme", limit: 25, offset: 0 })
     )
     expect(await screen.findAllByText("t0")).not.toHaveLength(0)
   })
@@ -209,14 +241,19 @@ describe("OverridesPage queries", () => {
     renderOverrides(harness({ overrides: [], total: 0 }).client)
     fireEvent.change(tenantBox(), { target: { value: "acme" } })
     showTenant()
-    expect(await screen.findByText("No overrides for tenant acme.")).toBeTruthy()
+    expect(
+      await screen.findByText("No overrides for tenant acme.")
+    ).toBeTruthy()
   })
 })
 
 describe("OverridesPage rows", () => {
   it("shows the key as a link to its entry, the tenant and value in mono, and the time", async () => {
     const key = "app/http.timeout"
-    const h = harness({ overrides: [ov({ key, tenantId: "acme", value: "5s" })], total: 1 })
+    const h = harness({
+      overrides: [ov({ key, tenantId: "acme", value: "5s" })],
+      total: 1,
+    })
     renderOverrides(h.client)
     fireEvent.change(tenantBox(), { target: { value: "acme" } })
     showTenant()
@@ -229,7 +266,9 @@ describe("OverridesPage rows", () => {
   })
 
   it("shows an override of the empty string quoted", async () => {
-    renderOverrides(harness({ overrides: [ov({ value: "" })], total: 1 }).client)
+    renderOverrides(
+      harness({ overrides: [ov({ value: "" })], total: 1 }).client
+    )
     fireEvent.change(tenantBox(), { target: { value: "acme" } })
     showTenant()
     expect(await screen.findByText('""')).toBeTruthy()
@@ -237,7 +276,10 @@ describe("OverridesPage rows", () => {
 
   it("marks a wrong-typed value", async () => {
     renderOverrides(
-      harness({ overrides: [ov({ value: 5, valueMatchesType: false })], total: 1 }).client,
+      harness({
+        overrides: [ov({ value: 5, valueMatchesType: false })],
+        total: 1,
+      }).client
     )
     fireEvent.change(tenantBox(), { target: { value: "acme" } })
     showTenant()
@@ -260,12 +302,14 @@ describe("OverridesPage rows", () => {
     // There is no app default to go back to, so the button does not say so.
     expect(buttons[0]?.querySelector("svg")).toBeTruthy()
     expect(buttons[0]?.getAttribute("aria-label")).toBe(
-      "Remove leftover override for tenant wayne of gone/key",
+      "Remove leftover override for tenant wayne of gone/key"
     )
     // A live row still names the app default as its destination.
-    expect(within(rowOf("app/greeting")).getByRole("button").getAttribute("aria-label")).toContain(
-      "Revert to app default",
-    )
+    expect(
+      within(rowOf("app/greeting"))
+        .getByRole("button")
+        .getAttribute("aria-label")
+    ).toContain("Revert to app default")
   })
 
   it("shows a refusal from the list", async () => {
@@ -275,7 +319,9 @@ describe("OverridesPage rows", () => {
     renderOverrides(h.client)
     fireEvent.change(tenantBox(), { target: { value: "acme" } })
     showTenant()
-    expect((await screen.findAllByText(/give a tenantId or a key/)).length).toBeGreaterThan(0)
+    expect(
+      (await screen.findAllByText(/give a tenantId or a key/)).length
+    ).toBeGreaterThan(0)
   })
 })
 
@@ -286,7 +332,9 @@ describe("OverridesPage revert", () => {
     showTenant()
     await screen.findByText("app/greeting")
     fireEvent.click(
-      within(rowOf("app/greeting")).getByRole("button", { name: /Revert to app default/ }),
+      within(rowOf("app/greeting")).getByRole("button", {
+        name: /Revert to app default/,
+      })
     )
     return await screen.findByRole("alertdialog")
   }
@@ -294,12 +342,19 @@ describe("OverridesPage revert", () => {
   it("names the tenant and the key, and sends overrides.delete with both", async () => {
     const h = harness({ overrides: [ov()], total: 1 })
     const dialog = await open(h)
-    expect(dialog.textContent).toContain("Tenant acme goes back to the app default for app/greeting.")
-    fireEvent.click(within(dialog).getByRole("button", { name: "Revert to app default" }))
+    expect(dialog.textContent).toContain(
+      "Tenant acme goes back to the app default for app/greeting."
+    )
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: "Revert to app default" })
+    )
     await waitFor(() =>
       expect(h.commands).toEqual([
-        { intent: "overrides.delete", payload: { key: "app/greeting", tenantId: "acme" } },
-      ]),
+        {
+          intent: "overrides.delete",
+          payload: { key: "app/greeting", tenantId: "acme" },
+        },
+      ])
     )
     await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull())
   })
@@ -314,15 +369,22 @@ describe("OverridesPage revert", () => {
     const dialog = await screen.findByRole("alertdialog")
     // No app default exists for a deleted key, so the dialog does not promise one.
     expect(dialog.textContent).not.toMatch(/app default/)
-    expect(within(dialog).getByText("Remove wayne's leftover override?")).toBeTruthy()
+    expect(
+      within(dialog).getByText("Remove wayne's leftover override?")
+    ).toBeTruthy()
     expect(dialog.textContent).toContain(
-      "Tenant wayne's override of gone/key is removed. That key no longer exists, so apps reading it fall back to their own default.",
+      "Tenant wayne's override of gone/key is removed. That key no longer exists, so apps reading it fall back to their own default."
     )
-    fireEvent.click(within(dialog).getByRole("button", { name: "Remove leftover override" }))
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: "Remove leftover override" })
+    )
     await waitFor(() =>
       expect(h.commands).toEqual([
-        { intent: "overrides.delete", payload: { key: "gone/key", tenantId: "wayne" } },
-      ]),
+        {
+          intent: "overrides.delete",
+          payload: { key: "gone/key", tenantId: "wayne" },
+        },
+      ])
     )
     await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull())
   })
@@ -331,7 +393,7 @@ describe("OverridesPage revert", () => {
     const h = harness(
       { overrides: [ORPHAN], total: 1 },
       {},
-      new ContractError("NOT_FOUND", "tenant override not found"),
+      new ContractError("NOT_FOUND", "tenant override not found")
     )
     renderOverrides(h.client)
     fireEvent.change(tenantBox(), { target: { value: "wayne" } })
@@ -339,50 +401,76 @@ describe("OverridesPage revert", () => {
     await screen.findByText("gone/key")
     fireEvent.click(within(rowOf("gone/key")).getByRole("button"))
     const dialog = await screen.findByRole("alertdialog")
-    fireEvent.click(within(dialog).getByRole("button", { name: "Remove leftover override" }))
-    expect(await within(dialog).findByText(/tenant override not found/)).toBeTruthy()
-    expect(within(dialog).getByText("Could not remove the override")).toBeTruthy()
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: "Remove leftover override" })
+    )
+    expect(
+      await within(dialog).findByText(/tenant override not found/)
+    ).toBeTruthy()
+    expect(
+      within(dialog).getByText("Could not remove the override")
+    ).toBeTruthy()
   })
 
   it("shows a refusal inside the dialog and keeps it open", async () => {
     const h = harness(
       { overrides: [ov()], total: 1 },
       {},
-      new ContractError("NOT_FOUND", "tenant override not found"),
+      new ContractError("NOT_FOUND", "tenant override not found")
     )
     const dialog = await open(h)
-    fireEvent.click(within(dialog).getByRole("button", { name: "Revert to app default" }))
-    expect(await within(dialog).findByText(/tenant override not found/)).toBeTruthy()
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: "Revert to app default" })
+    )
+    expect(
+      await within(dialog).findByText(/tenant override not found/)
+    ).toBeTruthy()
     expect(screen.getByRole("alertdialog")).toBeTruthy()
   })
 
   it("does not send twice, and cannot be cancelled, while pending", async () => {
     const h = harness({ overrides: [ov()], total: 1 }, {}, undefined, true)
     const dialog = await open(h)
-    const confirm = within(dialog).getByRole("button", { name: "Revert to app default" })
+    const confirm = within(dialog).getByRole("button", {
+      name: "Revert to app default",
+    })
     fireEvent.click(confirm)
     fireEvent.click(confirm)
     await waitFor(() => expect(h.commands).toHaveLength(1))
-    expect((within(dialog).getByRole("button", { name: "Cancel" }) as HTMLButtonElement).disabled).toBe(true)
+    expect(
+      (
+        within(dialog).getByRole("button", {
+          name: "Cancel",
+        }) as HTMLButtonElement
+      ).disabled
+    ).toBe(true)
     fireEvent.keyDown(dialog, { key: "Escape" })
     expect(screen.getByRole("alertdialog")).toBeTruthy()
   })
 
   it("starts each open with no earlier refusal", async () => {
     const h = harness(
-      { overrides: [ov(), ov({ key: "other/key", tenantId: "wayne" })], total: 2 },
+      {
+        overrides: [ov(), ov({ key: "other/key", tenantId: "wayne" })],
+        total: 2,
+      },
       {},
-      new ContractError("NOT_FOUND", "tenant override not found"),
+      new ContractError("NOT_FOUND", "tenant override not found")
     )
     const first = await open(h)
-    fireEvent.click(within(first).getByRole("button", { name: "Revert to app default" }))
+    fireEvent.click(
+      within(first).getByRole("button", { name: "Revert to app default" })
+    )
     await within(first).findByText(/tenant override not found/)
     fireEvent.click(within(first).getByRole("button", { name: "Cancel" }))
     await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull())
     fireEvent.click(
-      within(screen.getByText("wayne").closest("tr") as HTMLElement).getByRole("button", {
-        name: /Revert to app default/,
-      }),
+      within(screen.getByText("wayne").closest("tr") as HTMLElement).getByRole(
+        "button",
+        {
+          name: /Revert to app default/,
+        }
+      )
     )
     const second = await screen.findByRole("alertdialog")
     expect(within(second).queryByText(/tenant override not found/)).toBeNull()

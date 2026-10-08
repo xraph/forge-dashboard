@@ -81,7 +81,12 @@ async function rowOf(tuple: string) {
 
 /** A client that reads normally and refuses every command with `error`. */
 function refusingCommands(error: ContractError): ScopedClient {
-  return { ...client(), command: async () => { throw error } } as ScopedClient
+  return {
+    ...client(),
+    command: async () => {
+      throw error
+    },
+  } as ScopedClient
 }
 
 async function openCreate() {
@@ -92,7 +97,10 @@ async function openCreate() {
 
 const CREATE = /^create relation$/i
 
-function fill(dialog: ReturnType<typeof within>, values: Record<string, string>) {
+function fill(
+  dialog: ReturnType<typeof within>,
+  values: Record<string, string>
+) {
   for (const [label, value] of Object.entries(values)) {
     fireEvent.change(dialog.getByLabelText(label), { target: { value } })
   }
@@ -179,7 +187,9 @@ describe("WardenRelationsPage", () => {
       "Filtering by namespace shows only the tuples stored in exactly that namespace, so tuples stored in a parent namespace are not listed under it, although they are in scope there too."
     )
     expect(screen.queryByText(/does not cascade/i)).toBeNull()
-    expect(screen.queryByText(/not in scope for a check in a child/i)).toBeNull()
+    expect(
+      screen.queryByText(/not in scope for a check in a child/i)
+    ).toBeNull()
   })
 
   describe("tuples that break their resource type", () => {
@@ -250,7 +260,12 @@ describe("WardenRelationsPage", () => {
       renderPage(
         WardenRelationsPage,
         client({
-          "relations.list": { ...RELATIONS, items: [], total: 0, marksWithheld: true },
+          "relations.list": {
+            ...RELATIONS,
+            items: [],
+            total: 0,
+            marksWithheld: true,
+          },
         })
       )
       await screen.findByText("No relations yet.")
@@ -277,7 +292,9 @@ describe("WardenRelationsPage", () => {
     // edit control.
     expect(screen.queryByRole("button", { name: /\bedit\b/i })).toBeNull()
     expect(screen.queryByRole("link", { name: /\bedit\b/i })).toBeNull()
-    expect(screen.getByText(/cannot be edited, only created and deleted/i)).toBeTruthy()
+    expect(
+      screen.getByText(/cannot be edited, only created and deleted/i)
+    ).toBeTruthy()
     expect(screen.getByText(/store has no update/i)).toBeTruthy()
   })
 
@@ -302,11 +319,19 @@ describe("WardenRelationsPage", () => {
     renderPage(WardenRelationsPage, client({ "relations.list": EMPTY }))
     expect(await screen.findByText(/0 relations/)).toBeTruthy()
     expect(await screen.findByText("No relations yet.")).toBeTruthy()
-    fireEvent.change(screen.getByLabelText("Namespace"), { target: { value: "eng/platform" } })
-    expect(await screen.findByText("No relations in eng/platform.")).toBeTruthy()
+    fireEvent.change(screen.getByLabelText("Namespace"), {
+      target: { value: "eng/platform" },
+    })
+    expect(
+      await screen.findByText("No relations in eng/platform.")
+    ).toBeTruthy()
     expect(screen.queryByText("No relations yet.")).toBeNull()
-    fireEvent.change(screen.getByLabelText("Namespace"), { target: { value: "" } })
-    expect(await screen.findByText("No relations in the tenant root.")).toBeTruthy()
+    fireEvent.change(screen.getByLabelText("Namespace"), {
+      target: { value: "" },
+    })
+    expect(
+      await screen.findByText("No relations in the tenant root.")
+    ).toBeTruthy()
   })
 
   it("names the tuple pattern when a filter matched nothing", async () => {
@@ -314,21 +339,33 @@ describe("WardenRelationsPage", () => {
     // relations yet" under it would say nothing exists when something does.
     renderPage(WardenRelationsPage, client({ "relations.list": EMPTY }))
     await screen.findByText("No relations yet.")
-    fireEvent.change(screen.getByLabelText("Subject id"), { target: { value: "bob" } })
-    expect(await screen.findByText(/No relations match “\*:\*#\*@\*:bob”\./)).toBeTruthy()
+    fireEvent.change(screen.getByLabelText("Subject id"), {
+      target: { value: "bob" },
+    })
+    expect(
+      await screen.findByText(/No relations match “\*:\*#\*@\*:bob”\./)
+    ).toBeTruthy()
     expect(screen.queryByText("No relations yet.")).toBeNull()
 
-    fireEvent.change(screen.getByLabelText("Object type"), { target: { value: "document" } })
-    fireEvent.change(screen.getByLabelText("Subject relation"), { target: { value: "member" } })
+    fireEvent.change(screen.getByLabelText("Object type"), {
+      target: { value: "document" },
+    })
+    fireEvent.change(screen.getByLabelText("Subject relation"), {
+      target: { value: "member" },
+    })
     expect(
-      await screen.findByText(/No relations match “document:\*#\*@\*:bob#member”\./)
+      await screen.findByText(
+        /No relations match “document:\*#\*@\*:bob#member”\./
+      )
     ).toBeTruthy()
   })
 
   it("surfaces a list failure instead of rendering an empty table", async () => {
     renderPage(
       WardenRelationsPage,
-      failingClient(new ContractError("PERMISSION_DENIED", "no tenant in scope"))
+      failingClient(
+        new ContractError("PERMISSION_DENIED", "no tenant in scope")
+      )
     )
     expect(await screen.findAllByText(/no tenant in scope/i)).toBeTruthy()
     expect(screen.queryByText(PLAIN)).toBeNull()
@@ -357,12 +394,27 @@ describe("WardenRelationsPage", () => {
         await waitFor(() => expect(lastList(sent)?.offset).toBe(25))
 
         // Padded, to pin that the wire carries the trimmed value.
-        fireEvent.change(screen.getByLabelText(label), { target: { value: "  x1  " } })
-        await waitFor(() => expect(lastList(sent)).toEqual({ [field]: "x1", limit: 25, offset: 0 }))
+        fireEvent.change(screen.getByLabelText(label), {
+          target: { value: "  x1  " },
+        })
+        await waitFor(() =>
+          expect(lastList(sent)).toEqual({
+            [field]: "x1",
+            limit: 25,
+            offset: 0,
+          })
+        )
 
         // Clearing it takes the field back off the wire rather than sending "".
-        fireEvent.change(screen.getByLabelText(label), { target: { value: "" } })
-        await waitFor(() => expect(Object.keys(lastList(sent) ?? {}).sort()).toEqual(["limit", "offset"]))
+        fireEvent.change(screen.getByLabelText(label), {
+          target: { value: "" },
+        })
+        await waitFor(() =>
+          expect(Object.keys(lastList(sent) ?? {}).sort()).toEqual([
+            "limit",
+            "offset",
+          ])
+        )
       }
     )
 
@@ -370,9 +422,15 @@ describe("WardenRelationsPage", () => {
       const { client: c, sent } = recordingQueryClient(answers())
       renderPage(WardenRelationsPage, c)
       await screen.findByText(PLAIN)
-      fireEvent.change(screen.getByLabelText("Object type"), { target: { value: "document" } })
-      fireEvent.change(screen.getByLabelText("Subject type"), { target: { value: "user" } })
-      fireEvent.change(screen.getByLabelText("Subject id"), { target: { value: "bob" } })
+      fireEvent.change(screen.getByLabelText("Object type"), {
+        target: { value: "document" },
+      })
+      fireEvent.change(screen.getByLabelText("Subject type"), {
+        target: { value: "user" },
+      })
+      fireEvent.change(screen.getByLabelText("Subject id"), {
+        target: { value: "bob" },
+      })
       await waitFor(() =>
         expect(lastList(sent)).toEqual({
           objectType: "document",
@@ -388,8 +446,12 @@ describe("WardenRelationsPage", () => {
       const { client: c, sent } = recordingQueryClient(answers())
       renderPage(WardenRelationsPage, c)
       await screen.findByText(PLAIN)
-      fireEvent.change(screen.getByLabelText("Namespace"), { target: { value: "eng/platform" } })
-      fireEvent.change(screen.getByLabelText("Relation"), { target: { value: "editor" } })
+      fireEvent.change(screen.getByLabelText("Namespace"), {
+        target: { value: "eng/platform" },
+      })
+      fireEvent.change(screen.getByLabelText("Relation"), {
+        target: { value: "editor" },
+      })
       await waitFor(() =>
         expect(lastList(sent)).toEqual({
           namespacePath: "eng/platform",
@@ -418,9 +480,14 @@ describe("WardenRelationsPage", () => {
     fireEvent.click(screen.getByRole("button", { name: /next page/i }))
     await waitFor(() => expect(lastList(sent)?.offset).toBe(25))
 
-    fireEvent.change(screen.getByLabelText("Namespace"), { target: { value: "eng/platform" } })
+    fireEvent.change(screen.getByLabelText("Namespace"), {
+      target: { value: "eng/platform" },
+    })
     await waitFor(() =>
-      expect(lastList(sent)).toMatchObject({ namespacePath: "eng/platform", offset: 0 })
+      expect(lastList(sent)).toMatchObject({
+        namespacePath: "eng/platform",
+        offset: 0,
+      })
     )
   })
 
@@ -428,7 +495,9 @@ describe("WardenRelationsPage", () => {
     it("waits for all five parts of the triple before it can be confirmed", async () => {
       renderPage(WardenRelationsPage, client())
       const dialog = await openCreate()
-      const confirm = dialog.getByRole("button", { name: CREATE }) as HTMLButtonElement
+      const confirm = dialog.getByRole("button", {
+        name: CREATE,
+      }) as HTMLButtonElement
       expect(confirm.disabled).toBe(true)
       const labels = Object.keys(FIVE)
       for (const [i, label] of labels.entries()) {
@@ -437,25 +506,32 @@ describe("WardenRelationsPage", () => {
       }
     })
 
-    it.each(Object.keys(FIVE))("cannot be confirmed without %s", async (missing) => {
-      // The server refuses a tuple missing any part. Each is checked alone,
-      // because a form that only required the first and last would pass a
-      // single all-or-nothing check.
-      renderPage(WardenRelationsPage, client())
-      const dialog = await openCreate()
-      fill(dialog, { ...FIVE, [missing]: "   " })
-      expect(
-        (dialog.getByRole("button", { name: CREATE }) as HTMLButtonElement).disabled
-      ).toBe(true)
-    })
+    it.each(Object.keys(FIVE))(
+      "cannot be confirmed without %s",
+      async (missing) => {
+        // The server refuses a tuple missing any part. Each is checked alone,
+        // because a form that only required the first and last would pass a
+        // single all-or-nothing check.
+        renderPage(WardenRelationsPage, client())
+        const dialog = await openCreate()
+        fill(dialog, { ...FIVE, [missing]: "   " })
+        expect(
+          (dialog.getByRole("button", { name: CREATE }) as HTMLButtonElement)
+            .disabled
+        ).toBe(true)
+      }
+    )
 
     it("does not require the subject relation", async () => {
       renderPage(WardenRelationsPage, client())
       const dialog = await openCreate()
       fill(dialog, FIVE)
-      expect(dialog.getByLabelText(/Subject relation \(optional\)/)).toBeTruthy()
       expect(
-        (dialog.getByRole("button", { name: CREATE }) as HTMLButtonElement).disabled
+        dialog.getByLabelText(/Subject relation \(optional\)/)
+      ).toBeTruthy()
+      expect(
+        (dialog.getByRole("button", { name: CREATE }) as HTMLButtonElement)
+          .disabled
       ).toBe(false)
     })
 
@@ -464,7 +540,9 @@ describe("WardenRelationsPage", () => {
       const dialog = await openCreate()
       expect(dialog.getByText(/fill in the five parts/i)).toBeTruthy()
       fill(dialog, { ...FIVE, "Subject relation (optional)": "member" })
-      expect(dialog.getByText("document:readme#viewer@user:bob#member")).toBeTruthy()
+      expect(
+        dialog.getByText("document:readme#viewer@user:bob#member")
+      ).toBeTruthy()
     })
 
     it("sends the exact create payload, every part the form collects", async () => {
@@ -474,7 +552,9 @@ describe("WardenRelationsPage", () => {
       renderPage(WardenRelationsPage, c)
       // Filter to a namespace first: the create lands in the one on screen.
       await screen.findByText(PLAIN)
-      fireEvent.change(screen.getByLabelText("Namespace"), { target: { value: "eng/platform" } })
+      fireEvent.change(screen.getByLabelText("Namespace"), {
+        target: { value: "eng/platform" },
+      })
       const dialog = await openCreate()
       fill(dialog, {
         "Object type": " document ",
@@ -540,11 +620,17 @@ describe("WardenRelationsPage", () => {
       renderPage(WardenRelationsPage, c)
       const dialog = await openCreate()
       expect(dialog.getByText(/in the tenant root/i)).toBeTruthy()
-      expect(dialog.getByText(/in scope for checks there and in every namespace below it/i)).toBeTruthy()
+      expect(
+        dialog.getByText(
+          /in scope for checks there and in every namespace below it/i
+        )
+      ).toBeTruthy()
       fill(dialog, FIVE)
       fireEvent.click(dialog.getByRole("button", { name: CREATE }))
       await waitFor(() => expect(sent).toHaveLength(1))
-      expect((sent[0]?.payload as { namespacePath: string }).namespacePath).toBe("")
+      expect(
+        (sent[0]?.payload as { namespacePath: string }).namespacePath
+      ).toBe("")
     })
 
     it("closes the dialog once the create succeeds", async () => {
@@ -579,14 +665,20 @@ describe("WardenRelationsPage", () => {
       expect(alert.textContent).toContain("that relation tuple already exists")
       expect(alert.textContent).toContain("CONFLICT")
       expect(screen.getByRole("alertdialog")).toBeTruthy()
-      expect((dialog.getByLabelText("Object id") as HTMLInputElement).value).toBe("readme")
-      expect((dialog.getByLabelText("Subject id") as HTMLInputElement).value).toBe("bob")
+      expect(
+        (dialog.getByLabelText("Object id") as HTMLInputElement).value
+      ).toBe("readme")
+      expect(
+        (dialog.getByLabelText("Subject id") as HTMLInputElement).value
+      ).toBe("bob")
     })
 
     it("clears an earlier refusal when the dialog is opened again", async () => {
       renderPage(
         WardenRelationsPage,
-        refusingCommands(new ContractError("CONFLICT", "that relation tuple already exists"))
+        refusingCommands(
+          new ContractError("CONFLICT", "that relation tuple already exists")
+        )
       )
       const first = await openCreate()
       fill(first, FIVE)
@@ -598,7 +690,9 @@ describe("WardenRelationsPage", () => {
 
       const second = await openCreate()
       expect(second.queryByRole("alert")).toBeNull()
-      expect((second.getByLabelText("Object type") as HTMLInputElement).value).toBe("")
+      expect(
+        (second.getByLabelText("Object type") as HTMLInputElement).value
+      ).toBe("")
     })
 
     it("shows the create as pending while the command is in flight", async () => {
@@ -610,14 +704,18 @@ describe("WardenRelationsPage", () => {
       const dialog = await openCreate()
       fill(dialog, FIVE)
       fireEvent.click(dialog.getByRole("button", { name: CREATE }))
-      const working = (await dialog.findByRole("button", { name: /working/i })) as HTMLButtonElement
+      const working = (await dialog.findByRole("button", {
+        name: /working/i,
+      })) as HTMLButtonElement
       expect(working.disabled).toBe(true)
     })
   })
 
   describe("deleting", () => {
     it("sends the relation id, and only the id", async () => {
-      const { client: c, sent } = recordingCommandClient(answers(), { "relations.delete": {} })
+      const { client: c, sent } = recordingCommandClient(answers(), {
+        "relations.delete": {},
+      })
       renderPage(WardenRelationsPage, c)
       await screen.findByText(PLAIN)
       fireEvent.click(screen.getByRole("button", { name: `Delete ${PLAIN}` }))
@@ -638,9 +736,12 @@ describe("WardenRelationsPage", () => {
     it("says a tuple written in a chosen namespace is in scope there and below it", async () => {
       renderPage(WardenRelationsPage, client())
       await screen.findByText(PLAIN)
-      fireEvent.change(screen.getByLabelText("Namespace"), { target: { value: "eng/platform" } })
+      fireEvent.change(screen.getByLabelText("Namespace"), {
+        target: { value: "eng/platform" },
+      })
       const dialog = await openCreate()
-      const described = (await screen.findByRole("alertdialog")).textContent ?? ""
+      const described =
+        (await screen.findByRole("alertdialog")).textContent ?? ""
       expect(described).toContain(
         "Writing a tuple in eng/platform. It is in scope for checks there and in every namespace below it."
       )
@@ -659,7 +760,9 @@ describe("WardenRelationsPage", () => {
       fireEvent.click(screen.getByRole("button", { name: `Delete ${PLAIN}` }))
       const dialog = within(await screen.findByRole("alertdialog"))
       fireEvent.click(dialog.getByRole("button", { name: /^Delete$/ }))
-      const working = (await dialog.findByRole("button", { name: /working/i })) as HTMLButtonElement
+      const working = (await dialog.findByRole("button", {
+        name: /working/i,
+      })) as HTMLButtonElement
       expect(working.disabled).toBe(true)
     })
 
@@ -684,7 +787,9 @@ describe("WardenRelationsPage", () => {
         limit: 25,
         offset: 25,
       }
-      const { client: c, sent } = recordingQueryClient(answers({ "relations.list": lastPage }))
+      const { client: c, sent } = recordingQueryClient(
+        answers({ "relations.list": lastPage })
+      )
       const withDelete = { ...c, command: async () => ({}) } as typeof c
       renderPage(WardenRelationsPage, withDelete)
       await screen.findByText(PLAIN)
@@ -731,17 +836,25 @@ describe("WardenRelationsPage: the graph", () => {
 
   it("opens each tuple's object and relation in the graph, at the tuple's namespace", async () => {
     renderPage(WardenRelationsPage, client())
-    const plain = within(await rowOf(PLAIN)).getByRole("link", { name: /^Graph/ })
+    const plain = within(await rowOf(PLAIN)).getByRole("link", {
+      name: /^Graph/,
+    })
     expect(plain.textContent).toBe("Graph")
-    expect(plain.getAttribute("href")).toBe("/relations/graph/document/readme/viewer")
-    const userset = within(await rowOf(USERSET)).getByRole("link", { name: /^Graph/ })
+    expect(plain.getAttribute("href")).toBe(
+      "/relations/graph/document/readme/viewer"
+    )
+    const userset = within(await rowOf(USERSET)).getByRole("link", {
+      name: /^Graph/,
+    })
     expect(userset.getAttribute("href")).toBe(
       "/relations/graph/document/spec/editor/in/eng%2Fplatform"
     )
   })
 
   it("does not read the schema for the form until the form is opened", async () => {
-    const { client: c, sent } = recordingQueryClient(answers({ "resourceTypes.graph": GRAPH }))
+    const { client: c, sent } = recordingQueryClient(
+      answers({ "resourceTypes.graph": GRAPH })
+    )
     renderPage(WardenRelationsPage, c)
     await screen.findByText(PLAIN)
     expect(sent.map((q) => q.intent)).not.toContain("resourceTypes.graph")
@@ -753,27 +866,37 @@ describe("WardenRelationsPage: the graph", () => {
       client({ "resourceTypes.graph": { ...GRAPH, truncated: true } })
     )
     await screen.findByText(PLAIN)
-    const details = screen.getByText("Draw a relation graph").closest("details")!
+    const details = screen
+      .getByText("Draw a relation graph")
+      .closest("details")!
     details.open = true
     fireEvent(details, new Event("toggle"))
-    expect(await within(details).findByText("Showing the first 500 resource types.")).toBeTruthy()
+    expect(
+      await within(details).findByText("Showing the first 500 resource types.")
+    ).toBeTruthy()
   })
 
   it("does not say it when the schema is whole", async () => {
     renderPage(WardenRelationsPage, client({ "resourceTypes.graph": GRAPH }))
     await screen.findByText(PLAIN)
-    const details = screen.getByText("Draw a relation graph").closest("details")!
+    const details = screen
+      .getByText("Draw a relation graph")
+      .closest("details")!
     details.open = true
     fireEvent(details, new Event("toggle"))
     await within(details).findByLabelText("Object type")
-    expect(screen.queryByText("Showing the first 500 resource types.")).toBeNull()
+    expect(
+      screen.queryByText("Showing the first 500 resource types.")
+    ).toBeNull()
   })
 
   describe("the form", () => {
     async function open() {
       renderPage(WardenRelationsPage, client({ "resourceTypes.graph": GRAPH }))
       await screen.findByText(PLAIN)
-      const details = screen.getByText("Draw a relation graph").closest("details")!
+      const details = screen
+        .getByText("Draw a relation graph")
+        .closest("details")!
       fireEvent.click(screen.getByText("Draw a relation graph"))
       // jsdom does not fire toggle on a click, so say it opened.
       details.open = true
@@ -783,33 +906,53 @@ describe("WardenRelationsPage: the graph", () => {
 
     it("offers the declared relations of the chosen type, and nothing before one is chosen", async () => {
       const form = await open()
-      await waitFor(() => expect(form.getByLabelText("Object type")).toBeTruthy())
+      await waitFor(() =>
+        expect(form.getByLabelText("Object type")).toBeTruthy()
+      )
       const relation = form.getByLabelText("Relation") as HTMLSelectElement
       expect(relation.disabled).toBe(true)
-      fireEvent.change(form.getByLabelText("Object type"), { target: { value: "document" } })
+      fireEvent.change(form.getByLabelText("Object type"), {
+        target: { value: "document" },
+      })
       const names = Array.from(relation.options).map((o) => o.textContent)
       // Both namespaces' document types, once each.
-      expect(names).toEqual(["Choose a relation", "viewer", "editor", "reviewer"])
+      expect(names).toEqual([
+        "Choose a relation",
+        "viewer",
+        "editor",
+        "reviewer",
+      ])
       expect(relation.disabled).toBe(false)
     })
 
     it("links to the graph once an object, a type and a relation are chosen", async () => {
       const form = await open()
-      await waitFor(() => expect(form.getByLabelText("Object type")).toBeTruthy())
+      await waitFor(() =>
+        expect(form.getByLabelText("Object type")).toBeTruthy()
+      )
       expect(form.queryByRole("link", { name: "Show graph" })).toBeNull()
-      expect((form.getByRole("button", { name: "Show graph" }) as HTMLButtonElement).disabled).toBe(
-        true
-      )
-      fireEvent.change(form.getByLabelText("Object type"), { target: { value: "document" } })
-      fireEvent.change(form.getByLabelText("Object id"), { target: { value: "readme" } })
-      fireEvent.change(form.getByLabelText("Relation"), { target: { value: "editor" } })
-      expect(form.getByRole("link", { name: "Show graph" }).getAttribute("href")).toBe(
-        "/relations/graph/document/readme/editor"
-      )
-      fireEvent.change(form.getByLabelText("Namespace"), { target: { value: "eng/platform" } })
-      expect(form.getByRole("link", { name: "Show graph" }).getAttribute("href")).toBe(
-        "/relations/graph/document/readme/editor/in/eng%2Fplatform"
-      )
+      expect(
+        (form.getByRole("button", { name: "Show graph" }) as HTMLButtonElement)
+          .disabled
+      ).toBe(true)
+      fireEvent.change(form.getByLabelText("Object type"), {
+        target: { value: "document" },
+      })
+      fireEvent.change(form.getByLabelText("Object id"), {
+        target: { value: "readme" },
+      })
+      fireEvent.change(form.getByLabelText("Relation"), {
+        target: { value: "editor" },
+      })
+      expect(
+        form.getByRole("link", { name: "Show graph" }).getAttribute("href")
+      ).toBe("/relations/graph/document/readme/editor")
+      fireEvent.change(form.getByLabelText("Namespace"), {
+        target: { value: "eng/platform" },
+      })
+      expect(
+        form.getByRole("link", { name: "Show graph" }).getAttribute("href")
+      ).toBe("/relations/graph/document/readme/editor/in/eng%2Fplatform")
     })
 
     /** Answers like `client`, except that `intent` is refused with `error`. */
@@ -827,7 +970,9 @@ describe("WardenRelationsPage: the graph", () => {
     async function openWith(c: ScopedClient) {
       renderPage(WardenRelationsPage, c)
       await screen.findByText(PLAIN)
-      const details = screen.getByText("Draw a relation graph").closest("details")!
+      const details = screen
+        .getByText("Draw a relation graph")
+        .closest("details")!
       details.open = true
       fireEvent(details, new Event("toggle"))
       return within(details)
@@ -837,7 +982,10 @@ describe("WardenRelationsPage: the graph", () => {
       const form = await openWith(
         refusing(
           "resourceTypes.graph",
-          new ContractError("PERMISSION_DENIED", "read warden:resourcetype is required")
+          new ContractError(
+            "PERMISSION_DENIED",
+            "read warden:resourcetype is required"
+          )
         )
       )
       const line = await form.findByText(
@@ -845,20 +993,27 @@ describe("WardenRelationsPage: the graph", () => {
       )
       expect(line.className).toContain("text-muted-foreground")
       const types = form.getByLabelText("Object type") as HTMLSelectElement
-      expect(Array.from(types.options).map((o) => o.textContent)).toEqual(["Choose a type"])
+      expect(Array.from(types.options).map((o) => o.textContent)).toEqual([
+        "Choose a type",
+      ])
       expect(form.queryByText(/Could not read the namespaces/)).toBeNull()
     })
 
     it("says the namespaces could not be read when that read fails", async () => {
       const form = await openWith(
-        refusing("namespaces.list", new ContractError("UNAVAILABLE", "the store is down"))
+        refusing(
+          "namespaces.list",
+          new ContractError("UNAVAILABLE", "the store is down")
+        )
       )
       const line = await form.findByText(
         "Could not read the namespaces, so only the tenant root can be chosen: the store is down"
       )
       expect(line.className).toContain("text-muted-foreground")
       const ns = form.getByLabelText("Namespace") as HTMLSelectElement
-      expect(Array.from(ns.options).map((o) => o.textContent)).toEqual(["Tenant root"])
+      expect(Array.from(ns.options).map((o) => o.textContent)).toEqual([
+        "Tenant root",
+      ])
       // The types still came back, so they are still offered.
       const types = form.getByLabelText("Object type") as HTMLSelectElement
       await waitFor(() =>
@@ -875,7 +1030,9 @@ describe("WardenRelationsPage: the graph", () => {
       const form = await open()
       await waitFor(() =>
         expect(
-          Array.from((form.getByLabelText("Object type") as HTMLSelectElement).options).length
+          Array.from(
+            (form.getByLabelText("Object type") as HTMLSelectElement).options
+          ).length
         ).toBe(3)
       )
       expect(form.queryByText(/Could not read/)).toBeNull()
@@ -883,13 +1040,25 @@ describe("WardenRelationsPage: the graph", () => {
 
     it("drops the relation when the type changes to one that does not declare it", async () => {
       const form = await open()
-      await waitFor(() => expect(form.getByLabelText("Object type")).toBeTruthy())
-      fireEvent.change(form.getByLabelText("Object type"), { target: { value: "document" } })
-      fireEvent.change(form.getByLabelText("Object id"), { target: { value: "readme" } })
-      fireEvent.change(form.getByLabelText("Relation"), { target: { value: "editor" } })
-      fireEvent.change(form.getByLabelText("Object type"), { target: { value: "folder" } })
+      await waitFor(() =>
+        expect(form.getByLabelText("Object type")).toBeTruthy()
+      )
+      fireEvent.change(form.getByLabelText("Object type"), {
+        target: { value: "document" },
+      })
+      fireEvent.change(form.getByLabelText("Object id"), {
+        target: { value: "readme" },
+      })
+      fireEvent.change(form.getByLabelText("Relation"), {
+        target: { value: "editor" },
+      })
+      fireEvent.change(form.getByLabelText("Object type"), {
+        target: { value: "folder" },
+      })
       expect(form.queryByRole("link", { name: "Show graph" })).toBeNull()
-      expect((form.getByLabelText("Relation") as HTMLSelectElement).value).toBe("")
+      expect((form.getByLabelText("Relation") as HTMLSelectElement).value).toBe(
+        ""
+      )
     })
   })
 })

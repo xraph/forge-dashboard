@@ -9,7 +9,10 @@ import {
 } from "@forge-go/dashboard-plugin"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
 import { Badge } from "@forge-go/dashboard-kit/components/badge"
-import { Button, buttonVariants } from "@forge-go/dashboard-kit/components/button"
+import {
+  Button,
+  buttonVariants,
+} from "@forge-go/dashboard-kit/components/button"
 import { ConfirmDialog } from "@forge-go/dashboard-kit/components/confirm-dialog"
 import { DescriptionList } from "@forge-go/dashboard-kit/components/detail-layout"
 import {
@@ -102,13 +105,21 @@ export default ConfigDetailPage
 
 function ConfigDetailBody({ entryKey }: { entryKey: string }) {
   const detail = useQuery<ConfigDetail>("config.detail", { key: entryKey })
-  const versions = useQuery<ConfigVersions>("config.versions", { key: entryKey })
+  const versions = useQuery<ConfigVersions>("config.versions", {
+    key: entryKey,
+  })
 
   // Once there is data the page stays up through a refresh. A write
   // invalidates both reads, and QueryBoundary would swap the whole page for a
   // skeleton while they reload, taking every dialog and its state with it.
   if (detail.data !== undefined) {
-    return <ConfigDetailView entryKey={entryKey} data={detail.data} versions={versions} />
+    return (
+      <ConfigDetailView
+        entryKey={entryKey}
+        data={detail.data}
+        versions={versions}
+      />
+    )
   }
 
   // Matched on the message as well as the code: a wrong intent name is also
@@ -123,7 +134,10 @@ function ConfigDetailBody({ entryKey }: { entryKey: string }) {
         title={`No config entry named ${entryKey}.`}
         description="It may have been deleted, or the key may be mistyped."
         action={
-          <PluginLink to="/config" className={buttonVariants({ variant: "outline" })}>
+          <PluginLink
+            to="/config"
+            className={buttonVariants({ variant: "outline" })}
+          >
             Back to config
           </PluginLink>
         }
@@ -133,7 +147,9 @@ function ConfigDetailBody({ entryKey }: { entryKey: string }) {
 
   return (
     <QueryBoundary title="Config entry" query={detail} skeletonRows={4}>
-      {(data) => <ConfigDetailView entryKey={entryKey} data={data} versions={versions} />}
+      {(data) => (
+        <ConfigDetailView entryKey={entryKey} data={data} versions={versions} />
+      )}
     </QueryBoundary>
   )
 }
@@ -164,7 +180,10 @@ function ConfigDetailView({
   const [editingDescription, setEditingDescription] = useState(false)
   // The version stays after the dialog closes, with `open` false, so the
   // closing frame keeps its title.
-  const [rolling, setRolling] = useState<{ version: number; open: boolean } | null>(null)
+  const [rolling, setRolling] = useState<{
+    version: number
+    open: boolean
+  } | null>(null)
   const [deleting, setDeleting] = useState(false)
   const [compared, setCompared] = useState<number | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
@@ -177,12 +196,17 @@ function ConfigDetailView({
   }
 
   function closeRollback() {
-    setRolling((current) => (current === null ? null : { ...current, open: false }))
+    setRolling((current) =>
+      current === null ? null : { ...current, open: false }
+    )
   }
 
   async function confirmRollback() {
     if (rolling === null || !rolling.open) return
-    const result = await rollback.execute({ key: entryKey, version: rolling.version })
+    const result = await rollback.execute({
+      key: entryKey,
+      version: rolling.version,
+    })
     // execute() resolves undefined only when the client throws.
     if (result === undefined) return
     setNotice(`Saved as version ${result.entry.version}.`)
@@ -218,7 +242,11 @@ function ConfigDetailView({
             <ConfigTypeBadge type={entry.valueType} />
             {entry.knownType ? null : <UnsupportedTypeBadge />}
             {entry.valueMatchesType ? null : <WrongTypeBadge />}
-            <IconButton variant="destructive" onClick={openDelete} label="Delete" />
+            <IconButton
+              variant="destructive"
+              onClick={openDelete}
+              label="Delete"
+            />
           </>
         }
       />
@@ -236,7 +264,11 @@ function ConfigDetailView({
                   ) : (
                     <span>{entry.description}</span>
                   )}
-                  <IconButton variant="ghost" onClick={() => setEditingDescription(true)} label="Edit description" />
+                  <IconButton
+                    variant="ghost"
+                    onClick={() => setEditingDescription(true)}
+                    label="Edit description"
+                  />
                 </span>
               ),
             },
@@ -244,14 +276,27 @@ function ConfigDetailView({
               term: "Metadata",
               value: (
                 <TagList
-                  values={Object.entries(entry.metadata).map(([k, v]) => `${k}: ${v}`)}
+                  values={Object.entries(entry.metadata).map(
+                    ([k, v]) => `${k}: ${v}`
+                  )}
                   label="metadata"
                 />
               ),
             },
-            { term: "Version", value: <span className="font-mono text-xs">{entry.version}</span> },
-            { term: "Created", value: <Timestamp value={entry.createdAt} label="creation time" /> },
-            { term: "Updated", value: <Timestamp value={entry.updatedAt} label="update time" /> },
+            {
+              term: "Version",
+              value: <span className="font-mono text-xs">{entry.version}</span>,
+            },
+            {
+              term: "Created",
+              value: (
+                <Timestamp value={entry.createdAt} label="creation time" />
+              ),
+            },
+            {
+              term: "Updated",
+              value: <Timestamp value={entry.updatedAt} label="update time" />,
+            },
           ]}
         />
       </section>
@@ -290,7 +335,11 @@ function ConfigDetailView({
       <OverridesSection entry={entry} overrides={overrides} />
 
       {/* Keyed by entry, so a typed tenant and an answer are not carried to the next. */}
-      <ResolvePanel key={entryKey} entryKey={entryKey} valueType={entry.valueType} />
+      <ResolvePanel
+        key={entryKey}
+        entryKey={entryKey}
+        valueType={entry.valueType}
+      />
 
       <section className="flex flex-col gap-2">
         <h2 className="text-sm font-medium">Versions</h2>
@@ -320,7 +369,10 @@ function ConfigDetailView({
       <RecentActivity entries={data.recentAudit} />
 
       {editingDescription && (
-        <EditDescriptionDialog entry={entry} onClose={() => setEditingDescription(false)} />
+        <EditDescriptionDialog
+          entry={entry}
+          onClose={() => setEditingDescription(false)}
+        />
       )}
 
       <ConfirmDialog
@@ -395,7 +447,9 @@ function ValueEditor({
   // one of the type (which is not offered back as if it were). The json editor
   // starts untouched, and untouched is the stored value.
   const [draft, setDraft] = useState<{ value: unknown } | undefined>(
-    type !== "json" && entry.valueMatchesType ? { value: entry.value } : undefined,
+    type !== "json" && entry.valueMatchesType
+      ? { value: entry.value }
+      : undefined
   )
   // What was last saved from here, so the button stays off through the moment
   // between the write landing and the refreshed entry replacing this editor.
@@ -412,7 +466,10 @@ function ValueEditor({
   // somebody would lose.
   const [touched, setTouched] = useState(false)
   const dirty = canSave || (touched && draft === undefined)
-  useUnsavedGuard(dirty, "You have a value change that is not saved. Leave this page and lose it?")
+  useUnsavedGuard(
+    dirty,
+    "You have a value change that is not saved. Leave this page and lose it?"
+  )
 
   function changed(next: { value: unknown } | undefined) {
     if (save.error !== undefined || save.data !== undefined) save.reset()
@@ -434,7 +491,10 @@ function ValueEditor({
   }
 
   return (
-    <form onSubmit={(e) => void submit(e)} className="flex max-w-2xl flex-col gap-3">
+    <form
+      onSubmit={(e) => void submit(e)}
+      className="flex max-w-2xl flex-col gap-3"
+    >
       {type === "json" ? (
         <Suspense
           fallback={
@@ -528,12 +588,18 @@ function VersionsTable({
             {v.valueMatchesType ? null : <WrongTypeBadge />}
           </span>
           {v.valueMatchesType ? null : (
-            <span id={`config-version-${v.version}-reason`} className="text-xs text-muted-foreground">
+            <span
+              id={`config-version-${v.version}-reason`}
+              className="text-xs text-muted-foreground"
+            >
               {`Not a valid ${entry.valueType} value, so it cannot be rolled back to.`}
             </span>
           )}
           {v.valueMatchesType && sameAsCurrent(v) ? (
-            <span id={`config-version-${v.version}-reason`} className="text-xs text-muted-foreground">
+            <span
+              id={`config-version-${v.version}-reason`}
+              className="text-xs text-muted-foreground"
+            >
               Same as the current value.
             </span>
           ) : null}
@@ -567,17 +633,32 @@ function VersionsTable({
         emptyMessage="No versions."
         rowActions={(v) =>
           v.current ? (
-            <span className="text-xs text-muted-foreground">This is the live version.</span>
+            <span className="text-xs text-muted-foreground">
+              This is the live version.
+            </span>
           ) : (
             <>
-              <IconButton variant="ghost" aria-pressed={compared === v.version} onClick={() => onCompare(v.version)} label={`Compare version ${v.version} with the current value`} />
-              <IconButton variant="outline" disabled={!entry.knownType || !v.valueMatchesType || sameAsCurrent(v)} aria-describedby={
+              <IconButton
+                variant="ghost"
+                aria-pressed={compared === v.version}
+                onClick={() => onCompare(v.version)}
+                label={`Compare version ${v.version} with the current value`}
+              />
+              <IconButton
+                variant="outline"
+                disabled={
+                  !entry.knownType || !v.valueMatchesType || sameAsCurrent(v)
+                }
+                aria-describedby={
                   !entry.knownType
                     ? unsupportedId
                     : !v.valueMatchesType || sameAsCurrent(v)
                       ? `config-version-${v.version}-reason`
                       : undefined
-                } onClick={() => onRollback(v.version)} label={`Roll back to version ${v.version}`} />
+                }
+                onClick={() => onRollback(v.version)}
+                label={`Roll back to version ${v.version}`}
+              />
             </>
           )
         }
@@ -619,7 +700,11 @@ function VersionDiff({
             </p>
           }
         >
-          <JsonDiff was={prettyJson(was.value)} now={prettyJson(now.value)} label={label} />
+          <JsonDiff
+            was={prettyJson(was.value)}
+            now={prettyJson(now.value)}
+            label={label}
+          />
         </Suspense>
       ) : (
         <p className="text-sm">
@@ -653,7 +738,10 @@ function EditDescriptionDialog({
     if (!canSubmit || update.loading) return
     // Only the description. An empty one is sent as one: it is how a
     // description is cleared, and leaving the field out would mean "keep it".
-    const result = await update.execute({ key: entry.key, description: text.trim() })
+    const result = await update.execute({
+      key: entry.key,
+      description: text.trim(),
+    })
     if (result === undefined) return
     onClose()
   }
@@ -664,9 +752,14 @@ function EditDescriptionDialog({
         <form onSubmit={(e) => void submit(e)} className="flex flex-col gap-4">
           <DialogHeader>
             <DialogTitle>{`Change the description of ${entry.key}`}</DialogTitle>
-            <DialogDescription>The value and the type stay as they are.</DialogDescription>
+            <DialogDescription>
+              The value and the type stay as they are.
+            </DialogDescription>
           </DialogHeader>
-          <CommandAlert error={update.error} title="Could not change the description" />
+          <CommandAlert
+            error={update.error}
+            title="Could not change the description"
+          />
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="edit-config-description">Description</Label>
             <Input
@@ -676,7 +769,12 @@ function EditDescriptionDialog({
             />
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" disabled={update.loading} onClick={onClose}>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={update.loading}
+              onClick={onClose}
+            >
               Cancel
             </Button>
             <Button type="submit" disabled={!canSubmit || update.loading}>

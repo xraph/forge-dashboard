@@ -28,52 +28,105 @@ const DETAIL = {
 
 describe("CollectionEditPage", () => {
   it("reads the collection it was opened for", async () => {
-    const { client, queried } = scriptedClient({ "collections.get": DETAIL }, {})
+    const { client, queried } = scriptedClient(
+      { "collections.get": DETAIL },
+      {}
+    )
     renderWithNavigate(CollectionEditPage, client, { id: ID })
     expect(await screen.findByDisplayValue("support-articles")).toBeTruthy()
-    expect(queried[0]).toEqual({ intent: "collections.get", params: { id: ID } })
+    expect(queried[0]).toEqual({
+      intent: "collections.get",
+      params: { id: ID },
+    })
   })
 
   it("sends only the fields that changed, then opens the collection", async () => {
-    const { client, sent } = scriptedClient({ "collections.get": DETAIL }, { "collections.update": { ...DETAIL, name: "help-articles" } })
-    const { navigate } = renderWithNavigate(CollectionEditPage, client, { id: ID })
-    fireEvent.change(await screen.findByLabelText("Name"), { target: { value: " help-articles " } })
+    const { client, sent } = scriptedClient(
+      { "collections.get": DETAIL },
+      { "collections.update": { ...DETAIL, name: "help-articles" } }
+    )
+    const { navigate } = renderWithNavigate(CollectionEditPage, client, {
+      id: ID,
+    })
+    fireEvent.change(await screen.findByLabelText("Name"), {
+      target: { value: " help-articles " },
+    })
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }))
-    await waitFor(() => expect(navigate).toHaveBeenCalledWith(`/collections/${ID}`))
-    expect(sent).toEqual([{ intent: "collections.update", payload: { id: ID, name: "help-articles" } }])
+    await waitFor(() =>
+      expect(navigate).toHaveBeenCalledWith(`/collections/${ID}`)
+    )
+    expect(sent).toEqual([
+      {
+        intent: "collections.update",
+        payload: { id: ID, name: "help-articles" },
+      },
+    ])
   })
 
   it("sends the whole metadata map when it changed, because it replaces rather than merges", async () => {
-    const { client, sent } = scriptedClient({ "collections.get": DETAIL }, { "collections.update": DETAIL })
+    const { client, sent } = scriptedClient(
+      { "collections.get": DETAIL },
+      { "collections.update": DETAIL }
+    )
     renderWithNavigate(CollectionEditPage, client, { id: ID })
-    fireEvent.change(await screen.findByLabelText("Metadata value 1"), { target: { value: "help" } })
+    fireEvent.change(await screen.findByLabelText("Metadata value 1"), {
+      target: { value: "help" },
+    })
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }))
-    await waitFor(() => expect(sent).toEqual([{ intent: "collections.update", payload: { id: ID, metadata: { team: "help" } } }]))
+    await waitFor(() =>
+      expect(sent).toEqual([
+        {
+          intent: "collections.update",
+          payload: { id: ID, metadata: { team: "help" } },
+        },
+      ])
+    )
   })
 
   it("waits for a change before it can save", async () => {
     const { client } = scriptedClient({ "collections.get": DETAIL }, {})
     renderWithNavigate(CollectionEditPage, client, { id: ID })
     await screen.findByDisplayValue("support-articles")
-    expect((screen.getByRole("button", { name: "Save changes" }) as HTMLButtonElement).disabled).toBe(true)
+    expect(
+      (
+        screen.getByRole("button", {
+          name: "Save changes",
+        }) as HTMLButtonElement
+      ).disabled
+    ).toBe(true)
   })
 
   it("shows the chunk settings read-only and says why", async () => {
     const { client } = scriptedClient({ "collections.get": DETAIL }, {})
     renderWithNavigate(CollectionEditPage, client, { id: ID })
-    expect(await screen.findByText(/Fixed at creation. Weave can't re-chunk existing documents/)).toBeTruthy()
+    expect(
+      await screen.findByText(
+        /Fixed at creation. Weave can't re-chunk existing documents/
+      )
+    ).toBeTruthy()
     expect(screen.queryByLabelText("Chunk size")).toBeNull()
   })
 
   it("shows a refused rename and keeps the edit", async () => {
     const { client } = scriptedClient(
       { "collections.get": DETAIL },
-      { "collections.update": new ContractError("CONFLICT", "a collection with this name already exists") },
+      {
+        "collections.update": new ContractError(
+          "CONFLICT",
+          "a collection with this name already exists"
+        ),
+      }
     )
-    const { navigate } = renderWithNavigate(CollectionEditPage, client, { id: ID })
-    fireEvent.change(await screen.findByLabelText("Name"), { target: { value: "acme-handbook" } })
+    const { navigate } = renderWithNavigate(CollectionEditPage, client, {
+      id: ID,
+    })
+    fireEvent.change(await screen.findByLabelText("Name"), {
+      target: { value: "acme-handbook" },
+    })
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }))
-    expect(await screen.findByText("a collection with this name already exists")).toBeTruthy()
+    expect(
+      await screen.findByText("a collection with this name already exists")
+    ).toBeTruthy()
     expect(navigate).not.toHaveBeenCalled()
   })
 })

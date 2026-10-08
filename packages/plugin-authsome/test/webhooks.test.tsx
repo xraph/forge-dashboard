@@ -32,16 +32,22 @@ describe("AuthWebhooksPage", () => {
   it("lists webhooks with their events joined", async () => {
     const { client } = stubClient({ "webhooks.list": webhooksAnswer })
     renderPage(AuthWebhooksPage, client)
-    await waitFor(() => expect(screen.getByText("https://example.com/hook")).toBeTruthy())
+    await waitFor(() =>
+      expect(screen.getByText("https://example.com/hook")).toBeTruthy()
+    )
     expect(screen.getByText("user.created, user.deleted")).toBeTruthy()
   })
 
   it("shows a dash for a webhook with no events", async () => {
     const { client } = stubClient({
-      "webhooks.list": { webhooks: [{ ...webhooksAnswer.webhooks[0], events: [] }] },
+      "webhooks.list": {
+        webhooks: [{ ...webhooksAnswer.webhooks[0], events: [] }],
+      },
     })
     renderPage(AuthWebhooksPage, client)
-    await waitFor(() => expect(screen.getByText("https://example.com/hook")).toBeTruthy())
+    await waitFor(() =>
+      expect(screen.getByText("https://example.com/hook")).toBeTruthy()
+    )
     // kit's `NoneCell`, not a hand-rolled one: the label names the field
     // rather than announcing a bare "None" to assistive tech.
     expect(screen.getByLabelText("no events")).toBeTruthy()
@@ -50,10 +56,12 @@ describe("AuthWebhooksPage", () => {
   it("creates a webhook with the url and the split, trimmed events", async () => {
     const { client, sent } = recordingCommandClient(
       { "webhooks.list": webhooksAnswer },
-      { "webhooks.create": { ok: true, id: "w2" } },
+      { "webhooks.create": { ok: true, id: "w2" } }
     )
     renderPage(AuthWebhooksPage, client)
-    await waitFor(() => expect(screen.getByText("https://example.com/hook")).toBeTruthy())
+    await waitFor(() =>
+      expect(screen.getByText("https://example.com/hook")).toBeTruthy()
+    )
 
     fireEvent.click(screen.getByRole("button", { name: "New webhook" }))
     fireEvent.change(screen.getByLabelText("URL"), {
@@ -67,28 +75,41 @@ describe("AuthWebhooksPage", () => {
     await waitFor(() => expect(sent).toHaveLength(1))
     expect(sent[0]).toEqual({
       intent: "webhooks.create",
-      payload: { url: "https://example.com/new", events: ["user.created", "user.deleted"] },
+      payload: {
+        url: "https://example.com/new",
+        events: ["user.created", "user.deleted"],
+      },
     })
   })
 
   it("will not create a webhook without a url and at least one event", async () => {
     const { client, sent } = recordingCommandClient(
       { "webhooks.list": webhooksAnswer },
-      { "webhooks.create": { ok: true } },
+      { "webhooks.create": { ok: true } }
     )
     renderPage(AuthWebhooksPage, client)
-    await waitFor(() => expect(screen.getByText("https://example.com/hook")).toBeTruthy())
+    await waitFor(() =>
+      expect(screen.getByText("https://example.com/hook")).toBeTruthy()
+    )
 
     fireEvent.click(screen.getByRole("button", { name: "New webhook" }))
     expect(
-      (screen.getByRole("button", { name: "Create webhook" }) as HTMLButtonElement).disabled,
+      (
+        screen.getByRole("button", {
+          name: "Create webhook",
+        }) as HTMLButtonElement
+      ).disabled
     ).toBe(true)
 
     fireEvent.change(screen.getByLabelText("URL"), {
       target: { value: "https://example.com/new" },
     })
     expect(
-      (screen.getByRole("button", { name: "Create webhook" }) as HTMLButtonElement).disabled,
+      (
+        screen.getByRole("button", {
+          name: "Create webhook",
+        }) as HTMLButtonElement
+      ).disabled
     ).toBe(true)
     expect(sent).toHaveLength(0)
   })
@@ -96,10 +117,17 @@ describe("AuthWebhooksPage", () => {
   it("shows the server's reason without closing the create panel", async () => {
     const { client, sent } = recordingCommandClient(
       { "webhooks.list": webhooksAnswer },
-      { "webhooks.create": new ContractError("VALIDATION", "url is not reachable") },
+      {
+        "webhooks.create": new ContractError(
+          "VALIDATION",
+          "url is not reachable"
+        ),
+      }
     )
     renderPage(AuthWebhooksPage, client)
-    await waitFor(() => expect(screen.getByText("https://example.com/hook")).toBeTruthy())
+    await waitFor(() =>
+      expect(screen.getByText("https://example.com/hook")).toBeTruthy()
+    )
 
     fireEvent.click(screen.getByRole("button", { name: "New webhook" }))
     fireEvent.change(screen.getByLabelText("URL"), {
@@ -119,12 +147,16 @@ describe("AuthWebhooksPage", () => {
   it("toggling active sends only the id and the new active value", async () => {
     const { client, sent } = recordingCommandClient(
       { "webhooks.list": webhooksAnswer },
-      { "webhooks.update": { ok: true } },
+      { "webhooks.update": { ok: true } }
     )
     renderPage(AuthWebhooksPage, client)
-    await waitFor(() => expect(screen.getByText("https://example.com/hook")).toBeTruthy())
+    await waitFor(() =>
+      expect(screen.getByText("https://example.com/hook")).toBeTruthy()
+    )
 
-    fireEvent.click(screen.getByLabelText("Toggle active for https://example.com/hook"))
+    fireEvent.click(
+      screen.getByLabelText("Toggle active for https://example.com/hook")
+    )
 
     await waitFor(() => expect(sent).toHaveLength(1))
     expect(sent[0]).toEqual({
@@ -136,12 +168,16 @@ describe("AuthWebhooksPage", () => {
   it("editing a URL sends only the id and the url, never the events", async () => {
     const { client, sent } = recordingCommandClient(
       { "webhooks.list": webhooksAnswer },
-      { "webhooks.update": { ok: true } },
+      { "webhooks.update": { ok: true } }
     )
     renderPage(AuthWebhooksPage, client)
-    await waitFor(() => expect(screen.getByText("https://example.com/hook")).toBeTruthy())
+    await waitFor(() =>
+      expect(screen.getByText("https://example.com/hook")).toBeTruthy()
+    )
 
-    fireEvent.click(screen.getByRole("button", { name: "Edit https://example.com/hook" }))
+    fireEvent.click(
+      screen.getByRole("button", { name: "Edit https://example.com/hook" })
+    )
     fireEvent.change(screen.getByLabelText("URL"), {
       target: { value: "https://example.com/hook2" },
     })
@@ -161,12 +197,16 @@ describe("AuthWebhooksPage", () => {
   it("splits and trims a comma-separated events list, dropping empties", async () => {
     const { client, sent } = recordingCommandClient(
       { "webhooks.list": webhooksAnswer },
-      { "webhooks.update": { ok: true } },
+      { "webhooks.update": { ok: true } }
     )
     renderPage(AuthWebhooksPage, client)
-    await waitFor(() => expect(screen.getByText("https://example.com/hook")).toBeTruthy())
+    await waitFor(() =>
+      expect(screen.getByText("https://example.com/hook")).toBeTruthy()
+    )
 
-    fireEvent.click(screen.getByRole("button", { name: "Edit https://example.com/hook" }))
+    fireEvent.click(
+      screen.getByRole("button", { name: "Edit https://example.com/hook" })
+    )
     fireEvent.change(screen.getByLabelText("Events"), {
       target: { value: " user.created ,, user.updated ,user.deleted " },
     })
@@ -178,22 +218,29 @@ describe("AuthWebhooksPage", () => {
       // Compared here as the joined string too, so a future refactor that
       // rebuilds an equivalent-but-not-identical array cannot silently break
       // this assertion the way `===` would on the arrays themselves.
-      payload: { id: "w1", events: ["user.created", "user.updated", "user.deleted"] },
+      payload: {
+        id: "w1",
+        events: ["user.created", "user.updated", "user.deleted"],
+      },
     })
     expect((sent[0].payload as { events: string[] }).events.join(",")).toBe(
-      "user.created,user.updated,user.deleted",
+      "user.created,user.updated,user.deleted"
     )
   })
 
   it("does not resend events unchanged, only reformatted", async () => {
     const { client, sent } = recordingCommandClient(
       { "webhooks.list": webhooksAnswer },
-      { "webhooks.update": { ok: true } },
+      { "webhooks.update": { ok: true } }
     )
     renderPage(AuthWebhooksPage, client)
-    await waitFor(() => expect(screen.getByText("https://example.com/hook")).toBeTruthy())
+    await waitFor(() =>
+      expect(screen.getByText("https://example.com/hook")).toBeTruthy()
+    )
 
-    fireEvent.click(screen.getByRole("button", { name: "Edit https://example.com/hook" }))
+    fireEvent.click(
+      screen.getByRole("button", { name: "Edit https://example.com/hook" })
+    )
     // Same events, just re-typed with different spacing.
     fireEvent.change(screen.getByLabelText("Events"), {
       target: { value: "user.created,user.deleted" },
@@ -223,19 +270,32 @@ describe("AuthWebhooksPage", () => {
           ],
         },
       },
-      { "webhooks.update": new ContractError("VALIDATION", "url is not reachable") },
+      {
+        "webhooks.update": new ContractError(
+          "VALIDATION",
+          "url is not reachable"
+        ),
+      }
     )
     renderPage(AuthWebhooksPage, client)
-    await waitFor(() => expect(screen.getByText("https://example.com/hook")).toBeTruthy())
+    await waitFor(() =>
+      expect(screen.getByText("https://example.com/hook")).toBeTruthy()
+    )
 
-    fireEvent.click(screen.getByRole("button", { name: "Edit https://example.com/hook" }))
-    fireEvent.change(screen.getByLabelText("URL"), { target: { value: "https://bad" } })
+    fireEvent.click(
+      screen.getByRole("button", { name: "Edit https://example.com/hook" })
+    )
+    fireEvent.change(screen.getByLabelText("URL"), {
+      target: { value: "https://bad" },
+    })
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }))
     await waitFor(() => expect(sent).toHaveLength(1))
     expect(screen.getByText("url is not reachable")).toBeTruthy()
 
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }))
-    fireEvent.click(screen.getByRole("button", { name: "Edit https://example.com/second" }))
+    fireEvent.click(
+      screen.getByRole("button", { name: "Edit https://example.com/second" })
+    )
 
     expect(screen.queryByText("url is not reachable")).toBeNull()
   })
@@ -243,28 +303,48 @@ describe("AuthWebhooksPage", () => {
   it("confirms before deleting a webhook", async () => {
     const { client, sent } = recordingCommandClient(
       { "webhooks.list": webhooksAnswer },
-      { "webhooks.delete": { ok: true } },
+      { "webhooks.delete": { ok: true } }
     )
     renderPage(AuthWebhooksPage, client)
-    await waitFor(() => expect(screen.getByText("https://example.com/hook")).toBeTruthy())
+    await waitFor(() =>
+      expect(screen.getByText("https://example.com/hook")).toBeTruthy()
+    )
 
-    fireEvent.click(screen.getByRole("button", { name: "Delete webhook https://example.com/hook" }))
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Delete webhook https://example.com/hook",
+      })
+    )
     expect(sent).toHaveLength(0)
     expect(screen.getByText(/stops receiving events immediately/)).toBeTruthy()
     fireEvent.click(screen.getByRole("button", { name: "Delete" }))
     await waitFor(() => expect(sent).toHaveLength(1))
-    expect(sent[0]).toEqual({ intent: "webhooks.delete", payload: { id: "w1" } })
+    expect(sent[0]).toEqual({
+      intent: "webhooks.delete",
+      payload: { id: "w1" },
+    })
   })
 
   it("shows the server's reason and leaves the delete dialog open when the delete fails", async () => {
     const { client } = recordingCommandClient(
       { "webhooks.list": webhooksAnswer },
-      { "webhooks.delete": new ContractError("VALIDATION", "webhook is referenced elsewhere") },
+      {
+        "webhooks.delete": new ContractError(
+          "VALIDATION",
+          "webhook is referenced elsewhere"
+        ),
+      }
     )
     renderPage(AuthWebhooksPage, client)
-    await waitFor(() => expect(screen.getByText("https://example.com/hook")).toBeTruthy())
+    await waitFor(() =>
+      expect(screen.getByText("https://example.com/hook")).toBeTruthy()
+    )
 
-    fireEvent.click(screen.getByRole("button", { name: "Delete webhook https://example.com/hook" }))
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Delete webhook https://example.com/hook",
+      })
+    )
     fireEvent.click(screen.getByRole("button", { name: "Delete" }))
 
     // The alert lives inside the open dialog's own description, so it is

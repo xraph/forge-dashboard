@@ -3,8 +3,17 @@ import { fireEvent, screen, waitFor } from "@testing-library/react"
 import { ContractError } from "@forge-go/dashboard-plugin"
 import { LedgerPlanCreatePage } from "../src/pages/plan-create"
 import { LedgerPlanEditPage } from "../src/pages/plan-edit"
-import { emptyPlanForm, parsePlanForm, planToForm } from "../src/pages/plan-form"
-import { failingClient, recordingCommandClient, renderWithNavigation, stubClient } from "./harness"
+import {
+  emptyPlanForm,
+  parsePlanForm,
+  planToForm,
+} from "../src/pages/plan-form"
+import {
+  failingClient,
+  recordingCommandClient,
+  renderWithNavigation,
+  stubClient,
+} from "./harness"
 import { aPlan } from "./fixtures"
 
 function fill(label: string, value: string) {
@@ -18,14 +27,42 @@ describe("parsePlanForm", () => {
     v.slug = "pro"
     v.base = "49.99"
     v.features = [
-      { key: "api_calls", name: "API calls", type: "metered", limit: "", unlimited: true, period: "monthly", soft_limit: false },
-      { key: "seats", name: "Seats", type: "seat", limit: "10", unlimited: false, period: "none", soft_limit: false },
+      {
+        key: "api_calls",
+        name: "API calls",
+        type: "metered",
+        limit: "",
+        unlimited: true,
+        period: "monthly",
+        soft_limit: false,
+      },
+      {
+        key: "seats",
+        name: "Seats",
+        type: "seat",
+        limit: "10",
+        unlimited: false,
+        period: "none",
+        soft_limit: false,
+      },
     ]
-    v.tiers = [{ feature_key: "api_calls", type: "graduated", up_to: "", unbounded: true, unit: "0.02", flat: "0" }]
+    v.tiers = [
+      {
+        feature_key: "api_calls",
+        type: "graduated",
+        up_to: "",
+        unbounded: true,
+        unit: "0.02",
+        flat: "0",
+      },
+    ]
     const parsed = parsePlanForm(v, "create")
     expect(parsed.ok).toBe(true)
     if (!parsed.ok) return
-    expect(parsed.value.pricing?.base_amount).toEqual({ amount: 4999, currency: "usd" })
+    expect(parsed.value.pricing?.base_amount).toEqual({
+      amount: 4999,
+      currency: "usd",
+    })
     expect(parsed.value.features[0].limit).toBe(-1)
     expect(parsed.value.features[1].limit).toBe(10)
     expect(parsed.value.pricing?.tiers[0]).toEqual({
@@ -42,10 +79,35 @@ describe("parsePlanForm", () => {
     const v = emptyPlanForm()
     v.base = "12.345"
     v.features = [
-      { key: "api_calls", name: "", type: "metered", limit: "-5", unlimited: false, period: "monthly", soft_limit: false },
-      { key: "api_calls", name: "", type: "metered", limit: "1", unlimited: false, period: "monthly", soft_limit: false },
+      {
+        key: "api_calls",
+        name: "",
+        type: "metered",
+        limit: "-5",
+        unlimited: false,
+        period: "monthly",
+        soft_limit: false,
+      },
+      {
+        key: "api_calls",
+        name: "",
+        type: "metered",
+        limit: "1",
+        unlimited: false,
+        period: "monthly",
+        soft_limit: false,
+      },
     ]
-    v.tiers = [{ feature_key: "missing", type: "flat", up_to: "0", unbounded: false, unit: "1", flat: "0" }]
+    v.tiers = [
+      {
+        feature_key: "missing",
+        type: "flat",
+        up_to: "0",
+        unbounded: false,
+        unit: "1",
+        flat: "0",
+      },
+    ]
     const parsed = parsePlanForm(v, "create")
     expect(parsed.ok).toBe(false)
     if (parsed.ok) return
@@ -65,8 +127,27 @@ describe("parsePlanForm", () => {
     v.name = "Pro"
     v.slug = "pro"
     v.trial_days = "99999999999999999999"
-    v.features = [{ key: "api_calls", name: "", type: "metered", limit: "99999999999999999999", unlimited: false, period: "monthly", soft_limit: false }]
-    v.tiers = [{ feature_key: "api_calls", type: "flat", up_to: "99999999999999999999", unbounded: false, unit: "1", flat: "0" }]
+    v.features = [
+      {
+        key: "api_calls",
+        name: "",
+        type: "metered",
+        limit: "99999999999999999999",
+        unlimited: false,
+        period: "monthly",
+        soft_limit: false,
+      },
+    ]
+    v.tiers = [
+      {
+        feature_key: "api_calls",
+        type: "flat",
+        up_to: "99999999999999999999",
+        unbounded: false,
+        unit: "1",
+        flat: "0",
+      },
+    ]
     const parsed = parsePlanForm(v, "create")
     expect(parsed.ok).toBe(false)
     if (parsed.ok) return
@@ -80,8 +161,18 @@ describe("parsePlanForm", () => {
   it("round-trips a stored plan, keeping feature ids", () => {
     const form = planToForm(aPlan())
     expect(form.base).toBe("49.00")
-    expect(form.features[0]).toMatchObject({ id: "pf_api", key: "api_calls", limit: "100000", unlimited: false, soft_limit: true })
-    expect(form.tiers[1]).toMatchObject({ up_to: "", unbounded: true, unit: "0.02" })
+    expect(form.features[0]).toMatchObject({
+      id: "pf_api",
+      key: "api_calls",
+      limit: "100000",
+      unlimited: false,
+      soft_limit: true,
+    })
+    expect(form.tiers[1]).toMatchObject({
+      up_to: "",
+      unbounded: true,
+      unit: "0.02",
+    })
     const parsed = parsePlanForm(form, "edit")
     expect(parsed.ok && parsed.value.features[0].id).toBe("pf_api")
   })
@@ -90,7 +181,11 @@ describe("parsePlanForm", () => {
     const plan = aPlan()
     plan.features[2] = { ...plan.features[2], limit: -1 }
     const form = planToForm(plan)
-    expect(form.features[2]).toMatchObject({ type: "boolean", limit: "0", unlimited: false })
+    expect(form.features[2]).toMatchObject({
+      type: "boolean",
+      limit: "0",
+      unlimited: false,
+    })
     const parsed = parsePlanForm(form, "edit")
     expect(parsed.ok && parsed.value.features[2].limit).toBe(0)
     // A stale unlimited flag on a boolean row is ignored.
@@ -104,7 +199,10 @@ describe("LedgerPlanCreatePage", () => {
   const CREATED = aPlan({ id: "plan_new", status: "draft" })
 
   it("sends exactly the contract's fields and lands on the new plan", async () => {
-    const { client, sent } = recordingCommandClient({}, { "plans.create": CREATED })
+    const { client, sent } = recordingCommandClient(
+      {},
+      { "plans.create": CREATED }
+    )
     const { navigate } = renderWithNavigation(LedgerPlanCreatePage, client)
     fill("Name", "Team")
     fill("Slug", "team")
@@ -112,11 +210,17 @@ describe("LedgerPlanCreatePage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Add feature" }))
     fill("Feature 1 key", "seats")
     fill("Feature 1 name", "Seats")
-    fireEvent.change(screen.getByLabelText("Feature 1 type"), { target: { value: "seat" } })
+    fireEvent.change(screen.getByLabelText("Feature 1 type"), {
+      target: { value: "seat" },
+    })
     fill("Feature 1 limit", "5")
-    fireEvent.change(screen.getByLabelText("Feature 1 resets"), { target: { value: "none" } })
+    fireEvent.change(screen.getByLabelText("Feature 1 resets"), {
+      target: { value: "none" },
+    })
     fireEvent.click(screen.getByRole("button", { name: "Create plan" }))
-    await waitFor(() => expect(navigate).toHaveBeenCalledWith("/plans/plan_new"))
+    await waitFor(() =>
+      expect(navigate).toHaveBeenCalledWith("/plans/plan_new")
+    )
     expect(sent).toHaveLength(1)
     expect(sent[0].intent).toBe("plans.create")
     expect(sent[0].payload).toEqual({
@@ -125,19 +229,44 @@ describe("LedgerPlanCreatePage", () => {
       description: "",
       currency: "usd",
       trial_days: 0,
-      features: [{ key: "seats", name: "Seats", type: "seat", limit: 5, period: "none", soft_limit: false }],
-      pricing: { base_amount: { amount: 1900, currency: "usd" }, billing_period: "monthly", tiers: [] },
+      features: [
+        {
+          key: "seats",
+          name: "Seats",
+          type: "seat",
+          limit: 5,
+          period: "none",
+          soft_limit: false,
+        },
+      ],
+      pricing: {
+        base_amount: { amount: 1900, currency: "usd" },
+        billing_period: "monthly",
+        tiers: [],
+      },
     })
   })
 
   it("keeps what was typed and shows the refusal when the slug is taken", async () => {
-    const { navigate } = renderWithNavigation(LedgerPlanCreatePage, failingClient(new ContractError("CONFLICT", 'a plan with the slug "team" already exists')))
+    const { navigate } = renderWithNavigation(
+      LedgerPlanCreatePage,
+      failingClient(
+        new ContractError(
+          "CONFLICT",
+          'a plan with the slug "team" already exists'
+        )
+      )
+    )
     fill("Name", "Team")
     fill("Slug", "team")
     fireEvent.click(screen.getByRole("button", { name: "Create plan" }))
     const alert = await screen.findByRole("alert")
-    expect(alert.textContent).toContain('a plan with the slug "team" already exists')
-    expect((screen.getByLabelText("Slug") as HTMLInputElement).value).toBe("team")
+    expect(alert.textContent).toContain(
+      'a plan with the slug "team" already exists'
+    )
+    expect((screen.getByLabelText("Slug") as HTMLInputElement).value).toBe(
+      "team"
+    )
     expect(navigate).not.toHaveBeenCalled()
   })
 
@@ -145,8 +274,12 @@ describe("LedgerPlanCreatePage", () => {
     renderWithNavigation(LedgerPlanCreatePage, stubClient({}))
     fireEvent.click(screen.getByRole("button", { name: "Add feature" }))
     expect(screen.queryByText("1 means on, 0 means off")).toBeNull()
-    fireEvent.change(screen.getByLabelText("Feature 1 type"), { target: { value: "boolean" } })
-    expect((screen.getByLabelText("Feature 1 limit") as HTMLInputElement).value).toBe("1")
+    fireEvent.change(screen.getByLabelText("Feature 1 type"), {
+      target: { value: "boolean" },
+    })
+    expect(
+      (screen.getByLabelText("Feature 1 limit") as HTMLInputElement).value
+    ).toBe("1")
     expect(screen.getByText("1 means on, 0 means off")).toBeTruthy()
   })
 
@@ -154,8 +287,12 @@ describe("LedgerPlanCreatePage", () => {
     renderWithNavigation(LedgerPlanCreatePage, stubClient({}))
     fireEvent.click(screen.getByRole("button", { name: "Add feature" }))
     fireEvent.click(screen.getByLabelText("Feature 1: unlimited"))
-    expect((screen.getByLabelText("Feature 1 limit") as HTMLInputElement).disabled).toBe(true)
-    fireEvent.change(screen.getByLabelText("Feature 1 type"), { target: { value: "boolean" } })
+    expect(
+      (screen.getByLabelText("Feature 1 limit") as HTMLInputElement).disabled
+    ).toBe(true)
+    fireEvent.change(screen.getByLabelText("Feature 1 type"), {
+      target: { value: "boolean" },
+    })
     expect(screen.queryByLabelText("Feature 1: unlimited")).toBeNull()
     const limit = screen.getByLabelText("Feature 1 limit") as HTMLInputElement
     expect(limit.disabled).toBe(false)
@@ -168,7 +305,9 @@ describe("LedgerPlanCreatePage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Add feature" }))
     fill("Feature 1 key", "a")
     fireEvent.click(screen.getByRole("button", { name: "Add tier" }))
-    const boxes = screen.getAllByRole("checkbox").map((b) => b.getAttribute("aria-label"))
+    const boxes = screen
+      .getAllByRole("checkbox")
+      .map((b) => b.getAttribute("aria-label"))
     expect(boxes).toEqual([
       "Feature 1: unlimited",
       "Feature 1: soft limit",
@@ -179,25 +318,43 @@ describe("LedgerPlanCreatePage", () => {
   })
 
   it("lists the form's problems and sends nothing", async () => {
-    const { client, sent } = recordingCommandClient({}, { "plans.create": CREATED })
+    const { client, sent } = recordingCommandClient(
+      {},
+      { "plans.create": CREATED }
+    )
     renderWithNavigation(LedgerPlanCreatePage, client)
     fill("Base price", "abc")
     fireEvent.click(screen.getByRole("button", { name: "Create plan" }))
     expect(await screen.findByText("Name is required.")).toBeTruthy()
-    expect(screen.getByText("The base price must be an amount in USD with at most 2 decimals.")).toBeTruthy()
+    expect(
+      screen.getByText(
+        "The base price must be an amount in USD with at most 2 decimals."
+      )
+    ).toBeTruthy()
     expect(sent).toHaveLength(0)
   })
 })
 
 describe("LedgerPlanEditPage", () => {
   it("prefills from plans.detail and sends an update without the currency", async () => {
-    const { client, sent } = recordingCommandClient({ "plans.detail": aPlan() }, { "plans.update": aPlan({ name: "Pro Plus" }) })
-    const { navigate } = renderWithNavigation(LedgerPlanEditPage, client, { id: "plan_pro" })
-    expect(((await screen.findByLabelText("Name")) as HTMLInputElement).value).toBe("Pro")
-    expect((screen.getByLabelText("Currency") as HTMLInputElement).disabled).toBe(true)
+    const { client, sent } = recordingCommandClient(
+      { "plans.detail": aPlan() },
+      { "plans.update": aPlan({ name: "Pro Plus" }) }
+    )
+    const { navigate } = renderWithNavigation(LedgerPlanEditPage, client, {
+      id: "plan_pro",
+    })
+    expect(
+      ((await screen.findByLabelText("Name")) as HTMLInputElement).value
+    ).toBe("Pro")
+    expect(
+      (screen.getByLabelText("Currency") as HTMLInputElement).disabled
+    ).toBe(true)
     fill("Name", "Pro Plus")
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }))
-    await waitFor(() => expect(navigate).toHaveBeenCalledWith("/plans/plan_pro"))
+    await waitFor(() =>
+      expect(navigate).toHaveBeenCalledWith("/plans/plan_pro")
+    )
     const payload = sent[0].payload as Record<string, unknown>
     expect(sent[0].intent).toBe("plans.update")
     expect(payload.id).toBe("plan_pro")
@@ -208,13 +365,24 @@ describe("LedgerPlanEditPage", () => {
 
   it("sends the whole plan back: catalog links, metadata and the price id survive an edit", async () => {
     const stored = aPlan()
-    stored.features[0] = { ...stored.features[0], catalog_id: "feat_api_calls", metadata: { tier: "core" } }
-    const { client, sent } = recordingCommandClient({ "plans.detail": stored }, { "plans.update": stored })
-    const { navigate } = renderWithNavigation(LedgerPlanEditPage, client, { id: "plan_pro" })
+    stored.features[0] = {
+      ...stored.features[0],
+      catalog_id: "feat_api_calls",
+      metadata: { tier: "core" },
+    }
+    const { client, sent } = recordingCommandClient(
+      { "plans.detail": stored },
+      { "plans.update": stored }
+    )
+    const { navigate } = renderWithNavigation(LedgerPlanEditPage, client, {
+      id: "plan_pro",
+    })
     await screen.findByLabelText("Name")
     fill("Description", "For teams.")
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }))
-    await waitFor(() => expect(navigate).toHaveBeenCalledWith("/plans/plan_pro"))
+    await waitFor(() =>
+      expect(navigate).toHaveBeenCalledWith("/plans/plan_pro")
+    )
     expect(sent[0].payload).toEqual({
       id: "plan_pro",
       name: "Pro",
@@ -222,17 +390,57 @@ describe("LedgerPlanEditPage", () => {
       description: "For teams.",
       trial_days: 0,
       features: [
-        { id: "pf_api", catalog_id: "feat_api_calls", metadata: { tier: "core" }, key: "api_calls", name: "API calls", type: "metered", limit: 100000, period: "monthly", soft_limit: true },
-        { id: "pf_seats", key: "seats", name: "Seats", type: "seat", limit: 10, period: "none", soft_limit: false },
-        { id: "pf_sso", key: "sso", name: "Single sign-on", type: "boolean", limit: 1, period: "none", soft_limit: false },
+        {
+          id: "pf_api",
+          catalog_id: "feat_api_calls",
+          metadata: { tier: "core" },
+          key: "api_calls",
+          name: "API calls",
+          type: "metered",
+          limit: 100000,
+          period: "monthly",
+          soft_limit: true,
+        },
+        {
+          id: "pf_seats",
+          key: "seats",
+          name: "Seats",
+          type: "seat",
+          limit: 10,
+          period: "none",
+          soft_limit: false,
+        },
+        {
+          id: "pf_sso",
+          key: "sso",
+          name: "Single sign-on",
+          type: "boolean",
+          limit: 1,
+          period: "none",
+          soft_limit: false,
+        },
       ],
       pricing: {
         id: "price_pro",
         base_amount: { amount: 4900, currency: "usd" },
         billing_period: "monthly",
         tiers: [
-          { feature_key: "api_calls", type: "graduated", up_to: 100000, unit_amount: { amount: 0, currency: "usd" }, flat_amount: { amount: 0, currency: "usd" }, priority: 0 },
-          { feature_key: "api_calls", type: "graduated", up_to: -1, unit_amount: { amount: 2, currency: "usd" }, flat_amount: { amount: 0, currency: "usd" }, priority: 1 },
+          {
+            feature_key: "api_calls",
+            type: "graduated",
+            up_to: 100000,
+            unit_amount: { amount: 0, currency: "usd" },
+            flat_amount: { amount: 0, currency: "usd" },
+            priority: 0,
+          },
+          {
+            feature_key: "api_calls",
+            type: "graduated",
+            up_to: -1,
+            unit_amount: { amount: 2, currency: "usd" },
+            flat_amount: { amount: 0, currency: "usd" },
+            priority: 1,
+          },
         ],
       },
     })
@@ -240,8 +448,13 @@ describe("LedgerPlanEditPage", () => {
 
   it("sends no pricing for a plan that has none until a base price or tier is set", async () => {
     const unpriced = aPlan({ pricing: null as never, features: [] })
-    const { client, sent } = recordingCommandClient({ "plans.detail": unpriced }, { "plans.update": unpriced })
-    const { navigate } = renderWithNavigation(LedgerPlanEditPage, client, { id: "plan_pro" })
+    const { client, sent } = recordingCommandClient(
+      { "plans.detail": unpriced },
+      { "plans.update": unpriced }
+    )
+    const { navigate } = renderWithNavigation(LedgerPlanEditPage, client, {
+      id: "plan_pro",
+    })
     await screen.findByLabelText("Name")
     fill("Name", "Pro Plus")
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }))
@@ -263,17 +476,26 @@ describe("LedgerPlanEditPage", () => {
     const failing = {
       ...client,
       command: async () => {
-        throw new ContractError("CONFLICT", 'a plan with the slug "team" already exists')
+        throw new ContractError(
+          "CONFLICT",
+          'a plan with the slug "team" already exists'
+        )
       },
     } as never
-    const { navigate } = renderWithNavigation(LedgerPlanEditPage, failing, { id: "plan_pro" })
+    const { navigate } = renderWithNavigation(LedgerPlanEditPage, failing, {
+      id: "plan_pro",
+    })
     await screen.findByLabelText("Name")
     fill("Slug", "team")
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }))
     const alert = await screen.findByRole("alert")
-    expect(alert.textContent).toContain('a plan with the slug "team" already exists')
+    expect(alert.textContent).toContain(
+      'a plan with the slug "team" already exists'
+    )
     expect(alert.textContent).toContain("CONFLICT")
-    expect((screen.getByLabelText("Slug") as HTMLInputElement).value).toBe("team")
+    expect((screen.getByLabelText("Slug") as HTMLInputElement).value).toBe(
+      "team"
+    )
     expect(navigate).not.toHaveBeenCalled()
   })
 
@@ -286,11 +508,17 @@ describe("LedgerPlanEditPage", () => {
       command: async () => undefined,
     } as never
     renderWithNavigation(LedgerPlanEditPage, client, { id: "plan_gone" })
-    expect(await screen.findByText("No plan with the id plan_gone.")).toBeTruthy()
+    expect(
+      await screen.findByText("No plan with the id plan_gone.")
+    ).toBeTruthy()
   })
 
   it("loads nothing without an id", () => {
     renderWithNavigation(LedgerPlanEditPage, stubClient({}), {})
-    expect(screen.getByText("No plan id in the address, so there is nothing to edit.")).toBeTruthy()
+    expect(
+      screen.getByText(
+        "No plan id in the address, so there is nothing to edit."
+      )
+    ).toBeTruthy()
   })
 })

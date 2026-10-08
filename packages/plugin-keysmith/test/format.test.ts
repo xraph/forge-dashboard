@@ -15,7 +15,9 @@ import type { RotationItem, UsageBucket } from "../src/types"
 
 describe("maskedKey", () => {
   it("shows prefix and environment, then only the hint", () => {
-    expect(maskedKey({ prefix: "sk", environment: "live", hint: "a3f8" })).toBe("sk_live_…a3f8")
+    expect(maskedKey({ prefix: "sk", environment: "live", hint: "a3f8" })).toBe(
+      "sk_live_…a3f8"
+    )
   })
 })
 
@@ -50,13 +52,17 @@ describe("rotationMasked", () => {
     const hintless = { ...item, oldHint: "", newHint: "" }
     expect(rotationMasked(hintless, "new")).toBe("(no hint)")
     expect(rotationMasked(hintless, "old")).toBe("(no hint)")
-    expect(rotationMasked({ ...hintless, prefix: null }, "new")).toBe("(no hint)")
+    expect(rotationMasked({ ...hintless, prefix: null }, "new")).toBe(
+      "(no hint)"
+    )
   })
 })
 
 describe("keyPath", () => {
   it("encodes the id", () => {
-    expect(keyPath("akey_01j8zq3k4m5n6p7q8r9s0t1v2w")).toBe("/keys/akey_01j8zq3k4m5n6p7q8r9s0t1v2w")
+    expect(keyPath("akey_01j8zq3k4m5n6p7q8r9s0t1v2w")).toBe(
+      "/keys/akey_01j8zq3k4m5n6p7q8r9s0t1v2w"
+    )
     expect(keyPath("a/b")).toBe("/keys/a%2Fb")
   })
 })
@@ -105,7 +111,10 @@ describe("splitDuration", () => {
   const ALL = ["seconds", "minutes", "hours", "days"] as const
 
   it("leaves an unset duration blank, in the last unit offered", () => {
-    expect(splitDuration(null, ["hours", "days"])).toEqual({ value: "", unit: "days" })
+    expect(splitDuration(null, ["hours", "days"])).toEqual({
+      value: "",
+      unit: "days",
+    })
     expect(splitDuration(null, ["seconds", "minutes", "hours"])).toEqual({
       value: "",
       unit: "hours",
@@ -113,9 +122,18 @@ describe("splitDuration", () => {
   })
 
   it("uses the largest unit that divides the seconds exactly", () => {
-    expect(splitDuration(90 * 86400, [...ALL])).toEqual({ value: "90", unit: "days" })
-    expect(splitDuration(86400, ["hours", "days"])).toEqual({ value: "1", unit: "days" })
-    expect(splitDuration(25 * 3600, ["hours", "days"])).toEqual({ value: "25", unit: "hours" })
+    expect(splitDuration(90 * 86400, [...ALL])).toEqual({
+      value: "90",
+      unit: "days",
+    })
+    expect(splitDuration(86400, ["hours", "days"])).toEqual({
+      value: "1",
+      unit: "days",
+    })
+    expect(splitDuration(25 * 3600, ["hours", "days"])).toEqual({
+      value: "25",
+      unit: "hours",
+    })
     expect(splitDuration(60, ["seconds", "minutes", "hours"])).toEqual({
       value: "1",
       unit: "minutes",
@@ -123,20 +141,32 @@ describe("splitDuration", () => {
   })
 
   it("keeps 61 seconds in seconds rather than rounding to a minute", () => {
-    expect(splitDuration(61, [...ALL])).toEqual({ value: "61", unit: "seconds" })
+    expect(splitDuration(61, [...ALL])).toEqual({
+      value: "61",
+      unit: "seconds",
+    })
   })
 
   it("does not care what order the units are offered in", () => {
-    expect(splitDuration(7200, ["days", "hours"])).toEqual({ value: "2", unit: "hours" })
+    expect(splitDuration(7200, ["days", "hours"])).toEqual({
+      value: "2",
+      unit: "hours",
+    })
   })
 
   it("says 0 in the smallest unit offered", () => {
-    expect(splitDuration(0, ["hours", "days"])).toEqual({ value: "0", unit: "hours" })
+    expect(splitDuration(0, ["hours", "days"])).toEqual({
+      value: "0",
+      unit: "hours",
+    })
   })
 
   it("falls back to exact seconds when no offered unit divides evenly", () => {
     // 90 minutes is not a whole number of hours or days. Never round it.
-    expect(splitDuration(5400, ["hours", "days"])).toEqual({ value: "5400", unit: "seconds" })
+    expect(splitDuration(5400, ["hours", "days"])).toEqual({
+      value: "5400",
+      unit: "seconds",
+    })
   })
 })
 
@@ -166,29 +196,35 @@ describe("toSeconds", () => {
 
 describe("formatRateLimit", () => {
   it("reads a limit and its window", () => {
-    expect(formatRateLimit({ rateLimit: 100, rateLimitWindowSeconds: 60 })).toBe(
-      "100 per 1 minute",
-    )
-    expect(formatRateLimit({ rateLimit: 5000, rateLimitWindowSeconds: 3600 })).toBe(
-      "5000 per 1 hour",
-    )
+    expect(
+      formatRateLimit({ rateLimit: 100, rateLimitWindowSeconds: 60 })
+    ).toBe("100 per 1 minute")
+    expect(
+      formatRateLimit({ rateLimit: 5000, rateLimitWindowSeconds: 3600 })
+    ).toBe("5000 per 1 hour")
     expect(formatRateLimit({ rateLimit: 1, rateLimitWindowSeconds: 61 })).toBe(
-      "1 per 61 seconds",
+      "1 per 61 seconds"
     )
   })
 
   it("is null when no rate limit is set", () => {
-    expect(formatRateLimit({ rateLimit: null, rateLimitWindowSeconds: null })).toBeNull()
-    expect(formatRateLimit({ rateLimit: null, rateLimitWindowSeconds: 60 })).toBeNull()
+    expect(
+      formatRateLimit({ rateLimit: null, rateLimitWindowSeconds: null })
+    ).toBeNull()
+    expect(
+      formatRateLimit({ rateLimit: null, rateLimitWindowSeconds: 60 })
+    ).toBeNull()
     // The engine reads 0 as unset.
-    expect(formatRateLimit({ rateLimit: 0, rateLimitWindowSeconds: 60 })).toBeNull()
+    expect(
+      formatRateLimit({ rateLimit: 0, rateLimitWindowSeconds: 60 })
+    ).toBeNull()
   })
 
   it("says so when a stored limit has no window", () => {
     // The contract refuses this now, but a row written before it can hold one.
-    expect(formatRateLimit({ rateLimit: 100, rateLimitWindowSeconds: null })).toBe(
-      "100 with no window",
-    )
+    expect(
+      formatRateLimit({ rateLimit: 100, rateLimitWindowSeconds: null })
+    ).toBe("100 with no window")
   })
 })
 
@@ -207,9 +243,20 @@ function bucket(over: Partial<UsageBucket>): UsageBucket {
 describe("summarizeUsage", () => {
   it("adds up requests and 5xx, and counts 4xx and 5xx as errors", () => {
     const summary = summarizeUsage([
-      bucket({ requests: 10, succeeded: 7, clientErrors: 2, serverErrors: 1, avgLatencyMs: 12 }),
+      bucket({
+        requests: 10,
+        succeeded: 7,
+        clientErrors: 2,
+        serverErrors: 1,
+        avgLatencyMs: 12,
+      }),
       bucket({}),
-      bucket({ requests: 1200, succeeded: 1197, serverErrors: 3, avgLatencyMs: 40 }),
+      bucket({
+        requests: 1200,
+        succeeded: 1197,
+        serverErrors: 3,
+        avgLatencyMs: 40,
+      }),
     ])
     expect(summary.requests).toBe(1210)
     expect(summary.serverErrors).toBe(4)

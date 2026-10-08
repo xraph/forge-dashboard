@@ -12,15 +12,22 @@ import type {
   ScopeOption,
   ScopeSwitcherProps,
 } from "@forge-go/dashboard-kit/components/scope-switcher"
-import { SidebarInset, SidebarProvider } from "@forge-go/dashboard-kit/components/sidebar"
+import {
+  SidebarInset,
+  SidebarProvider,
+} from "@forge-go/dashboard-kit/components/sidebar"
 import { useIsMobile } from "@forge-go/dashboard-kit/hooks/use-mobile"
 import { useRailExpanded } from "@forge-go/dashboard-kit/hooks/use-rail-expanded"
 
-export interface DashboardShellProps
-  extends Omit<
-    AppSidebarProps,
-    "children" | "variant" | "collapsible" | "navigationLayout" | "mobileHeader" | "mobileFooter"
-  > {
+export interface DashboardShellProps extends Omit<
+  AppSidebarProps,
+  | "children"
+  | "variant"
+  | "collapsible"
+  | "navigationLayout"
+  | "mobileHeader"
+  | "mobileFooter"
+> {
   scopes: ScopeOption[]
   activeScopeId?: string
   onScopeSelect: (id: string) => void
@@ -53,7 +60,14 @@ export function railGroupsFor(area: NavArea | undefined): RailGroup[] {
             href: child.href,
             icon: child.icon ?? node.icon,
           }))
-        : [{ id: node.href, label: node.label, href: node.href, icon: node.icon }],
+        : [
+            {
+              id: node.href,
+              label: node.label,
+              href: node.href,
+              icon: node.icon,
+            },
+          ]
     ),
   }))
 }
@@ -61,8 +75,10 @@ export function railGroupsFor(area: NavArea | undefined): RailGroup[] {
 /** Every page an area lists, counting a folded cluster's children. */
 export function pageCount(area: NavArea): number {
   return area.groups.reduce(
-    (sum, group) => sum + group.items.reduce((n, node) => n + (node.children?.length || 1), 0),
-    0,
+    (sum, group) =>
+      sum +
+      group.items.reduce((n, node) => n + (node.children?.length || 1), 0),
+    0
   )
 }
 
@@ -74,15 +90,22 @@ export function railActiveId(
   groups: RailGroup[],
   plugins: NavArea[],
   activeArea: NavArea | undefined,
-  currentPath: string,
+  currentPath: string
 ): string | undefined {
-  if (activeArea?.kind === "plugin" && plugins.some((p) => p.id === activeArea.id)) return activeArea.id
+  if (
+    activeArea?.kind === "plugin" &&
+    plugins.some((p) => p.id === activeArea.id)
+  )
+    return activeArea.id
   let best: { id: string; length: number } | undefined
   for (const group of groups) {
     for (const item of group.items) {
       for (const href of new Set([item.id, item.href])) {
-        const matches = href === currentPath || (href !== "/" && currentPath.startsWith(`${href}/`))
-        if (matches && (!best || href.length > best.length)) best = { id: item.id, length: href.length }
+        const matches =
+          href === currentPath ||
+          (href !== "/" && currentPath.startsWith(`${href}/`))
+        if (matches && (!best || href.length > best.length))
+          best = { id: item.id, length: href.length }
       }
     }
   }
@@ -133,7 +156,13 @@ export function DashboardShell({
   const groups: RailGroup[] = scopeArea
     ? railGroupsFor(scopeArea)
     : areas.length === 0
-      ? railGroupsFor({ id: "", label: "", href: "", kind: "scope", groups: pane.groups })
+      ? railGroupsFor({
+          id: "",
+          label: "",
+          href: "",
+          kind: "scope",
+          groups: pane.groups,
+        })
       : []
   const plugins = pluginAreas.map((area) => ({
     id: area.id,
@@ -141,9 +170,21 @@ export function DashboardShell({
     href: area.href,
     icon: area.icon,
   }))
-  const activeId = railActiveId(groups, pluginAreas, activeArea, pane.currentPath)
-  const secondary = activeArea?.kind === "plugin" && pageCount(activeArea) > 1 ? activeArea : undefined
-  const crumbs = [secondary?.label ?? (activeArea?.kind === "plugin" ? activeArea.label : scope), title]
+  const activeId = railActiveId(
+    groups,
+    pluginAreas,
+    activeArea,
+    pane.currentPath
+  )
+  const secondary =
+    activeArea?.kind === "plugin" && pageCount(activeArea) > 1
+      ? activeArea
+      : undefined
+  const crumbs = [
+    secondary?.label ??
+      (activeArea?.kind === "plugin" ? activeArea.label : scope),
+    title,
+  ]
     .filter((crumb): crumb is string => Boolean(crumb))
     .filter((crumb, i, all) => i === 0 || crumb.trim() !== all[i - 1].trim())
 
@@ -152,7 +193,9 @@ export function DashboardShell({
       className="bg-sidebar"
       style={
         {
-          "--sidebar-offset": expanded ? "var(--sidebar-width)" : "var(--sidebar-width-icon)",
+          "--sidebar-offset": expanded
+            ? "var(--sidebar-width)"
+            : "var(--sidebar-width-icon)",
         } as CSSProperties
       }
     >
@@ -187,7 +230,11 @@ export function DashboardShell({
         />
       ) : null}
       <SidebarInset>
-        <ContentHeader crumbs={crumbs} showTrigger={Boolean(isMobile || secondary)} actions={actions} />
+        <ContentHeader
+          crumbs={crumbs}
+          showTrigger={Boolean(isMobile || secondary)}
+          actions={actions}
+        />
         {/*
           `@container/main` is load-bearing, not decoration. dashboard-01's
           SectionCards sizes itself with container queries scoped to a container

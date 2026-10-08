@@ -7,7 +7,10 @@ import type { Capabilities } from "@forge-go/dashboard-plugin"
 // settings-panel.test.tsx uses does not resolve here. package.json is out of
 // scope for this task, so this imports by relative path instead, exactly as
 // the plan's Step 1 originally specified.
-import { SETTINGS_ONLY, settingsOnlySubPlugins } from "../../src/sub/settings-only"
+import {
+  SETTINGS_ONLY,
+  settingsOnlySubPlugins,
+} from "../../src/sub/settings-only"
 import { renderSubPage, subStubClient } from "./harness"
 
 /**
@@ -18,14 +21,20 @@ import { renderSubPage, subStubClient } from "./harness"
 function capabilities(names: string[]): Capabilities {
   return {
     shellEnvelopes: [],
-    contributors: names.map((name) => ({ name, envelopes: [], configured: true })),
+    contributors: names.map((name) => ({
+      name,
+      envelopes: [],
+      configured: true,
+    })),
   }
 }
 
 describe("the eighteen settings-only sub-plugins", () => {
   it("declares all eighteen, with unique routes and unique extensions", () => {
     expect(settingsOnlySubPlugins).toHaveLength(18)
-    const routes = settingsOnlySubPlugins.flatMap((s) => s.routes.map((r) => r.path))
+    const routes = settingsOnlySubPlugins.flatMap((s) =>
+      s.routes.map((r) => r.path)
+    )
     expect(new Set(routes).size).toBe(routes.length)
     const extensions = settingsOnlySubPlugins.map((s) => s.extension)
     expect(new Set(extensions).size).toBe(18)
@@ -44,7 +53,10 @@ describe("the eighteen settings-only sub-plugins", () => {
       // fifth intent here is a sub-plugin quietly reading users.list through
       // its host.
       expect([...sub.hostIntents].sort()).toEqual([
-        "settings.enforce", "settings.namespace", "settings.unenforce", "settings.update",
+        "settings.enforce",
+        "settings.namespace",
+        "settings.unenforce",
+        "settings.update",
       ])
     }
   })
@@ -54,8 +66,12 @@ describe("the eighteen settings-only sub-plugins", () => {
     // The gating is presence, not configuration: a deployment without the mfa
     // plugin has no MFA nav entry and no MFA settings tab, which is what an
     // admin expects when a plugin is not installed.
-    expect(resolvePluginState(mfa as never, capabilities(["authsome"])).kind).toBe("hidden")
-    expect(resolvePluginState(mfa as never, capabilities(["authsome", "mfa"])).kind).toBe("ready")
+    expect(
+      resolvePluginState(mfa as never, capabilities(["authsome"])).kind
+    ).toBe("hidden")
+    expect(
+      resolvePluginState(mfa as never, capabilities(["authsome", "mfa"])).kind
+    ).toBe("ready")
   })
 
   it.each(SETTINGS_ONLY)(
@@ -69,16 +85,31 @@ describe("the eighteen settings-only sub-plugins", () => {
         "settings.namespace": (params: unknown) => {
           queryParams = params
           return {
-            namespace: row.namespace, scope: "app",
-            categories: [{ name: "General", settings: [{
-              key: "enabled", displayName: `${row.label} enabled`, type: "bool",
-              effectiveValue: true, isOverridden: false, isEnforced: false,
-              canOverride: true, order: 1,
-            }] }],
+            namespace: row.namespace,
+            scope: "app",
+            categories: [
+              {
+                name: "General",
+                settings: [
+                  {
+                    key: "enabled",
+                    displayName: `${row.label} enabled`,
+                    type: "bool",
+                    effectiveValue: true,
+                    isOverridden: false,
+                    isEnforced: false,
+                    canOverride: true,
+                    order: 1,
+                  },
+                ],
+              },
+            ],
           }
         },
       })
-      const sub = settingsOnlySubPlugins.find((s) => s.extension === row.extension)!
+      const sub = settingsOnlySubPlugins.find(
+        (s) => s.extension === row.extension
+      )!
       const Page = sub.routes[0].element
 
       renderSubPage(Page, {
@@ -87,12 +118,14 @@ describe("the eighteen settings-only sub-plugins", () => {
         allowed: sub.hostIntents,
       })
 
-      await waitFor(() => expect(screen.getByText(`${row.label} enabled`)).toBeTruthy())
+      await waitFor(() =>
+        expect(screen.getByText(`${row.label} enabled`)).toBeTruthy()
+      )
       // The namespace on the wire is this sub-plugin's own, not the previous
       // row's. A shared component bound to the wrong string is exactly the bug
       // a parameterised suite exists to catch.
       expect(queryParams).toEqual({ namespace: row.namespace, scope: "app" })
-    },
+    }
   )
 
   it("contributes one settings tab each, keyed by its own extension", () => {

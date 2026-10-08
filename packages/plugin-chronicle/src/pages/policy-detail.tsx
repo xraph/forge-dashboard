@@ -7,17 +7,33 @@ import { ConfirmDialog } from "@forge-go/dashboard-kit/components/confirm-dialog
 import { DescriptionList } from "@forge-go/dashboard-kit/components/detail-layout"
 import { Label } from "@forge-go/dashboard-kit/components/label"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
-import { CommandAlert, QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
+import {
+  CommandAlert,
+  QueryBoundary,
+} from "@forge-go/dashboard-kit/components/query-boundary"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
-import { PluginLink, useCommand, useNavigateTo, useQuery } from "@forge-go/dashboard-plugin"
+import {
+  PluginLink,
+  useCommand,
+  useNavigateTo,
+  useQuery,
+} from "@forge-go/dashboard-plugin"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
 import type { PolicySummary } from "../types"
 import { DurationField } from "../components/duration-field"
 import { durationLabel } from "../format"
-import { categoryLabel, durationProblem, goDuration, policyScopeLabel, splitDuration } from "../policy"
+import {
+  categoryLabel,
+  durationProblem,
+  goDuration,
+  policyScopeLabel,
+  splitDuration,
+} from "../policy"
 import type { DurationUnit } from "../policy"
 
-export const PolicyDetailPage: ComponentType<PluginPageProps> = ({ params }) => {
+export const PolicyDetailPage: ComponentType<PluginPageProps> = ({
+  params,
+}) => {
   const id = params.id ?? ""
   const q = useQuery<PolicySummary>("retention.policyDetail", { id })
   // The delete invalidates this page's own read, and the host navigates in a
@@ -27,7 +43,10 @@ export const PolicyDetailPage: ComponentType<PluginPageProps> = ({ params }) => 
   const onDeleted = () => setDeleted(true)
   return (
     <section className="flex flex-col gap-4">
-      <PageHeader title={id} description="A retention policy removes events in its category once they are older than its duration." />
+      <PageHeader
+        title={id}
+        description="A retention policy removes events in its category once they are older than its duration."
+      />
       {deleted ? (
         <p role="status" className="text-sm">
           Policy deleted.
@@ -37,30 +56,56 @@ export const PolicyDetailPage: ComponentType<PluginPageProps> = ({ params }) => 
         <PolicyView key={q.data.id} policy={q.data} onDeleted={onDeleted} />
       ) : (
         <QueryBoundary title="policy" query={q} skeletonRows={5}>
-          {(policy) => <PolicyView key={policy.id} policy={policy} onDeleted={onDeleted} />}
+          {(policy) => (
+            <PolicyView key={policy.id} policy={policy} onDeleted={onDeleted} />
+          )}
         </QueryBoundary>
       )}
     </section>
   )
 }
 
-function PolicyView({ policy, onDeleted }: { policy: PolicySummary; onDeleted: () => void }) {
+function PolicyView({
+  policy,
+  onDeleted,
+}: {
+  policy: PolicySummary
+  onDeleted: () => void
+}) {
   return (
     <div className="flex flex-col gap-6">
       <DescriptionList
         items={[
-          { term: "Policy", value: <span className="font-mono text-xs">{policy.id}</span> },
+          {
+            term: "Policy",
+            value: <span className="font-mono text-xs">{policy.id}</span>,
+          },
           { term: "Category", value: categoryLabel(policy.category) },
           { term: "Keeps for", value: durationLabel(policy.duration) },
-          { term: "Archive", value: policy.archive ? "Archived first" : "Not archived" },
+          {
+            term: "Archive",
+            value: policy.archive ? "Archived first" : "Not archived",
+          },
           { term: "Scope", value: policyScopeLabel(policy) },
-          { term: "App", value: <span className="font-mono text-xs">{policy.appId}</span> },
-          { term: "Created", value: <Timestamp value={policy.createdAt} label="creation time" /> },
-          { term: "Updated", value: <Timestamp value={policy.updatedAt} label="update time" /> },
+          {
+            term: "App",
+            value: <span className="font-mono text-xs">{policy.appId}</span>,
+          },
+          {
+            term: "Created",
+            value: <Timestamp value={policy.createdAt} label="creation time" />,
+          },
+          {
+            term: "Updated",
+            value: <Timestamp value={policy.updatedAt} label="update time" />,
+          },
         ]}
       />
       {!policy.tenantId && (
-        <p className="max-w-prose text-sm">This policy has no tenant, so it removes events from every tenant in the app.</p>
+        <p className="max-w-prose text-sm">
+          This policy has no tenant, so it removes events from every tenant in
+          the app.
+        </p>
       )}
       {policy.editable ? (
         <>
@@ -69,10 +114,14 @@ function PolicyView({ policy, onDeleted }: { policy: PolicySummary; onDeleted: (
         </>
       ) : (
         <p className="max-w-prose text-sm">
-          This policy is set at the app level and applies to your tenant. An app-wide operator manages it.
+          This policy is set at the app level and applies to your tenant. An
+          app-wide operator manages it.
         </p>
       )}
-      <PluginLink to="/retention" className="text-sm underline underline-offset-4">
+      <PluginLink
+        to="/retention"
+        className="text-sm underline underline-offset-4"
+      >
         Back to retention
       </PluginLink>
     </div>
@@ -89,18 +138,30 @@ function EditForm({ policy }: { policy: PolicySummary }) {
   const [archive, setArchive] = useState(policy.archive)
 
   const untouched = initial === null && amount === ""
-  const ready = !save.loading && (untouched || (amount !== "" && durationProblem(amount, unit) === null))
+  const ready =
+    !save.loading &&
+    (untouched || (amount !== "" && durationProblem(amount, unit) === null))
 
   async function submit(event: FormEvent) {
     event.preventDefault()
     if (!ready) return
     // The category is never sent: it is part of the policy's identity and the server refuses a change.
-    await save.execute({ id: policy.id, duration: untouched ? policy.duration : goDuration(amount, unit), archive })
+    await save.execute({
+      id: policy.id,
+      duration: untouched ? policy.duration : goDuration(amount, unit),
+      archive,
+    })
   }
 
   return (
-    <form onSubmit={(e) => void submit(e)} className="flex max-w-lg flex-col gap-4">
-      <p className="text-sm">The category cannot be changed. To use a different category, delete this policy and create a new one.</p>
+    <form
+      onSubmit={(e) => void submit(e)}
+      className="flex max-w-lg flex-col gap-4"
+    >
+      <p className="text-sm">
+        The category cannot be changed. To use a different category, delete this
+        policy and create a new one.
+      </p>
       <DurationField
         amount={amount}
         unit={unit}
@@ -125,13 +186,21 @@ function EditForm({ policy }: { policy: PolicySummary }) {
             setArchive(checked === true)
           }}
         />
-        <Label htmlFor="policy-archive">Archive events before removing them</Label>
+        <Label htmlFor="policy-archive">
+          Archive events before removing them
+        </Label>
       </div>
       <p className="text-sm">
-        Shortening the duration removes older events the next time retention runs, on the scheduler or from Run retention now. Removed events cannot be recovered.
+        Shortening the duration removes older events the next time retention
+        runs, on the scheduler or from Run retention now. Removed events cannot
+        be recovered.
       </p>
       <CommandAlert title="Could not save the policy" error={save.error} />
-      {save.data && <p role="status" className="text-sm">Saved.</p>}
+      {save.data && (
+        <p role="status" className="text-sm">
+          Saved.
+        </p>
+      )}
       <div>
         <Button type="submit" disabled={!ready}>
           {save.loading ? "Saving…" : "Save changes"}
@@ -141,18 +210,28 @@ function EditForm({ policy }: { policy: PolicySummary }) {
   )
 }
 
-function DeleteAction({ policy, onDeleted }: { policy: PolicySummary; onDeleted: () => void }) {
+function DeleteAction({
+  policy,
+  onDeleted,
+}: {
+  policy: PolicySummary
+  onDeleted: () => void
+}) {
   const [open, setOpen] = useState(false)
   const del = useCommand<{ id: string }>("retention.deletePolicy")
   const navigateTo = useNavigateTo()
 
   return (
     <div>
-      <IconButton variant="outline" onClick={() => {
+      <IconButton
+        variant="outline"
+        onClick={() => {
           // Reset on open, not on close: the state that matters is what the operator is looking at now.
           del.reset()
           setOpen(true)
-        }} label="Delete policy" />
+        }}
+        label="Delete policy"
+      />
       <ConfirmDialog
         open={open}
         // Escape and an outside click would hide the result of a delete still in flight.

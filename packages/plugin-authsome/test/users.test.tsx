@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest"
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
-import { ContractError, NavigationProvider, PluginProvider } from "@forge-go/dashboard-plugin"
+import {
+  ContractError,
+  NavigationProvider,
+  PluginProvider,
+} from "@forge-go/dashboard-plugin"
 import type { PluginLinkProps, ScopedClient } from "@forge-go/dashboard-plugin"
 import { AuthUsersPage } from "../src/pages/users"
 import type { UserSummary } from "../src/pages/users"
@@ -134,7 +138,9 @@ describe("AuthUsersPage", () => {
     // support ticket, without navigating to the detail route.
     expect(screen.getByText("usr_1")).toBeDefined()
     expect(screen.getByText("usr_2")).toBeDefined()
-    expect(screen.getByText("ada@example.com").className).toContain("font-medium")
+    expect(screen.getByText("ada@example.com").className).toContain(
+      "font-medium"
+    )
     // The count must show up even though this result fits on a single page,
     // where `CursorPager` itself renders nothing at all.
     expect(screen.getByText("2 of 2")).toBeDefined()
@@ -157,11 +163,15 @@ describe("AuthUsersPage", () => {
     // anchor. A refactor back to `<a>` fails this even though it would still
     // satisfy an href-only assertion.
     render(
-      <PluginProvider client={stubClient({ "users.list": { users: [user()], total: 1 } }).client}>
+      <PluginProvider
+        client={
+          stubClient({ "users.list": { users: [user()], total: 1 } }).client
+        }
+      >
         <NavigationProvider value={{ Link: RouterLink, navigate: () => {} }}>
           <AuthUsersPage />
         </NavigationProvider>
-      </PluginProvider>,
+      </PluginProvider>
     )
 
     const detailsLink = await screen.findByRole("link", { name: "Details" })
@@ -172,7 +182,9 @@ describe("AuthUsersPage", () => {
   it("shows the contract error code and message when the read fails", async () => {
     renderPage(
       AuthUsersPage,
-      failingClient(new ContractError("PERMISSION_DENIED", "users.read required"))
+      failingClient(
+        new ContractError("PERMISSION_DENIED", "users.read required")
+      )
     )
 
     const alert = await screen.findByRole("alert")
@@ -220,7 +232,9 @@ describe("AuthUsersPage search and paging", () => {
   it("sends the search term as `email`, and resets to the first page", async () => {
     const { client, queries } = recordingClient({ "users.list": page1 })
     renderPage(AuthUsersPage, client)
-    await waitFor(() => expect(screen.getByText("ada@example.com")).toBeTruthy())
+    await waitFor(() =>
+      expect(screen.getByText("ada@example.com")).toBeTruthy()
+    )
 
     fireEvent.change(screen.getByRole("searchbox", { name: "Search users" }), {
       target: { value: "grace" },
@@ -237,24 +251,32 @@ describe("AuthUsersPage search and paging", () => {
   it("walks forward with the server's cursor and back again", async () => {
     const { client, queries } = recordingClient({ "users.list": page1 })
     renderPage(AuthUsersPage, client)
-    await waitFor(() => expect(screen.getByText("ada@example.com")).toBeTruthy())
+    await waitFor(() =>
+      expect(screen.getByText("ada@example.com")).toBeTruthy()
+    )
     // Both the table caption and `CursorPager` say the count on a multi-page
     // result, so this looks for at least one rather than a single match.
     expect(screen.getAllByText(/2 of 5/).length).toBeGreaterThan(0)
 
     fireEvent.click(screen.getByRole("button", { name: "Next page" }))
-    await waitFor(() => expect(queries.some((q) => q.params?.cursor === "c1")).toBe(true))
+    await waitFor(() =>
+      expect(queries.some((q) => q.params?.cursor === "c1")).toBe(true)
+    )
 
     fireEvent.click(screen.getByRole("button", { name: "Previous page" }))
     await waitFor(() =>
-      expect(queries.filter((q) => q.params?.cursor === undefined).length).toBeGreaterThan(1)
+      expect(
+        queries.filter((q) => q.params?.cursor === undefined).length
+      ).toBeGreaterThan(1)
     )
   })
 
   it("waits for typing to settle before querying, rather than firing one request per keystroke", async () => {
     const { client, queries } = recordingClient({ "users.list": page1 })
     renderPage(AuthUsersPage, client)
-    await waitFor(() => expect(screen.getByText("ada@example.com")).toBeTruthy())
+    await waitFor(() =>
+      expect(screen.getByText("ada@example.com")).toBeTruthy()
+    )
 
     const before = queries.length
     const box = screen.getByRole("searchbox", { name: "Search users" })
@@ -272,7 +294,12 @@ describe("AuthUsersPage search and paging", () => {
       expect(queries.some((q) => q.params?.email === "grace")).toBe(true)
     )
     expect(
-      queries.some((q) => q.params?.email === "g" || q.params?.email === "gr" || q.params?.email === "gra")
+      queries.some(
+        (q) =>
+          q.params?.email === "g" ||
+          q.params?.email === "gr" ||
+          q.params?.email === "gra"
+      )
     ).toBe(false)
   })
 
@@ -283,10 +310,14 @@ describe("AuthUsersPage search and paging", () => {
         params?.cursor === "c1" ? emptySecondPage : page1,
     })
     renderPage(AuthUsersPage, client)
-    await waitFor(() => expect(screen.getByText("ada@example.com")).toBeTruthy())
+    await waitFor(() =>
+      expect(screen.getByText("ada@example.com")).toBeTruthy()
+    )
 
     fireEvent.click(screen.getByRole("button", { name: "Next page" }))
-    await waitFor(() => expect(queries.some((q) => q.params?.cursor === "c1")).toBe(true))
+    await waitFor(() =>
+      expect(queries.some((q) => q.params?.cursor === "c1")).toBe(true)
+    )
     await waitFor(() => expect(screen.getByText("No users yet.")).toBeTruthy())
     // Past the search box's 300ms debounce. It used to run on mount as well,
     // and its reset threw this page back to the first one, Next enabled.
@@ -309,10 +340,14 @@ describe("AuthUsersPage row actions", () => {
       { "users.ban": { ok: true, id: "u1" } }
     )
     renderPage(AuthUsersPage, client)
-    await waitFor(() => expect(screen.getByText("ada@example.com")).toBeTruthy())
+    await waitFor(() =>
+      expect(screen.getByText("ada@example.com")).toBeTruthy()
+    )
 
     fireEvent.click(screen.getByRole("button", { name: "Ban ada@example.com" }))
-    fireEvent.change(screen.getByLabelText("Reason"), { target: { value: "spam" } })
+    fireEvent.change(screen.getByLabelText("Reason"), {
+      target: { value: "spam" },
+    })
     fireEvent.change(screen.getByLabelText("Expires at"), {
       target: { value: "2026-12-01T00:00" },
     })
@@ -330,10 +365,14 @@ describe("AuthUsersPage row actions", () => {
       { "users.ban": { ok: true } }
     )
     renderPage(AuthUsersPage, client)
-    await waitFor(() => expect(screen.getByText("ada@example.com")).toBeTruthy())
+    await waitFor(() =>
+      expect(screen.getByText("ada@example.com")).toBeTruthy()
+    )
 
     fireEvent.click(screen.getByRole("button", { name: "Ban ada@example.com" }))
-    fireEvent.change(screen.getByLabelText("Reason"), { target: { value: "spam" } })
+    fireEvent.change(screen.getByLabelText("Reason"), {
+      target: { value: "spam" },
+    })
     fireEvent.click(screen.getByRole("button", { name: "Ban" }))
 
     await waitFor(() => expect(sent).toHaveLength(1))
@@ -345,12 +384,22 @@ describe("AuthUsersPage row actions", () => {
   it("offers unban on a banned user and ban on an active one, never both", async () => {
     const { client } = stubClient({ "users.list": page1 })
     renderPage(AuthUsersPage, client)
-    await waitFor(() => expect(screen.getByText("ada@example.com")).toBeTruthy())
+    await waitFor(() =>
+      expect(screen.getByText("ada@example.com")).toBeTruthy()
+    )
 
-    expect(screen.getByRole("button", { name: "Ban ada@example.com" })).toBeTruthy()
-    expect(screen.queryByRole("button", { name: "Unban ada@example.com" })).toBeNull()
-    expect(screen.getByRole("button", { name: "Unban grace@example.com" })).toBeTruthy()
-    expect(screen.queryByRole("button", { name: "Ban grace@example.com" })).toBeNull()
+    expect(
+      screen.getByRole("button", { name: "Ban ada@example.com" })
+    ).toBeTruthy()
+    expect(
+      screen.queryByRole("button", { name: "Unban ada@example.com" })
+    ).toBeNull()
+    expect(
+      screen.getByRole("button", { name: "Unban grace@example.com" })
+    ).toBeTruthy()
+    expect(
+      screen.queryByRole("button", { name: "Ban grace@example.com" })
+    ).toBeNull()
   })
 
   it("unbans immediately, with no confirmation dialog", async () => {
@@ -366,10 +415,14 @@ describe("AuthUsersPage row actions", () => {
     // `displayName` falls back to the email and it legitimately renders
     // twice in her row (Email column and Name column).
     await waitFor(() =>
-      expect(screen.getByRole("button", { name: "Unban grace@example.com" })).toBeTruthy()
+      expect(
+        screen.getByRole("button", { name: "Unban grace@example.com" })
+      ).toBeTruthy()
     )
 
-    fireEvent.click(screen.getByRole("button", { name: "Unban grace@example.com" }))
+    fireEvent.click(
+      screen.getByRole("button", { name: "Unban grace@example.com" })
+    )
 
     await waitFor(() => expect(sent).toHaveLength(1))
     expect(sent[0]).toEqual({ intent: "users.unban", payload: { id: "u2" } })
@@ -382,10 +435,14 @@ describe("AuthUsersPage row actions", () => {
       { "users.ban": new ContractError("VALIDATION", "reason is required") }
     )
     renderPage(AuthUsersPage, client)
-    await waitFor(() => expect(screen.getByText("ada@example.com")).toBeTruthy())
+    await waitFor(() =>
+      expect(screen.getByText("ada@example.com")).toBeTruthy()
+    )
 
     fireEvent.click(screen.getByRole("button", { name: "Ban ada@example.com" }))
-    fireEvent.change(screen.getByLabelText("Reason"), { target: { value: "spam" } })
+    fireEvent.change(screen.getByLabelText("Reason"), {
+      target: { value: "spam" },
+    })
     fireEvent.click(screen.getByRole("button", { name: "Ban" }))
 
     // No `{ hidden: true }` here: the alert renders inside the open
@@ -405,9 +462,13 @@ describe("AuthUsersPage row actions", () => {
       { "users.delete": { ok: true } }
     )
     renderPage(AuthUsersPage, client)
-    await waitFor(() => expect(screen.getByText("ada@example.com")).toBeTruthy())
+    await waitFor(() =>
+      expect(screen.getByText("ada@example.com")).toBeTruthy()
+    )
 
-    fireEvent.click(screen.getByRole("button", { name: "Delete ada@example.com" }))
+    fireEvent.click(
+      screen.getByRole("button", { name: "Delete ada@example.com" })
+    )
     expect(screen.getByText(/Delete ada@example.com\?/)).toBeTruthy()
     expect(sent).toHaveLength(0)
 
@@ -419,12 +480,21 @@ describe("AuthUsersPage row actions", () => {
   it("shows the server's reason and leaves the delete dialog open when the delete fails", async () => {
     const { client } = recordingCommandClient(
       { "users.list": page1 },
-      { "users.delete": new ContractError("VALIDATION", "cannot delete the last owner") }
+      {
+        "users.delete": new ContractError(
+          "VALIDATION",
+          "cannot delete the last owner"
+        ),
+      }
     )
     renderPage(AuthUsersPage, client)
-    await waitFor(() => expect(screen.getByText("ada@example.com")).toBeTruthy())
+    await waitFor(() =>
+      expect(screen.getByText("ada@example.com")).toBeTruthy()
+    )
 
-    fireEvent.click(screen.getByRole("button", { name: "Delete ada@example.com" }))
+    fireEvent.click(
+      screen.getByRole("button", { name: "Delete ada@example.com" })
+    )
     fireEvent.click(screen.getByRole("button", { name: "Delete" }))
 
     // No `{ hidden: true }` here either, for the same reason as the ban
@@ -450,10 +520,14 @@ describe("AuthUsersPage row actions", () => {
       { "users.ban": { ok: true, id: "u1" } }
     )
     renderPage(AuthUsersPage, client)
-    await waitFor(() => expect(screen.getByText("ada@example.com")).toBeTruthy())
+    await waitFor(() =>
+      expect(screen.getByText("ada@example.com")).toBeTruthy()
+    )
 
     fireEvent.click(screen.getByRole("button", { name: "Ban ada@example.com" }))
-    fireEvent.change(screen.getByLabelText("Reason"), { target: { value: "spam" } })
+    fireEvent.change(screen.getByLabelText("Reason"), {
+      target: { value: "spam" },
+    })
     fireEvent.click(screen.getByRole("button", { name: "Ban" }))
 
     await waitFor(() => expect(sent).toHaveLength(1))
@@ -468,8 +542,18 @@ describe("AuthUsersPage stale command state across rows", () => {
   // Unban - the ban dialog test below needs to open it on two different rows.
   const twoActive = {
     users: [
-      user({ id: "u1", email: "ada@example.com", firstName: "Ada", lastName: "Lovelace" }),
-      user({ id: "u2", email: "grace@example.com", firstName: "Grace", lastName: "Hopper" }),
+      user({
+        id: "u1",
+        email: "ada@example.com",
+        firstName: "Ada",
+        lastName: "Lovelace",
+      }),
+      user({
+        id: "u2",
+        email: "grace@example.com",
+        firstName: "Grace",
+        lastName: "Hopper",
+      }),
     ],
     total: 2,
   }
@@ -485,10 +569,14 @@ describe("AuthUsersPage stale command state across rows", () => {
       }
     )
     renderPage(AuthUsersPage, client)
-    await waitFor(() => expect(screen.getByText("ada@example.com")).toBeTruthy())
+    await waitFor(() =>
+      expect(screen.getByText("ada@example.com")).toBeTruthy()
+    )
 
     // Delete ada, let it fail, see the reason.
-    fireEvent.click(screen.getByRole("button", { name: "Delete ada@example.com" }))
+    fireEvent.click(
+      screen.getByRole("button", { name: "Delete ada@example.com" })
+    )
     fireEvent.click(screen.getByRole("button", { name: "Delete" }))
     const failure = await screen.findByRole("alert")
     expect(failure.textContent).toContain("cannot delete the last owner")
@@ -496,7 +584,9 @@ describe("AuthUsersPage stale command state across rows", () => {
     // Back out, then open the same dialog pointed at grace instead.
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }))
     await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull())
-    fireEvent.click(screen.getByRole("button", { name: "Delete grace@example.com" }))
+    fireEvent.click(
+      screen.getByRole("button", { name: "Delete grace@example.com" })
+    )
 
     // Grace has not been touched. Ada's failure must not show up here.
     expect(screen.getByText(/Delete grace@example.com\?/)).toBeTruthy()
@@ -515,11 +605,15 @@ describe("AuthUsersPage stale command state across rows", () => {
       }
     )
     renderPage(AuthUsersPage, client)
-    await waitFor(() => expect(screen.getByText("ada@example.com")).toBeTruthy())
+    await waitFor(() =>
+      expect(screen.getByText("ada@example.com")).toBeTruthy()
+    )
 
     // Ban ada with a reason and an expiry, let it fail.
     fireEvent.click(screen.getByRole("button", { name: "Ban ada@example.com" }))
-    fireEvent.change(screen.getByLabelText("Reason"), { target: { value: "spam from ada" } })
+    fireEvent.change(screen.getByLabelText("Reason"), {
+      target: { value: "spam from ada" },
+    })
     fireEvent.change(screen.getByLabelText("Expires at"), {
       target: { value: "2026-12-01T00:00" },
     })
@@ -530,7 +624,9 @@ describe("AuthUsersPage stale command state across rows", () => {
     // Back out, then open the ban dialog on grace instead.
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }))
     await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull())
-    fireEvent.click(screen.getByRole("button", { name: "Ban grace@example.com" }))
+    fireEvent.click(
+      screen.getByRole("button", { name: "Ban grace@example.com" })
+    )
 
     // Ada's failure, and what was typed for ada, must not follow into grace's
     // confirmation - an operator confirming this would otherwise be banning
@@ -538,6 +634,8 @@ describe("AuthUsersPage stale command state across rows", () => {
     expect(screen.queryByRole("alert")).toBeNull()
     expect(screen.queryByText("reason is required")).toBeNull()
     expect((screen.getByLabelText("Reason") as HTMLInputElement).value).toBe("")
-    expect((screen.getByLabelText("Expires at") as HTMLInputElement).value).toBe("")
+    expect(
+      (screen.getByLabelText("Expires at") as HTMLInputElement).value
+    ).toBe("")
   })
 })

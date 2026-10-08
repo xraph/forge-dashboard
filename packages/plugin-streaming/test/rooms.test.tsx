@@ -103,10 +103,10 @@ describe("StreamingRoomsPage", () => {
     // Archived is the louder variant, the one an operator scans a room list
     // for. Visibility (private/public) is a separate fact and stays neutral.
     expect(screen.getByText("archived").getAttribute("data-variant")).toBe(
-      "destructive",
+      "destructive"
     )
     expect(screen.getByText("active").getAttribute("data-variant")).not.toBe(
-      "destructive",
+      "destructive"
     )
 
     // The name is a link to the room's detail page. `getByText("General")`
@@ -135,12 +135,12 @@ describe("StreamingRoomsPage", () => {
     renderPage(StreamingRoomsPage, stubClient({ "rooms.list": rooms }))
 
     await screen.findByText("General")
-    expect(screen.getByRole("link", { name: "General" }).getAttribute("href")).toBe(
-      "/rooms/room_1",
-    )
-    expect(screen.getByRole("link", { name: "Support" }).getAttribute("href")).toBe(
-      "/rooms/room_2",
-    )
+    expect(
+      screen.getByRole("link", { name: "General" }).getAttribute("href")
+    ).toBe("/rooms/room_1")
+    expect(
+      screen.getByRole("link", { name: "Support" }).getAttribute("href")
+    ).toBe("/rooms/room_2")
   })
 
   it("navigates through the host's router instead of a full page load", async () => {
@@ -163,7 +163,7 @@ describe("StreamingRoomsPage", () => {
         >
           <StreamingRoomsPage />
         </NavigationProvider>
-      </PluginProvider>,
+      </PluginProvider>
     )
 
     const nameLink = await screen.findByRole("link", { name: "General" })
@@ -212,35 +212,46 @@ describe("StreamingRoomsPage writes", () => {
   it("sends rooms.create with exactly the fields the contract declares", async () => {
     const { client, sent } = recordingCommandClient(
       { "rooms.list": rooms },
-      { "rooms.create": { ok: true, id: "r2" } },
+      { "rooms.create": { ok: true, id: "r2" } }
     )
     renderPage(StreamingRoomsPage, client)
     await waitFor(() => expect(screen.getByText("General")).toBeTruthy())
 
     fireEvent.click(screen.getByRole("button", { name: "New room" }))
-    fireEvent.change(screen.getByLabelText("Name"), { target: { value: "random" } })
-    fireEvent.change(screen.getByLabelText("Description"), { target: { value: "off topic" } })
-    fireEvent.change(screen.getByLabelText("Owner"), { target: { value: "grace" } })
+    fireEvent.change(screen.getByLabelText("Name"), {
+      target: { value: "random" },
+    })
+    fireEvent.change(screen.getByLabelText("Description"), {
+      target: { value: "off topic" },
+    })
+    fireEvent.change(screen.getByLabelText("Owner"), {
+      target: { value: "grace" },
+    })
     fireEvent.click(screen.getByLabelText("Private"))
     fireEvent.click(screen.getByRole("button", { name: "Create room" }))
 
     await waitFor(() => expect(sent).toHaveLength(1))
     expect(sent[0].intent).toBe("rooms.create")
     expect(sent[0].payload).toEqual({
-      name: "random", description: "off topic", owner: "grace", private: true,
+      name: "random",
+      description: "off topic",
+      owner: "grace",
+      private: true,
     })
   })
 
   it("will not submit a room with no name", async () => {
     const { client, sent } = recordingCommandClient(
       { "rooms.list": rooms },
-      { "rooms.create": { ok: true } },
+      { "rooms.create": { ok: true } }
     )
     renderPage(StreamingRoomsPage, client)
     await waitFor(() => expect(screen.getByText("General")).toBeTruthy())
 
     fireEvent.click(screen.getByRole("button", { name: "New room" }))
-    const create = screen.getByRole("button", { name: "Create room" }) as HTMLButtonElement
+    const create = screen.getByRole("button", {
+      name: "Create room",
+    }) as HTMLButtonElement
     expect(create.disabled).toBe(true)
     fireEvent.click(create)
     expect(sent).toHaveLength(0)
@@ -249,7 +260,7 @@ describe("StreamingRoomsPage writes", () => {
   it("confirms before deleting and names the room being deleted", async () => {
     const { client, sent } = recordingCommandClient(
       { "rooms.list": rooms },
-      { "rooms.delete": { ok: true } },
+      { "rooms.delete": { ok: true } }
     )
     renderPage(StreamingRoomsPage, client)
     await waitFor(() => expect(screen.getByText("General")).toBeTruthy())
@@ -261,7 +272,10 @@ describe("StreamingRoomsPage writes", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Delete" }))
     await waitFor(() => expect(sent).toHaveLength(1))
-    expect(sent[0]).toEqual({ intent: "rooms.delete", payload: { id: "room_1" } })
+    expect(sent[0]).toEqual({
+      intent: "rooms.delete",
+      payload: { id: "room_1" },
+    })
   })
 
   it("surfaces the server's own sentence when a write fails", async () => {
@@ -274,7 +288,7 @@ describe("StreamingRoomsPage writes", () => {
 
     // stubClient was given no commands, so rooms.delete rejects NOT_FOUND.
     await waitFor(() =>
-      expect(screen.getByRole("alert").textContent).toContain("rooms.delete"),
+      expect(screen.getByRole("alert").textContent).toContain("rooms.delete")
     )
   })
 
@@ -291,7 +305,7 @@ describe("StreamingRoomsPage writes", () => {
     fireEvent.click(screen.getByRole("button", { name: "Delete General" }))
     fireEvent.click(screen.getByRole("button", { name: "Delete" }))
     await waitFor(() =>
-      expect(screen.getByRole("alert").textContent).toContain("rooms.delete"),
+      expect(screen.getByRole("alert").textContent).toContain("rooms.delete")
     )
 
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }))

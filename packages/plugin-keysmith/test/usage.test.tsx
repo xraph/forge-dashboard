@@ -144,7 +144,7 @@ describe("bucket labels", () => {
 
   it("titles a bucket in full, saying UTC where there is an hour", () => {
     expect(bucketTitle("2026-10-03T14:00:00Z", "hourly")).toBe(
-      "3 Oct 2026, 14:00 UTC",
+      "3 Oct 2026, 14:00 UTC"
     )
     expect(bucketTitle("2026-10-03T00:00:00Z", "daily")).toBe("3 Oct 2026")
     expect(bucketTitle("2026-01-01T00:00:00Z", "monthly")).toBe("Jan 2026")
@@ -152,8 +152,12 @@ describe("bucket labels", () => {
 
   it("names a request's minute in UTC, whatever the machine's zone", () => {
     // 14:10Z is 09:10 in Chicago; 03:05Z on the 6th is still the 5th there.
-    expect(formatUtcMinute("2026-10-05T14:10:00Z")).toBe("5 Oct 2026, 14:10 UTC")
-    expect(formatUtcMinute("2026-10-06T03:05:59Z")).toBe("6 Oct 2026, 03:05 UTC")
+    expect(formatUtcMinute("2026-10-05T14:10:00Z")).toBe(
+      "5 Oct 2026, 14:10 UTC"
+    )
+    expect(formatUtcMinute("2026-10-06T03:05:59Z")).toBe(
+      "6 Oct 2026, 03:05 UTC"
+    )
   })
 
   it("formats latency in whole milliseconds", () => {
@@ -195,7 +199,11 @@ const BUCKETS: UsageBucket[] = [
   }),
 ]
 
-const SERIES: UsageSeries = { period: "hourly", buckets: BUCKETS, recorded: true }
+const SERIES: UsageSeries = {
+  period: "hourly",
+  buckets: BUCKETS,
+  recorded: true,
+}
 
 function key(over: Partial<KeySummary>): KeySummary {
   return {
@@ -284,7 +292,10 @@ function usageClient(answers: Answers = {}): {
           if (answers.detail instanceof ContractError) throw answers.detail
           return answers.detail
         }
-        throw new ContractError("NOT_FOUND", `no handler for intent "${intent}"`)
+        throw new ContractError(
+          "NOT_FOUND",
+          `no handler for intent "${intent}"`
+        )
       },
       command: async () => {
         throw new ContractError("NOT_FOUND", "no commands")
@@ -295,12 +306,16 @@ function usageClient(answers: Answers = {}): {
 
 function paramsOf(
   sent: { intent: string; params: Record<string, unknown> }[],
-  intent: string,
+  intent: string
 ): Record<string, unknown>[] {
   return sent.filter((s) => s.intent === intent).map((s) => s.params)
 }
 
-function cellOf(row: HTMLElement, table: HTMLElement, column: string): HTMLElement {
+function cellOf(
+  row: HTMLElement,
+  table: HTMLElement,
+  column: string
+): HTMLElement {
   const headers = within(table)
     .getAllByRole("columnheader")
     .map((h) => h.textContent)
@@ -312,7 +327,9 @@ function cellOf(row: HTMLElement, table: HTMLElement, column: string): HTMLEleme
 /** The range summary as [term, value] pairs, in order. */
 function summaryOf(): [string, string][] {
   const summary = screen.getByLabelText("Range summary")
-  const terms = within(summary).getAllByRole("term").map((t) => t.textContent ?? "")
+  const terms = within(summary)
+    .getAllByRole("term")
+    .map((t) => t.textContent ?? "")
   const values = within(summary)
     .getAllByRole("definition")
     .map((d) => d.textContent ?? "")
@@ -363,14 +380,18 @@ describe("UsagePage", () => {
 
     const range = screen.getByLabelText("Range")
     expect(
-      within(range).getAllByRole("option").map((o) => o.textContent),
+      within(range)
+        .getAllByRole("option")
+        .map((o) => o.textContent)
     ).toEqual(["24 hours", "7 days", "30 days", "12 months"])
 
     for (const id of ["7d", "30d", "12m"] as const) {
-      fireEvent.change(screen.getByLabelText("Range"), { target: { value: id } })
+      fireEvent.change(screen.getByLabelText("Range"), {
+        target: { value: id },
+      })
       await screen.findByRole("group", { name: /Requests per hour/ })
       expect(paramsOf(sent, "usage.series").at(-1)).toEqual(
-        rangeBounds(id, at("2026-10-05T14:20:00Z")),
+        rangeBounds(id, at("2026-10-05T14:20:00Z"))
       )
     }
   })
@@ -384,7 +405,9 @@ describe("UsagePage", () => {
     expect(paramsOf(sent, "keys.list")[0]).toEqual({ limit: 100 })
     const select = screen.getByLabelText("Key")
     expect(
-      within(select).getAllByRole("option").map((o) => o.textContent),
+      within(select)
+        .getAllByRole("option")
+        .map((o) => o.textContent)
     ).toEqual(["All keys", "Billing service", "Partner sandbox"])
 
     fireEvent.change(select, { target: { value: "akey_partner" } })
@@ -399,7 +422,7 @@ describe("UsagePage", () => {
       expect(paramsOf(sent, "usage.records").at(-1)).toMatchObject({
         keyId: "akey_partner",
         offset: 0,
-      }),
+      })
     )
 
     // Back to every key: no keyId at all, not an empty string.
@@ -438,10 +461,13 @@ describe("UsagePage", () => {
     const { client } = usageClient()
     const { router } = renderRoutedPage(UsagePage, client)
     await screen.findByText("Partner sandbox", { selector: "option" })
-    const sidebar = () => screen.getByRole("link", { name: "Sidebar rotations" })
+    const sidebar = () =>
+      screen.getByRole("link", { name: "Sidebar rotations" })
     expect(sidebar().getAttribute("href")).toBe("/@keysmith/rotations")
 
-    fireEvent.change(screen.getByLabelText("Key"), { target: { value: "akey_partner" } })
+    fireEvent.change(screen.getByLabelText("Key"), {
+      target: { value: "akey_partner" },
+    })
     await waitFor(() => expect(router.search).toBe("?keyId=akey_partner"))
     expect(sidebar().getAttribute("href")).toBe("/@keysmith/rotations")
 
@@ -456,17 +482,23 @@ describe("UsagePage", () => {
     const { client } = usageClient()
     renderRoutedPage(UsagePage, client)
     await screen.findByText("Partner sandbox", { selector: "option" })
-    fireEvent.change(screen.getByLabelText("Key"), { target: { value: "akey_partner" } })
+    fireEvent.change(screen.getByLabelText("Key"), {
+      target: { value: "akey_partner" },
+    })
     await waitFor(() =>
-      expect((screen.getByLabelText("Key") as HTMLSelectElement).value).toBe("akey_partner"),
+      expect((screen.getByLabelText("Key") as HTMLSelectElement).value).toBe(
+        "akey_partner"
+      )
     )
     fireEvent.change(screen.getByLabelText("Key"), { target: { value: "" } })
     await waitFor(() =>
-      expect((screen.getByLabelText("Key") as HTMLSelectElement).value).toBe(""),
+      expect((screen.getByLabelText("Key") as HTMLSelectElement).value).toBe("")
     )
 
     act(() => window.history.back())
-    await waitFor(() => expect(window.location.pathname).toBe("/@keysmith/keys"))
+    await waitFor(() =>
+      expect(window.location.pathname).toBe("/@keysmith/keys")
+    )
     expect(window.location.search).toBe("")
   })
 
@@ -477,7 +509,9 @@ describe("UsagePage", () => {
     })
     renderPage(UsagePage, client)
     await screen.findByText("/v1/invoices")
-    fireEvent.change(screen.getByLabelText("Range"), { target: { value: "7d" } })
+    fireEvent.change(screen.getByLabelText("Range"), {
+      target: { value: "7d" },
+    })
     fireEvent.click(await screen.findByRole("button", { name: "Table" }))
     fireEvent.click(await screen.findByRole("button", { name: /Next/ }))
     await screen.findByText(/Page 2 of 2/)
@@ -490,14 +524,18 @@ describe("UsagePage", () => {
     const { client, sent } = usageClient()
     renderPage(UsagePage, client)
     await screen.findByText("Partner sandbox", { selector: "option" })
-    expect((screen.getByLabelText("Key") as HTMLSelectElement).value).toBe("akey_partner")
+    expect((screen.getByLabelText("Key") as HTMLSelectElement).value).toBe(
+      "akey_partner"
+    )
     expect(paramsOf(sent, "usage.series")[0]).toEqual({
       period: "hourly",
       after: "2026-10-04T15:00:00Z",
       before: "2026-10-05T15:00:00Z",
       keyId: "akey_partner",
     })
-    expect(paramsOf(sent, "usage.records")[0]).toMatchObject({ keyId: "akey_partner" })
+    expect(paramsOf(sent, "usage.records")[0]).toMatchObject({
+      keyId: "akey_partner",
+    })
     // The key is in the first 100, so its name is already known.
     expect(paramsOf(sent, "keys.detail")).toEqual([])
   })
@@ -514,10 +552,19 @@ describe("UsagePage", () => {
     const select = screen.getByLabelText("Key") as HTMLSelectElement
     expect(select.value).toBe("akey_far")
     expect(
-      within(select).getAllByRole("option").map((o) => o.textContent),
-    ).toEqual(["All keys", "Billing service", "Partner sandbox", "Nightly export"])
+      within(select)
+        .getAllByRole("option")
+        .map((o) => o.textContent)
+    ).toEqual([
+      "All keys",
+      "Billing service",
+      "Partner sandbox",
+      "Nightly export",
+    ])
     expect(paramsOf(sent, "keys.detail")).toEqual([{ id: "akey_far" }])
-    expect(paramsOf(sent, "usage.series")[0]).toMatchObject({ keyId: "akey_far" })
+    expect(paramsOf(sent, "usage.series")[0]).toMatchObject({
+      keyId: "akey_far",
+    })
   })
 
   it("labels a key it cannot name by its id, and keeps it chosen", async () => {
@@ -530,8 +577,10 @@ describe("UsagePage", () => {
     const select = screen.getByLabelText("Key") as HTMLSelectElement
     await waitFor(() =>
       expect(
-        within(select).getAllByRole("option").map((o) => o.textContent),
-      ).toEqual(["All keys", "Billing service", "Partner sandbox", "akey_far"]),
+        within(select)
+          .getAllByRole("option")
+          .map((o) => o.textContent)
+      ).toEqual(["All keys", "Billing service", "Partner sandbox", "akey_far"])
     )
     expect(select.value).toBe("akey_far")
     expect(screen.queryByText(/key not found/)).toBeNull()
@@ -547,7 +596,9 @@ describe("UsagePage", () => {
     await screen.findByText("Nightly export", { selector: "option" })
     fireEvent.change(screen.getByLabelText("Key"), { target: { value: "" } })
     await waitFor(() =>
-      expect(screen.queryByText("Nightly export", { selector: "option" })).toBeNull(),
+      expect(
+        screen.queryByText("Nightly export", { selector: "option" })
+      ).toBeNull()
     )
     expect(window.location.search).toBe("")
   })
@@ -561,7 +612,9 @@ describe("UsagePage", () => {
     fireEvent.click(screen.getByRole("button", { name: /Next/ }))
     await screen.findByText(/Page 2 of 2/)
 
-    fireEvent.change(screen.getByLabelText("Key"), { target: { value: "akey_partner" } })
+    fireEvent.change(screen.getByLabelText("Key"), {
+      target: { value: "akey_partner" },
+    })
     await screen.findByText(/Page 1 of 2/)
     expect(paramsOf(sent, "usage.records").at(-1)).toMatchObject({
       keyId: "akey_partner",
@@ -587,7 +640,7 @@ describe("UsagePage", () => {
     const { container } = renderPage(UsagePage, client)
     expect(await screen.findByText("No usage recorded yet.")).toBeTruthy()
     expect(
-      screen.getByText("Usage appears once your application calls RecordUsage."),
+      screen.getByText("Usage appears once your application calls RecordUsage.")
     ).toBeTruthy()
     expect(container.querySelector("[data-chart]")).toBeNull()
     expect(screen.queryByRole("button", { name: "Table" })).toBeNull()
@@ -629,7 +682,7 @@ describe("UsagePage", () => {
     const summary = screen.getByLabelText("Range summary")
     const chart = screen.getByRole("group", { name: /Requests per hour/ })
     expect(
-      summary.compareDocumentPosition(chart) & Node.DOCUMENT_POSITION_FOLLOWING,
+      summary.compareDocumentPosition(chart) & Node.DOCUMENT_POSITION_FOLLOWING
     ).toBeTruthy()
 
     // Still there behind the Table toggle: it sums the range, not the chart.
@@ -678,20 +731,33 @@ describe("UsagePage", () => {
     expect(toggle.getAttribute("aria-pressed")).toBe("false")
 
     fireEvent.click(toggle)
-    expect(screen.getByRole("button", { name: "Table" }).getAttribute("aria-pressed")).toBe("true")
+    expect(
+      screen.getByRole("button", { name: "Table" }).getAttribute("aria-pressed")
+    ).toBe("true")
     expect(container.querySelector("[data-chart]")).toBeNull()
 
     const table = screen.getByRole("table", { name: "3 hourly buckets, UTC" })
     expect(
-      within(table).getAllByRole("columnheader").map((h) => h.textContent),
-    ).toEqual(["Bucket start", "Succeeded", "4xx", "5xx", "Requests", "Avg latency"])
+      within(table)
+        .getAllByRole("columnheader")
+        .map((h) => h.textContent)
+    ).toEqual([
+      "Bucket start",
+      "Succeeded",
+      "4xx",
+      "5xx",
+      "Requests",
+      "Avg latency",
+    ])
 
     const rows = within(table).getAllByRole("row").slice(1)
     expect(rows).toHaveLength(BUCKETS.length)
     expect(
       rows.map((r) =>
-        within(r).getAllByRole("cell").map((c) => c.textContent),
-      ),
+        within(r)
+          .getAllByRole("cell")
+          .map((c) => c.textContent)
+      )
     ).toEqual([
       ["5 Oct 2026, 12:00 UTC", "7", "2", "1", "10", "12 ms"],
       ["5 Oct 2026, 13:00 UTC", "0", "0", "0", "0", "–"],
@@ -710,14 +776,16 @@ describe("UsagePage", () => {
     await screen.findByText("/v1/charges")
     const table = recordsTable()
     expect(
-      within(table).getAllByRole("columnheader").map((h) => h.textContent),
+      within(table)
+        .getAllByRole("columnheader")
+        .map((h) => h.textContent)
     ).toEqual(["Time", "Key", "Method", "Endpoint", "Status", "Latency", "IP"])
     expect(within(table).getByText("2 requests")).toBeTruthy()
 
     const row = rowWith(table, "/v1/invoices")
     // UTC, like the chart's columns, with the exact instant in the title.
     const time = within(cellOf(row, table, "Time")).getByText(
-      "5 Oct 2026, 14:10 UTC",
+      "5 Oct 2026, 14:10 UTC"
     )
     expect(time.tagName).toBe("TIME")
     expect(time.getAttribute("datetime")).toBe("2026-10-05T14:10:00Z")
@@ -729,7 +797,9 @@ describe("UsagePage", () => {
     expect(link.className).toMatch(/font-mono/)
     expect(link.className).toMatch(/text-xs/)
     expect(cellOf(row, table, "Method").textContent).toBe("GET")
-    const endpoint = within(cellOf(row, table, "Endpoint")).getByText("/v1/invoices")
+    const endpoint = within(cellOf(row, table, "Endpoint")).getByText(
+      "/v1/invoices"
+    )
     expect(endpoint.className).toMatch(/font-mono/)
     expect(endpoint.className).toMatch(/text-xs/)
     expect(cellOf(row, table, "Status").textContent).toBe("200")
@@ -742,7 +812,9 @@ describe("UsagePage", () => {
     expect(cellOf(other, table, "Status").textContent).toBe("503")
     expect(cellOf(other, table, "Latency").textContent).toBe("1,500 ms")
     expect(
-      within(cellOf(other, table, "IP")).getByLabelText("no IP address recorded"),
+      within(cellOf(other, table, "IP")).getByLabelText(
+        "no IP address recorded"
+      )
     ).toBeTruthy()
   })
 
@@ -763,7 +835,10 @@ describe("UsagePage", () => {
     const { client, sent } = usageClient({
       records: (params) =>
         params.offset === 25
-          ? { items: [record({ id: "kusg_26", endpoint: "/v1/page-two" })], total: 26 }
+          ? {
+              items: [record({ id: "kusg_26", endpoint: "/v1/page-two" })],
+              total: 26,
+            }
           : { items: [record({})], total: 26 },
     })
     renderPage(UsagePage, client)
@@ -784,7 +859,9 @@ describe("UsagePage", () => {
       records: (params) =>
         params.offset === 0
           ? { items: [record({})], total: 26 }
-          : (new Promise<UsageRecords>((resolve) => waiting.push(resolve)) as unknown as UsageRecords),
+          : (new Promise<UsageRecords>((resolve) =>
+              waiting.push(resolve)
+            ) as unknown as UsageRecords),
     })
     renderPage(UsagePage, client)
     await screen.findByText("/v1/invoices")
@@ -792,14 +869,21 @@ describe("UsagePage", () => {
     next.focus()
     fireEvent.click(next)
 
-    await waitFor(() => expect(document.querySelector('[aria-busy="true"]')).not.toBeNull())
+    await waitFor(() =>
+      expect(document.querySelector('[aria-busy="true"]')).not.toBeNull()
+    )
     expect(screen.getByText("/v1/invoices")).toBeTruthy()
-    expect(screen.queryByRole("status", { name: "Loading Usage records" })).toBeNull()
+    expect(
+      screen.queryByRole("status", { name: "Loading Usage records" })
+    ).toBeNull()
     expect(screen.getByRole("button", { name: "Next page" })).toBe(next)
     expect(document.activeElement).toBe(next)
 
     await act(async () =>
-      waiting.shift()!({ items: [record({ id: "kusg_26", endpoint: "/v1/page-two" })], total: 26 }),
+      waiting.shift()!({
+        items: [record({ id: "kusg_26", endpoint: "/v1/page-two" })],
+        total: 26,
+      })
     )
     expect(await screen.findByText("/v1/page-two")).toBeTruthy()
   })
@@ -813,7 +897,9 @@ describe("UsagePage", () => {
     fireEvent.click(screen.getByRole("button", { name: /Next/ }))
     await screen.findByText(/Page 2 of 2/)
 
-    fireEvent.change(screen.getByLabelText("Range"), { target: { value: "7d" } })
+    fireEvent.change(screen.getByLabelText("Range"), {
+      target: { value: "7d" },
+    })
     await screen.findByText(/Page 1 of 2/)
     expect(paramsOf(sent, "usage.records").at(-1)).toMatchObject({ offset: 0 })
   })
@@ -824,18 +910,18 @@ describe("UsagePage", () => {
     })
     renderPage(UsagePage, client)
     expect(
-      await screen.findByText("No requests recorded in this range."),
+      await screen.findByText("No requests recorded in this range.")
     ).toBeTruthy()
   })
 
   it("shows the contract's error when the reads fail", async () => {
     renderPage(
       UsagePage,
-      failingClient(new ContractError("INTERNAL", "an internal error occurred")),
+      failingClient(new ContractError("INTERNAL", "an internal error occurred"))
     )
     expect(await screen.findByText("Usage unavailable")).toBeTruthy()
     expect(
-      screen.getByText("INTERNAL: an internal error occurred"),
+      screen.getByText("INTERNAL: an internal error occurred")
     ).toBeTruthy()
     // With no series there is no telling whether usage exists, so the
     // records stay hidden rather than saying the range is empty.
@@ -843,7 +929,9 @@ describe("UsagePage", () => {
     expect(screen.queryByText("Usage records unavailable")).toBeNull()
     // The key filter still offers every key, with no names to add.
     expect(
-      within(screen.getByLabelText("Key")).getAllByRole("option").map((o) => o.textContent),
+      within(screen.getByLabelText("Key"))
+        .getAllByRole("option")
+        .map((o) => o.textContent)
     ).toEqual(["All keys"])
   })
 
@@ -860,7 +948,7 @@ describe("UsagePage", () => {
     } as ScopedClient
     renderPage(UsagePage, pending)
     await waitFor(() =>
-      expect(paramsOf(sent, "usage.records").length).toBeGreaterThan(0),
+      expect(paramsOf(sent, "usage.records").length).toBeGreaterThan(0)
     )
     await screen.findByText("Partner sandbox", { selector: "option" })
     expect(screen.getByRole("status", { name: "Loading Usage" })).toBeTruthy()

@@ -95,7 +95,9 @@ function isPast(iso: string): boolean {
  * running: a hook cannot be skipped, and a query with no key would ask the
  * server about a secret called "".
  */
-export const SecretDetailPage: ComponentType<PluginPageProps> = ({ params }) => {
+export const SecretDetailPage: ComponentType<PluginPageProps> = ({
+  params,
+}) => {
   const key = params.key
   if (!key) {
     return (
@@ -109,7 +111,9 @@ export const SecretDetailPage: ComponentType<PluginPageProps> = ({ params }) => 
 
 function SecretDetailBody({ secretKey }: { secretKey: string }) {
   const detail = useQuery<SecretDetail>("secrets.detail", { key: secretKey })
-  const versions = useQuery<VersionsResponse>("secrets.versions", { key: secretKey })
+  const versions = useQuery<VersionsResponse>("secrets.versions", {
+    key: secretKey,
+  })
   const update = useCommand<UpdateResponse>("secrets.update")
   const remove = useCommand<DeleteResponse>("secrets.delete")
   const navigateTo = useNavigateTo()
@@ -148,7 +152,11 @@ function SecretDetailBody({ secretKey }: { secretKey: string }) {
             actions={
               <div className="flex gap-2">
                 <Button onClick={openReplace}>Replace value</Button>
-                <IconButton variant="destructive" onClick={openDelete} label="Delete" />
+                <IconButton
+                  variant="destructive"
+                  onClick={openDelete}
+                  label="Delete"
+                />
               </div>
             }
           />
@@ -177,10 +185,14 @@ function SecretDetailBody({ secretKey }: { secretKey: string }) {
             open={deleting}
             // Escape must not close it while the delete is in flight: a
             // failure would then be shown nowhere.
-            onOpenChange={(open) => !open && !remove.loading && setDeleting(false)}
+            onOpenChange={(open) =>
+              !open && !remove.loading && setDeleting(false)
+            }
             title={`Delete ${secretKey}?`}
             description={`This deletes ${secretKey} and every version of it.${
-              data.rotation !== null ? " Its rotation policy is deleted too." : ""
+              data.rotation !== null
+                ? " Its rotation policy is deleted too."
+                : ""
             } This cannot be undone.`}
             confirmLabel="Delete"
             pending={remove.loading}
@@ -201,7 +213,10 @@ function SecretFields({ secret }: { secret: SecretSummary }) {
   return (
     <DescriptionList
       items={[
-        { term: "ID", value: <span className="font-mono text-xs">{secret.id}</span> },
+        {
+          term: "ID",
+          value: <span className="font-mono text-xs">{secret.id}</span>,
+        },
         {
           term: "Encryption",
           value: (
@@ -209,16 +224,26 @@ function SecretFields({ secret }: { secret: SecretSummary }) {
               <EncryptionBadge alg={secret.encryptionAlg} />
               {secret.encryptionAlg === "" && (
                 <span className="text-muted-foreground">
-                  Stored unencrypted. Replacing the value while a key is configured stores it encrypted.
+                  Stored unencrypted. Replacing the value while a key is
+                  configured stores it encrypted.
                 </span>
               )}
             </span>
           ),
         },
         { term: "Version", value: `v${secret.version}` },
-        { term: "Expires", value: <Timestamp value={secret.expiresAt} label="expiry" /> },
-        { term: "Created", value: <Timestamp value={secret.createdAt} label="creation time" /> },
-        { term: "Updated", value: <Timestamp value={secret.updatedAt} label="update time" /> },
+        {
+          term: "Expires",
+          value: <Timestamp value={secret.expiresAt} label="expiry" />,
+        },
+        {
+          term: "Created",
+          value: <Timestamp value={secret.createdAt} label="creation time" />,
+        },
+        {
+          term: "Updated",
+          value: <Timestamp value={secret.updatedAt} label="update time" />,
+        },
         { term: "Metadata", value: <TagList values={tags} label="metadata" /> },
       ]}
     />
@@ -298,7 +323,10 @@ function RotationPane({
       {policy === null ? (
         <>
           <p className="text-sm text-muted-foreground">No rotation policy.</p>
-          <PluginLink to={rotationPath(secretKey)} className="text-sm underline underline-offset-4">
+          <PluginLink
+            to={rotationPath(secretKey)}
+            className="text-sm underline underline-offset-4"
+          >
             Set up rotation
           </PluginLink>
         </>
@@ -306,9 +334,18 @@ function RotationPane({
         <>
           <DescriptionList
             items={[
-              { term: "Interval", value: `Every ${formatInterval(policy.intervalSeconds)}` },
-              { term: "Status", value: <PolicyStatusBadge enabled={policy.enabled} /> },
-              { term: "Rotator", value: <RotatorBadge rotatable={policy.rotatable} /> },
+              {
+                term: "Interval",
+                value: `Every ${formatInterval(policy.intervalSeconds)}`,
+              },
+              {
+                term: "Status",
+                value: <PolicyStatusBadge enabled={policy.enabled} />,
+              },
+              {
+                term: "Rotator",
+                value: <RotatorBadge rotatable={policy.rotatable} />,
+              },
               {
                 term: "Next rotation",
                 // A time is shown only for a policy that will really rotate:
@@ -317,7 +354,11 @@ function RotationPane({
                 // will not happen.
                 value: (
                   <Timestamp
-                    value={policy.enabled && policy.rotatable ? policy.nextRotationAt : undefined}
+                    value={
+                      policy.enabled && policy.rotatable
+                        ? policy.nextRotationAt
+                        : undefined
+                    }
                     label="next rotation"
                   />
                 ),
@@ -326,10 +367,14 @@ function RotationPane({
           />
           {!policy.rotatable && (
             <p className="text-sm text-muted-foreground">
-              No rotator is registered for this secret, so this policy will not rotate it.
+              No rotator is registered for this secret, so this policy will not
+              rotate it.
             </p>
           )}
-          <PluginLink to={rotationPath(secretKey)} className="text-sm underline underline-offset-4">
+          <PluginLink
+            to={rotationPath(secretKey)}
+            className="text-sm underline underline-offset-4"
+          >
             Open the rotation page
           </PluginLink>
         </>
@@ -366,7 +411,8 @@ function ReplaceDialog({
   const newExpiry = choice === "set" ? toRFC3339(expires) : undefined
   const expiryMissing = choice === "set" && newExpiry === undefined
   const expiryInPast = newExpiry !== undefined && isPast(newExpiry)
-  const canSubmit = !update.loading && hasValue && !expiryMissing && !expiryInPast
+  const canSubmit =
+    !update.loading && hasValue && !expiryMissing && !expiryInPast
 
   async function submit(event: FormEvent) {
     event.preventDefault()
@@ -404,10 +450,14 @@ function ReplaceDialog({
           <DialogHeader>
             <DialogTitle>Replace the value of {secretKey}</DialogTitle>
             <DialogDescription>
-              This adds a new version. The value is write-only: once you save it, it cannot be shown again.
+              This adds a new version. The value is write-only: once you save
+              it, it cannot be shown again.
             </DialogDescription>
           </DialogHeader>
-          <CommandAlert error={update.error} title="Could not replace the value" />
+          <CommandAlert
+            error={update.error}
+            title="Could not replace the value"
+          />
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="replace-value">Value</Label>
             {/* "new-password": browsers ignore "off" on password fields. */}
@@ -452,14 +502,20 @@ function ReplaceDialog({
                 />
                 {expiryInPast && (
                   <p role="alert" className="text-sm text-destructive">
-                    The expiry is in the past. Pick a time that has not happened yet.
+                    The expiry is in the past. Pick a time that has not happened
+                    yet.
                   </p>
                 )}
               </div>
             )}
           </fieldset>
           <DialogFooter>
-            <Button type="button" variant="outline" disabled={update.loading} onClick={onClose}>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={update.loading}
+              onClick={onClose}
+            >
               Cancel
             </Button>
             <Button type="submit" disabled={!canSubmit}>

@@ -3,7 +3,10 @@ import type { ReactNode } from "react"
 
 import { cn } from "@forge-go/dashboard-kit/lib/utils"
 import { RailEntries } from "@forge-go/dashboard-kit/components/rail-entries"
-import type { RailItem, RenderRailLink } from "@forge-go/dashboard-kit/components/rail-entries"
+import type {
+  RailItem,
+  RenderRailLink,
+} from "@forge-go/dashboard-kit/components/rail-entries"
 import { useSidebar } from "@forge-go/dashboard-kit/components/sidebar"
 import {
   Tooltip,
@@ -64,8 +67,10 @@ function RailSlot({
           <div
             data-slot="rail-slot"
             className={cn(
-              expanded ? "flex w-full items-center" : "flex w-8 items-center justify-center",
-              className,
+              expanded
+                ? "flex w-full items-center"
+                : "flex w-8 items-center justify-center",
+              className
             )}
           />
         }
@@ -96,7 +101,13 @@ const SEARCH_SLOT_WIDE = "[&>button]:h-8 [&>button]:w-full [&>button]:px-2"
  * 2px line that shows on hover and focus. A real button in the tab order,
  * because it is the rail's only way to widen.
  */
-function RailEdgeToggle({ expanded, onToggle }: { expanded: boolean; onToggle: () => void }) {
+function RailEdgeToggle({
+  expanded,
+  onToggle,
+}: {
+  expanded: boolean
+  onToggle: () => void
+}) {
   const name = expanded ? "Collapse navigation" : "Expand navigation"
   return (
     <button
@@ -106,7 +117,7 @@ function RailEdgeToggle({ expanded, onToggle }: { expanded: boolean; onToggle: (
       onClick={onToggle}
       className={cn(
         "absolute inset-y-0 -right-2 z-20 flex w-4 outline-hidden after:absolute after:inset-y-0 after:left-1/2 after:w-[2px] after:transition-colors hover:after:bg-sidebar-ring focus-visible:after:bg-sidebar-ring",
-        expanded ? "cursor-w-resize" : "cursor-e-resize",
+        expanded ? "cursor-w-resize" : "cursor-e-resize"
       )}
     >
       <span className="sr-only">{name}</span>
@@ -155,7 +166,7 @@ export function NavRail({
       className={cn(
         "group sticky top-0 z-20 flex h-svh shrink-0 flex-col gap-1 border-r border-sidebar-border bg-sidebar py-2 text-sidebar-foreground transition-[width] duration-200 ease-linear",
         expanded ? "w-(--sidebar-width) px-2" : "w-(--sidebar-width-icon)",
-        column,
+        column
       )}
     >
       <RailEdgeToggle expanded={expanded} onToggle={onToggle} />
@@ -170,11 +181,20 @@ export function NavRail({
         </RailSlot>
       ) : null}
       {searchControl ? (
-        <RailSlot expanded={expanded} title="Search pages" className={cn(SEARCH_SLOT, expanded && SEARCH_SLOT_WIDE)}>
+        <RailSlot
+          expanded={expanded}
+          title="Search pages"
+          className={cn(SEARCH_SLOT, expanded && SEARCH_SLOT_WIDE)}
+        >
           {searchControl}
         </RailSlot>
       ) : null}
-      <div className={cn("no-scrollbar relative mt-2 flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto", column)}>
+      <div
+        className={cn(
+          "relative mt-2 no-scrollbar flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto",
+          column
+        )}
+      >
         {groups.map((group, index) => (
           <Fragment key={`${group.label ?? ""}:${index}`}>
             {expanded && group.label ? (
@@ -182,7 +202,9 @@ export function NavRail({
                 {group.label}
               </span>
             ) : null}
-            {!expanded && index > 0 ? <span data-slot="rail-gap" aria-hidden="true" className="h-3" /> : null}
+            {!expanded && index > 0 ? (
+              <span data-slot="rail-gap" aria-hidden="true" className="h-3" />
+            ) : null}
             <RailEntries
               items={group.items}
               label={group.label}
@@ -200,7 +222,11 @@ export function NavRail({
                 Plugins
               </span>
             ) : (
-              <span data-slot="rail-divider" aria-hidden="true" className="my-2 w-5 border-t border-sidebar-border" />
+              <span
+                data-slot="rail-divider"
+                aria-hidden="true"
+                className="my-2 w-5 border-t border-sidebar-border"
+              />
             )}
             <RailEntries
               items={plugins}

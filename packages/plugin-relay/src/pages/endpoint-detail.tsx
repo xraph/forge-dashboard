@@ -145,13 +145,30 @@ function EndpointDetailView({ id }: { id: string }) {
               actions={
                 <>
                   {!editing && (
-                    <IconButton variant="outline" onClick={startEditing} label="Edit" />
+                    <IconButton
+                      variant="outline"
+                      onClick={startEditing}
+                      label="Edit"
+                    />
                   )}
-                  <IconButton variant="outline" disabled={setEnabled.loading} onClick={() =>
+                  <IconButton
+                    variant="outline"
+                    disabled={setEnabled.loading}
+                    onClick={() =>
                       void setEnabled.execute({ id, enabled: !ep.enabled })
-                    } label={ep.enabled ? "Disable" : "Enable"} />
-                  <IconButton variant="outline" onClick={() => open("rotate")} label="Rotate secret" />
-                  <IconButton variant="destructive" onClick={() => open("delete")} label="Delete" />
+                    }
+                    label={ep.enabled ? "Disable" : "Enable"}
+                  />
+                  <IconButton
+                    variant="outline"
+                    onClick={() => open("rotate")}
+                    label="Rotate secret"
+                  />
+                  <IconButton
+                    variant="destructive"
+                    onClick={() => open("delete")}
+                    label="Delete"
+                  />
                 </>
               }
             />

@@ -1,9 +1,21 @@
 import { describe, expect, it } from "vitest"
 import { LOCALE_PATTERN, SLUG_PATTERN, VARIABLE_PATTERN } from "../src/format"
 import { FIELD_LABEL, SINGLE_LINE, fieldsFor } from "../src/workspace/fields"
-import { answerText, answersFor, explainLocale, versionName, withActive, without } from "../src/workspace/resolve"
+import {
+  answerText,
+  answersFor,
+  explainLocale,
+  versionName,
+  withActive,
+  without,
+} from "../src/workspace/resolve"
 import type { VersionState } from "../src/workspace/resolve"
-import { parseSample, placeholderFor, sampleDataFor, sampleTextFor } from "../src/workspace/sample-data"
+import {
+  parseSample,
+  placeholderFor,
+  sampleDataFor,
+  sampleTextFor,
+} from "../src/workspace/sample-data"
 
 const V: VersionState[] = [
   { id: "v-fallback", locale: "", active: true },
@@ -14,7 +26,10 @@ const V: VersionState[] = [
 
 describe("explainLocale mirrors Herald's template.Explain", () => {
   it("answers an exact live locale on the first step", () => {
-    expect(explainLocale(V, "en")).toEqual({ steps: [{ try: "en", match: "exact", found: true, versionId: "v-en" }], versionId: "v-en" })
+    expect(explainLocale(V, "en")).toEqual({
+      steps: [{ try: "en", match: "exact", found: true, versionId: "v-en" }],
+      versionId: "v-en",
+    })
   })
 
   it("tries the language, then the fallback, and skips an inactive version", () => {
@@ -30,7 +45,10 @@ describe("explainLocale mirrors Herald's template.Explain", () => {
 
   it("answers en-GB with en through the language step", () => {
     expect(explainLocale(V, "en-GB").versionId).toBe("v-en")
-    expect(explainLocale(V, "en-GB").steps.map((s) => s.match)).toEqual(["exact", "language"])
+    expect(explainLocale(V, "en-GB").steps.map((s) => s.match)).toEqual([
+      "exact",
+      "language",
+    ])
   })
 
   it("fails when nothing live answers", () => {
@@ -45,7 +63,9 @@ describe("explainLocale mirrors Herald's template.Explain", () => {
   })
 
   it("tries only the fallback itself for the empty locale", () => {
-    expect(explainLocale(V, "").steps).toEqual([{ try: "", match: "exact", found: true, versionId: "v-fallback" }])
+    expect(explainLocale(V, "").steps).toEqual([
+      { try: "", match: "exact", found: true, versionId: "v-fallback" },
+    ])
   })
 })
 
@@ -54,32 +74,65 @@ describe("answerText and versionName", () => {
     expect(versionName("")).toBe("the fallback version")
     expect(versionName("en")).toBe("the en version")
     expect(answerText(V, "en")).toBe("the en version")
-    expect(answerText(withActive(V, "v-en", false), "en")).toBe("the fallback version")
-    expect(answerText(without(without(V, "v-en"), "v-fallback"), "en")).toBe("nothing, so a send in that locale fails")
+    expect(answerText(withActive(V, "v-en", false), "en")).toBe(
+      "the fallback version"
+    )
+    expect(answerText(without(without(V, "v-en"), "v-fallback"), "en")).toBe(
+      "nothing, so a send in that locale fails"
+    )
   })
 })
 
 describe("answersFor", () => {
   it("says what each live version answers and nothing for an inactive one", () => {
     expect(answersFor(V[0])).toEqual({ kind: "fallback" })
-    expect(answersFor(V[1])).toEqual({ kind: "locale", locale: "en", wildcard: "en-*" })
+    expect(answersFor(V[1])).toEqual({
+      kind: "locale",
+      locale: "en",
+      wildcard: "en-*",
+    })
     expect(answersFor(V[2])).toBeNull()
-    expect(answersFor(V[3])).toEqual({ kind: "locale", locale: "pt-BR", wildcard: null })
+    expect(answersFor(V[3])).toEqual({
+      kind: "locale",
+      locale: "pt-BR",
+      wildcard: null,
+    })
   })
 })
 
 describe("fieldsFor", () => {
   it("orders each channel's fields the way they're read, and folds the rest", () => {
-    expect(fieldsFor("email")).toEqual({ primary: ["subject", "html", "text"], other: ["title"] })
-    expect(fieldsFor("sms")).toEqual({ primary: ["text"], other: ["subject", "html", "title"] })
-    expect(fieldsFor("push")).toEqual({ primary: ["title", "text"], other: ["subject", "html"] })
-    expect(fieldsFor("inapp")).toEqual({ primary: ["title", "text"], other: ["subject", "html"] })
-    expect(fieldsFor("webhook")).toEqual({ primary: ["subject", "text"], other: ["html", "title"] })
-    expect(fieldsFor("chat")).toEqual({ primary: ["subject", "text"], other: ["html", "title"] })
+    expect(fieldsFor("email")).toEqual({
+      primary: ["subject", "html", "text"],
+      other: ["title"],
+    })
+    expect(fieldsFor("sms")).toEqual({
+      primary: ["text"],
+      other: ["subject", "html", "title"],
+    })
+    expect(fieldsFor("push")).toEqual({
+      primary: ["title", "text"],
+      other: ["subject", "html"],
+    })
+    expect(fieldsFor("inapp")).toEqual({
+      primary: ["title", "text"],
+      other: ["subject", "html"],
+    })
+    expect(fieldsFor("webhook")).toEqual({
+      primary: ["subject", "text"],
+      other: ["html", "title"],
+    })
+    expect(fieldsFor("chat")).toEqual({
+      primary: ["subject", "text"],
+      other: ["html", "title"],
+    })
   })
 
   it("shows every field for a channel it doesn't know", () => {
-    expect(fieldsFor("pager")).toEqual({ primary: ["subject", "html", "text", "title"], other: [] })
+    expect(fieldsFor("pager")).toEqual({
+      primary: ["subject", "html", "text", "title"],
+      other: [],
+    })
   })
 
   it("labels fields and keeps subject and title on one line", () => {
@@ -90,11 +143,26 @@ describe("fieldsFor", () => {
 
 describe("sample data", () => {
   it("prefills from each variable's default, else a placeholder for its type", () => {
-    expect(placeholderFor({ name: "expires_in", type: "string", required: false, default: "1 hour" })).toBe("1 hour")
-    expect(placeholderFor({ name: "customer_name", type: "string", required: true })).toBe("example customer name")
-    expect(placeholderFor({ name: "invoice_url", type: "url", required: false })).toBe("https://example.com/")
-    expect(placeholderFor({ name: "count", type: "number", required: false })).toBe(1)
-    expect(placeholderFor({ name: "vip", type: "boolean", required: false })).toBe(true)
+    expect(
+      placeholderFor({
+        name: "expires_in",
+        type: "string",
+        required: false,
+        default: "1 hour",
+      })
+    ).toBe("1 hour")
+    expect(
+      placeholderFor({ name: "customer_name", type: "string", required: true })
+    ).toBe("example customer name")
+    expect(
+      placeholderFor({ name: "invoice_url", type: "url", required: false })
+    ).toBe("https://example.com/")
+    expect(
+      placeholderFor({ name: "count", type: "number", required: false })
+    ).toBe(1)
+    expect(
+      placeholderFor({ name: "vip", type: "boolean", required: false })
+    ).toBe(true)
   })
 
   it("builds an object and its pretty JSON, skipping unnamed rows", () => {
@@ -102,15 +170,25 @@ describe("sample data", () => {
       { name: "customer_name", type: "string", required: true },
       { name: " ", type: "string", required: false },
     ]
-    expect(sampleDataFor(vars)).toEqual({ customer_name: "example customer name" })
-    expect(sampleTextFor(vars)).toBe('{\n  "customer_name": "example customer name"\n}')
+    expect(sampleDataFor(vars)).toEqual({
+      customer_name: "example customer name",
+    })
+    expect(sampleTextFor(vars)).toBe(
+      '{\n  "customer_name": "example customer name"\n}'
+    )
   })
 
   it("parses an object, treats empty text as no data, and refuses anything else", () => {
     expect(parseSample('{"a": 1}')).toEqual({ ok: true, data: { a: 1 } })
     expect(parseSample("  ")).toEqual({ ok: true, data: {} })
-    expect(parseSample("[1]")).toEqual({ ok: false, message: 'Sample data must be a JSON object, like {"name": "Ada"}.' })
-    expect(parseSample("null")).toEqual({ ok: false, message: 'Sample data must be a JSON object, like {"name": "Ada"}.' })
+    expect(parseSample("[1]")).toEqual({
+      ok: false,
+      message: 'Sample data must be a JSON object, like {"name": "Ada"}.',
+    })
+    expect(parseSample("null")).toEqual({
+      ok: false,
+      message: 'Sample data must be a JSON object, like {"name": "Ada"}.',
+    })
     const bad = parseSample("{nope")
     expect(bad.ok).toBe(false)
     if (!bad.ok) expect(bad.message).toMatch(/^Not valid JSON: /)

@@ -15,7 +15,10 @@ window.matchMedia ??= ((query: string) => ({
   dispatchEvent: () => false,
 })) as unknown as typeof window.matchMedia
 
-const renderLink = (node: { label: string; href: string; icon?: React.ReactNode }, href: string) => (
+const renderLink = (
+  node: { label: string; href: string; icon?: React.ReactNode },
+  href: string
+) => (
   <a href={href}>
     {node.icon}
     <span>{node.label}</span>
@@ -56,7 +59,9 @@ const areas: NavArea[] = [
   },
 ]
 
-function renderShell(props: Partial<React.ComponentProps<typeof DashboardShell>> = {}) {
+function renderShell(
+  props: Partial<React.ComponentProps<typeof DashboardShell>> = {}
+) {
   return render(
     <DashboardShell
       title="Users"
@@ -76,7 +81,7 @@ function renderShell(props: Partial<React.ComponentProps<typeof DashboardShell>>
       {...props}
     >
       <p>page body</p>
-    </DashboardShell>,
+    </DashboardShell>
   )
 }
 
@@ -87,7 +92,9 @@ const breadcrumb = () =>
     .map((node) => node.textContent)
 const railLink = (name: string) => within(rail()).getByRole("link", { name })
 const wrapperStyle = (c: HTMLElement) =>
-  (c.querySelector('[data-slot="sidebar-wrapper"]') as HTMLElement).getAttribute("style") ?? ""
+  (
+    c.querySelector('[data-slot="sidebar-wrapper"]') as HTMLElement
+  ).getAttribute("style") ?? ""
 const originalWidth = window.innerWidth
 
 describe("DashboardShell", () => {
@@ -95,18 +102,22 @@ describe("DashboardShell", () => {
     window.localStorage.clear()
   })
   afterEach(() => {
-    Object.defineProperty(window, "innerWidth", { value: originalWidth, configurable: true })
+    Object.defineProperty(window, "innerWidth", {
+      value: originalWidth,
+      configurable: true,
+    })
   })
 
   it("lists the scope's pages and its plugins in the rail and puts a core page in a sidebar-less card", () => {
     const { container } = renderShell()
-    expect(within(rail()).getAllByRole("link").map((a) => a.lastElementChild?.textContent)).toEqual([
-      "Users",
-      "Overview",
-      "Billing",
-      "API Keys",
-    ])
-    expect(railLink("Users").getAttribute("href")).toBe("/@auth/users?env=staging")
+    expect(
+      within(rail())
+        .getAllByRole("link")
+        .map((a) => a.lastElementChild?.textContent)
+    ).toEqual(["Users", "Overview", "Billing", "API Keys"])
+    expect(railLink("Users").getAttribute("href")).toBe(
+      "/@auth/users?env=staging"
+    )
     expect(railLink("Users").getAttribute("aria-current")).toBe("page")
     expect(railLink("Overview").getAttribute("aria-current")).toBeNull()
     expect(container.querySelector('[data-slot="sidebar"]')).toBeNull()
@@ -124,67 +135,116 @@ describe("DashboardShell", () => {
   })
 
   it("opens the secondary sidebar for a plugin with more than one page", () => {
-    const { container } = renderShell({ title: "Plans", activeAreaId: "subscription", currentPath: "/@auth/plans" })
+    const { container } = renderShell({
+      title: "Plans",
+      activeAreaId: "subscription",
+      currentPath: "/@auth/plans",
+    })
     expect(railLink("Billing").getAttribute("aria-current")).toBe("page")
     expect(railLink("Users").getAttribute("aria-current")).toBeNull()
-    const sidebar = container.querySelector('[data-slot="sidebar"]') as HTMLElement
+    const sidebar = container.querySelector(
+      '[data-slot="sidebar"]'
+    ) as HTMLElement
     expect(sidebar).toBeTruthy()
-    const content = container.querySelector('[data-slot="sidebar-content"]') as HTMLElement
+    const content = container.querySelector(
+      '[data-slot="sidebar-content"]'
+    ) as HTMLElement
     expect(within(content).getByRole("link", { name: "Plans" })).toBeTruthy()
     expect(within(content).getByRole("link", { name: "Invoices" })).toBeTruthy()
     expect(breadcrumb()).toEqual(["Billing", "Plans"])
     expect(sidebar.getAttribute("data-collapsible")).toBe("")
     fireEvent.click(
-      within(container.querySelector("header") as HTMLElement).getByRole("button", { name: "Toggle Sidebar" }),
+      within(container.querySelector("header") as HTMLElement).getByRole(
+        "button",
+        { name: "Toggle Sidebar" }
+      )
     )
     expect(sidebar.getAttribute("data-collapsible")).toBe("icon")
   })
 
   it("keeps a single-page plugin in the rail with no secondary sidebar", () => {
-    const { container } = renderShell({ title: "API Keys", activeAreaId: "apikey", currentPath: "/@auth/apikeys" })
+    const { container } = renderShell({
+      title: "API Keys",
+      activeAreaId: "apikey",
+      currentPath: "/@auth/apikeys",
+    })
     expect(railLink("API Keys").getAttribute("aria-current")).toBe("page")
     expect(container.querySelector('[data-slot="sidebar"]')).toBeNull()
     expect(breadcrumb()).toEqual(["API Keys"])
   })
 
   it("shows one crumb when the plugin and its page share a name", () => {
-    renderShell({ title: "API Keys", activeAreaId: "apikey", currentPath: "/@auth/apikeys" })
-    const crumbs = within(screen.getByRole("navigation", { name: "Breadcrumb" })).getAllByText("API Keys")
+    renderShell({
+      title: "API Keys",
+      activeAreaId: "apikey",
+      currentPath: "/@auth/apikeys",
+    })
+    const crumbs = within(
+      screen.getByRole("navigation", { name: "Breadcrumb" })
+    ).getAllByText("API Keys")
     expect(crumbs).toHaveLength(1)
     expect(crumbs[0].getAttribute("aria-current")).toBe("page")
   })
 
   it("puts the switcher, context, search and account in the rail, once", () => {
     renderShell()
-    expect(within(rail()).getByRole("button", { name: /Authsome/ })).toBeTruthy()
-    expect(within(rail()).getByRole("button", { name: "Platform / Production" })).toBeTruthy()
-    expect(within(rail()).getByRole("button", { name: "Search pages" })).toBeTruthy()
+    expect(
+      within(rail()).getByRole("button", { name: /Authsome/ })
+    ).toBeTruthy()
+    expect(
+      within(rail()).getByRole("button", { name: "Platform / Production" })
+    ).toBeTruthy()
+    expect(
+      within(rail()).getByRole("button", { name: "Search pages" })
+    ).toBeTruthy()
     expect(within(rail()).getByText("Ada Lovelace")).toBeTruthy()
-    expect(screen.getAllByRole("button", { name: "Search pages" })).toHaveLength(1)
-    expect(screen.getAllByRole("button", { name: "Platform / Production" })).toHaveLength(1)
+    expect(
+      screen.getAllByRole("button", { name: "Search pages" })
+    ).toHaveLength(1)
+    expect(
+      screen.getAllByRole("button", { name: "Platform / Production" })
+    ).toHaveLength(1)
     expect(screen.getAllByText("Ada Lovelace")).toHaveLength(1)
   })
 
   it("follows the rail's width with --sidebar-offset when it widens", () => {
     const { container } = renderShell()
-    expect(wrapperStyle(container)).toContain("--sidebar-offset: var(--sidebar-width-icon)")
-    fireEvent.click(within(rail()).getByRole("button", { name: "Expand navigation" }))
-    expect(wrapperStyle(container)).toContain("--sidebar-offset: var(--sidebar-width)")
+    expect(wrapperStyle(container)).toContain(
+      "--sidebar-offset: var(--sidebar-width-icon)"
+    )
+    fireEvent.click(
+      within(rail()).getByRole("button", { name: "Expand navigation" })
+    )
+    expect(wrapperStyle(container)).toContain(
+      "--sidebar-offset: var(--sidebar-width)"
+    )
     expect(window.localStorage.getItem("forge-dashboard.rail")).toBe("expanded")
   })
 
   it("keeps the rail and its chrome for a scope with no areas", () => {
-    renderShell({ areas: [], empty: { message: "Pick an app to see its pages." } })
+    renderShell({
+      areas: [],
+      empty: { message: "Pick an app to see its pages." },
+    })
     expect(within(rail()).queryAllByRole("link")).toHaveLength(0)
-    expect(within(rail()).getByRole("button", { name: "Search pages" })).toBeTruthy()
-    expect(within(rail()).getByRole("button", { name: "Platform / Production" })).toBeTruthy()
+    expect(
+      within(rail()).getByRole("button", { name: "Search pages" })
+    ).toBeTruthy()
+    expect(
+      within(rail()).getByRole("button", { name: "Platform / Production" })
+    ).toBeTruthy()
     expect(within(rail()).getByText("Ada Lovelace")).toBeTruthy()
   })
 
   it("drops the rail on mobile and offers the sheet's toggle even on a core page", () => {
-    Object.defineProperty(window, "innerWidth", { value: 500, configurable: true })
+    Object.defineProperty(window, "innerWidth", {
+      value: 500,
+      configurable: true,
+    })
     renderShell()
-    expect(screen.queryByRole("navigation", { name: "Scope navigation" })).toBeNull()
+    expect(
+      screen.queryByRole("navigation", { name: "Scope navigation" })
+    ).toBeNull()
     expect(screen.getByRole("button", { name: "Toggle Sidebar" })).toBeTruthy()
   })
 
@@ -213,8 +273,14 @@ describe("DashboardShell", () => {
         },
       ],
     })
-    expect(railLink("Risk Engine").getAttribute("href")).toContain("/@auth/risk")
-    expect(railLink("Risk Rules").getAttribute("href")).toContain("/@auth/rules")
-    expect(within(rail()).queryByRole("link", { name: "Threat detection" })).toBeNull()
+    expect(railLink("Risk Engine").getAttribute("href")).toContain(
+      "/@auth/risk"
+    )
+    expect(railLink("Risk Rules").getAttribute("href")).toContain(
+      "/@auth/rules"
+    )
+    expect(
+      within(rail()).queryByRole("link", { name: "Threat detection" })
+    ).toBeNull()
   })
 })

@@ -20,7 +20,7 @@ function renderLabel() {
       <Sidebar collapsible="icon">
         <SectionLabel>Billing</SectionLabel>
       </Sidebar>
-    </SidebarProvider>,
+    </SidebarProvider>
   )
 }
 
@@ -35,15 +35,25 @@ describe("SectionLabel", () => {
   it("toggles the sidebar and renames itself", () => {
     const { container } = renderLabel()
     fireEvent.click(screen.getByRole("button", { name: "Collapse Billing" }))
-    const sidebar = container.querySelector('[data-slot="sidebar"]') as HTMLElement
+    const sidebar = container.querySelector(
+      '[data-slot="sidebar"]'
+    ) as HTMLElement
     expect(sidebar.getAttribute("data-collapsible")).toBe("icon")
-    expect(screen.getByRole("button", { name: "Expand Billing" }).getAttribute("aria-expanded")).toBe("false")
+    expect(
+      screen
+        .getByRole("button", { name: "Expand Billing" })
+        .getAttribute("aria-expanded")
+    ).toBe("false")
   })
 
   it("carries the vertical classes for icon mode", () => {
     renderLabel()
-    const cls = screen.getByRole("button", { name: "Collapse Billing" }).className
-    expect(cls).toContain("group-data-[collapsible=icon]:[writing-mode:vertical-rl]")
+    const cls = screen.getByRole("button", {
+      name: "Collapse Billing",
+    }).className
+    expect(cls).toContain(
+      "group-data-[collapsible=icon]:[writing-mode:vertical-rl]"
+    )
     expect(cls).toContain("group-data-[collapsible=icon]:rotate-180")
   })
 })

@@ -1,6 +1,9 @@
 import { useState } from "react"
 import { useQuery } from "@forge-go/dashboard-plugin"
-import type { FilterConfig, FilterOption } from "@forge-go/dashboard-kit/components/filter-bar"
+import type {
+  FilterConfig,
+  FilterOption,
+} from "@forge-go/dashboard-kit/components/filter-bar"
 
 /**
  * Namespace has three states, not two.
@@ -33,14 +36,19 @@ export interface NamespacesResponse {
  */
 export function NamespaceCell({ path }: { path: string }) {
   return (
-    <span className="font-mono text-xs" title={path === "" ? "Tenant root" : path}>
+    <span
+      className="font-mono text-xs"
+      title={path === "" ? "Tenant root" : path}
+    >
       {path === "" ? "/" : path}
     </span>
   )
 }
 
 /** Turns the selected value into the query params the contract expects. */
-export function namespaceParam(value: NamespaceValue): { namespacePath?: string } {
+export function namespaceParam(value: NamespaceValue): {
+  namespacePath?: string
+} {
   return value === "all" ? {} : { namespacePath: value }
 }
 
@@ -48,7 +56,9 @@ export function namespaceParam(value: NamespaceValue): { namespacePath?: string 
 export function namespaceOptions(namespaces: string[]): FilterOption[] {
   const opts: FilterOption[] = [{ label: "All namespaces", value: "all" }]
   for (const ns of namespaces) {
-    opts.push(ns === "" ? { label: "Tenant root", value: "" } : { label: ns, value: ns })
+    opts.push(
+      ns === "" ? { label: "Tenant root", value: "" } : { label: ns, value: ns }
+    )
   }
   return opts
 }
@@ -65,7 +75,11 @@ export function emptyListMessage(
   namespace: NamespaceValue
 ): string {
   const where =
-    namespace === "all" ? "" : namespace === "" ? " in the tenant root" : ` in ${namespace}`
+    namespace === "all"
+      ? ""
+      : namespace === ""
+        ? " in the tenant root"
+        : ` in ${namespace}`
   if (search) return `No ${noun} match “${search}”${where}.`
   if (namespace !== "all") return `No ${noun}${where}.`
   return `No ${noun} yet.`

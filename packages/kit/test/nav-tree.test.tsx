@@ -44,7 +44,7 @@ function renderTree(currentPath: string, search?: string) {
         search={search}
         renderLink={(_node, href) => <a href={href} />}
       />
-    </SidebarProvider>,
+    </SidebarProvider>
   )
 }
 
@@ -62,7 +62,7 @@ describe("NavTree", () => {
   it("marks the current item", () => {
     renderTree("/@streaming/rooms")
     expect(screen.getByText("Rooms").closest("a")!.getAttribute("href")).toBe(
-      "/@streaming/rooms",
+      "/@streaming/rooms"
     )
     expect(screen.getByText("Rooms").closest("[data-active]")).toBeTruthy()
   })
@@ -70,10 +70,10 @@ describe("NavTree", () => {
   it("appends the search string to every href, children included", () => {
     renderTree("/@streaming", "?ctx.env=production")
     expect(screen.getByText("Rooms").closest("a")!.getAttribute("href")).toBe(
-      "/@streaming/rooms?ctx.env=production",
+      "/@streaming/rooms?ctx.env=production"
     )
     expect(screen.getByText("Active").closest("a")!.getAttribute("href")).toBe(
-      "/@streaming/rooms/active?ctx.env=production",
+      "/@streaming/rooms/active?ctx.env=production"
     )
   })
 
@@ -84,9 +84,9 @@ describe("NavTree", () => {
 
   it("renders no href suffix when there is no search string", () => {
     renderTree("/@streaming")
-    expect(screen.getByText("Overview").closest("a")!.getAttribute("href")).toBe(
-      "/@streaming",
-    )
+    expect(
+      screen.getByText("Overview").closest("a")!.getAttribute("href")
+    ).toBe("/@streaming")
   })
 })
 
@@ -128,7 +128,7 @@ function renderDuplicates(currentPath: string) {
           currentPath={currentPath}
           renderLink={(_node, href) => <a href={href} />}
         />
-      </SidebarProvider>,
+      </SidebarProvider>
     )
   } finally {
     spy.mockRestore()
@@ -143,7 +143,7 @@ describe("NavTree with two items sharing an href", () => {
 
   it("logs no duplicate-key warning for sibling children", () => {
     expect(renderDuplicates("/@streaming/archive")).not.toContain(
-      "the same key",
+      "the same key"
     )
   })
 

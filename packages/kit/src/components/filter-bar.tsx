@@ -90,7 +90,9 @@ export function FilterBar({
       {filters.map((filter) => (
         <Filter key={filter.id} filter={filter} />
       ))}
-      {actions && <div className="ml-auto flex items-center gap-2">{actions}</div>}
+      {actions && (
+        <div className="ml-auto flex items-center gap-2">{actions}</div>
+      )}
     </div>
   )
 }

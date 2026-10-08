@@ -33,7 +33,9 @@ describe("safeNext", () => {
   })
 
   it("keeps a query string and a fragment", () => {
-    expect(safeNext("/forge/apps?tab=live#top", "/forge")).toBe("/forge/apps?tab=live#top")
+    expect(safeNext("/forge/apps?tab=live#top", "/forge")).toBe(
+      "/forge/apps?tab=live#top"
+    )
   })
 
   it("rejects a tab that the URL parser would strip", () => {

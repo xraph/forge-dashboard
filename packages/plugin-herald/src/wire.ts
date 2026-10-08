@@ -10,7 +10,14 @@ export type ISODate = string
 export type Channel = "email" | "sms" | "push" | "inapp" | "webhook" | "chat"
 export type RoutedChannel = "email" | "sms" | "push" | "webhook" | "chat"
 export type PrefChannel = "email" | "sms" | "push" | "inapp"
-export type MessageStatus = "queued" | "sending" | "sent" | "failed" | "bounced" | "delivered" | "suppressed"
+export type MessageStatus =
+  | "queued"
+  | "sending"
+  | "sent"
+  | "failed"
+  | "bounced"
+  | "delivered"
+  | "suppressed"
 export type Protection = "aes-256-gcm" | "plaintext"
 export type Placement = "credential" | "setting"
 export type ScopeType = "app" | "org" | "user"
@@ -219,7 +226,8 @@ export interface FieldOutput {
   output: string
   rendered: boolean
 }
-export type DiagnosticKind = "parse" | "exec" | "escape" | "missing" | "undeclared" | "unprovided"
+export type DiagnosticKind =
+  "parse" | "exec" | "escape" | "missing" | "undeclared" | "unprovided"
 export interface Diagnostic {
   /** "" for missing and unprovided, which also have line and column 0. */
   field: TemplateField | ""

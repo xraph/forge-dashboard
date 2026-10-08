@@ -20,29 +20,50 @@ function columns(suiteId: string): Column<TestCase>[] {
       id: "name",
       header: "Name",
       className: "font-medium",
-      cell: (c) => <PluginLink to={casePath(suiteId, c.id)}>{c.name}</PluginLink>,
+      cell: (c) => (
+        <PluginLink to={casePath(suiteId, c.id)}>{c.name}</PluginLink>
+      ),
     },
     {
       id: "input",
       header: "Input",
       // One line of the input, as text: it may be an attack, and nothing here
       // interprets it.
-      cell: (c) => <span className="line-clamp-1 max-w-md break-all">{c.input}</span>,
+      cell: (c) => (
+        <span className="line-clamp-1 max-w-md break-all">{c.input}</span>
+      ),
     },
-    { id: "scenario", header: "Scenario", cell: (c) => <ScenarioBadge type={c.scenarioType} /> },
-    { id: "tags", header: "Tags", cell: (c) => <TagList values={c.tags} label="tags" /> },
+    {
+      id: "scenario",
+      header: "Scenario",
+      cell: (c) => <ScenarioBadge type={c.scenarioType} />,
+    },
+    {
+      id: "tags",
+      header: "Tags",
+      cell: (c) => <TagList values={c.tags} label="tags" />,
+    },
     {
       id: "scorers",
       header: "Own scorers",
       // A case may hold the same scorer twice with different config; the
       // column names it once.
-      cell: (c) => <TagList values={[...new Set(c.scorers.map((s) => s.name))]} label="scorers of its own" />,
+      cell: (c) => (
+        <TagList
+          values={[...new Set(c.scorers.map((s) => s.name))]}
+          label="scorers of its own"
+        />
+      ),
     },
     {
       id: "redteam",
       header: "Red team",
       cell: (c) =>
-        c.redTeam ? <RedTeamBadge attackType={c.redTeam.attackType} /> : <NoneCell label="attack type" />,
+        c.redTeam ? (
+          <RedTeamBadge attackType={c.redTeam.attackType} />
+        ) : (
+          <NoneCell label="attack type" />
+        ),
     },
   ]
 }
@@ -84,7 +105,11 @@ export function CasesTab({ suiteId }: { suiteId: string }) {
           />
         )}
       </SettledBoundary>
-      <CaseFormDialog open={adding} onOpenChange={setAdding} suiteId={suiteId} />
+      <CaseFormDialog
+        open={adding}
+        onOpenChange={setAdding}
+        suiteId={suiteId}
+      />
       <ImportCasesDialog
         open={importing}
         onOpenChange={(next) => {

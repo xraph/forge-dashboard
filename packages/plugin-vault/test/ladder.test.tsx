@@ -13,7 +13,7 @@ describe("Ladder", () => {
       <Ladder>
         <Rung id="a" number={1} title="First" />
         <Rung id="b" number={2} title="Second" />
-      </Ladder>,
+      </Ladder>
     )
     const items = screen.getAllByRole("listitem")
     expect(items.map((i) => i.getAttribute("data-rung"))).toEqual(["a", "b"])
@@ -25,7 +25,7 @@ describe("Ladder", () => {
     render(
       <Ladder>
         <Rung id="a" number={1} title="First" note="Beats every rung below." />
-      </Ladder>,
+      </Ladder>
     )
     expect(screen.getByRole("heading", { name: "First" })).toBeTruthy()
     expect(screen.getByText("Beats every rung below.")).toBeTruthy()
@@ -36,7 +36,7 @@ describe("Ladder", () => {
       <Ladder>
         <Rung id="a" number={1} title="First" muted notice="Stood down." />
         <Rung id="b" number={2} title="Second" />
-      </Ladder>,
+      </Ladder>
     )
     expect(body("a").className).toContain("opacity-60")
     expect(body("b").className).not.toContain("opacity-60")
@@ -55,7 +55,7 @@ describe("Ladder", () => {
           annotation={<span>ANNOTATION</span>}
           actions={<button>ACTION</button>}
         />
-      </Ladder>,
+      </Ladder>
     )
     const header = rung("a")
     expect(header.textContent).toContain("MARK")
@@ -68,7 +68,7 @@ describe("Ladder", () => {
       <Ladder>
         <Rung id="a" number={1} title="First" decided />
         <Rung id="b" number={2} title="Second" />
-      </Ladder>,
+      </Ladder>
     )
     expect(rung("a").getAttribute("data-decided")).toBe("true")
     expect(rung("a").className).toContain("border-primary")
@@ -90,7 +90,7 @@ describe("LadderRow", () => {
         >
           Summary words
         </LadderRow>
-      </LadderRows>,
+      </LadderRows>
     )
     const row = screen.getByRole("listitem")
     expect(row.textContent).toContain("2")
@@ -105,9 +105,11 @@ describe("LadderRow", () => {
     render(
       <LadderRows label="Overrides">
         <LadderRow value="v">t-acme</LadderRow>
-      </LadderRows>,
+      </LadderRows>
     )
-    expect(screen.getByRole("listitem").querySelector('[data-slot="row-lead"]')).toBeNull()
+    expect(
+      screen.getByRole("listitem").querySelector('[data-slot="row-lead"]')
+    ).toBeNull()
   })
 
   it("flags a decided row", () => {
@@ -116,8 +118,10 @@ describe("LadderRow", () => {
         <LadderRow lead={1} decided value="v">
           x
         </LadderRow>
-      </LadderRows>,
+      </LadderRows>
     )
-    expect(screen.getByRole("listitem").getAttribute("data-decided")).toBe("true")
+    expect(screen.getByRole("listitem").getAttribute("data-decided")).toBe(
+      "true"
+    )
   })
 })

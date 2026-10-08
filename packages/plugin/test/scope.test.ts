@@ -23,25 +23,31 @@ function scope(extension: string, namespace?: string, root?: boolean): Scope {
 
 describe("namespaceOf", () => {
   it("is the extension's name", () => {
-    expect(namespaceOf(definePlugin({ extension: "streaming", routes: [] }))).toBe("streaming")
+    expect(
+      namespaceOf(definePlugin({ extension: "streaming", routes: [] }))
+    ).toBe("streaming")
   })
 
   it("keeps a -contract suffix rather than inventing a second name", () => {
-    expect(namespaceOf(definePlugin({ extension: "pilot-contract", routes: [] }))).toBe(
-      "pilot-contract",
-    )
+    expect(
+      namespaceOf(definePlugin({ extension: "pilot-contract", routes: [] }))
+    ).toBe("pilot-contract")
   })
 
   it("takes an explicit namespace that repeats the extension", () => {
-    expect(namespaceOf(definePlugin({ extension: "relay", namespace: "relay", routes: [] }))).toBe(
-      "relay",
-    )
+    expect(
+      namespaceOf(
+        definePlugin({ extension: "relay", namespace: "relay", routes: [] })
+      )
+    ).toBe("relay")
   })
 })
 
 describe("labelOf", () => {
   it("falls back to the extension", () => {
-    expect(labelOf(definePlugin({ extension: "auth", routes: [] }))).toBe("auth")
+    expect(labelOf(definePlugin({ extension: "auth", routes: [] }))).toBe(
+      "auth"
+    )
   })
 })
 
@@ -67,7 +73,9 @@ describe("resolveActiveScope", () => {
   })
 
   it("matches regardless of how deep the rest of the path runs", () => {
-    expect(resolveActiveScope("/@streaming/rooms/active", scopes)!.id).toBe("streaming")
+    expect(resolveActiveScope("/@streaming/rooms/active", scopes)!.id).toBe(
+      "streaming"
+    )
   })
 
   it("matches a bare namespace with no trailing path", () => {
@@ -97,12 +105,20 @@ describe("resolveActiveScope", () => {
 
 describe("mountPath", () => {
   it("serves a root plugin's path unchanged", () => {
-    const p = definePlugin({ extension: "core-contract", root: true, routes: [] })
+    const p = definePlugin({
+      extension: "core-contract",
+      root: true,
+      routes: [],
+    })
     expect(mountPath(p, "/overview")).toBe("/overview")
   })
 
   it("serves a root plugin's bare root as /", () => {
-    const p = definePlugin({ extension: "core-contract", root: true, routes: [] })
+    const p = definePlugin({
+      extension: "core-contract",
+      root: true,
+      routes: [],
+    })
     expect(mountPath(p, "/")).toBe("/")
   })
 
@@ -130,7 +146,10 @@ describe("partitionScopes", () => {
 
   it("throws when two plugins claim the root", () => {
     expect(() =>
-      partitionScopes([scope("core-contract", undefined, true), scope("other", undefined, true)]),
+      partitionScopes([
+        scope("core-contract", undefined, true),
+        scope("other", undefined, true),
+      ])
     ).toThrow(/root/)
   })
 })

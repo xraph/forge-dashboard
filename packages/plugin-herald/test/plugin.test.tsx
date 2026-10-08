@@ -3,18 +3,51 @@ import { resolvePluginState } from "@forge-go/dashboard-plugin"
 import type { Capabilities } from "@forge-go/dashboard-plugin"
 import heraldPlugin, { heraldPlugin as named } from "../src/index"
 
-function capabilities(...contributors: { name: string; configured?: boolean }[]): Capabilities {
+function capabilities(
+  ...contributors: { name: string; configured?: boolean }[]
+): Capabilities {
   return {
     shellEnvelopes: ["v1"],
-    contributors: contributors.map((c) => ({ name: c.name, envelopes: ["v1"], configured: c.configured ?? true })),
+    contributors: contributors.map((c) => ({
+      name: c.name,
+      envelopes: ["v1"],
+      configured: c.configured ?? true,
+    })),
   }
 }
 
 /** Every route, scope-relative. Each task that adds a page adds it here. */
-const ROUTES = ["/", "/providers", "/providers/:id", "/new-provider", "/providers/:id/edit", "/templates", "/templates-without-fallback", "/new-template", "/templates/:id", "/messages", "/messages/:id", "/inbox", "/preferences", "/routing", "/send-test", "/providers/:providerId/send-test", "/messages/:messageId/send-test"]
+const ROUTES = [
+  "/",
+  "/providers",
+  "/providers/:id",
+  "/new-provider",
+  "/providers/:id/edit",
+  "/templates",
+  "/templates-without-fallback",
+  "/new-template",
+  "/templates/:id",
+  "/messages",
+  "/messages/:id",
+  "/inbox",
+  "/preferences",
+  "/routing",
+  "/send-test",
+  "/providers/:providerId/send-test",
+  "/messages/:messageId/send-test",
+]
 
 /** Every nav entry's target. */
-const NAV = ["/", "/providers", "/templates", "/messages", "/inbox", "/preferences", "/routing", "/send-test"]
+const NAV = [
+  "/",
+  "/providers",
+  "/templates",
+  "/messages",
+  "/inbox",
+  "/preferences",
+  "/routing",
+  "/send-test",
+]
 
 describe("heraldPlugin", () => {
   it("is the default export as well as a named one", () => {
@@ -27,11 +60,15 @@ describe("heraldPlugin", () => {
    * A wrong name resolves to hidden, silently.
    */
   it("resolves to ready against a host reporting herald's contributor", () => {
-    expect(resolvePluginState(heraldPlugin, capabilities({ name: "herald" }))).toEqual({ kind: "ready" })
+    expect(
+      resolvePluginState(heraldPlugin, capabilities({ name: "herald" }))
+    ).toEqual({ kind: "ready" })
   })
 
   it("is hidden when the host does not report herald", () => {
-    expect(resolvePluginState(heraldPlugin, capabilities({ name: "warden" })).kind).toBe("hidden")
+    expect(
+      resolvePluginState(heraldPlugin, capabilities({ name: "warden" })).kind
+    ).toBe("hidden")
   })
 
   it("is labelled with the extension's own name", () => {

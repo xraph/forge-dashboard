@@ -19,7 +19,7 @@ function renderHeader(title?: string) {
   return render(
     <SidebarProvider>
       <SiteHeader title={title} />
-    </SidebarProvider>,
+    </SidebarProvider>
   )
 }
 

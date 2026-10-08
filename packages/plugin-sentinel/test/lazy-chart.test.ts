@@ -12,19 +12,28 @@ import { describe, expect, it } from "vitest"
  * this package has no Node types.
  */
 interface GlobbingImportMeta {
-  glob: (pattern: string, options: { query?: string; eager?: boolean }) => Record<string, { default: string } | string>
+  glob: (
+    pattern: string,
+    options: { query?: string; eager?: boolean }
+  ) => Record<string, { default: string } | string>
 }
 
-const modules = (import.meta as unknown as GlobbingImportMeta).glob("../src/**/*.{ts,tsx}", {
-  query: "?raw",
-  eager: true,
-})
+const modules = (import.meta as unknown as GlobbingImportMeta).glob(
+  "../src/**/*.{ts,tsx}",
+  {
+    query: "?raw",
+    eager: true,
+  }
+)
 
 function sourceOf(mod: { default: string } | string): string {
   return typeof mod === "string" ? mod : mod.default
 }
 
-const CHARTS = ["../src/charts/trend-chart.tsx", "../src/charts/dimension-trends.tsx"]
+const CHARTS = [
+  "../src/charts/trend-chart.tsx",
+  "../src/charts/dimension-trends.tsx",
+]
 const TREND = "../src/components/run-trend.tsx"
 
 describe("Recharts loads only with the trend charts", () => {
@@ -35,7 +44,7 @@ describe("Recharts loads only with the trend charts", () => {
   it("is named by no file under src except the two line charts", () => {
     const offenders = Object.entries(modules)
       .filter(([path]) => !CHARTS.includes(path))
-      .filter(([, mod]) => sourceOf(mod).includes("components/chart\""))
+      .filter(([, mod]) => sourceOf(mod).includes('components/chart"'))
       .map(([path]) => path)
     expect(offenders).toEqual([])
   })
@@ -43,8 +52,12 @@ describe("Recharts loads only with the trend charts", () => {
   it("reaches each chart from the trend section through lazy(), and from nowhere else", () => {
     const trend = sourceOf(modules[TREND])
     for (const name of ["trend-chart", "dimension-trends"]) {
-      expect(trend).toMatch(new RegExp(`lazy\\(\\(\\)\\s*=>\\s*import\\("\\.\\./charts/${name}"\\)`))
-      expect(trend).not.toMatch(new RegExp(`^import (?!type)[^\\n]*charts/${name}"`, "m"))
+      expect(trend).toMatch(
+        new RegExp(`lazy\\(\\(\\)\\s*=>\\s*import\\("\\.\\./charts/${name}"\\)`)
+      )
+      expect(trend).not.toMatch(
+        new RegExp(`^import (?!type)[^\\n]*charts/${name}"`, "m")
+      )
       const importers = Object.entries(modules)
         .filter(([path]) => path !== TREND && !CHARTS.includes(path))
         .filter(([, mod]) => sourceOf(mod).includes(`charts/${name}`))

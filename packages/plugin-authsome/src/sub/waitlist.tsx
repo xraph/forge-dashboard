@@ -1,5 +1,9 @@
 import { useEffect, useState } from "react"
-import { defineSubPlugin, useCommand, useQuery } from "@forge-go/dashboard-plugin"
+import {
+  defineSubPlugin,
+  useCommand,
+  useQuery,
+} from "@forge-go/dashboard-plugin"
 import { Badge } from "@forge-go/dashboard-kit/components/badge"
 import { Button } from "@forge-go/dashboard-kit/components/button"
 import { ConfirmDialog } from "@forge-go/dashboard-kit/components/confirm-dialog"
@@ -8,7 +12,10 @@ import { Input } from "@forge-go/dashboard-kit/components/input"
 import { Label } from "@forge-go/dashboard-kit/components/label"
 import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
-import { CommandAlert, QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
+import {
+  CommandAlert,
+  QueryBoundary,
+} from "@forge-go/dashboard-kit/components/query-boundary"
 import {
   ResourceTable,
   type Column,
@@ -80,7 +87,8 @@ interface AckResponse {
 function StatusBadge({ status }: { status: string }) {
   if (status === "pending") return <Badge variant="outline">{status}</Badge>
   if (status === "approved") return <Badge variant="default">{status}</Badge>
-  if (status === "rejected") return <Badge variant="destructive">{status}</Badge>
+  if (status === "rejected")
+    return <Badge variant="destructive">{status}</Badge>
   return <Badge variant="secondary">{status}</Badge>
 }
 
@@ -94,6 +102,7 @@ export function WaitlistPage() {
   const [search, setSearch] = useState("")
   const [status, setStatus] = useState("")
   const page = useCursorStack()
+  const resetPage = page.reset
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -101,10 +110,10 @@ export function WaitlistPage() {
       // A cursor points into the previous result set. Carrying it across a
       // new search returns page two of the old answer, and it looks like
       // data rather than like an error.
-      page.reset()
+      resetPage()
     }, 300)
     return () => clearTimeout(timer)
-  }, [searchInput, page.reset])
+  }, [searchInput, resetPage])
 
   function onStatusChange(value: string) {
     // Batched with the reset in the same handler so the next render never
@@ -169,8 +178,16 @@ export function WaitlistPage() {
       className: "font-medium",
       cell: (entry) => (entry.name ? entry.name : <NoneCell label="name" />),
     },
-    { id: "status", header: "Status", cell: (entry) => <StatusBadge status={entry.status} /> },
-    { id: "createdAt", header: "Created", cell: (entry) => formatTimestamp(entry.createdAt) },
+    {
+      id: "status",
+      header: "Status",
+      cell: (entry) => <StatusBadge status={entry.status} />,
+    },
+    {
+      id: "createdAt",
+      header: "Created",
+      cell: (entry) => formatTimestamp(entry.createdAt),
+    },
   ]
 
   return (
@@ -392,11 +409,15 @@ export const waitlistSubPlugin = defineSubPlugin({
   extension: "waitlist",
   host: "authsome",
   label: "Waitlist",
-  nav: [{ label: "Waitlist", to: "/waitlist", group: "Compliance", priority: 1 }],
+  nav: [
+    { label: "Waitlist", to: "/waitlist", group: "Compliance", priority: 1 },
+  ],
   routes: [{ path: "/waitlist", element: WaitlistPage }],
   // Reads nothing of its host's. Every intent it uses is its own.
   hostIntents: [],
   contributions: {
-    "overview.widgets": [{ id: "waitlist-counts", priority: 20, render: WaitlistCountsWidget }],
+    "overview.widgets": [
+      { id: "waitlist-counts", priority: 20, render: WaitlistCountsWidget },
+    ],
   },
 })

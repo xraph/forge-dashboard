@@ -5,8 +5,15 @@ import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import { FilterBar } from "@forge-go/dashboard-kit/components/filter-bar"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
-import { ResourceTable, type Column } from "@forge-go/dashboard-kit/components/resource-table"
-import { FEATURE_STATUS_OPTIONS, FeatureStatusBadge, SharedBadge } from "../badges"
+import {
+  ResourceTable,
+  type Column,
+} from "@forge-go/dashboard-kit/components/resource-table"
+import {
+  FEATURE_STATUS_OPTIONS,
+  FeatureStatusBadge,
+  SharedBadge,
+} from "../badges"
 import { ImportFromProviderAction } from "../components/import-from-provider"
 import { BackToFirstPage, OffsetPager } from "../components/offset-pager"
 import { limitText, periodLabel, TYPE_LABEL } from "../lib/features"
@@ -26,11 +33,30 @@ const columns: Column<CatalogFeature>[] = [
       </span>
     ),
   },
-  { id: "key", header: "Key", className: "font-mono text-xs", cell: (f) => f.key },
+  {
+    id: "key",
+    header: "Key",
+    className: "font-mono text-xs",
+    cell: (f) => f.key,
+  },
   { id: "type", header: "Type", cell: (f) => TYPE_LABEL[f.type] ?? f.type },
-  { id: "limit", header: "Default limit", align: "end", className: "tabular-nums", cell: (f) => limitText(f.type, f.default_limit) },
-  { id: "period", header: "Resets", cell: (f) => periodLabel(f.period) ?? <NoneCell label="reset period" /> },
-  { id: "status", header: "Status", cell: (f) => <FeatureStatusBadge status={f.status} /> },
+  {
+    id: "limit",
+    header: "Default limit",
+    align: "end",
+    className: "tabular-nums",
+    cell: (f) => limitText(f.type, f.default_limit),
+  },
+  {
+    id: "period",
+    header: "Resets",
+    cell: (f) => periodLabel(f.period) ?? <NoneCell label="reset period" />,
+  },
+  {
+    id: "status",
+    header: "Status",
+    cell: (f) => <FeatureStatusBadge status={f.status} />,
+  },
 ]
 
 function NewFeatureLink() {
@@ -55,7 +81,9 @@ export function LedgerFeaturesPage() {
     status: status || undefined,
     global: catalog === "shared" ? true : undefined,
   })
-  const filtered = [status, catalog === "shared" ? "shared" : ""].filter(Boolean).join(" ") || undefined
+  const filtered =
+    [status, catalog === "shared" ? "shared" : ""].filter(Boolean).join(" ") ||
+    undefined
 
   return (
     <section className="flex flex-col gap-4">
@@ -110,11 +138,27 @@ export function LedgerFeaturesPage() {
                 columns={columns}
                 rows={rows}
                 rowKey={(f) => f.id}
-                caption={pageCaption({ page, shown: rows.length, hasMore: data.has_more, singular: "feature", plural: "features" })}
+                caption={pageCaption({
+                  page,
+                  shown: rows.length,
+                  hasMore: data.has_more,
+                  singular: "feature",
+                  plural: "features",
+                })}
                 emptyMessage={listEmptyMessage("features", page, filtered)}
-                emptyAction={page > 1 ? <BackToFirstPage onClick={() => setPage(1)} /> : filtered === undefined ? <NewFeatureLink /> : undefined}
+                emptyAction={
+                  page > 1 ? (
+                    <BackToFirstPage onClick={() => setPage(1)} />
+                  ) : filtered === undefined ? (
+                    <NewFeatureLink />
+                  ) : undefined
+                }
               />
-              <OffsetPager page={page} hasMore={data.has_more} onPageChange={setPage} />
+              <OffsetPager
+                page={page}
+                hasMore={data.has_more}
+                onPageChange={setPage}
+              />
             </div>
           )
         }}

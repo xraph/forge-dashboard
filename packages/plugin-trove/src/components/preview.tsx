@@ -1,7 +1,14 @@
 import { Suspense, lazy, useEffect, useState } from "react"
 import { usePluginClient } from "@forge-go/dashboard-plugin"
 import { Spinner } from "@forge-go/dashboard-kit/components/spinner"
-import { ContentRouteError, IMAGE_PREVIEW_MAX, PREVIEW_LIMIT, fetchContent, previewKind, svgDataUrl } from "../content"
+import {
+  ContentRouteError,
+  IMAGE_PREVIEW_MAX,
+  PREVIEW_LIMIT,
+  fetchContent,
+  previewKind,
+  svgDataUrl,
+} from "../content"
 import { withStore } from "../store"
 import type { ContentLink, ObjectHead } from "../types"
 
@@ -29,7 +36,15 @@ function messageOf(error: unknown): string {
  * the content route. The parent keys this by ETag, so a replaced object is
  * fetched again.
  */
-export function Preview({ store, bucket, head }: { store: string; bucket: string; head: ObjectHead }) {
+export function Preview({
+  store,
+  bucket,
+  head,
+}: {
+  store: string
+  bucket: string
+  head: ObjectHead
+}) {
   const kind = previewKind(head.object.contentType)
   const picture = kind === "image" || kind === "svg"
   const tooBig = picture && head.object.storedSize > IMAGE_PREVIEW_MAX
@@ -45,7 +60,10 @@ export function Preview({ store, bucket, head }: { store: string; bucket: string
     void (async () => {
       try {
         const purpose = picture ? "download" : "preview"
-        const link = await client.query<ContentLink>("objects.contentUrl", withStore(store, { bucket, key, purpose }))
+        const link = await client.query<ContentLink>(
+          "objects.contentUrl",
+          withStore(store, { bucket, key, purpose })
+        )
         const bytes = await fetchContent(link.url)
         if (cancelled) return
         if (kind === "svg") {
@@ -53,7 +71,11 @@ export function Preview({ store, bucket, head }: { store: string; bucket: string
           return
         }
         if (kind === "image") {
-          objectUrl = URL.createObjectURL(new Blob([bytes], { type: head.object.contentType ?? "application/octet-stream" }))
+          objectUrl = URL.createObjectURL(
+            new Blob([bytes], {
+              type: head.object.contentType ?? "application/octet-stream",
+            })
+          )
           setState({ status: "image", url: objectUrl })
           return
         }
@@ -75,29 +97,64 @@ export function Preview({ store, bucket, head }: { store: string; bucket: string
       cancelled = true
       if (objectUrl !== null) URL.revokeObjectURL(objectUrl)
     }
-  }, [fetches, kind, picture, client, store, bucket, key, head.object.contentType])
+  }, [
+    fetches,
+    kind,
+    picture,
+    client,
+    store,
+    bucket,
+    key,
+    head.object.contentType,
+  ])
 
   let body
   if (kind === "none") {
     body = (
       <p className="text-sm text-muted-foreground">
-        {head.object.contentType === null ? "No preview: the driver reports no content type." : "No preview for this content type."}
+        {head.object.contentType === null
+          ? "No preview: the driver reports no content type."
+          : "No preview for this content type."}
       </p>
     )
   } else if (tooBig) {
-    body = <p className="text-sm text-muted-foreground">This image is over 4 MiB as stored. Download it to see it.</p>
+    body = (
+      <p className="text-sm text-muted-foreground">
+        This image is over 4 MiB as stored. Download it to see it.
+      </p>
+    )
   } else if (state.status === "loading") {
     body = <Spinner />
   } else if (state.status === "error") {
     body = <p className="text-sm text-destructive">{state.message}</p>
   } else if (state.status === "image") {
-    body = <img src={state.url} alt={`Preview of ${key}`} className="max-h-96 max-w-full rounded-md border" />
+    body = (
+      <img
+        src={state.url}
+        alt={`Preview of ${key}`}
+        className="max-h-96 max-w-full rounded-md border"
+      />
+    )
   } else {
     body = (
       <div className="flex flex-col gap-1">
-        {state.cut ? <p className="text-xs text-muted-foreground">Showing the first 256 KiB.</p> : null}
-        <Suspense fallback={<pre className="max-h-96 overflow-auto rounded-md border p-3 font-mono text-xs">{state.text}</pre>}>
-          <CodeView text={state.text} language={kind === "json" ? "json" : "text"} label={`Preview of ${key}`} />
+        {state.cut ? (
+          <p className="text-xs text-muted-foreground">
+            Showing the first 256 KiB.
+          </p>
+        ) : null}
+        <Suspense
+          fallback={
+            <pre className="max-h-96 overflow-auto rounded-md border p-3 font-mono text-xs">
+              {state.text}
+            </pre>
+          }
+        >
+          <CodeView
+            text={state.text}
+            language={kind === "json" ? "json" : "text"}
+            label={`Preview of ${key}`}
+          />
         </Suspense>
       </div>
     )

@@ -95,7 +95,7 @@ const LIST: RotationsList = {
 
 /** A client whose rotations.list answer depends on the params it was sent. */
 function clientByParams(
-  answer: (params: Record<string, unknown>) => RotationsList,
+  answer: (params: Record<string, unknown>) => RotationsList
 ): { client: ScopedClient; sent: Record<string, unknown>[] } {
   const sent: Record<string, unknown>[] = []
   return {
@@ -104,7 +104,10 @@ function clientByParams(
       extension: "keysmith",
       query: async (intent: string, params?: Record<string, unknown>) => {
         if (intent !== "rotations.list") {
-          throw new ContractError("NOT_FOUND", `no handler for intent "${intent}"`)
+          throw new ContractError(
+            "NOT_FOUND",
+            `no handler for intent "${intent}"`
+          )
         }
         sent.push(params ?? {})
         return answer(params ?? {})
@@ -125,9 +128,7 @@ function rowWith(text: string): HTMLElement {
 }
 
 function cellOf(row: HTMLElement, column: string): HTMLElement {
-  const headers = screen
-    .getAllByRole("columnheader")
-    .map((h) => h.textContent)
+  const headers = screen.getAllByRole("columnheader").map((h) => h.textContent)
   const index = headers.indexOf(column)
   if (index < 0) throw new Error(`no column ${column}`)
   return within(row).getAllByRole("cell")[index]!
@@ -148,7 +149,7 @@ describe("RotationsPage", () => {
     await screen.findByText("Partner sandbox")
     expect(screen.getByRole("heading", { name: "Rotations" })).toBeTruthy()
     expect(
-      screen.getByText("Every rotation across keys, newest first."),
+      screen.getByText("Every rotation across keys, newest first.")
     ).toBeTruthy()
   })
 
@@ -156,7 +157,7 @@ describe("RotationsPage", () => {
     renderPage(RotationsPage, stubClient({ "rotations.list": LIST }))
     await screen.findByText("Partner sandbox")
     expect(
-      screen.getAllByRole("columnheader").map((h) => h.textContent),
+      screen.getAllByRole("columnheader").map((h) => h.textContent)
     ).toEqual(["When", "Key", "Reason", "Grace", "Window"])
     expect(screen.getByText("5 rotations")).toBeTruthy()
   })
@@ -164,7 +165,7 @@ describe("RotationsPage", () => {
   it("uses the singular for one rotation", async () => {
     renderPage(
       RotationsPage,
-      stubClient({ "rotations.list": { items: [MANUAL], hasMore: false } }),
+      stubClient({ "rotations.list": { items: [MANUAL], hasMore: false } })
     )
     await screen.findByText("Billing service")
     expect(screen.getByText("1 rotation")).toBeTruthy()
@@ -174,7 +175,9 @@ describe("RotationsPage", () => {
     renderPage(RotationsPage, stubClient({ "rotations.list": LIST }))
     await screen.findByText("Partner sandbox")
     const when = cellOf(rowWith("Billing service"), "When")
-    expect(within(when).getByText(formatTimestamp("2026-10-05T12:00:00Z"))).toBeTruthy()
+    expect(
+      within(when).getByText(formatTimestamp("2026-10-05T12:00:00Z"))
+    ).toBeTruthy()
   })
 
   it("links the key name to its page and shows the new key masked in mono beneath", async () => {
@@ -213,7 +216,9 @@ describe("RotationsPage", () => {
     const cell = cellOf(rowWith("Legacy webhook signer"), "Key")
     const hint = within(cell).getByText("(no hint)")
     expect(hint.className).toMatch(/font-mono/)
-    expect(within(cell).getByRole("link", { name: "Legacy webhook signer" })).toBeTruthy()
+    expect(
+      within(cell).getByRole("link", { name: "Legacy webhook signer" })
+    ).toBeTruthy()
   })
 
   it("shows a badge per reason", async () => {
@@ -231,9 +236,15 @@ describe("RotationsPage", () => {
   it("shows the grace as people say it, and None for a zero-grace rotation", async () => {
     renderPage(RotationsPage, stubClient({ "rotations.list": LIST }))
     await screen.findByText("Partner sandbox")
-    expect(cellOf(rowWith("Billing service"), "Grace").textContent).toBe("1 day")
-    expect(cellOf(rowWith("Reporting export"), "Grace").textContent).toBe("1 hour")
-    expect(cellOf(rowWith("Legacy webhook signer"), "Grace").textContent).toBe("2 days")
+    expect(cellOf(rowWith("Billing service"), "Grace").textContent).toBe(
+      "1 day"
+    )
+    expect(cellOf(rowWith("Reporting export"), "Grace").textContent).toBe(
+      "1 hour"
+    )
+    expect(cellOf(rowWith("Legacy webhook signer"), "Grace").textContent).toBe(
+      "2 days"
+    )
     expect(cellOf(rowWith("Partner sandbox"), "Grace").textContent).toBe("None")
   })
 
@@ -242,7 +253,7 @@ describe("RotationsPage", () => {
     await screen.findByText("Partner sandbox")
     const open = cellOf(rowWith("Billing service"), "Window")
     expect(open.textContent).toBe(
-      `Window ends ${formatTimestamp("2026-10-06T12:00:00Z")}`,
+      `Window ends ${formatTimestamp("2026-10-06T12:00:00Z")}`
     )
     // A suspended key's window is open, but its old key does not validate.
     expect(screen.queryByText(/keeps working/)).toBeNull()
@@ -252,8 +263,12 @@ describe("RotationsPage", () => {
   it("says Closed for a window that has closed", async () => {
     renderPage(RotationsPage, stubClient({ "rotations.list": LIST }))
     await screen.findByText("Partner sandbox")
-    expect(cellOf(rowWith("Partner sandbox"), "Window").textContent).toBe("Closed")
-    expect(cellOf(rowWith("Reporting export"), "Window").textContent).toBe("Closed")
+    expect(cellOf(rowWith("Partner sandbox"), "Window").textContent).toBe(
+      "Closed"
+    )
+    expect(cellOf(rowWith("Reporting export"), "Window").textContent).toBe(
+      "Closed"
+    )
   })
 
   it("never shows an open window for a key that no longer exists", async () => {
@@ -262,7 +277,7 @@ describe("RotationsPage", () => {
     const stray = { ...GONE, windowOpen: true }
     renderPage(
       RotationsPage,
-      stubClient({ "rotations.list": { items: [stray], hasMore: false } }),
+      stubClient({ "rotations.list": { items: [stray], hasMore: false } })
     )
     await screen.findByText("akey_deleted")
     expect(cellOf(rowWith("akey_deleted"), "Window").textContent).toBe("Closed")
@@ -273,7 +288,7 @@ describe("RotationsPage", () => {
     await screen.findByText("Partner sandbox")
     const when = cellOf(rowWith("Billing service"), "When")
     expect(when.textContent).toBe(
-      `${formatTimestamp("2026-10-05T12:00:00Z")}by user_ops`,
+      `${formatTimestamp("2026-10-05T12:00:00Z")}by user_ops`
     )
     const by = within(when).getByText("user_ops")
     expect(by.className).toMatch(/font-mono/)
@@ -281,7 +296,9 @@ describe("RotationsPage", () => {
     expect(line.textContent).toBe("by user_ops")
     expect(line.className).toMatch(/text-muted-foreground/)
     expect(line.className).toMatch(/text-xs/)
-    expect(screen.queryByRole("columnheader", { name: "Rotated by" })).toBeNull()
+    expect(
+      screen.queryByRole("columnheader", { name: "Rotated by" })
+    ).toBeNull()
   })
 
   it("says no actor was recorded on that line when nobody was", async () => {
@@ -295,7 +312,7 @@ describe("RotationsPage", () => {
   it("says so when there are no rotations yet", async () => {
     renderPage(
       RotationsPage,
-      stubClient({ "rotations.list": { items: [], hasMore: false } }),
+      stubClient({ "rotations.list": { items: [], hasMore: false } })
     )
     expect(await screen.findByText("No rotations yet.")).toBeTruthy()
     expect(screen.getByText("0 rotations")).toBeTruthy()
@@ -308,7 +325,13 @@ describe("RotationsPage", () => {
     const options = within(screen.getByLabelText("Reason"))
       .getAllByRole("option")
       .map((o) => o.textContent)
-    expect(options).toEqual(["All", "Manual", "Compromise", "Policy", "Scheduled"])
+    expect(options).toEqual([
+      "All",
+      "Manual",
+      "Compromise",
+      "Policy",
+      "Scheduled",
+    ])
   })
 
   it("filters by reason, sending only the chosen value", async () => {
@@ -334,17 +357,19 @@ describe("RotationsPage", () => {
 
   it("says no rotations match when a reason finds nothing, and keeps the filter", async () => {
     const { client } = clientByParams((params) =>
-      params.reason === "scheduled" ? { items: [], hasMore: false } : LIST,
+      params.reason === "scheduled" ? { items: [], hasMore: false } : LIST
     )
     renderPage(RotationsPage, client)
     await screen.findByText("Partner sandbox")
     fireEvent.change(screen.getByLabelText("Reason"), {
       target: { value: "scheduled" },
     })
-    expect(await screen.findByText("No rotations match this reason.")).toBeTruthy()
+    expect(
+      await screen.findByText("No rotations match this reason.")
+    ).toBeTruthy()
     expect(screen.queryByText("No rotations yet.")).toBeNull()
     expect((screen.getByLabelText("Reason") as HTMLSelectElement).value).toBe(
-      "scheduled",
+      "scheduled"
     )
   })
 
@@ -358,7 +383,7 @@ describe("RotationsPage", () => {
     const { client, sent } = clientByParams((params) =>
       params.offset === 0
         ? { items: [MANUAL, COMPROMISE], hasMore: true }
-        : { items: [POLICY], hasMore: false },
+        : { items: [POLICY], hasMore: false }
     )
     renderPage(RotationsPage, client)
     await screen.findByText("Partner sandbox")
@@ -369,7 +394,9 @@ describe("RotationsPage", () => {
       screen.getByRole("button", { name: "Next page" }) as HTMLButtonElement
     expect(previous().disabled).toBe(true)
     expect(next().disabled).toBe(false)
-    expect(screen.getByText("Rotations 1 to 2, more on the next page")).toBeTruthy()
+    expect(
+      screen.getByText("Rotations 1 to 2, more on the next page")
+    ).toBeTruthy()
 
     fireEvent.click(next())
     await screen.findByText("Reporting export")
@@ -387,7 +414,7 @@ describe("RotationsPage", () => {
     const { client, sent } = clientByParams((params) =>
       params.offset === 0
         ? { items: [MANUAL], hasMore: true }
-        : { items: [POLICY], hasMore: false },
+        : { items: [POLICY], hasMore: false }
     )
     renderPage(RotationsPage, client)
     await screen.findByText("Billing service")
@@ -407,7 +434,7 @@ describe("RotationsPage", () => {
     const { client, sent } = clientByParams((params) =>
       params.offset === 0
         ? { items: [MANUAL], hasMore: true }
-        : { items: [], hasMore: false },
+        : { items: [], hasMore: false }
     )
     renderPage(RotationsPage, client)
     await screen.findByText("Billing service")
@@ -418,7 +445,9 @@ describe("RotationsPage", () => {
     // Nothing beneath it: a caption here would only repeat the message.
     expect(screen.queryByText(/No rotations from/)).toBeNull()
     expect(screen.queryByText(/^Rotations \d/)).toBeNull()
-    fireEvent.click(screen.getByRole("button", { name: "Back to the first page" }))
+    fireEvent.click(
+      screen.getByRole("button", { name: "Back to the first page" })
+    )
     await screen.findByText("Billing service")
     expect(sent.at(-1)).toEqual({ limit: 25, offset: 0 })
   })
@@ -426,7 +455,7 @@ describe("RotationsPage", () => {
   it("shows the error state with the message when the list fails", async () => {
     renderPage(
       RotationsPage,
-      failingClient(new ContractError("INTERNAL", "rotations store is down")),
+      failingClient(new ContractError("INTERNAL", "rotations store is down"))
     )
     expect(await screen.findByText(/rotations store is down/)).toBeTruthy()
     expect(screen.queryByRole("table")).toBeNull()
@@ -462,8 +491,11 @@ const BILLING_DETAIL: KeyDetail = {
  */
 function keyedClient(
   list: (params: Record<string, unknown>) => RotationsList,
-  detail: KeyDetail | ContractError = BILLING_DETAIL,
-): { client: ScopedClient; sent: { intent: string; params: Record<string, unknown> }[] } {
+  detail: KeyDetail | ContractError = BILLING_DETAIL
+): {
+  client: ScopedClient
+  sent: { intent: string; params: Record<string, unknown> }[]
+} {
   const sent: { intent: string; params: Record<string, unknown> }[] = []
   return {
     sent,
@@ -476,7 +508,10 @@ function keyedClient(
           if (detail instanceof ContractError) throw detail
           return detail
         }
-        throw new ContractError("NOT_FOUND", `no handler for intent "${intent}"`)
+        throw new ContractError(
+          "NOT_FOUND",
+          `no handler for intent "${intent}"`
+        )
       },
       command: async () => {
         throw new ContractError("NOT_FOUND", "no commands")
@@ -485,7 +520,9 @@ function keyedClient(
   }
 }
 
-function listCalls(sent: { intent: string; params: Record<string, unknown> }[]) {
+function listCalls(
+  sent: { intent: string; params: Record<string, unknown> }[]
+) {
   return sent.filter((s) => s.intent === "rotations.list").map((s) => s.params)
 }
 
@@ -504,7 +541,9 @@ function heldClient(first: RotationsList) {
     extension: "keysmith",
     query: (intent: string) => {
       if (intent !== "rotations.list") {
-        return Promise.reject(new ContractError("NOT_FOUND", `no handler for intent "${intent}"`))
+        return Promise.reject(
+          new ContractError("NOT_FOUND", `no handler for intent "${intent}"`)
+        )
       }
       calls += 1
       if (calls === 1) return Promise.resolve(first)
@@ -536,7 +575,9 @@ describe("RotationsPage while a page loads", () => {
       return el as HTMLElement
     })
     expect(within(busy).getByText("Billing service")).toBeTruthy()
-    expect(screen.queryByRole("status", { name: "Loading Rotations" })).toBeNull()
+    expect(
+      screen.queryByRole("status", { name: "Loading Rotations" })
+    ).toBeNull()
     expect(screen.getByRole("button", { name: "Next page" })).toBe(next)
     expect(document.activeElement).toBe(next)
 
@@ -552,7 +593,9 @@ describe("RotationsPage while a page loads", () => {
     const next = await screen.findByRole("button", { name: "Next page" })
 
     act(() => queryStore.invalidate("keysmith", ["rotations.list"]))
-    await waitFor(() => expect(document.querySelector('[aria-busy="true"]')).not.toBeNull())
+    await waitFor(() =>
+      expect(document.querySelector('[aria-busy="true"]')).not.toBeNull()
+    )
     expect(screen.getByRole("button", { name: "Next page" })).toBe(next)
 
     await release({ items: [MANUAL, COMPROMISE], hasMore: true })
@@ -566,7 +609,9 @@ describe("RotationsPage while a page loads", () => {
     await screen.findByText("Billing service")
 
     act(() => queryStore.clear())
-    expect(await screen.findByRole("status", { name: "Loading Rotations" })).toBeTruthy()
+    expect(
+      await screen.findByRole("status", { name: "Loading Rotations" })
+    ).toBeTruthy()
     expect(screen.queryByText("Billing service")).toBeNull()
 
     await release({ items: [POLICY], hasMore: false })
@@ -578,13 +623,17 @@ describe("RotationsPage while a page loads", () => {
     renderPage(RotationsPage, client)
     fireEvent.click(await screen.findByRole("button", { name: "Next page" }))
     // Page two is in flight and page one is held, as intended.
-    await waitFor(() => expect(document.querySelector('[aria-busy="true"]')).not.toBeNull())
+    await waitFor(() =>
+      expect(document.querySelector('[aria-busy="true"]')).not.toBeNull()
+    )
     expect(screen.getByText("Billing service")).toBeTruthy()
 
     // An app or environment switch lands now. The store blanks page two and
     // reissues it for the new app; page one's rows belong to the old app.
     act(() => queryStore.clear())
-    expect(await screen.findByRole("status", { name: "Loading Rotations" })).toBeTruthy()
+    expect(
+      await screen.findByRole("status", { name: "Loading Rotations" })
+    ).toBeTruthy()
     expect(screen.queryByText("Billing service")).toBeNull()
 
     // The first page-two read was superseded and settles into nothing. The
@@ -600,8 +649,12 @@ describe("RotationsPage while a page loads", () => {
     renderPage(RotationsPage, client)
     await screen.findByText("Billing service")
 
-    fireEvent.change(screen.getByLabelText("Reason"), { target: { value: "policy" } })
-    expect(await screen.findByRole("status", { name: "Loading Rotations" })).toBeTruthy()
+    fireEvent.change(screen.getByLabelText("Reason"), {
+      target: { value: "policy" },
+    })
+    expect(
+      await screen.findByRole("status", { name: "Loading Rotations" })
+    ).toBeTruthy()
     expect(screen.queryByText("Billing service")).toBeNull()
 
     await release({ items: [POLICY], hasMore: false })
@@ -647,10 +700,17 @@ describe("RotationsPage with a key in the address", () => {
 
   it("narrows the list to that key and names it from keys.detail", async () => {
     openAt("?keyId=akey_billing")
-    const { client, sent } = keyedClient(() => ({ items: [MANUAL], hasMore: false }))
+    const { client, sent } = keyedClient(() => ({
+      items: [MANUAL],
+      hasMore: false,
+    }))
     renderRoutedPage(RotationsPage, client)
     await within(keyFilter()).findByText("Billing service")
-    expect(listCalls(sent)[0]).toEqual({ limit: 25, offset: 0, keyId: "akey_billing" })
+    expect(listCalls(sent)[0]).toEqual({
+      limit: 25,
+      offset: 0,
+      keyId: "akey_billing",
+    })
     expect(sent.find((s) => s.intent === "keys.detail")?.params).toEqual({
       id: "akey_billing",
     })
@@ -661,7 +721,7 @@ describe("RotationsPage with a key in the address", () => {
     openAt("?keyId=akey_deleted")
     const { client } = keyedClient(
       () => ({ items: [GONE], hasMore: false }),
-      new ContractError("NOT_FOUND", "key not found"),
+      new ContractError("NOT_FOUND", "key not found")
     )
     renderRoutedPage(RotationsPage, client)
     await screen.findByText("1 rotation")
@@ -674,35 +734,42 @@ describe("RotationsPage with a key in the address", () => {
   it("clears the key from the list and from the address", async () => {
     openAt("?keyId=akey_billing")
     const { client, sent } = keyedClient((params) =>
-      params.keyId ? { items: [MANUAL], hasMore: false } : LIST,
+      params.keyId ? { items: [MANUAL], hasMore: false } : LIST
     )
     const { router } = renderRoutedPage(RotationsPage, client)
     await within(keyFilter()).findByText("Billing service")
     const length = window.history.length
 
-    fireEvent.click(screen.getByRole("button", { name: "Clear the key filter" }))
+    fireEvent.click(
+      screen.getByRole("button", { name: "Clear the key filter" })
+    )
     await screen.findByText("Partner sandbox")
     expect(listCalls(sent).at(-1)).toEqual({ limit: 25, offset: 0 })
     expect(screen.queryByRole("group", { name: "Key filter" })).toBeNull()
     expect(window.location.search).toBe("")
     // Through the router, replacing the entry, so Back leaves the page.
-    expect(router.navigations).toEqual([{ to: "/@keysmith/rotations", replace: true }])
+    expect(router.navigations).toEqual([
+      { to: "/@keysmith/rotations", replace: true },
+    ])
     expect(window.history.length).toBe(length)
   })
 
   it("keeps the router in step, and the sidebar never carries the key", async () => {
     openAt("?keyId=akey_billing")
     const { client } = keyedClient((params) =>
-      params.keyId ? { items: [MANUAL], hasMore: false } : LIST,
+      params.keyId ? { items: [MANUAL], hasMore: false } : LIST
     )
     const { router } = renderRoutedPage(RotationsPage, client)
     await within(keyFilter()).findByText("Billing service")
-    const sidebar = () => screen.getByRole("link", { name: "Sidebar rotations" })
+    const sidebar = () =>
+      screen.getByRole("link", { name: "Sidebar rotations" })
     expect(router.search).toBe("?keyId=akey_billing")
     // The host carries context only, and the key is the page's own.
     expect(sidebar().getAttribute("href")).toBe("/@keysmith/rotations")
 
-    fireEvent.click(screen.getByRole("button", { name: "Clear the key filter" }))
+    fireEvent.click(
+      screen.getByRole("button", { name: "Clear the key filter" })
+    )
     await screen.findByText("Partner sandbox")
     await waitFor(() => expect(router.search).toBe(""))
     expect(sidebar().getAttribute("href")).toBe("/@keysmith/rotations")
@@ -710,17 +777,25 @@ describe("RotationsPage with a key in the address", () => {
 
   it("leaves the page on Back after a clear, without stepping back to the key", async () => {
     window.history.replaceState(null, "", "/@keysmith/keys")
-    window.history.pushState(null, "", "/@keysmith/rotations?keyId=akey_billing")
+    window.history.pushState(
+      null,
+      "",
+      "/@keysmith/rotations?keyId=akey_billing"
+    )
     const { client } = keyedClient((params) =>
-      params.keyId ? { items: [MANUAL], hasMore: false } : LIST,
+      params.keyId ? { items: [MANUAL], hasMore: false } : LIST
     )
     renderRoutedPage(RotationsPage, client)
     await within(keyFilter()).findByText("Billing service")
-    fireEvent.click(screen.getByRole("button", { name: "Clear the key filter" }))
+    fireEvent.click(
+      screen.getByRole("button", { name: "Clear the key filter" })
+    )
     await screen.findByText("Partner sandbox")
 
     act(() => window.history.back())
-    await waitFor(() => expect(window.location.pathname).toBe("/@keysmith/keys"))
+    await waitFor(() =>
+      expect(window.location.pathname).toBe("/@keysmith/keys")
+    )
     expect(window.location.search).toBe("")
   })
 
@@ -729,16 +804,25 @@ describe("RotationsPage with a key in the address", () => {
     const { client, sent } = keyedClient((params) =>
       params.offset === 0
         ? { items: [MANUAL], hasMore: true }
-        : { items: [{ ...MANUAL, id: "krot_9", reason: "policy" }], hasMore: false },
+        : {
+            items: [{ ...MANUAL, id: "krot_9", reason: "policy" }],
+            hasMore: false,
+          }
     )
     renderRoutedPage(RotationsPage, client)
     await within(keyFilter()).findByText("Billing service")
 
     fireEvent.click(screen.getByRole("button", { name: "Next page" }))
     await screen.findByText("Rotations 26 to 26")
-    expect(listCalls(sent).at(-1)).toEqual({ limit: 25, offset: 25, keyId: "akey_billing" })
+    expect(listCalls(sent).at(-1)).toEqual({
+      limit: 25,
+      offset: 25,
+      keyId: "akey_billing",
+    })
 
-    fireEvent.change(screen.getByLabelText("Reason"), { target: { value: "manual" } })
+    fireEvent.change(screen.getByLabelText("Reason"), {
+      target: { value: "manual" },
+    })
     await screen.findByText("Rotations 1 to 1, more on the next page")
     expect(listCalls(sent).at(-1)).toEqual({
       limit: 25,
@@ -753,40 +837,54 @@ describe("RotationsPage with a key in the address", () => {
     const { client, sent } = keyedClient((params) =>
       params.offset === 0
         ? { items: [MANUAL], hasMore: true }
-        : { items: [POLICY], hasMore: false },
+        : { items: [POLICY], hasMore: false }
     )
     renderRoutedPage(RotationsPage, client)
     await within(keyFilter()).findByText("Billing service")
     fireEvent.click(screen.getByRole("button", { name: "Next page" }))
     await screen.findByText("Reporting export")
 
-    fireEvent.click(screen.getByRole("button", { name: "Clear the key filter" }))
+    fireEvent.click(
+      screen.getByRole("button", { name: "Clear the key filter" })
+    )
     await screen.findByText("Rotations 1 to 1, more on the next page")
     expect(listCalls(sent).at(-1)).toEqual({ limit: 25, offset: 0 })
 
     // The same key again, from the address: its first page, not the one left.
     act(() => {
-      window.history.replaceState(null, "", "/@keysmith/rotations?keyId=akey_billing")
+      window.history.replaceState(
+        null,
+        "",
+        "/@keysmith/rotations?keyId=akey_billing"
+      )
       window.dispatchEvent(new PopStateEvent("popstate"))
     })
     await within(keyFilter()).findByText("Billing service")
     await screen.findByText("Rotations 1 to 1, more on the next page")
-    expect(listCalls(sent).at(-1)).toEqual({ limit: 25, offset: 0, keyId: "akey_billing" })
+    expect(listCalls(sent).at(-1)).toEqual({
+      limit: 25,
+      offset: 0,
+      keyId: "akey_billing",
+    })
   })
 
   it("says the key has not been rotated, and says so apart from a reason that matches nothing", async () => {
     openAt("?keyId=akey_billing")
     const { client } = keyedClient(() => ({ items: [], hasMore: false }))
     renderRoutedPage(RotationsPage, client)
-    expect(await screen.findByText("This key has not been rotated.")).toBeTruthy()
+    expect(
+      await screen.findByText("This key has not been rotated.")
+    ).toBeTruthy()
     expect(screen.queryByText("No rotations yet.")).toBeNull()
 
-    fireEvent.change(screen.getByLabelText("Reason"), { target: { value: "compromise" } })
+    fireEvent.change(screen.getByLabelText("Reason"), {
+      target: { value: "compromise" },
+    })
     expect(
-      await screen.findByText("No rotations of this key match this reason."),
+      await screen.findByText("No rotations of this key match this reason.")
     ).toBeTruthy()
     await waitFor(() =>
-      expect(screen.queryByText("This key has not been rotated.")).toBeNull(),
+      expect(screen.queryByText("This key has not been rotated.")).toBeNull()
     )
   })
 })

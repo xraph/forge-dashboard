@@ -13,14 +13,26 @@ import { describe, expect, it } from "vitest"
  * Node types, so fs passes vitest and fails tsc.
  */
 interface GlobbingImportMeta {
-  glob: (pattern: string, options: { query?: string; eager?: boolean }) => Record<string, { default: string } | string>
+  glob: (
+    pattern: string,
+    options: { query?: string; eager?: boolean }
+  ) => Record<string, { default: string } | string>
 }
 
-const modules = (import.meta as unknown as GlobbingImportMeta).glob("../src/**/*.{ts,tsx}", { query: "?raw", eager: true })
-const source = (mod: { default: string } | string) => (typeof mod === "string" ? mod : mod.default)
-const files = Object.entries(modules).map(([path, mod]) => [path, source(mod)] as const)
+const modules = (import.meta as unknown as GlobbingImportMeta).glob(
+  "../src/**/*.{ts,tsx}",
+  { query: "?raw", eager: true }
+)
+const source = (mod: { default: string } | string) =>
+  typeof mod === "string" ? mod : mod.default
+const files = Object.entries(modules).map(
+  ([path, mod]) => [path, source(mod)] as const
+)
 
-const EDITORS = ["../src/components/editor/code-editor.tsx", "../src/components/editor/field-diff.tsx"]
+const EDITORS = [
+  "../src/components/editor/code-editor.tsx",
+  "../src/components/editor/field-diff.tsx",
+]
 const THEME = "../src/components/editor/theme.ts"
 const WRAPPER = "../src/components/editor/lazy.tsx"
 
@@ -31,7 +43,8 @@ const CHUNK = String.raw`["'\x60][^"'\x60]*\/(?:code-editor|field-diff)(?:\.tsx?
 // A type-only import or re-export, anchored to its `from "..."` clause so it
 // cannot swallow the statements after it: `export type Foo = string` has no
 // `from`, and the pattern does not match it.
-const TYPE_ONLY = /\b(?:import|export)\s+type\s*(?:\{[^}]*\}|\*(?:\s+as\s+\w+)?|\w+(?:\s*,\s*\{[^}]*\})?)\s*from\s*["'][^"']*["']/g
+const TYPE_ONLY =
+  /\b(?:import|export)\s+type\s*(?:\{[^}]*\}|\*(?:\s+as\s+\w+)?|\w+(?:\s*,\s*\{[^}]*\})?)\s*from\s*["'][^"']*["']/g
 
 /**
  * What a file does with the two chunk modules, other than reach them through
@@ -44,7 +57,11 @@ const TYPE_ONLY = /\b(?:import|export)\s+type\s*(?:\{[^}]*\}|\*(?:\s+as\s+\w+)?|
 function reachesChunks(text: string): string[] {
   const runtime = text.replace(TYPE_ONLY, "")
   const found: string[] = []
-  for (const re of [new RegExp(String.raw`\bfrom\s*${CHUNK}`, "g"), new RegExp(String.raw`\bimport\s*${CHUNK}`, "g"), new RegExp(String.raw`\bimport\s*\(\s*${CHUNK}`, "g")]) {
+  for (const re of [
+    new RegExp(String.raw`\bfrom\s*${CHUNK}`, "g"),
+    new RegExp(String.raw`\bimport\s*${CHUNK}`, "g"),
+    new RegExp(String.raw`\bimport\s*\(\s*${CHUNK}`, "g"),
+  ]) {
     for (const m of runtime.matchAll(re)) found.push(m[0].replace(/\s+/g, " "))
   }
   return found
@@ -57,12 +74,25 @@ describe("CodeMirror loads only on demand", () => {
   })
 
   it("is named by no file except the editor, the diff and their shared theme", () => {
-    expect(files.filter(([, text]) => text.includes("@codemirror") || text.includes("@lezer")).map(([path]) => path).sort()).toEqual([...EDITORS, THEME].sort())
+    expect(
+      files
+        .filter(
+          ([, text]) => text.includes("@codemirror") || text.includes("@lezer")
+        )
+        .map(([path]) => path)
+        .sort()
+    ).toEqual([...EDITORS, THEME].sort())
   })
 
   it("reaches the theme from the editor and the diff only", () => {
-    const themeImport = /\bfrom\s*["'][^"']*\/theme(?:\.tsx?)?["']|\bimport\s*\(?\s*["'][^"']*\/theme(?:\.tsx?)?["']/
-    expect(files.filter(([, text]) => themeImport.test(text)).map(([path]) => path).sort()).toEqual([...EDITORS].sort())
+    const themeImport =
+      /\bfrom\s*["'][^"']*\/theme(?:\.tsx?)?["']|\bimport\s*\(?\s*["'][^"']*\/theme(?:\.tsx?)?["']/
+    expect(
+      files
+        .filter(([, text]) => themeImport.test(text))
+        .map(([path]) => path)
+        .sort()
+    ).toEqual([...EDITORS].sort())
   })
 
   it("reaches the editor and the diff only through lazy() in components/editor/lazy.tsx", () => {
@@ -70,15 +100,30 @@ describe("CodeMirror loads only on demand", () => {
     expect(wrapper).toMatch(/lazy\(\(\)\s*=>\s*import\("\.\/code-editor"\)\)/)
     expect(wrapper).toMatch(/lazy\(\(\)\s*=>\s*import\("\.\/field-diff"\)\)/)
     // Exactly the two dynamic imports: a static one added to the wrapper would otherwise pass, since it is exempt from the scan below.
-    expect(reachesChunks(wrapper).sort()).toEqual(['import("./code-editor"', 'import("./field-diff"'])
-    const offenders = files.filter(([path]) => path !== WRAPPER).flatMap(([path, text]) => reachesChunks(text).map((hit) => `${path}: ${hit}`))
+    expect(reachesChunks(wrapper).sort()).toEqual([
+      'import("./code-editor"',
+      'import("./field-diff"',
+    ])
+    const offenders = files
+      .filter(([path]) => path !== WRAPPER)
+      .flatMap(([path, text]) =>
+        reachesChunks(text).map((hit) => `${path}: ${hit}`)
+      )
     expect(offenders).toEqual([])
   })
 
   it("reaches the template workspace from the plugin entry through lazy(), and from nowhere else", () => {
     const entry = source(modules["../src/index.tsx"])
-    expect(entry).toMatch(/lazy\(\(\)\s*=>\s*import\("\.\/pages\/template-workspace"\)\)/)
-    expect(files.filter(([, text]) => /from\s+["'][./]*pages\/template-workspace["']/.test(text)).map(([path]) => path)).toEqual([])
+    expect(entry).toMatch(
+      /lazy\(\(\)\s*=>\s*import\("\.\/pages\/template-workspace"\)\)/
+    )
+    expect(
+      files
+        .filter(([, text]) =>
+          /from\s+["'][./]*pages\/template-workspace["']/.test(text)
+        )
+        .map(([path]) => path)
+    ).toEqual([])
   })
 })
 
@@ -86,7 +131,11 @@ describe("the matcher that guards the boundary", () => {
   const hits = (text: string) => reachesChunks(text).length
 
   it("catches a multi-line named import", () => {
-    expect(hits('import {\n  templateActions,\n  actionCompletions,\n} from "../components/editor/code-editor"\n')).toBe(1)
+    expect(
+      hits(
+        'import {\n  templateActions,\n  actionCompletions,\n} from "../components/editor/code-editor"\n'
+      )
+    ).toBe(1)
   })
 
   it("catches a default import and an import with a .tsx suffix", () => {
@@ -111,20 +160,36 @@ describe("the matcher that guards the boundary", () => {
 
   it("lets a type-only import through, one line or several", () => {
     expect(hits('import type { A } from "./code-editor"')).toBe(0)
-    expect(hits('import type {\n  A,\n  B,\n} from "../editor/field-diff"\nconst x = 1\n')).toBe(0)
+    expect(
+      hits(
+        'import type {\n  A,\n  B,\n} from "../editor/field-diff"\nconst x = 1\n'
+      )
+    ).toBe(0)
     expect(hits('export type { A } from "./code-editor"')).toBe(0)
   })
 
   it("is not fooled by a type alias ahead of a real reach", () => {
-    expect(hits('export type Foo = string\nexport { default } from "./code-editor"')).toBe(1)
-    expect(hits('export type Foo = string\nconst m = import("./field-diff")')).toBe(1)
+    expect(
+      hits('export type Foo = string\nexport { default } from "./code-editor"')
+    ).toBe(1)
+    expect(
+      hits('export type Foo = string\nconst m = import("./field-diff")')
+    ).toBe(1)
   })
 
   it("does not trip on a type-only import hiding a real one after it", () => {
-    expect(hits('import type { A } from "./types"\nimport CodeEditor from "./code-editor"\n')).toBe(1)
+    expect(
+      hits(
+        'import type { A } from "./types"\nimport CodeEditor from "./code-editor"\n'
+      )
+    ).toBe(1)
   })
 
   it("ignores other modules", () => {
-    expect(hits('import { CodeEditor } from "./lazy"\nimport x from "./code-editor-helpers"')).toBe(0)
+    expect(
+      hits(
+        'import { CodeEditor } from "./lazy"\nimport x from "./code-editor-helpers"'
+      )
+    ).toBe(0)
   })
 })

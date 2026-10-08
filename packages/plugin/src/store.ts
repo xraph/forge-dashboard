@@ -40,7 +40,8 @@ const EMPTY: Entry<never> = { loading: true }
  * correctness bug, which is exactly why it would never be noticed.
  */
 function stableStringify(value: unknown): string {
-  if (value === null || typeof value !== "object") return JSON.stringify(value) ?? "null"
+  if (value === null || typeof value !== "object")
+    return JSON.stringify(value) ?? "null"
   if (Array.isArray(value)) return `[${value.map(stableStringify).join(",")}]`
   const entries = Object.entries(value as Record<string, unknown>)
     // `JSON.stringify` drops a key whose value is `undefined` from the
@@ -78,7 +79,11 @@ export class QueryStore {
   // that collision representable: delete the record and the count restarts.
   private nextGeneration = 0
 
-  keyOf(extension: string, intent: string, params?: Record<string, unknown>): string {
+  keyOf(
+    extension: string,
+    intent: string,
+    params?: Record<string, unknown>
+  ): string {
     return `${extension}|${intent}|${stableStringify(params ?? {})}`
   }
 
@@ -112,7 +117,10 @@ export class QueryStore {
     for (const listener of this.listeners.get(key) ?? []) listener()
   }
 
-  private write(key: string, patch: Partial<Record_<unknown>> & { entry: Entry<unknown> }): void {
+  private write(
+    key: string,
+    patch: Partial<Record_<unknown>> & { entry: Entry<unknown> }
+  ): void {
     const existing = this.records.get(key)
     this.records.set(key, { ...(existing as Record_<unknown>), ...patch })
     this.notify(key)
@@ -127,7 +135,12 @@ export class QueryStore {
    * `staleMs` of 0 means every call refetches, which is what `useQuery` does
    * today and what a contributor sending no cache hint keeps getting.
    */
-  read<T>(key: string, fetcher: () => Promise<T>, staleMs: number, opts?: { force?: boolean }): Entry<T> {
+  read<T>(
+    key: string,
+    fetcher: () => Promise<T>,
+    staleMs: number,
+    opts?: { force?: boolean }
+  ): Entry<T> {
     const record = this.records.get(key)
     const fresh =
       record !== undefined &&
@@ -183,7 +196,7 @@ export class QueryStore {
           settledAt: Date.now(),
           pending: false,
         })
-      },
+      }
     )
 
     return this.snapshot<T>(key)
@@ -238,7 +251,11 @@ export class QueryStore {
         // (with `loading` beside it) during the refetch, rather than
         // blanking the page while the new answer is in flight.
         if (blank) {
-          this.records.set(key, { ...record, entry: { loading: true }, settledAt: 0 })
+          this.records.set(key, {
+            ...record,
+            entry: { loading: true },
+            settledAt: 0,
+          })
         }
         this.read(key, record.fetcher, 0, { force: true })
       } else {

@@ -31,7 +31,7 @@ describe("plugin error boundary", () => {
     render(
       <PluginErrorBoundary plugin="auth" fallback={<p>custom fallback</p>}>
         <Exploding />
-      </PluginErrorBoundary>,
+      </PluginErrorBoundary>
     )
     expect(screen.getByText("custom fallback")).toBeTruthy()
   })
@@ -40,7 +40,7 @@ describe("plugin error boundary", () => {
     render(
       <PluginErrorBoundary plugin="auth">
         <Exploding />
-      </PluginErrorBoundary>,
+      </PluginErrorBoundary>
     )
     expect(screen.queryByText("custom fallback")).toBeNull()
     // Absence alone would also pass if the boundary rendered nothing at all.
@@ -53,7 +53,9 @@ describe("plugin error boundary", () => {
 describe("FallbackAuthGate", () => {
   it("names the wiring mistake when no plugin declares auth", () => {
     render(<FallbackAuthGate reason="no-provider" />)
-    expect(screen.getByRole("alert").textContent).toMatch(/no plugin declares auth/i)
+    expect(screen.getByRole("alert").textContent).toMatch(
+      /no plugin declares auth/i
+    )
   })
 
   it("says the screen failed when an auth screen threw", () => {

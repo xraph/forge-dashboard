@@ -54,8 +54,16 @@ const memberColumns: Column<MemberInfo>[] = [
     header: "User",
     cell: (m) => <span className="font-mono text-xs">{m.userID}</span>,
   },
-  { id: "role", header: "Role", cell: (m) => <Badge variant="outline">{m.role}</Badge> },
-  { id: "joinedAt", header: "Joined", cell: (m) => formatTimestamp(m.joinedAt) },
+  {
+    id: "role",
+    header: "Role",
+    cell: (m) => <Badge variant="outline">{m.role}</Badge>,
+  },
+  {
+    id: "joinedAt",
+    header: "Joined",
+    cell: (m) => formatTimestamp(m.joinedAt),
+  },
   {
     id: "permissions",
     header: "Permissions",
@@ -64,7 +72,11 @@ const memberColumns: Column<MemberInfo>[] = [
 ]
 
 const moderationColumns: Column<ModerationEntry>[] = [
-  { id: "timestamp", header: "When", cell: (e) => formatTimestamp(e.timestamp) },
+  {
+    id: "timestamp",
+    header: "When",
+    cell: (e) => formatTimestamp(e.timestamp),
+  },
   { id: "action", header: "Action", cell: (e) => e.action },
   {
     id: "actorID",
@@ -149,7 +161,11 @@ function Composer({ roomId }: { roomId: string }) {
       <CommandAlert error={send.error} title="Could not send the message" />
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="send-as">Send as</Label>
-        <Input id="send-as" value={userID} onChange={(e) => setUserID(e.target.value)} />
+        <Input
+          id="send-as"
+          value={userID}
+          onChange={(e) => setUserID(e.target.value)}
+        />
       </div>
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="send-content">Message</Label>
@@ -202,13 +218,19 @@ function RoomDetail({ roomId }: { roomId: string }) {
                     items={[
                       {
                         term: "Owner",
-                        value: <span className="font-mono text-xs">{room.owner}</span>,
+                        value: (
+                          <span className="font-mono text-xs">
+                            {room.owner}
+                          </span>
+                        ),
                       },
                       { term: "Members", value: room.members },
                       {
                         term: "Visibility",
                         value: (
-                          <Badge variant={room.private ? "secondary" : "outline"}>
+                          <Badge
+                            variant={room.private ? "secondary" : "outline"}
+                          >
                             {room.private ? "private" : "public"}
                           </Badge>
                         ),

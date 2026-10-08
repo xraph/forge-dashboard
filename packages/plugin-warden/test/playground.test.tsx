@@ -19,7 +19,11 @@ const DENIED: PlaygroundResult = {
   allowed: false,
   reason: 'denied by policy "contractor-lockout"',
   matchedBy: [
-    { source: "abac", ruleId: "wpol_contractor-lockout", detail: 'policy "contractor-lockout" (deny)' },
+    {
+      source: "abac",
+      ruleId: "wpol_contractor-lockout",
+      detail: 'policy "contractor-lockout" (deny)',
+    },
   ],
   obligations: ["audit", "notify:security"],
   evalTimeNs: 902_000,
@@ -28,7 +32,13 @@ const DENIED: PlaygroundResult = {
       model: "rbac",
       state: "allow",
       decision: "allow",
-      matchedBy: [{ source: "rbac", ruleId: "role_01hv", detail: "role grants document:delete" }],
+      matchedBy: [
+        {
+          source: "rbac",
+          ruleId: "role_01hv",
+          detail: "role grants document:delete",
+        },
+      ],
     },
     { model: "rebac", state: "skipped", matchedBy: [] },
     {
@@ -37,7 +47,11 @@ const DENIED: PlaygroundResult = {
       decision: "deny_explicit",
       reason: 'denied by policy "contractor-lockout"',
       matchedBy: [
-        { source: "abac", ruleId: "wpol_contractor-lockout", detail: 'policy "contractor-lockout" (deny)' },
+        {
+          source: "abac",
+          ruleId: "wpol_contractor-lockout",
+          detail: 'policy "contractor-lockout" (deny)',
+        },
       ],
     },
   ],
@@ -52,7 +66,12 @@ const FAILED: PlaygroundResult = {
   obligations: [],
   evalTimeNs: 55_000,
   lanes: [
-    { model: "rbac", state: "error", error: "store unavailable", matchedBy: [] },
+    {
+      model: "rbac",
+      state: "error",
+      error: "store unavailable",
+      matchedBy: [],
+    },
     { model: "rebac", state: "notEvaluated", matchedBy: [] },
     { model: "abac", state: "notEvaluated", matchedBy: [] },
   ],
@@ -61,14 +80,20 @@ const FAILED: PlaygroundResult = {
 const NAMESPACES = { namespaces: ["", "eng/platform"] }
 
 function answers(extra: Record<string, unknown> = {}) {
-  return { "playground.explain": DENIED, "namespaces.list": NAMESPACES, ...extra }
+  return {
+    "playground.explain": DENIED,
+    "namespaces.list": NAMESPACES,
+    ...extra,
+  }
 }
 
 function setup(extra: Record<string, unknown> = {}) {
   const { client, sent } = recordingQueryClient(answers(extra))
   const view = renderPage(WardenPlaygroundPage, client)
   const explains = () =>
-    sent.filter((s) => s.intent === "playground.explain").map((s) => s.params as Record<string, unknown>)
+    sent
+      .filter((s) => s.intent === "playground.explain")
+      .map((s) => s.params as Record<string, unknown>)
   return { ...view, sent, explains }
 }
 
@@ -83,7 +108,8 @@ function fillRequired() {
 }
 
 const run = () => screen.getByRole("button", { name: "Run" })
-const value = (label: string) => (screen.getByLabelText(label) as HTMLInputElement).value
+const value = (label: string) =>
+  (screen.getByLabelText(label) as HTMLInputElement).value
 
 describe("WardenPlaygroundPage: validation", () => {
   it("keeps Run disabled until subject id, action and resource type are filled", () => {
@@ -110,10 +136,16 @@ describe("WardenPlaygroundPage: validation", () => {
   it("marks the three required inputs required, and no others", () => {
     setup()
     for (const label of ["Subject id", "Action", "Resource type"]) {
-      expect(screen.getByLabelText(label).getAttribute("aria-required"), label).toBe("true")
+      expect(
+        screen.getByLabelText(label).getAttribute("aria-required"),
+        label
+      ).toBe("true")
     }
     for (const label of ["Resource id", "Namespace", "Context"]) {
-      expect(screen.getByLabelText(label).getAttribute("aria-required"), label).toBeNull()
+      expect(
+        screen.getByLabelText(label).getAttribute("aria-required"),
+        label
+      ).toBeNull()
     }
   })
 
@@ -125,9 +157,13 @@ describe("WardenPlaygroundPage: validation", () => {
     expect(screen.getByText(NOT_JSON)).toBeTruthy()
     const field = screen.getByLabelText("Context")
     expect(field.getAttribute("aria-invalid")).toBe("true")
-    const described = document.getElementById(field.getAttribute("aria-describedby") ?? "")
+    const described = document.getElementById(
+      field.getAttribute("aria-describedby") ?? ""
+    )
     expect(described?.textContent).toBe(NOT_JSON)
-    expect(screen.getByLabelText("Subject attributes").getAttribute("aria-invalid")).not.toBe("true")
+    expect(
+      screen.getByLabelText("Subject attributes").getAttribute("aria-invalid")
+    ).not.toBe("true")
     expect(t.explains()).toHaveLength(0)
   })
 
@@ -139,11 +175,14 @@ describe("WardenPlaygroundPage: validation", () => {
     fill("Context", "{}")
     fireEvent.click(run())
     const describe_ = (label: string) =>
-      document.getElementById(screen.getByLabelText(label).getAttribute("aria-describedby") ?? "")
-        ?.textContent
+      document.getElementById(
+        screen.getByLabelText(label).getAttribute("aria-describedby") ?? ""
+      )?.textContent
     expect(describe_("Subject attributes")).toBe(NOT_JSON)
     expect(describe_("Resource attributes")).toBe(NOT_OBJECT)
-    expect(screen.getByLabelText("Context").getAttribute("aria-invalid")).not.toBe("true")
+    expect(
+      screen.getByLabelText("Context").getAttribute("aria-invalid")
+    ).not.toBe("true")
     expect(t.explains()).toHaveLength(0)
   })
 
@@ -172,7 +211,9 @@ describe("WardenPlaygroundPage: validation", () => {
   it("opens the attributes and context disclosure when a JSON field is invalid", () => {
     setup()
     fillRequired()
-    const details = screen.getByText("attributes and context").closest("details") as HTMLDetailsElement
+    const details = screen
+      .getByText("attributes and context")
+      .closest("details") as HTMLDetailsElement
     expect(details.open).toBe(false)
     fill("Context", "{nope")
     fireEvent.click(run())
@@ -183,7 +224,9 @@ describe("WardenPlaygroundPage: validation", () => {
 describe("WardenPlaygroundPage: the request", () => {
   it("sends exactly the contract's keys when every field is filled", async () => {
     const t = setup()
-    fireEvent.change(screen.getByLabelText("Subject kind"), { target: { value: "service" } })
+    fireEvent.change(screen.getByLabelText("Subject kind"), {
+      target: { value: "service" },
+    })
     fill("Subject id", "deployer")
     fill("Action", "admin")
     fill("Resource type", "cluster")
@@ -207,7 +250,7 @@ describe("WardenPlaygroundPage: the request", () => {
         "subjectAttributes",
         "subjectId",
         "subjectKind",
-      ].sort(),
+      ].sort()
     )
     expect(sent).toEqual({
       subjectKind: "service",
@@ -230,7 +273,13 @@ describe("WardenPlaygroundPage: the request", () => {
     await screen.findByText("deny_explicit")
     const sent = t.explains()[0]
     expect(Object.keys(sent).sort()).toEqual(
-      ["action", "namespacePath", "resourceType", "subjectId", "subjectKind"].sort(),
+      [
+        "action",
+        "namespacePath",
+        "resourceType",
+        "subjectId",
+        "subjectKind",
+      ].sort()
     )
     expect(sent.namespacePath).toBe("")
     expect(sent.subjectKind).toBe("user")
@@ -257,7 +306,9 @@ describe("WardenPlaygroundPage: the request", () => {
 
   it("offers exactly the four subject kinds the check log uses", () => {
     setup()
-    const options = within(screen.getByLabelText("Subject kind")).getAllByRole("option")
+    const options = within(screen.getByLabelText("Subject kind")).getAllByRole(
+      "option"
+    )
     expect(options.map((o) => (o as HTMLOptionElement).value)).toEqual([
       "user",
       "api_key",
@@ -274,7 +325,9 @@ describe("WardenPlaygroundPage: the result", () => {
     fireEvent.click(run())
     const badge = await screen.findByText("deny_explicit")
     expect(badge.getAttribute("data-variant")).toBe("secondary")
-    expect(screen.getAllByText('denied by policy "contractor-lockout"').length).toBeGreaterThan(0)
+    expect(
+      screen.getAllByText('denied by policy "contractor-lockout"').length
+    ).toBeGreaterThan(0)
     expect(screen.getByText("evaluated in 0.90 ms")).toBeTruthy()
   })
 
@@ -283,7 +336,9 @@ describe("WardenPlaygroundPage: the result", () => {
     fillRequired()
     fireEvent.click(run())
     await screen.findByText("deny_explicit")
-    const rows = within(screen.getByRole("list", { name: "Models" })).getAllByRole("listitem")
+    const rows = within(
+      screen.getByRole("list", { name: "Models" })
+    ).getAllByRole("listitem")
     expect(rows).toHaveLength(3)
     expect(within(rows[0]).getByText("RBAC")).toBeTruthy()
     expect(within(rows[1]).getByText("ReBAC")).toBeTruthy()
@@ -293,14 +348,21 @@ describe("WardenPlaygroundPage: the result", () => {
     expect(within(rows[2]).getByText("decided it")).toBeTruthy()
     expect(screen.getAllByText("decided it")).toHaveLength(1)
     // The deciding lane, and only it, carries the left rule.
-    expect(rows.map((r) => r.getAttribute("data-deciding"))).toEqual([null, null, "true"])
+    expect(rows.map((r) => r.getAttribute("data-deciding"))).toEqual([
+      null,
+      null,
+      "true",
+    ])
     expect(rows[2].className).toContain("border-l-foreground")
 
-    const sentence = screen.getByText("An explicit deny overrides the RBAC allow.")
+    const sentence = screen.getByText(
+      "An explicit deny overrides the RBAC allow."
+    )
     // The sentence follows the lanes.
     expect(
-      screen.getByRole("list", { name: "Models" }).compareDocumentPosition(sentence) &
-        Node.DOCUMENT_POSITION_FOLLOWING,
+      screen
+        .getByRole("list", { name: "Models" })
+        .compareDocumentPosition(sentence) & Node.DOCUMENT_POSITION_FOLLOWING
     ).toBeTruthy()
   })
 
@@ -330,14 +392,22 @@ describe("WardenPlaygroundPage: the result", () => {
         allowed: true,
         reason: undefined,
         obligations: [],
-        lanes: [DENIED.lanes[0], DENIED.lanes[1], { model: "abac", state: "noMatch", matchedBy: [] }],
+        lanes: [
+          DENIED.lanes[0],
+          DENIED.lanes[1],
+          { model: "abac", state: "noMatch", matchedBy: [] },
+        ],
       },
     })
     fillRequired()
     fireEvent.click(run())
-    const badge = await screen.findByText("allow", { selector: "[data-slot=badge]" })
+    const badge = await screen.findByText("allow", {
+      selector: "[data-slot=badge]",
+    })
     expect(badge.getAttribute("data-variant")).toBe("outline")
-    expect(screen.getByText("RBAC allowed this check, and no deny policy matched.")).toBeTruthy()
+    expect(
+      screen.getByText("RBAC allowed this check, and no deny policy matched.")
+    ).toBeTruthy()
   })
 
   it("says the lane that supplied a denial's reason gave the reason, not that it decided", async () => {
@@ -349,8 +419,20 @@ describe("WardenPlaygroundPage: the result", () => {
       obligations: [],
       evalTimeNs: 100_000,
       lanes: [
-        { model: "rbac", state: "noMatch", decision: "deny_no_roles", reason: "subject user:dave has no assigned roles", matchedBy: [] },
-        { model: "rebac", state: "noMatch", decision: "deny_relation", reason: "no relation", matchedBy: [] },
+        {
+          model: "rbac",
+          state: "noMatch",
+          decision: "deny_no_roles",
+          reason: "subject user:dave has no assigned roles",
+          matchedBy: [],
+        },
+        {
+          model: "rebac",
+          state: "noMatch",
+          decision: "deny_relation",
+          reason: "no relation",
+          matchedBy: [],
+        },
         { model: "abac", state: "noMatch", matchedBy: [] },
       ],
     }
@@ -358,7 +440,9 @@ describe("WardenPlaygroundPage: the result", () => {
     fillRequired()
     fireEvent.click(run())
     await screen.findByText("deny_no_roles")
-    const rows = within(screen.getByRole("list", { name: "Models" })).getAllByRole("listitem")
+    const rows = within(
+      screen.getByRole("list", { name: "Models" })
+    ).getAllByRole("listitem")
     expect(within(rows[0]).getByText("gave the reason")).toBeTruthy()
     expect(screen.queryByText("decided it")).toBeNull()
     expect(within(rows[2]).getByText("No policy applied.")).toBeTruthy()
@@ -368,11 +452,17 @@ describe("WardenPlaygroundPage: the result", () => {
     setup({ "playground.explain": FAILED })
     fillRequired()
     fireEvent.click(run())
-    const badge = await screen.findByText("error", { selector: "[data-slot=badge]" })
+    const badge = await screen.findByText("error", {
+      selector: "[data-slot=badge]",
+    })
     expect(badge.getAttribute("data-variant")).toBe("destructive")
-    expect(screen.getByText("warden rbac: store unavailable").className).toContain("text-destructive")
+    expect(
+      screen.getByText("warden rbac: store unavailable").className
+    ).toContain("text-destructive")
     expect(screen.queryByText(/evaluated in/)).toBeNull()
-    expect(screen.getByText("The RBAC model failed, so no decision was returned.")).toBeTruthy()
+    expect(
+      screen.getByText("The RBAC model failed, so no decision was returned.")
+    ).toBeTruthy()
     expect(screen.queryByText("decided it")).toBeNull()
   })
 
@@ -386,7 +476,9 @@ describe("WardenPlaygroundPage: the result", () => {
     const client = {
       extension: "warden",
       query: (intent: string) =>
-        intent === "namespaces.list" ? Promise.resolve(NAMESPACES) : new Promise<never>(() => {}),
+        intent === "namespaces.list"
+          ? Promise.resolve(NAMESPACES)
+          : new Promise<never>(() => {}),
       command: async () => undefined,
     } as unknown as ScopedClient
     renderPage(WardenPlaygroundPage, client)
@@ -408,10 +500,15 @@ describe("WardenPlaygroundPage: a refusal", () => {
         if (intent === "playground.explain") {
           calls += 1
           if (calls > 1) {
-            throw new ContractError("BAD_REQUEST", "namespacePath is not a valid namespace path")
+            throw new ContractError(
+              "BAD_REQUEST",
+              "namespacePath is not a valid namespace path"
+            )
           }
         }
-        return (base as { query: (i: string, p?: unknown) => Promise<unknown> }).query(intent, params)
+        return (
+          base as { query: (i: string, p?: unknown) => Promise<unknown> }
+        ).query(intent, params)
       },
       command: base.command,
     } as unknown as ScopedClient
@@ -427,13 +524,17 @@ describe("WardenPlaygroundPage: a refusal", () => {
     // The same input again: the request is sent again, and refused.
     fireEvent.click(run())
     const alert = await screen.findByRole("alert")
-    expect(alert.textContent).toContain("namespacePath is not a valid namespace path")
+    expect(alert.textContent).toContain(
+      "namespacePath is not a valid namespace path"
+    )
     expect(alert.textContent).toContain("BAD_REQUEST")
     expect(screen.queryByText("deny_explicit")).toBeNull()
     expect(screen.queryByText("decided it")).toBeNull()
     expect(screen.queryByText(/evaluated in/)).toBeNull()
     // In the builder: the form's own subtree holds the alert.
-    expect(screen.getByLabelText("Subject id").closest("form")?.contains(alert)).toBe(true)
+    expect(
+      screen.getByLabelText("Subject id").closest("form")?.contains(alert)
+    ).toBe(true)
   })
 
   it("clears the refusal when the next check runs", async () => {
@@ -444,9 +545,12 @@ describe("WardenPlaygroundPage: a refusal", () => {
       query: async (intent: string, params?: unknown) => {
         if (intent === "playground.explain") {
           calls += 1
-          if (calls === 1) throw new ContractError("BAD_REQUEST", "resourceType is required")
+          if (calls === 1)
+            throw new ContractError("BAD_REQUEST", "resourceType is required")
         }
-        return (base as { query: (i: string, p?: unknown) => Promise<unknown> }).query(intent, params)
+        return (
+          base as { query: (i: string, p?: unknown) => Promise<unknown> }
+        ).query(intent, params)
       },
       command: base.command,
     } as unknown as ScopedClient
@@ -505,10 +609,18 @@ describe("WardenPlaygroundPage: View this subject", () => {
       matchedBy: [],
       obligations: [],
     }
-    const { client } = recordingQueryClient(answers({ "checkLogs.detail": detail }))
+    const { client } = recordingQueryClient(
+      answers({ "checkLogs.detail": detail })
+    )
     renderPage(WardenPlaygroundPage, client, { checkId: "chk_nokind" })
-    await waitFor(() => expect((screen.getByLabelText("Subject id") as HTMLInputElement).value).toBe("deployer"))
-    expect((screen.getByLabelText("Subject kind") as HTMLSelectElement).value).toBe("")
+    await waitFor(() =>
+      expect(
+        (screen.getByLabelText("Subject id") as HTMLInputElement).value
+      ).toBe("deployer")
+    )
+    expect(
+      (screen.getByLabelText("Subject kind") as HTMLSelectElement).value
+    ).toBe("")
     expect(view()).toBeNull()
   })
 })
@@ -523,30 +635,48 @@ describe("WardenPlaygroundPage: the batch", () => {
       { decision: "error", allowed: false, error: "store unavailable" },
     ],
   }
-  const LINES = ["user:alice read document:d1", ":bob write folder", "service:ci deploy env:prod:blue"]
+  const LINES = [
+    "user:alice read document:d1",
+    ":bob write folder",
+    "service:ci deploy env:prod:blue",
+  ]
 
   function batchSetup(extra: Record<string, unknown> = {}) {
     const { client, sent } = recordingQueryClient(
-      answers({ "playground.batchCheck": RESULTS, "config.detail": { maxBatchChecks: 100 }, ...extra }),
+      answers({
+        "playground.batchCheck": RESULTS,
+        "config.detail": { maxBatchChecks: 100 },
+        ...extra,
+      })
     )
     const view = renderPage(WardenPlaygroundPage, client)
     const batches = () =>
-      sent.filter((s) => s.intent === "playground.batchCheck").map((s) => s.params as Record<string, unknown>)
+      sent
+        .filter((s) => s.intent === "playground.batchCheck")
+        .map((s) => s.params as Record<string, unknown>)
     return { ...view, client, sent, batches }
   }
 
   /** The config read was sent and has had time to settle. */
   async function configRead(sent: { intent: string }[]) {
-    await waitFor(() => expect(sent.some((s) => s.intent === "config.detail")).toBe(true))
+    await waitFor(() =>
+      expect(sent.some((s) => s.intent === "config.detail")).toBe(true)
+    )
     await new Promise((r) => setTimeout(r, 20))
   }
 
   const typeBatch = (text: string) =>
-    fireEvent.change(screen.getByLabelText("Checks, one per line"), { target: { value: text } })
-  const runBatch = () => fireEvent.click(screen.getByRole("button", { name: "Run batch" }))
+    fireEvent.change(screen.getByLabelText("Checks, one per line"), {
+      target: { value: text },
+    })
+  const runBatch = () =>
+    fireEvent.click(screen.getByRole("button", { name: "Run batch" }))
 
   /** A batch client whose batchCheck is refused. */
-  function refusing(error: ContractError, config: Record<string, unknown> | undefined) {
+  function refusing(
+    error: ContractError,
+    config: Record<string, unknown> | undefined
+  ) {
     const inner = stubClient({
       "playground.explain": DENIED,
       "namespaces.list": NAMESPACES,
@@ -569,13 +699,17 @@ describe("WardenPlaygroundPage: the batch", () => {
 
   it("has a Run a batch disclosure with the footer sentence under it", () => {
     batchSetup()
-    const details = screen.getByText("Run a batch").closest("details") as HTMLElement
+    const details = screen
+      .getByText("Run a batch")
+      .closest("details") as HTMLElement
     expect(within(details).getByText(BATCH_FOOTER)).toBeTruthy()
   })
 
   it("keeps Run batch disabled until there is a line", () => {
     batchSetup()
-    const button = screen.getByRole("button", { name: "Run batch" }) as HTMLButtonElement
+    const button = screen.getByRole("button", {
+      name: "Run batch",
+    }) as HTMLButtonElement
     expect(button.disabled).toBe(true)
     typeBatch("  \n\n ")
     expect(button.disabled).toBe(true)
@@ -586,17 +720,41 @@ describe("WardenPlaygroundPage: the batch", () => {
   it("sends the builder's namespace and every line as an item, in order", async () => {
     const t = batchSetup()
     fill("Namespace", "eng/platform")
-    typeBatch([LINES[0], "", LINES[1], "user:a:b  read   doc\r", LINES[2]].join("\n"))
+    typeBatch(
+      [LINES[0], "", LINES[1], "user:a:b  read   doc\r", LINES[2]].join("\n")
+    )
     runBatch()
     await screen.findByText("no role grants it")
     expect(t.batches()).toEqual([
       {
         namespacePath: "eng/platform",
         items: [
-          { subjectKind: "user", subjectId: "alice", action: "read", resourceType: "document", resourceId: "d1" },
-          { subjectKind: "", subjectId: "bob", action: "write", resourceType: "folder" },
-          { subjectKind: "user", subjectId: "a:b", action: "read", resourceType: "doc" },
-          { subjectKind: "service", subjectId: "ci", action: "deploy", resourceType: "env", resourceId: "prod:blue" },
+          {
+            subjectKind: "user",
+            subjectId: "alice",
+            action: "read",
+            resourceType: "document",
+            resourceId: "d1",
+          },
+          {
+            subjectKind: "",
+            subjectId: "bob",
+            action: "write",
+            resourceType: "folder",
+          },
+          {
+            subjectKind: "user",
+            subjectId: "a:b",
+            action: "read",
+            resourceType: "doc",
+          },
+          {
+            subjectKind: "service",
+            subjectId: "ci",
+            action: "deploy",
+            resourceType: "env",
+            resourceId: "prod:blue",
+          },
         ],
       },
     ])
@@ -634,7 +792,9 @@ describe("WardenPlaygroundPage: the batch", () => {
     const t = batchSetup()
     typeBatch(`${LINES[0]}\n\nnope`)
     runBatch()
-    expect(await screen.findByText("Line 3 is not kind:id action type[:id].")).toBeTruthy()
+    expect(
+      await screen.findByText("Line 3 is not kind:id action type[:id].")
+    ).toBeTruthy()
     expect(t.batches()).toHaveLength(0)
   })
 
@@ -642,7 +802,9 @@ describe("WardenPlaygroundPage: the batch", () => {
     batchSetup()
     typeBatch("nope\nalso nope")
     runBatch()
-    expect(await screen.findByText("Line 1 is not kind:id action type[:id].")).toBeTruthy()
+    expect(
+      await screen.findByText("Line 1 is not kind:id action type[:id].")
+    ).toBeTruthy()
     expect(screen.queryByText(/^Line 2 is not/)).toBeNull()
   })
 
@@ -661,7 +823,9 @@ describe("WardenPlaygroundPage: the batch", () => {
     await configRead(t.sent)
     typeBatch(LINES.join("\n"))
     runBatch()
-    expect(await screen.findByText("A batch holds at most 2 checks.")).toBeTruthy()
+    expect(
+      await screen.findByText("A batch holds at most 2 checks.")
+    ).toBeTruthy()
     expect(t.batches()).toHaveLength(0)
   })
 
@@ -677,13 +841,15 @@ describe("WardenPlaygroundPage: the batch", () => {
   it("does not pre-check when the config reports 0, and shows the server's refusal instead", async () => {
     const { client, sent } = refusing(
       new ContractError("BAD_REQUEST", "a batch holds at most 100 checks"),
-      { maxBatchChecks: 0 },
+      { maxBatchChecks: 0 }
     )
     renderPage(WardenPlaygroundPage, client)
     await new Promise((r) => setTimeout(r, 20))
     typeBatch(Array.from({ length: 150 }, () => LINES[0]).join("\n"))
     runBatch()
-    expect(await screen.findByText("a batch holds at most 100 checks")).toBeTruthy()
+    expect(
+      await screen.findByText("a batch holds at most 100 checks")
+    ).toBeTruthy()
     expect(sent).toHaveLength(1)
     expect(screen.queryByText(/^A batch holds at most/)).toBeNull()
   })
@@ -691,44 +857,81 @@ describe("WardenPlaygroundPage: the batch", () => {
   it("does not pre-check when the config cannot be read, and shows the server's refusal instead", async () => {
     const { client, sent } = refusing(
       new ContractError("BAD_REQUEST", "a batch holds at most 100 checks"),
-      undefined,
+      undefined
     )
     renderPage(WardenPlaygroundPage, client)
     typeBatch(LINES.join("\n"))
     runBatch()
-    expect(await screen.findByText("a batch holds at most 100 checks")).toBeTruthy()
+    expect(
+      await screen.findByText("a batch holds at most 100 checks")
+    ).toBeTruthy()
     expect(sent).toHaveLength(1)
   })
 
   it("shows a server refusal in the batch section, not over the builder's Run", async () => {
-    const { client } = refusing(new ContractError("BAD_REQUEST", "items[1].subjectId is required"), {
-      maxBatchChecks: 100,
-    })
+    const { client } = refusing(
+      new ContractError("BAD_REQUEST", "items[1].subjectId is required"),
+      {
+        maxBatchChecks: 100,
+      }
+    )
     renderPage(WardenPlaygroundPage, client)
     typeBatch(LINES[0]!)
     runBatch()
     const alert = await screen.findByRole("alert")
-    const details = screen.getByText("Run a batch").closest("details") as HTMLElement
+    const details = screen
+      .getByText("Run a batch")
+      .closest("details") as HTMLElement
     expect(details.contains(alert)).toBe(true)
     expect(alert.textContent).toContain("items[1].subjectId is required")
   })
 
   it("lists the results in line order with the decision, and the reason or error", async () => {
     batchSetup()
-    typeBatch(["user:alice read document:d1", "", ":bob write folder", "service:ci deploy env:prod:blue"].join("\n"))
+    typeBatch(
+      [
+        "user:alice read document:d1",
+        "",
+        ":bob write folder",
+        "service:ci deploy env:prod:blue",
+      ].join("\n")
+    )
     runBatch()
     await screen.findByText("no role grants it")
     const table = screen.getByRole("region", { name: "3 checks" })
     const rows = Array.from(table.querySelectorAll("tbody tr"))
     expect(rows).toHaveLength(3)
-    const text = (tr: Element) => Array.from(tr.querySelectorAll("td")).map((td) => td.textContent)
-    expect(text(rows[0]!).slice(0, 3)).toEqual(["1", "user:alice read document:d1", "allow"])
-    expect(text(rows[1]!).slice(0, 4)).toEqual(["3", ":bob write folder", "deny_default", "no role grants it"])
-    expect(text(rows[2]!).slice(0, 4)).toEqual(["4", "service:ci deploy env:prod:blue", "error", "store unavailable"])
-    const badge = (tr: Element) => tr.querySelector("[data-slot='badge']")?.getAttribute("data-variant")
+    const text = (tr: Element) =>
+      Array.from(tr.querySelectorAll("td")).map((td) => td.textContent)
+    expect(text(rows[0]!).slice(0, 3)).toEqual([
+      "1",
+      "user:alice read document:d1",
+      "allow",
+    ])
+    expect(text(rows[1]!).slice(0, 4)).toEqual([
+      "3",
+      ":bob write folder",
+      "deny_default",
+      "no role grants it",
+    ])
+    expect(text(rows[2]!).slice(0, 4)).toEqual([
+      "4",
+      "service:ci deploy env:prod:blue",
+      "error",
+      "store unavailable",
+    ])
+    const badge = (tr: Element) =>
+      tr.querySelector("[data-slot='badge']")?.getAttribute("data-variant")
     expect(rows.map(badge)).toEqual(["outline", "secondary", "destructive"])
-    expect(rows[2]!.querySelectorAll("td")[3]!.querySelector(".text-destructive")?.textContent).toBe("store unavailable")
-    expect(rows[1]!.querySelectorAll("td")[3]!.querySelector(".text-muted-foreground")?.textContent).toBe("no role grants it")
+    expect(
+      rows[2]!.querySelectorAll("td")[3]!.querySelector(".text-destructive")
+        ?.textContent
+    ).toBe("store unavailable")
+    expect(
+      rows[1]!
+        .querySelectorAll("td")[3]!
+        .querySelector(".text-muted-foreground")?.textContent
+    ).toBe("no role grants it")
     expect(rows[0]!.querySelector("[aria-label='no detail']")).toBeTruthy()
   })
 
@@ -753,7 +956,9 @@ describe("WardenPlaygroundPage: the batch", () => {
     typeBatch(LINES.join("\n"))
     runBatch()
     await screen.findByText("no role grants it")
-    fireEvent.click(screen.getAllByRole("button", { name: /^Open in builder/ })[1]!)
+    fireEvent.click(
+      screen.getAllByRole("button", { name: /^Open in builder/ })[1]!
+    )
     expect(value("Subject kind")).toBe("")
     expect(value("Subject id")).toBe("bob")
     expect(value("Resource type")).toBe("folder")
@@ -767,7 +972,9 @@ describe("WardenPlaygroundPage: the batch", () => {
     typeBatch(LINES[0]!)
     runBatch()
     await screen.findByRole("button", { name: /^Open in builder/ })
-    fireEvent.click(screen.getAllByRole("button", { name: /^Open in builder/ })[0]!)
+    fireEvent.click(
+      screen.getAllByRole("button", { name: /^Open in builder/ })[0]!
+    )
     expect(value("Namespace")).toBe("eng/platform")
     expect(value("Context")).toBe('{"ip": "10.0.0.1"}')
   })
@@ -788,7 +995,7 @@ describe("WardenPlaygroundPage: the batch", () => {
                   ? { maxBatchChecks: 100 }
                   : intent === "playground.batchCheck"
                     ? RESULTS
-                    : DENIED,
+                    : DENIED
             ),
       command: async () => undefined,
     } as unknown as ScopedClient
@@ -796,7 +1003,9 @@ describe("WardenPlaygroundPage: the batch", () => {
     typeBatch(LINES.join("\n"))
     runBatch()
     await screen.findByText("no role grants it")
-    fireEvent.click(screen.getAllByRole("button", { name: /^Open in builder/ })[0]!)
+    fireEvent.click(
+      screen.getAllByRole("button", { name: /^Open in builder/ })[0]!
+    )
     release({
       id: "chk_01a",
       namespacePath: "eng/platform",
@@ -842,7 +1051,9 @@ describe("WardenPlaygroundPage: the batch", () => {
       const note = screen.getByText(CHANGED)
       expect(note.className).toContain("text-muted-foreground")
       const table = screen.getByRole("region", { name: "3 checks" })
-      expect(note.compareDocumentPosition(table) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+      expect(
+        note.compareDocumentPosition(table) & Node.DOCUMENT_POSITION_FOLLOWING
+      ).toBeTruthy()
       expect(screen.getByText("no role grants it")).toBeTruthy()
     })
 
@@ -890,7 +1101,9 @@ describe("WardenPlaygroundPage: the batch", () => {
       await screen.findByText("no role grants it")
       typeBatch("nope")
       runBatch()
-      expect(await screen.findByText("Line 1 is not kind:id action type[:id].")).toBeTruthy()
+      expect(
+        await screen.findByText("Line 1 is not kind:id action type[:id].")
+      ).toBeTruthy()
       expect(screen.queryByRole("region", { name: "3 checks" })).toBeNull()
       expect(screen.queryByText("no role grants it")).toBeNull()
       expect(screen.queryByText(/have changed since this run/)).toBeNull()
@@ -904,7 +1117,9 @@ describe("WardenPlaygroundPage: the batch", () => {
       await screen.findByText("no role grants it")
       typeBatch(LINES.join("\n"))
       runBatch()
-      expect(await screen.findByText("A batch holds at most 2 checks.")).toBeTruthy()
+      expect(
+        await screen.findByText("A batch holds at most 2 checks.")
+      ).toBeTruthy()
       expect(screen.queryByRole("region", { name: /checks$/ })).toBeNull()
       expect(screen.queryByText("no role grants it")).toBeNull()
     })
@@ -920,7 +1135,9 @@ describe("WardenPlaygroundPage: the batch", () => {
         extension: "warden",
         query: (intent: string, params?: Record<string, unknown>) =>
           intent === "playground.batchCheck" && refuse
-            ? Promise.reject(new ContractError("BAD_REQUEST", "the server said no"))
+            ? Promise.reject(
+                new ContractError("BAD_REQUEST", "the server said no")
+              )
             : inner.query(intent, params),
         command: inner.command,
       } as unknown as ScopedClient
@@ -942,7 +1159,12 @@ describe("WardenPlaygroundPage: the batch", () => {
     typeBatch(LINES[0]!)
     runBatch()
     await waitFor(() => expect(t.batches()).toHaveLength(1))
-    await waitFor(() => expect((screen.getByRole("button", { name: "Run batch" }) as HTMLButtonElement).disabled).toBe(false))
+    await waitFor(() =>
+      expect(
+        (screen.getByRole("button", { name: "Run batch" }) as HTMLButtonElement)
+          .disabled
+      ).toBe(false)
+    )
     runBatch()
     await waitFor(() => expect(t.batches()).toHaveLength(2))
   })
@@ -951,7 +1173,7 @@ describe("WardenPlaygroundPage: the batch", () => {
 describe("WardenPlaygroundPage: namespace suggestions", () => {
   function options() {
     return Array.from(document.querySelectorAll("datalist option")).map(
-      (o) => (o as HTMLOptionElement).value,
+      (o) => (o as HTMLOptionElement).value
     )
   }
 
@@ -1000,7 +1222,9 @@ describe("WardenPlaygroundPage: running again", () => {
     fireEvent.click(run())
     await screen.findByText("deny_explicit")
     expect(t.explains()).toHaveLength(1)
-    await waitFor(() => expect((run() as HTMLButtonElement).disabled).toBe(false))
+    await waitFor(() =>
+      expect((run() as HTMLButtonElement).disabled).toBe(false)
+    )
     fireEvent.click(run())
     await waitFor(() => expect(t.explains()).toHaveLength(2))
     await screen.findByText("deny_explicit")
@@ -1026,7 +1250,9 @@ describe("WardenPlaygroundPage: running again", () => {
     fill("Context", '{"a": 1, "b": 2}')
     fireEvent.click(run())
     await screen.findByText("deny_explicit")
-    await waitFor(() => expect((run() as HTMLButtonElement).disabled).toBe(false))
+    await waitFor(() =>
+      expect((run() as HTMLButtonElement).disabled).toBe(false)
+    )
     fill("Context", '{"b": 2, "a": 1}')
     fireEvent.click(run())
     await waitFor(() => expect(t.explains()).toHaveLength(2))
@@ -1036,7 +1262,8 @@ describe("WardenPlaygroundPage: running again", () => {
 })
 
 describe("WardenPlaygroundPage: a result the form has moved on from", () => {
-  const CHANGED = "The form has changed since this run. Run it again to check the new input."
+  const CHANGED =
+    "The form has changed since this run. Run it again to check the new input."
 
   async function ran() {
     const t = setup()
@@ -1057,14 +1284,17 @@ describe("WardenPlaygroundPage: a result the form has moved on from", () => {
     const note = screen.getByText(CHANGED)
     expect(note.className).toContain("text-muted-foreground")
     expect(screen.getByText("deny_explicit")).toBeTruthy()
-    expect(screen.getByText("An explicit deny overrides the RBAC allow.")).toBeTruthy()
     expect(
-      note.compareDocumentPosition(screen.getByText("deny_explicit")) &
-        Node.DOCUMENT_POSITION_FOLLOWING,
+      screen.getByText("An explicit deny overrides the RBAC allow.")
     ).toBeTruthy()
     expect(
-      note.compareDocumentPosition(screen.getByText("An explicit deny overrides the RBAC allow.")) &
-        Node.DOCUMENT_POSITION_FOLLOWING,
+      note.compareDocumentPosition(screen.getByText("deny_explicit")) &
+        Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy()
+    expect(
+      note.compareDocumentPosition(
+        screen.getByText("An explicit deny overrides the RBAC allow.")
+      ) & Node.DOCUMENT_POSITION_FOLLOWING
     ).toBeTruthy()
   })
 
@@ -1116,8 +1346,12 @@ describe("WardenPlaygroundPage: opened from a check log row", () => {
     `Prefilled from a check logged at ${formatTimestamp(at)}. The check log does not record context or attributes, so add any the original check carried.`
 
   function opened(detail: CheckDetail = LOGGED) {
-    const { client, sent } = recordingQueryClient(answers({ "checkLogs.detail": detail }))
-    const view = renderPage(WardenPlaygroundPage, client, { checkId: detail.id })
+    const { client, sent } = recordingQueryClient(
+      answers({ "checkLogs.detail": detail })
+    )
+    const view = renderPage(WardenPlaygroundPage, client, {
+      checkId: detail.id,
+    })
     const explains = () => sent.filter((s) => s.intent === "playground.explain")
     return { ...view, sent, explains }
   }
@@ -1125,7 +1359,9 @@ describe("WardenPlaygroundPage: opened from a check log row", () => {
   it("asks for the check named in the route", async () => {
     const t = opened()
     await waitFor(() => expect(value("Subject id")).toBe("deployer"))
-    expect(t.sent.find((s) => s.intent === "checkLogs.detail")?.params).toEqual({ id: "chk_01a" })
+    expect(t.sent.find((s) => s.intent === "checkLogs.detail")?.params).toEqual(
+      { id: "chk_01a" }
+    )
   })
 
   it("fills the six fields once the detail arrives, and leaves the JSON fields empty", async () => {
@@ -1136,36 +1372,45 @@ describe("WardenPlaygroundPage: opened from a check log row", () => {
     expect(value("Resource type")).toBe("cluster")
     expect(value("Resource id")).toBe("prod")
     expect(value("Namespace")).toBe("eng/platform")
-    for (const label of ["Subject attributes", "Resource attributes", "Context"]) {
-      expect((screen.getByLabelText(label) as HTMLTextAreaElement).value).toBe("")
+    for (const label of [
+      "Subject attributes",
+      "Resource attributes",
+      "Context",
+    ]) {
+      expect((screen.getByLabelText(label) as HTMLTextAreaElement).value).toBe(
+        ""
+      )
     }
   })
 
   it.each([
     { kind: "", shown: "(no kind)" },
     { kind: "robot", shown: "robot" },
-  ])("keeps a logged subject kind shown as $shown outside the four, shows it, and runs with it", async ({ kind, shown }) => {
-    const t = opened({ ...LOGGED, subjectKind: kind })
-    await waitFor(() => expect(value("Subject id")).toBe("deployer"))
-    const select = screen.getByLabelText("Subject kind") as HTMLSelectElement
-    expect(select.value).toBe(kind)
-    expect(select.selectedOptions[0].textContent).toBe(shown)
-    expect(within(select).getAllByRole("option").map((o) => (o as HTMLOptionElement).value)).toEqual([
-      "user",
-      "api_key",
-      "service",
-      "service_acct",
-      kind,
-    ])
-    fireEvent.click(run())
-    await screen.findByText("deny_explicit")
-    expect(t.explains()[0].params).toMatchObject({ subjectKind: kind })
-  })
+  ])(
+    "keeps a logged subject kind shown as $shown outside the four, shows it, and runs with it",
+    async ({ kind, shown }) => {
+      const t = opened({ ...LOGGED, subjectKind: kind })
+      await waitFor(() => expect(value("Subject id")).toBe("deployer"))
+      const select = screen.getByLabelText("Subject kind") as HTMLSelectElement
+      expect(select.value).toBe(kind)
+      expect(select.selectedOptions[0].textContent).toBe(shown)
+      expect(
+        within(select)
+          .getAllByRole("option")
+          .map((o) => (o as HTMLOptionElement).value)
+      ).toEqual(["user", "api_key", "service", "service_acct", kind])
+      fireEvent.click(run())
+      await screen.findByText("deny_explicit")
+      expect(t.explains()[0].params).toMatchObject({ subjectKind: kind })
+    }
+  )
 
   it("offers only the four kinds when the logged kind is one of them", async () => {
     opened()
     await waitFor(() => expect(value("Subject id")).toBe("deployer"))
-    expect(within(screen.getByLabelText("Subject kind")).getAllByRole("option")).toHaveLength(4)
+    expect(
+      within(screen.getByLabelText("Subject kind")).getAllByRole("option")
+    ).toHaveLength(4)
   })
 
   it("shows the root as / and sends it as an empty path", async () => {
@@ -1206,7 +1451,7 @@ describe("WardenPlaygroundPage: opened from a check log row", () => {
     // Above the form.
     expect(
       notice.compareDocumentPosition(container.querySelector("form")!) &
-        Node.DOCUMENT_POSITION_FOLLOWING,
+        Node.DOCUMENT_POSITION_FOLLOWING
     ).toBeTruthy()
   })
 
@@ -1263,7 +1508,9 @@ describe("WardenPlaygroundPage: opened from a check log row", () => {
 
   it("asks for no check, and shows no notice, at the plain route", async () => {
     const t = setup()
-    await waitFor(() => expect(t.sent.some((s) => s.intent === "namespaces.list")).toBe(true))
+    await waitFor(() =>
+      expect(t.sent.some((s) => s.intent === "namespaces.list")).toBe(true)
+    )
     expect(t.sent.some((s) => s.intent === "checkLogs.detail")).toBe(false)
     expect(screen.queryByText(/^Prefilled from a check logged at/)).toBeNull()
   })
@@ -1277,7 +1524,13 @@ describe("WardenPlaygroundPage: the walk link", () => {
     obligations: [],
     evalTimeNs: 1_120_000,
     lanes: [
-      { model: "rbac", state: "noMatch", decision: "deny_no_roles", reason: "no roles", matchedBy: [] },
+      {
+        model: "rbac",
+        state: "noMatch",
+        decision: "deny_no_roles",
+        reason: "no roles",
+        matchedBy: [],
+      },
       {
         model: "rebac",
         state: "allow",
@@ -1285,7 +1538,8 @@ describe("WardenPlaygroundPage: the walk link", () => {
         matchedBy: [
           {
             source: "rebac",
-            detail: "transitive: document:readme#editor -> group:eng#member -> user:erin",
+            detail:
+              "transitive: document:readme#editor -> group:eng#member -> user:erin",
           },
         ],
       },
@@ -1305,13 +1559,19 @@ describe("WardenPlaygroundPage: the walk link", () => {
 
   it("opens the walk to the subject the check was run for", async () => {
     runTransitive("")
-    const link = await screen.findByRole("link", { name: "Show this walk in the graph" })
-    expect(link.getAttribute("href")).toBe("/relations/graph/document/readme/editor/to/user/erin")
+    const link = await screen.findByRole("link", {
+      name: "Show this walk in the graph",
+    })
+    expect(link.getAttribute("href")).toBe(
+      "/relations/graph/document/readme/editor/to/user/erin"
+    )
   })
 
   it("keeps the namespace the check was run in", async () => {
     runTransitive("eng/platform")
-    const link = await screen.findByRole("link", { name: "Show this walk in the graph" })
+    const link = await screen.findByRole("link", {
+      name: "Show this walk in the graph",
+    })
     expect(link.getAttribute("href")).toBe(
       "/relations/graph/document/readme/editor/to/user/erin/in/eng%2Fplatform"
     )
@@ -1322,6 +1582,8 @@ describe("WardenPlaygroundPage: the walk link", () => {
     fillRequired()
     fireEvent.click(run())
     await screen.findByText("deny_explicit")
-    expect(screen.queryByRole("link", { name: "Show this walk in the graph" })).toBeNull()
+    expect(
+      screen.queryByRole("link", { name: "Show this walk in the graph" })
+    ).toBeNull()
   })
 })

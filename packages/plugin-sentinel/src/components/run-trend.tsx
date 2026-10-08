@@ -8,7 +8,14 @@ import {
 } from "@forge-go/dashboard-kit/components/resource-table"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { ChartFrame } from "../charts/chart-frame"
-import { formatCost, formatScore, measuredDimensions, plural, runPath, shortRunId } from "../format"
+import {
+  formatCost,
+  formatScore,
+  measuredDimensions,
+  plural,
+  runPath,
+  shortRunId,
+} from "../format"
 import type { Trend, TrendPoint } from "../types"
 import { SettledBoundary } from "./settled-boundary"
 
@@ -26,8 +33,14 @@ function ChartUnavailable() {
 // too (BASELINE.md, "Chronicle, and recharts off the entry"). A chunk that
 // will not load (a deploy replaced it, the network dropped) costs the chart,
 // not the page.
-const TrendChart = lazy(() => import("../charts/trend-chart").catch(() => ({ default: ChartUnavailable })))
-const DimensionTrends = lazy(() => import("../charts/dimension-trends").catch(() => ({ default: ChartUnavailable })))
+const TrendChart = lazy(() =>
+  import("../charts/trend-chart").catch(() => ({ default: ChartUnavailable }))
+)
+const DimensionTrends = lazy(() =>
+  import("../charts/dimension-trends").catch(() => ({
+    default: ChartUnavailable,
+  }))
+)
 
 function LoadingChart({ children }: { children: ReactNode }) {
   return (
@@ -48,29 +61,55 @@ const trendColumns: Column<TrendPoint>[] = [
     id: "run",
     header: "Run",
     className: "font-mono text-xs font-medium",
-    cell: (p) => <PluginLink to={runPath(p.runId)}>{shortRunId(p.runId)}</PluginLink>,
+    cell: (p) => (
+      <PluginLink to={runPath(p.runId)}>{shortRunId(p.runId)}</PluginLink>
+    ),
   },
-  { id: "started", header: "Started", cell: (p) => <Timestamp value={p.createdAt} label="start time" /> },
-  { id: "passRate", header: "Pass rate", align: "end", className: "tabular-nums", cell: (p) => formatScore(p.passRate) },
-  { id: "avgScore", header: "Avg score", align: "end", className: "tabular-nums", cell: (p) => formatScore(p.avgScore) },
-  { id: "cost", header: "Cost reported", align: "end", className: "tabular-nums", cell: (p) => formatCost(p.totalCost) },
+  {
+    id: "started",
+    header: "Started",
+    cell: (p) => <Timestamp value={p.createdAt} label="start time" />,
+  },
+  {
+    id: "passRate",
+    header: "Pass rate",
+    align: "end",
+    className: "tabular-nums",
+    cell: (p) => formatScore(p.passRate),
+  },
+  {
+    id: "avgScore",
+    header: "Avg score",
+    align: "end",
+    className: "tabular-nums",
+    cell: (p) => formatScore(p.avgScore),
+  },
+  {
+    id: "cost",
+    header: "Cost reported",
+    align: "end",
+    className: "tabular-nums",
+    cell: (p) => formatCost(p.totalCost),
+  },
 ]
 
 function dimensionColumns(points: TrendPoint[]): Column<TrendPoint>[] {
   return [
     trendColumns[0],
-    ...measuredDimensions(points).map(
-      (dim): Column<TrendPoint> => ({
-        id: dim,
-        header: dim,
-        align: "end",
-        className: "tabular-nums",
-        cell: (p) => {
-          const v = p.dimensionScores[dim]
-          return v === undefined ? <NoneCell label={`${dim} score`} /> : formatScore(v)
-        },
-      }),
-    ),
+    ...measuredDimensions(points).map((dim): Column<TrendPoint> => ({
+      id: dim,
+      header: dim,
+      align: "end",
+      className: "tabular-nums",
+      cell: (p) => {
+        const v = p.dimensionScores[dim]
+        return v === undefined ? (
+          <NoneCell label={`${dim} score`} />
+        ) : (
+          formatScore(v)
+        )
+      },
+    })),
   ]
 }
 
@@ -114,7 +153,11 @@ export function RunTrend({ suiteId }: { suiteId: string }) {
               }
             >
               <LoadingChart>
-                <TrendChart points={points} baseline={baseline} onOpenRun={(id) => navigate(runPath(id))} />
+                <TrendChart
+                  points={points}
+                  baseline={baseline}
+                  onOpenRun={(id) => navigate(runPath(id))}
+                />
               </LoadingChart>
             </ChartFrame>
             <ChartFrame

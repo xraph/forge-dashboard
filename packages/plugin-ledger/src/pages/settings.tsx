@@ -25,23 +25,69 @@ export function LedgerSettingsPage() {
           <div className="flex max-w-2xl flex-col gap-4">
             {s.app_id === "" && (
               <p role="status" className="text-sm text-muted-foreground">
-                No app is configured and this request carried no app claim. Every billing page needs an app, so they all
-                refuse until one is set.
+                No app is configured and this request carried no app claim.
+                Every billing page needs an app, so they all refuse until one is
+                set.
               </p>
             )}
             <DescriptionList
               items={[
                 {
                   term: "App",
-                  value: s.app_id ? <span className="font-mono text-xs">{s.app_id}</span> : <NoneCell label="configured app" />,
+                  value: s.app_id ? (
+                    <span className="font-mono text-xs">{s.app_id}</span>
+                  ) : (
+                    <NoneCell label="configured app" />
+                  ),
                 },
-                { term: "Requires an app claim", value: s.require_app_claim ? "Yes" : "No" },
-                { term: "Meter batch size", value: <span className="tabular-nums">{s.meter_batch_size}</span> },
-                { term: "Meter flush interval", value: <span className="font-mono text-xs">{s.meter_flush_interval}</span> },
-                { term: "Entitlement cache", value: <span className="font-mono text-xs">{s.entitlement_cache_ttl}</span> },
-                { term: "Lifecycle clock", value: <LifecycleClock interval={s.lifecycle_interval} /> },
-                { term: "Payment providers", value: <TagList values={s.providers ?? []} label="payment providers" /> },
-                { term: "Invoice formats", value: <TagList values={s.invoice_formats ?? []} label="invoice formats" /> },
+                {
+                  term: "Requires an app claim",
+                  value: s.require_app_claim ? "Yes" : "No",
+                },
+                {
+                  term: "Meter batch size",
+                  value: (
+                    <span className="tabular-nums">{s.meter_batch_size}</span>
+                  ),
+                },
+                {
+                  term: "Meter flush interval",
+                  value: (
+                    <span className="font-mono text-xs">
+                      {s.meter_flush_interval}
+                    </span>
+                  ),
+                },
+                {
+                  term: "Entitlement cache",
+                  value: (
+                    <span className="font-mono text-xs">
+                      {s.entitlement_cache_ttl}
+                    </span>
+                  ),
+                },
+                {
+                  term: "Lifecycle clock",
+                  value: <LifecycleClock interval={s.lifecycle_interval} />,
+                },
+                {
+                  term: "Payment providers",
+                  value: (
+                    <TagList
+                      values={s.providers ?? []}
+                      label="payment providers"
+                    />
+                  ),
+                },
+                {
+                  term: "Invoice formats",
+                  value: (
+                    <TagList
+                      values={s.invoice_formats ?? []}
+                      label="invoice formats"
+                    />
+                  ),
+                },
               ]}
             />
           </div>

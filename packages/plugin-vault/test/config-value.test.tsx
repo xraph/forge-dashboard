@@ -4,20 +4,26 @@ import { ConfigValue } from "../src/components/config-value"
 
 describe("ConfigValue", () => {
   it("shows a duration as the bare string in mono, unquoted", () => {
-    const { container } = render(<ConfigValue value="1h30m" valueType="duration" />)
+    const { container } = render(
+      <ConfigValue value="1h30m" valueType="duration" />
+    )
     const el = screen.getByText("1h30m")
     expect(el.className).toMatch(/font-mono/)
     expect(container.textContent).toBe("1h30m")
   })
 
-  it("quotes a string, so \"90s\" in a string entry is not a duration", () => {
+  it('quotes a string, so "90s" in a string entry is not a duration', () => {
     const { container } = render(<ConfigValue value="90s" valueType="string" />)
     expect(container.textContent).toBe('"90s"')
   })
 
-  it("draws what the value is: the boolean true and the string \"true\" differ", () => {
-    const { container: a } = render(<ConfigValue value={true} valueType="bool" />)
-    const { container: b } = render(<ConfigValue value="true" valueType="string" />)
+  it('draws what the value is: the boolean true and the string "true" differ', () => {
+    const { container: a } = render(
+      <ConfigValue value={true} valueType="bool" />
+    )
+    const { container: b } = render(
+      <ConfigValue value="true" valueType="string" />
+    )
     expect(a.textContent).toBe("true")
     expect(b.textContent).toBe('"true"')
   })

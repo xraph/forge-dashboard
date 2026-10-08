@@ -183,7 +183,10 @@ export interface ContextDimension {
   label: string
   query: string
   switchCommand: string
-  select: (data: unknown) => { current?: ContextOption; options: ContextOption[] }
+  select: (data: unknown) => {
+    current?: ContextOption
+    options: ContextOption[]
+  }
   /**
    * Builds the switch command's payload from the chosen option's id.
    *
@@ -302,8 +305,10 @@ export interface ForgeSubPlugin {
   setup?: ComponentType<{ message?: string }>
 }
 
-export interface SubPluginInput
-  extends Omit<ForgeSubPlugin, "nav" | "routes" | "contributions" | "hostIntents"> {
+export interface SubPluginInput extends Omit<
+  ForgeSubPlugin,
+  "nav" | "routes" | "contributions" | "hostIntents"
+> {
   nav?: PluginNavItem[]
   routes?: PluginRoute[]
   contributions?: Partial<Record<SlotName, SlotContribution[]>>

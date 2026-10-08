@@ -32,7 +32,10 @@ describe("defineForgeDashboard", () => {
   })
 
   it("carries plugins and sub-plugins through untouched", () => {
-    const forge = defineForgeDashboard({ mountPath: "/forge", plugins: [plugin] })
+    const forge = defineForgeDashboard({
+      mountPath: "/forge",
+      plugins: [plugin],
+    })
     expect(forge.plugins).toEqual([plugin])
   })
 
@@ -105,8 +108,9 @@ describe("defineForgeDashboard", () => {
     })
 
     it("is undefined when nothing is passed, so the defaults apply", () => {
-      expect(defineForgeDashboard({ mountPath: "/forge", plugins: [] }).authScreens)
-        .toBeUndefined()
+      expect(
+        defineForgeDashboard({ mountPath: "/forge", plugins: [] }).authScreens
+      ).toBeUndefined()
     })
   })
 })

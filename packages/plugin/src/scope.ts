@@ -48,7 +48,7 @@ export function labelOf(plugin: ForgePlugin): string {
 export function scopePath(
   namespace: string,
   to: string,
-  segment?: string,
+  segment?: string
 ): string {
   const suffix = to === "/" ? "" : to
   // A routed context dimension sits between the namespace and the page, so
@@ -68,7 +68,7 @@ export function scopePath(
 export function mountPath(
   plugin: ForgePlugin,
   to: string,
-  segment?: string,
+  segment?: string
 ): string {
   return plugin.root ? to : scopePath(namespaceOf(plugin), to, segment)
 }
@@ -82,7 +82,7 @@ export function mountPath(
  * authoring mistake it is.
  */
 export function routedPathDimension(
-  plugin: ForgePlugin,
+  plugin: ForgePlugin
 ): ContextDimension | undefined {
   return plugin.context.find((d) => d.routed?.placement === "path")
 }
@@ -90,12 +90,14 @@ export function routedPathDimension(
 /** What goes in the URL for one option under one dimension. */
 export function urlValueOf(
   dimension: ContextDimension,
-  option: ContextOption,
+  option: ContextOption
 ): string {
   // Falls back to the id rather than rendering "undefined" into a path. A
   // dimension asking for slugs whose options have none is an authoring
   // mistake, and an ugly URL is a better way to find out than a broken one.
-  return (dimension.routed?.by === "slug" ? option.slug : option.id) ?? option.id
+  return (
+    (dimension.routed?.by === "slug" ? option.slug : option.id) ?? option.id
+  )
 }
 
 /**
@@ -112,7 +114,7 @@ export function partitionScopes(all: Scope[]): {
   const roots = all.filter((s) => s.plugin.root)
   if (roots.length > 1) {
     throw new Error(
-      `two plugins claim the dashboard root: ${roots.map((s) => s.id).join(", ")}. Only one plugin may set \`root: true\`.`,
+      `two plugins claim the dashboard root: ${roots.map((s) => s.id).join(", ")}. Only one plugin may set \`root: true\`.`
     )
   }
   return { root: roots[0], scopes: all.filter((s) => !s.plugin.root) }
@@ -131,7 +133,7 @@ export function partitionScopes(all: Scope[]): {
  */
 export function resolveActiveScope(
   pathname: string,
-  scopes: Scope[],
+  scopes: Scope[]
 ): Scope | undefined {
   const first = pathname.split("/").filter(Boolean)[0]
   if (!first?.startsWith(SCOPE_SIGIL)) return undefined

@@ -4,7 +4,10 @@ import { PluginLink } from "@forge-go/dashboard-plugin"
 import { Button } from "@forge-go/dashboard-kit/components/button"
 import { Input } from "@forge-go/dashboard-kit/components/input"
 import { Label } from "@forge-go/dashboard-kit/components/label"
-import { NativeSelect, NativeSelectOption } from "@forge-go/dashboard-kit/components/native-select"
+import {
+  NativeSelect,
+  NativeSelectOption,
+} from "@forge-go/dashboard-kit/components/native-select"
 import { CommandAlert } from "@forge-go/dashboard-kit/components/query-boundary"
 import { ProblemsAlert } from "../components/problems-alert"
 import { describeDiscount } from "../lib/coupons"
@@ -25,7 +28,17 @@ export interface CouponFormValue {
 }
 
 export function emptyCouponForm(): CouponFormValue {
-  return { code: "", name: "", type: "percentage", percentage: "", amount: "", currency: "", max: "0", valid_from: "", valid_until: "" }
+  return {
+    code: "",
+    name: "",
+    type: "percentage",
+    percentage: "",
+    amount: "",
+    currency: "",
+    max: "0",
+    valid_from: "",
+    valid_until: "",
+  }
 }
 
 export function couponToForm(c: Coupon): CouponFormValue {
@@ -48,9 +61,12 @@ type Result<T> = { ok: true; value: T } | { ok: false; errors: string[] }
 function windowErrors(v: CouponFormValue, errors: string[]) {
   const from = toRFC3339(v.valid_from)
   const until = toRFC3339(v.valid_until)
-  if (v.valid_from !== "" && from === undefined) errors.push("Valid from is not a date and time.")
-  if (v.valid_until !== "" && until === undefined) errors.push("Valid until is not a date and time.")
-  if (from && until && Date.parse(until) < Date.parse(from)) errors.push("Valid until is before valid from.")
+  if (v.valid_from !== "" && from === undefined)
+    errors.push("Valid from is not a date and time.")
+  if (v.valid_until !== "" && until === undefined)
+    errors.push("Valid until is not a date and time.")
+  if (from && until && Date.parse(until) < Date.parse(from))
+    errors.push("Valid until is before valid from.")
   return { from, until }
 }
 
@@ -67,7 +83,8 @@ function maxErrors(v: CouponFormValue, errors: string[]): number {
 function amountError(currency: string): string {
   const digits = currencyDigits(currency)
   const code = currency.toUpperCase()
-  if (digits === 0) return `The amount must be a whole number of ${code}, which has no decimals.`
+  if (digits === 0)
+    return `The amount must be a whole number of ${code}, which has no decimals.`
   return `The amount must be an amount in ${code} with at most ${digits} decimal${digits === 1 ? "" : "s"}.`
 }
 
@@ -78,20 +95,35 @@ function amountError(currency: string): string {
  * (sent as ""), which the engine applies to a plan in any currency; an amount
  * coupon always needs one, because its money is in it.
  */
-export function createCouponPayload(v: CouponFormValue): Result<Record<string, unknown>> {
+export function createCouponPayload(
+  v: CouponFormValue
+): Result<Record<string, unknown>> {
   const errors: string[] = []
   const code = v.code.trim()
   const currency = v.currency.trim().toLowerCase()
   if (code === "") errors.push("Code is required.")
   const currencyOk = /^[a-z]{3}$/.test(currency)
   if (!currencyOk && !(v.type === "percentage" && currency === "")) {
-    if (v.type === "amount") errors.push(currency === "" ? "An amount coupon needs a currency, such as usd." : "Currency must be a three-letter code such as usd.")
-    else errors.push("Currency must be a three-letter code such as usd, or empty for any currency.")
+    if (v.type === "amount")
+      errors.push(
+        currency === ""
+          ? "An amount coupon needs a currency, such as usd."
+          : "Currency must be a three-letter code such as usd."
+      )
+    else
+      errors.push(
+        "Currency must be a three-letter code such as usd, or empty for any currency."
+      )
   }
-  const value: Record<string, unknown> = { code, name: v.name.trim(), type: v.type }
+  const value: Record<string, unknown> = {
+    code,
+    name: v.name.trim(),
+    type: v.type,
+  }
   if (v.type === "percentage") {
     const p = v.percentage.trim()
-    if (!/^\d+$/.test(p) || Number(p) > 100) errors.push("The percentage must be a whole number from 0 to 100.")
+    if (!/^\d+$/.test(p) || Number(p) > 100)
+      errors.push("The percentage must be a whole number from 0 to 100.")
     else value.percentage = Number(p)
   } else {
     const amount = parseMajor(v.amount, currency)
@@ -117,11 +149,15 @@ export function createCouponPayload(v: CouponFormValue): Result<Record<string, u
  * refuses a code, type, value or currency that differs, and metadata is left
  * out so the engine keeps it.
  */
-export function updateCouponPayload(v: CouponFormValue, original: Coupon): Result<Record<string, unknown>> {
+export function updateCouponPayload(
+  v: CouponFormValue,
+  original: Coupon
+): Result<Record<string, unknown>> {
   const errors: string[] = []
   const value: Record<string, unknown> = { id: original.id }
   // The engine trims a name it is sent, so a stored name that only differs by that whitespace is not a change.
-  if (v.name !== original.name && v.name.trim() !== original.name) value.name = v.name.trim()
+  if (v.name !== original.name && v.name.trim() !== original.name)
+    value.name = v.name.trim()
   const max = maxErrors(v, errors)
   if (max !== Math.max(0, original.max_redemptions)) value.max_redemptions = max
   const { from, until } = windowErrors(v, errors)
@@ -165,21 +201,36 @@ export function CouponForm({
 }) {
   const [v, setV] = useState(initial)
   const [problems, setProblems] = useState<string[]>([])
-  const set = <K extends keyof CouponFormValue>(key: K, value: CouponFormValue[K]) => setV((prev) => ({ ...prev, [key]: value }))
+  const set = <K extends keyof CouponFormValue>(
+    key: K,
+    value: CouponFormValue[K]
+  ) => setV((prev) => ({ ...prev, [key]: value }))
   // Whether the operator typed a currency themselves, so a currency this form filled in is not left restricting a percentage coupon.
   const currencyTyped = useRef(initial.currency !== "")
 
   function changeType(type: CouponType) {
     setV((prev) => {
-      if (type === "amount") return { ...prev, type, currency: prev.currency.trim() === "" ? "usd" : prev.currency }
-      return { ...prev, type, currency: currencyTyped.current ? prev.currency : "" }
+      if (type === "amount")
+        return {
+          ...prev,
+          type,
+          currency: prev.currency.trim() === "" ? "usd" : prev.currency,
+        }
+      return {
+        ...prev,
+        type,
+        currency: currencyTyped.current ? prev.currency : "",
+      }
     })
   }
 
   function submit(event: FormEvent) {
     event.preventDefault()
     if (pending) return
-    const out = mode === "create" || !original ? createCouponPayload(v) : updateCouponPayload(v, original)
+    const out =
+      mode === "create" || !original
+        ? createCouponPayload(v)
+        : updateCouponPayload(v, original)
     if (!out.ok) {
       setProblems(out.errors)
       return
@@ -206,26 +257,47 @@ export function CouponForm({
               onChange={(e) => set("code", e.target.value)}
             />
             <p id="coupon-code-help" className="text-xs text-muted-foreground">
-              Unique within this app. Codes are matched exactly, so Launch and LAUNCH are two coupons.
+              Unique within this app. Codes are matched exactly, so Launch and
+              LAUNCH are two coupons.
             </p>
           </div>
           <div className="grid gap-4 sm:grid-cols-3">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="coupon-type">Type</Label>
-              <NativeSelect id="coupon-type" value={v.type} onChange={(e) => changeType(e.target.value as CouponType)}>
-                <NativeSelectOption value="percentage">Percentage off</NativeSelectOption>
-                <NativeSelectOption value="amount">Amount off</NativeSelectOption>
+              <NativeSelect
+                id="coupon-type"
+                value={v.type}
+                onChange={(e) => changeType(e.target.value as CouponType)}
+              >
+                <NativeSelectOption value="percentage">
+                  Percentage off
+                </NativeSelectOption>
+                <NativeSelectOption value="amount">
+                  Amount off
+                </NativeSelectOption>
               </NativeSelect>
             </div>
             {v.type === "percentage" ? (
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="coupon-percentage">Percentage</Label>
-                <Input id="coupon-percentage" inputMode="numeric" className="text-right tabular-nums" value={v.percentage} onChange={(e) => set("percentage", e.target.value)} />
+                <Input
+                  id="coupon-percentage"
+                  inputMode="numeric"
+                  className="text-right tabular-nums"
+                  value={v.percentage}
+                  onChange={(e) => set("percentage", e.target.value)}
+                />
               </div>
             ) : (
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="coupon-amount">Amount</Label>
-                <Input id="coupon-amount" inputMode="decimal" className="text-right tabular-nums" value={v.amount} onChange={(e) => set("amount", e.target.value)} />
+                <Input
+                  id="coupon-amount"
+                  inputMode="decimal"
+                  className="text-right tabular-nums"
+                  value={v.amount}
+                  onChange={(e) => set("amount", e.target.value)}
+                />
               </div>
             )}
             <div className="flex flex-col gap-1.5">
@@ -234,7 +306,9 @@ export function CouponForm({
                 id="coupon-currency"
                 aria-describedby="coupon-currency-help"
                 className="font-mono uppercase"
-                placeholder={v.type === "percentage" ? "Any currency" : undefined}
+                placeholder={
+                  v.type === "percentage" ? "Any currency" : undefined
+                }
                 value={v.currency}
                 onChange={(e) => {
                   currencyTyped.current = true
@@ -243,43 +317,78 @@ export function CouponForm({
               />
             </div>
           </div>
-          <p id="coupon-currency-help" className="text-xs text-muted-foreground">
+          <p
+            id="coupon-currency-help"
+            className="text-xs text-muted-foreground"
+          >
             {v.type === "percentage"
               ? "Leave empty and the coupon applies to a plan in any currency, or enter one currency to limit it to plans billed in it."
               : "The coupon can only be applied to plans billed in this currency."}{" "}
-            The code, type, discount and currency cannot change after you create the coupon.
+            The code, type, discount and currency cannot change after you create
+            the coupon.
           </p>
         </>
       ) : (
         original && (
           <p className="text-sm">
-            <span className="font-mono text-xs">{original.code}</span> gives {describeDiscount(original)} in{" "}
-            {original.currency === "" ? "any currency" : original.currency.toUpperCase()}. The code, the
-            discount and the currency cannot change once a coupon exists, because applied coupons are priced from them on every future invoice.
+            <span className="font-mono text-xs">{original.code}</span> gives{" "}
+            {describeDiscount(original)} in{" "}
+            {original.currency === ""
+              ? "any currency"
+              : original.currency.toUpperCase()}
+            . The code, the discount and the currency cannot change once a
+            coupon exists, because applied coupons are priced from them on every
+            future invoice.
           </p>
         )
       )}
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="coupon-name">Name</Label>
-        <Input id="coupon-name" value={v.name} onChange={(e) => set("name", e.target.value)} />
+        <Input
+          id="coupon-name"
+          value={v.name}
+          onChange={(e) => set("name", e.target.value)}
+        />
       </div>
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="coupon-max">Max redemptions</Label>
-        <Input id="coupon-max" aria-describedby="coupon-max-help" inputMode="numeric" className="w-40 text-right tabular-nums" value={v.max} onChange={(e) => set("max", e.target.value)} />
-        <p id="coupon-max-help" className="text-xs text-muted-foreground">0 means no cap.</p>
+        <Input
+          id="coupon-max"
+          aria-describedby="coupon-max-help"
+          inputMode="numeric"
+          className="w-40 text-right tabular-nums"
+          value={v.max}
+          onChange={(e) => set("max", e.target.value)}
+        />
+        <p id="coupon-max-help" className="text-xs text-muted-foreground">
+          0 means no cap.
+        </p>
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="coupon-from">Valid from</Label>
-          <Input id="coupon-from" aria-describedby="coupon-window-help" type="datetime-local" value={v.valid_from} onChange={(e) => set("valid_from", e.target.value)} />
+          <Input
+            id="coupon-from"
+            aria-describedby="coupon-window-help"
+            type="datetime-local"
+            value={v.valid_from}
+            onChange={(e) => set("valid_from", e.target.value)}
+          />
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="coupon-until">Valid until</Label>
-          <Input id="coupon-until" aria-describedby="coupon-window-help" type="datetime-local" value={v.valid_until} onChange={(e) => set("valid_until", e.target.value)} />
+          <Input
+            id="coupon-until"
+            aria-describedby="coupon-window-help"
+            type="datetime-local"
+            value={v.valid_until}
+            onChange={(e) => set("valid_until", e.target.value)}
+          />
         </div>
       </div>
       <p id="coupon-window-help" className="text-xs text-muted-foreground">
-        Times are in your own time zone. Leave a bound empty for no limit on that side.
+        Times are in your own time zone. Leave a bound empty for no limit on
+        that side.
       </p>
       <div className="flex gap-2">
         <Button type="submit" disabled={pending}>

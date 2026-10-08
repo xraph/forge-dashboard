@@ -15,38 +15,62 @@ const defaults = {
 
 describe("authRoutesFor", () => {
   it("always mounts login, and nothing else for a minimal provider", () => {
-    expect(authRoutesFor(minimal, {}, defaults).map((r) => r.path)).toEqual(["/login"])
+    expect(authRoutesFor(minimal, {}, defaults).map((r) => r.path)).toEqual([
+      "/login",
+    ])
   })
 
   it("mounts forgot-password only when the intent is declared", () => {
-    const routes = authRoutesFor({ ...minimal, forgotPassword: "auth.forgot" }, {}, defaults)
+    const routes = authRoutesFor(
+      { ...minimal, forgotPassword: "auth.forgot" },
+      {},
+      defaults
+    )
     expect(routes.map((r) => r.path)).toContain("/forgot-password")
   })
 
   it("mounts reset-password only when the intent is declared", () => {
-    const routes = authRoutesFor({ ...minimal, resetPassword: "auth.reset" }, {}, defaults)
+    const routes = authRoutesFor(
+      { ...minimal, resetPassword: "auth.reset" },
+      {},
+      defaults
+    )
     expect(routes.map((r) => r.path)).toContain("/reset-password")
   })
 
   it("mounts signup only when the intent is declared", () => {
-    expect(authRoutesFor({ ...minimal, signUp: "auth.signup" }, {}, defaults).map((r) => r.path))
-      .toContain("/signup")
+    expect(
+      authRoutesFor({ ...minimal, signUp: "auth.signup" }, {}, defaults).map(
+        (r) => r.path
+      )
+    ).toContain("/signup")
   })
 
   it("mounts setup only when both setup intents are declared", () => {
-    expect(authRoutesFor({ ...minimal, setupStatus: "auth.setupStatus" }, {}, defaults).map((r) => r.path))
-      .not.toContain("/setup")
+    expect(
+      authRoutesFor(
+        { ...minimal, setupStatus: "auth.setupStatus" },
+        {},
+        defaults
+      ).map((r) => r.path)
+    ).not.toContain("/setup")
     const both = authRoutesFor(
-      { ...minimal, setupStatus: "auth.setupStatus", completeSetup: "auth.setup" },
+      {
+        ...minimal,
+        setupStatus: "auth.setupStatus",
+        completeSetup: "auth.setup",
+      },
       {},
-      defaults,
+      defaults
     )
     expect(both.map((r) => r.path)).toContain("/setup")
   })
 
   it("prefers an overriding screen over the default", () => {
     const Custom = () => null
-    expect(authRoutesFor(minimal, { signIn: Custom }, defaults)[0].element).toBe(Custom)
+    expect(
+      authRoutesFor(minimal, { signIn: Custom }, defaults)[0].element
+    ).toBe(Custom)
   })
 })
 

@@ -57,7 +57,11 @@ export function AuthSignupFormsPage() {
         </Badge>
       ),
     },
-    { id: "createdAt", header: "Created", cell: (f) => formatTimestamp(f.createdAt) },
+    {
+      id: "createdAt",
+      header: "Created",
+      cell: (f) => formatTimestamp(f.createdAt),
+    },
   ]
 
   return (
@@ -65,7 +69,10 @@ export function AuthSignupFormsPage() {
       <PageHeader
         title="Signup forms"
         actions={
-          <PluginLink to="/signup-forms/edit" className="text-sm underline underline-offset-4">
+          <PluginLink
+            to="/signup-forms/edit"
+            className="text-sm underline underline-offset-4"
+          >
             Edit signup form
           </PluginLink>
         }

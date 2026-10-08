@@ -1,6 +1,11 @@
 import { defaultLabel, labelNamesExtension } from "./names"
 import { SLOT_NAMES } from "./types"
-import type { ForgeSubPlugin, PluginNavItem, SlotName, SubPluginInput } from "./types"
+import type {
+  ForgeSubPlugin,
+  PluginNavItem,
+  SlotName,
+  SubPluginInput,
+} from "./types"
 
 const KNOWN_SLOTS = new Set<string>(SLOT_NAMES)
 
@@ -10,14 +15,14 @@ function validateNav(items: PluginNavItem[], extension: string): void {
   for (const item of items) {
     if (!item.to.startsWith("/")) {
       throw new Error(
-        `defineSubPlugin: nav item "to" value "${item.to}" must start with "/" (sub-plugin "${extension}")`,
+        `defineSubPlugin: nav item "to" value "${item.to}" must start with "/" (sub-plugin "${extension}")`
       )
     }
 
     const claimed = labels.get(item.to)
     if (claimed !== undefined) {
       throw new Error(
-        `defineSubPlugin: nav items "${claimed}" and "${item.label}" both point at "${item.to}", so the sidebar cannot tell them apart. Give one of them a different "to" (sub-plugin "${extension}")`,
+        `defineSubPlugin: nav items "${claimed}" and "${item.label}" both point at "${item.to}", so the sidebar cannot tell them apart. Give one of them a different "to" (sub-plugin "${extension}")`
       )
     }
     labels.set(item.to, item.label)
@@ -45,29 +50,32 @@ function validateNav(items: PluginNavItem[], extension: string): void {
 export function defineSubPlugin(input: SubPluginInput): ForgeSubPlugin {
   if (!input.extension) {
     throw new Error(
-      "defineSubPlugin requires an `extension` naming the Go contributor this sub-plugin belongs to",
+      "defineSubPlugin requires an `extension` naming the Go contributor this sub-plugin belongs to"
     )
   }
   if (!input.host) {
     throw new Error(
-      `defineSubPlugin requires a \`host\` naming the plugin this mounts inside (sub-plugin "${input.extension}")`,
+      `defineSubPlugin requires a \`host\` naming the plugin this mounts inside (sub-plugin "${input.extension}")`
     )
   }
   if (input.host === input.extension) {
     throw new Error(
-      `defineSubPlugin: sub-plugin "${input.extension}" names itself as its own host. A sub-plugin mounts inside a different plugin; if this is meant to stand alone, use definePlugin instead.`,
+      `defineSubPlugin: sub-plugin "${input.extension}" names itself as its own host. A sub-plugin mounts inside a different plugin; if this is meant to stand alone, use definePlugin instead.`
     )
   }
-  if (input.label !== undefined && !labelNamesExtension(input.label, input.extension)) {
+  if (
+    input.label !== undefined &&
+    !labelNamesExtension(input.label, input.extension)
+  ) {
     throw new Error(
-      `defineSubPlugin: sub-plugin "${input.extension}" is labelled "${input.label}", which is a different name. The rail entry spells the extension's name so an operator can tell which extension a page belongs to: use "${defaultLabel(input.extension)}".`,
+      `defineSubPlugin: sub-plugin "${input.extension}" is labelled "${input.label}", which is a different name. The rail entry spells the extension's name so an operator can tell which extension a page belongs to: use "${defaultLabel(input.extension)}".`
     )
   }
 
   for (const route of input.routes ?? []) {
     if (!route.path.startsWith("/")) {
       throw new Error(
-        `defineSubPlugin: route path "${route.path}" must start with "/" (sub-plugin "${input.extension}")`,
+        `defineSubPlugin: route path "${route.path}" must start with "/" (sub-plugin "${input.extension}")`
       )
     }
   }
@@ -78,14 +86,14 @@ export function defineSubPlugin(input: SubPluginInput): ForgeSubPlugin {
   for (const [slot, entries] of Object.entries(contributions)) {
     if (!KNOWN_SLOTS.has(slot)) {
       throw new Error(
-        `defineSubPlugin: unknown slot "${slot}" (sub-plugin "${input.extension}"). Known slots: ${[...KNOWN_SLOTS].join(", ")}`,
+        `defineSubPlugin: unknown slot "${slot}" (sub-plugin "${input.extension}"). Known slots: ${[...KNOWN_SLOTS].join(", ")}`
       )
     }
     const seen = new Set<string>()
     for (const entry of entries ?? []) {
       if (seen.has(entry.id)) {
         throw new Error(
-          `defineSubPlugin: two contributions to "${slot}" both use the id "${entry.id}", so the slot cannot key them apart (sub-plugin "${input.extension}")`,
+          `defineSubPlugin: two contributions to "${slot}" both use the id "${entry.id}", so the slot cannot key them apart (sub-plugin "${input.extension}")`
         )
       }
       seen.add(entry.id)
@@ -99,7 +107,9 @@ export function defineSubPlugin(input: SubPluginInput): ForgeSubPlugin {
     label: input.label ?? defaultLabel(input.extension),
     nav: input.nav ?? [],
     routes: input.routes ?? [],
-    contributions: contributions as Partial<Record<SlotName, ForgeSubPlugin["contributions"][SlotName]>>,
+    contributions: contributions as Partial<
+      Record<SlotName, ForgeSubPlugin["contributions"][SlotName]>
+    >,
     hostIntents: input.hostIntents ?? [],
   }
 }

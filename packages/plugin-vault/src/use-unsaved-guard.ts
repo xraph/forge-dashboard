@@ -25,14 +25,16 @@ export function useUnsavedGuard(active: boolean, message: string): void {
 
     function click(event: MouseEvent) {
       if (event.defaultPrevented || event.button !== 0) return
-      if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
+      if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey)
+        return
       const target = event.target instanceof Element ? event.target : null
       const link = target?.closest("a[href]")
       if (!link) return
       const href = link.getAttribute("href") ?? ""
       if (href === "" || href.startsWith("#")) return
       const to = link.getAttribute("target")
-      if ((to !== null && to !== "_self") || link.hasAttribute("download")) return
+      if ((to !== null && to !== "_self") || link.hasAttribute("download"))
+        return
       if (!window.confirm(message)) {
         event.preventDefault()
         event.stopPropagation()

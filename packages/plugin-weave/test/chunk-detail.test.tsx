@@ -11,10 +11,18 @@ const COL = "col_01k70000000000000000000001"
 function detail(over: Record<string, unknown> = {}) {
   return {
     chunk: {
-      id: CHUNK, document_id: DOC, collection_id: COL, tenant_id: "",
-      content: "The money goes back to the card or account you paid with.\nIf you paid with a gift card, the refund arrives as store credit.",
-      index: 1, start_offset: 160, end_offset: 352, token_count: 48,
-      metadata: { section: "refunds", lang: "en" }, created_at: "2026-10-04T09:00:00Z",
+      id: CHUNK,
+      document_id: DOC,
+      collection_id: COL,
+      tenant_id: "",
+      content:
+        "The money goes back to the card or account you paid with.\nIf you paid with a gift card, the refund arrives as store credit.",
+      index: 1,
+      start_offset: 160,
+      end_offset: 352,
+      token_count: 48,
+      metadata: { section: "refunds", lang: "en" },
+      created_at: "2026-10-04T09:00:00Z",
     },
     document_title: "Refund policy",
     previous_id: "chk_01k70000000000000000000110",
@@ -35,7 +43,9 @@ describe("ChunkDetailPage", () => {
     const { client } = scriptedClient({ "chunks.get": detail() })
     renderPage(ChunkDetailPage, client, { id: CHUNK })
     expect(await screen.findByText("Refund policy")).toBeTruthy()
-    expect(screen.getByRole("link", { name: DOC }).getAttribute("href")).toBe(`/documents/${DOC}`)
+    expect(screen.getByRole("link", { name: DOC }).getAttribute("href")).toBe(
+      `/documents/${DOC}`
+    )
     expect(screen.getByText("160 to 352")).toBeTruthy()
     expect(screen.getByText(/about 48 tokens \(characters ÷ 4\)/)).toBeTruthy()
     expect(screen.getByText("section")).toBeTruthy()
@@ -44,18 +54,28 @@ describe("ChunkDetailPage", () => {
   it("links the chunks either side", async () => {
     const { client } = scriptedClient({ "chunks.get": detail() })
     renderPage(ChunkDetailPage, client, { id: CHUNK })
-    expect((await screen.findByRole("link", { name: "Previous chunk" })).getAttribute("href")).toBe("/chunks/chk_01k70000000000000000000110")
-    expect(screen.getByRole("link", { name: "Next chunk" }).getAttribute("href")).toBe("/chunks/chk_01k70000000000000000000112")
+    expect(
+      (
+        await screen.findByRole("link", { name: "Previous chunk" })
+      ).getAttribute("href")
+    ).toBe("/chunks/chk_01k70000000000000000000110")
+    expect(
+      screen.getByRole("link", { name: "Next chunk" }).getAttribute("href")
+    ).toBe("/chunks/chk_01k70000000000000000000112")
   })
 
   it("marks the first chunk as having none before it", async () => {
-    const { client } = scriptedClient({ "chunks.get": detail({ previous_id: "" }) })
+    const { client } = scriptedClient({
+      "chunks.get": detail({ previous_id: "" }),
+    })
     renderPage(ChunkDetailPage, client, { id: CHUNK })
     expect(await screen.findByLabelText("no previous chunk")).toBeTruthy()
   })
 
   it("says an empty title means untitled or deleted, and still links the document", async () => {
-    const { client } = scriptedClient({ "chunks.get": detail({ document_title: "" }) })
+    const { client } = scriptedClient({
+      "chunks.get": detail({ document_title: "" }),
+    })
     renderPage(ChunkDetailPage, client, { id: CHUNK })
     expect(await screen.findByText("untitled, or deleted")).toBeTruthy()
     expect(screen.queryByText("document deleted")).toBeNull()
@@ -65,7 +85,9 @@ describe("ChunkDetailPage", () => {
   })
 
   it("shows an error card for a chunk that doesn't exist", async () => {
-    const { client } = scriptedClient({ "chunks.get": new ContractError("NOT_FOUND", "chunk not found") })
+    const { client } = scriptedClient({
+      "chunks.get": new ContractError("NOT_FOUND", "chunk not found"),
+    })
     renderPage(ChunkDetailPage, client, { id: CHUNK })
     expect(await screen.findByText(/chunk not found/)).toBeTruthy()
   })

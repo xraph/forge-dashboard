@@ -99,15 +99,27 @@ function EditApp({ app }: { app: AppDetail }) {
       <CommandAlert error={update.error} title="Could not save" />
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="app-name">Name</Label>
-        <Input id="app-name" value={name} onChange={(e) => setName(e.target.value)} />
+        <Input
+          id="app-name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+        />
       </div>
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="app-slug">Slug</Label>
-        <Input id="app-slug" value={slug} onChange={(e) => setSlug(e.target.value)} />
+        <Input
+          id="app-slug"
+          value={slug}
+          onChange={(e) => setSlug(e.target.value)}
+        />
       </div>
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="app-logo">Logo</Label>
-        <Input id="app-logo" value={logo} onChange={(e) => setLogo(e.target.value)} />
+        <Input
+          id="app-logo"
+          value={logo}
+          onChange={(e) => setLogo(e.target.value)}
+        />
       </div>
       <Button
         onClick={() => void update.execute(changed)}
@@ -145,11 +157,18 @@ function AppDetailBody({ appId }: { appId: string }) {
                 <DescriptionList
                   items={[
                     { term: "Name", value: app.name },
-                    { term: "Slug", value: <span className="font-mono text-xs">{app.slug}</span> },
+                    {
+                      term: "Slug",
+                      value: (
+                        <span className="font-mono text-xs">{app.slug}</span>
+                      ),
+                    },
                     {
                       term: "Platform",
                       value: (
-                        <Badge variant={app.isPlatform ? "outline" : "secondary"}>
+                        <Badge
+                          variant={app.isPlatform ? "outline" : "secondary"}
+                        >
                           {app.isPlatform ? "platform" : "app"}
                         </Badge>
                       ),

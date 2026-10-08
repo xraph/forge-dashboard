@@ -141,11 +141,15 @@ function LiveRun({
       <CommandAlert error={cancel.error} title="Stop failed" />
       <CommandAlert error={error} title="Live events failed" />
       {error && (
-        <IconButton variant="outline" onClick={() => {
+        <IconButton
+          variant="outline"
+          onClick={() => {
             setError(undefined)
             setEvents([])
             setRetry(retry + 1)
-          }} label="Retry live events" />
+          }}
+          label="Retry live events"
+        />
       )}
       {(!available || partial) && (
         <p role="status" className="text-xs text-muted-foreground">
@@ -524,7 +528,12 @@ function ChatPane({
           title="Execution provider check failed"
         />
         {runtime.error && (
-          <IconButton variant="outline" type="button" onClick={() => void runtime.refetch()} label="Retry execution provider check" />
+          <IconButton
+            variant="outline"
+            type="button"
+            onClick={() => void runtime.refetch()}
+            label="Retry execution provider check"
+          />
         )}
         <Code text={input} label={`${label} input`} onChange={setInput} />
         <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
@@ -558,7 +567,11 @@ function ChatPane({
         )}
       </form>
       {detail.data?.run.session_id && !session && (
-        <IconButton variant="outline" onClick={() => setSession(detail.data!.run.session_id!)} label="Show saved session" />
+        <IconButton
+          variant="outline"
+          onClick={() => setSession(detail.data!.run.session_id!)}
+          label="Show saved session"
+        />
       )}
       {runId && (
         <PluginLink to={`/runs/${runId}`} className="text-sm underline">

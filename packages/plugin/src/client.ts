@@ -42,7 +42,7 @@ export class ContractError extends Error {
     code: string,
     message: string,
     details?: Record<string, unknown>,
-    retryable?: boolean,
+    retryable?: boolean
   ) {
     super(message)
     this.name = "ContractError"
@@ -105,7 +105,10 @@ export interface CommandOptions {
 
 export interface ScopedClient {
   readonly extension: string
-  query<T = unknown>(intent: string, params?: Record<string, unknown>): Promise<T>
+  query<T = unknown>(
+    intent: string,
+    params?: Record<string, unknown>
+  ): Promise<T>
   /**
    * Sends one command (a write) to this plugin's own extension.
    *
@@ -123,7 +126,11 @@ export interface ScopedClient {
    *   on the retry inside `createScopedClient` for why that placement is the
    *   whole point.
    */
-  command<T = unknown>(intent: string, payload?: unknown, opts?: CommandOptions): Promise<T>
+  command<T = unknown>(
+    intent: string,
+    payload?: unknown,
+    opts?: CommandOptions
+  ): Promise<T>
 }
 
 type FetchLike = typeof fetch
@@ -213,7 +220,7 @@ export function createScopedClient(
    * second attempt, an expired session fails again. A query has no retry and
    * no CSRF token, so it notifies on the first rejection.
    */
-  onUnauthenticated?: () => void,
+  onUnauthenticated?: () => void
 ): ScopedClient {
   // Held for the life of the client, shared by every command it sends. `null`
   // means "not held", which is both the initial state and what a failed
@@ -221,7 +228,9 @@ export function createScopedClient(
   let csrfToken: string | null = null
 
   async function refreshCSRF(): Promise<void> {
-    const res = await fetchImpl(`${contractBase}/csrf`, { credentials: "include" })
+    const res = await fetchImpl(`${contractBase}/csrf`, {
+      credentials: "include",
+    })
     if (!res.ok) {
       // Deliberately not a throw. The endpoint is only mounted when the
       // dashboard's contract security is enabled, so a 404 here is a
@@ -259,7 +268,7 @@ export function createScopedClient(
    */
   function isStaleTokenRejection(
     status: number,
-    body: { error?: { code?: string } } | null,
+    body: { error?: { code?: string } } | null
   ): boolean {
     if (status === 401) return true
     if (status !== 403) return false
@@ -279,7 +288,7 @@ export function createScopedClient(
    * and a raw `TypeError` would escape `send` past every handler below.
    */
   async function parseErrorBody(
-    res: Response,
+    res: Response
   ): Promise<{ error?: Partial<WireError> } | null> {
     return ((await res.json?.()?.catch(() => null)) ?? null) as {
       error?: Partial<WireError>
@@ -320,7 +329,11 @@ export function createScopedClient(
       // throw on an already-consumed body.
       const body = await parseErrorBody(res)
 
-      if (input.kind === "command" && mayRetry && isStaleTokenRejection(res.status, body)) {
+      if (
+        input.kind === "command" &&
+        mayRetry &&
+        isStaleTokenRejection(res.status, body)
+      ) {
         // A cached token outlives its TTL silently otherwise: nothing tells
         // the client the token went stale until a command is rejected for it.
         await refreshCSRF()
@@ -354,10 +367,13 @@ export function createScopedClient(
           body.error.code,
           body.error.message ?? "contract request failed",
           body.error.details,
-          body.error.retryable,
+          body.error.retryable
         )
       }
-      throw new ContractError("TRANSPORT", `contract request failed with HTTP ${res.status}`)
+      throw new ContractError(
+        "TRANSPORT",
+        `contract request failed with HTTP ${res.status}`
+      )
     }
 
     // A 2xx is not a promise of JSON. A reverse proxy or an SSO interstitial
@@ -376,7 +392,7 @@ export function createScopedClient(
     if (!envelope) {
       throw new ContractError(
         "TRANSPORT",
-        `contract response was not JSON (HTTP ${res.status})`,
+        `contract response was not JSON (HTTP ${res.status})`
       )
     }
 
@@ -385,7 +401,7 @@ export function createScopedClient(
         envelope.error?.code ?? "UNKNOWN",
         envelope.error?.message ?? "contract request failed",
         envelope.error?.details,
-        envelope.error?.retryable,
+        envelope.error?.retryable
       )
     }
 
@@ -421,7 +437,7 @@ export function createScopedClient(
           // and it is load-bearing *here*.
           idempotencyKey: opts.idempotencyKey ?? newIdempotencyKey(),
         },
-        true,
+        true
       ),
   }
 }

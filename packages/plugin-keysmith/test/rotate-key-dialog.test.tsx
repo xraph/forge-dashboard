@@ -120,7 +120,9 @@ function mount(
     <PluginProvider client={client}>
       <Host
         summary={options.summary ?? KEY}
-        keyPolicy={options.policy === undefined ? NO_POLICY_GRACE : options.policy}
+        keyPolicy={
+          options.policy === undefined ? NO_POLICY_GRACE : options.policy
+        }
       />
     </PluginProvider>
   )
@@ -166,8 +168,11 @@ describe("RotateKeyDialog form", () => {
     const d = await dialog()
     expect(screen.getByRole("dialog", { name: "Rotate key" })).toBeTruthy()
     expect(
-      (within(d).getByRole("radio", { name: "Routine rotation" }) as HTMLElement)
-        .getAttribute("aria-checked")
+      (
+        within(d).getByRole("radio", {
+          name: "Routine rotation",
+        }) as HTMLElement
+      ).getAttribute("aria-checked")
     ).toBe("true")
     expect(graceInput().value).toBe("24")
     expect(unitSelect().value).toBe("hours")
@@ -209,7 +214,10 @@ describe("RotateKeyDialog submit", () => {
     fireEvent.click(rotateButton())
     await screen.findByText("This is the only time Keysmith will show it.")
     expect(sent).toEqual([
-      { intent: "keys.rotate", payload: { id: "akey_billing", reason: "manual" } },
+      {
+        intent: "keys.rotate",
+        payload: { id: "akey_billing", reason: "manual" },
+      },
     ])
     expect("graceSeconds" in (sent[0].payload as object)).toBe(false)
   })
@@ -324,7 +332,9 @@ describe("RotateKeyDialog submit", () => {
       fireEvent.change(graceInput(), { target: { value } })
       fireEvent.click(rotateButton())
       const alert = await screen.findByRole("alert")
-      expect(alert.textContent).toBe("Grace must be between 0 hours and 90 days.")
+      expect(alert.textContent).toBe(
+        "Grace must be between 0 hours and 90 days."
+      )
     }
     expect(sent).toHaveLength(0)
 
@@ -343,7 +353,10 @@ describe("RotateKeyDialog submit", () => {
   it("shows a server error inside the dialog and keeps the form", async () => {
     mount(
       failingClient(
-        new ContractError("CONFLICT", "a revoked or expired key cannot be rotated")
+        new ContractError(
+          "CONFLICT",
+          "a revoked or expired key cannot be rotated"
+        )
       )
     )
     await dialog()
@@ -417,10 +430,14 @@ describe("RotateKeyDialog reveal", () => {
     expect(item).toBeTruthy()
     expect(item?.textContent).toContain("keeps working until")
     expect(item?.textContent).toMatch(/2026/)
-    expect(within(item as HTMLElement).getByRole("button", { name: "End now" })).toBeTruthy()
+    expect(
+      within(item as HTMLElement).getByRole("button", { name: "End now" })
+    ).toBeTruthy()
     expect(within(d).queryByText(/An earlier previous key/)).toBeNull()
     expect(
-      within(d).queryByText("Your previous key stopped working when you rotated.")
+      within(d).queryByText(
+        "Your previous key stopped working when you rotated."
+      )
     ).toBeNull()
   })
 
@@ -450,7 +467,9 @@ describe("RotateKeyDialog reveal", () => {
     // The key just rotated did not open a window of its own.
     expect(within(d).queryByText("sk_live_…a3f8")).toBeNull()
     expect(
-      within(d).queryByText("Your previous key stopped working when you rotated.")
+      within(d).queryByText(
+        "Your previous key stopped working when you rotated."
+      )
     ).toBeNull()
   })
 
@@ -503,7 +522,9 @@ describe("RotateKeyDialog reveal", () => {
     await reveal(rotated([sameHint, THIS_WINDOW]))
     const d = screen.getByRole("dialog")
     expect(within(d).getAllByText("sk_live_…a3f8")).toHaveLength(2)
-    expect(within(d).getByText("An earlier previous key is still accepted.")).toBeTruthy()
+    expect(
+      within(d).getByText("An earlier previous key is still accepted.")
+    ).toBeTruthy()
   })
 
   it("calls a same-hint window earlier when a zero grace opened none", async () => {
@@ -537,7 +558,11 @@ describe("RotateKeyDialog reveal", () => {
   })
 
   it("says a suspended key's windows only end, and that nothing works until it is reactivated", async () => {
-    const suspended = { ...KEY, state: "suspended", effectiveState: "suspended" as const }
+    const suspended = {
+      ...KEY,
+      state: "suspended",
+      effectiveState: "suspended" as const,
+    }
     const answer: KeyRotated = {
       key: { ...NEW_KEY, state: "suspended", effectiveState: "suspended" },
       rawKey: RAW_KEY,
@@ -560,7 +585,9 @@ describe("RotateKeyDialog reveal", () => {
 
   it("says nothing about suspension for an active key", async () => {
     await reveal()
-    expect(within(screen.getByRole("dialog")).queryByText(/suspended/)).toBeNull()
+    expect(
+      within(screen.getByRole("dialog")).queryByText(/suspended/)
+    ).toBeNull()
   })
 
   it("forgets the key after Done: not in the page, not in the store", async () => {
@@ -622,7 +649,8 @@ describe("RotateKeyDialog End now", () => {
       extension: base.client.extension,
       query: base.client.query,
       command: (intent: string, payload?: unknown) => {
-        if (intent === "keys.rotate") return base.client.command(intent, payload)
+        if (intent === "keys.rotate")
+          return base.client.command(intent, payload)
         base.sent.push({ intent, payload })
         return new Promise<unknown>((resolve) => {
           release = resolve
@@ -643,7 +671,9 @@ describe("RotateKeyDialog End now", () => {
         "Requests using it fail from now on. This cannot be undone."
       )
     ).toBeTruthy()
-    expect(base.sent.filter((s) => s.intent === "keys.endGrace")).toHaveLength(0)
+    expect(base.sent.filter((s) => s.intent === "keys.endGrace")).toHaveLength(
+      0
+    )
 
     const go = within(confirm).getByRole("button", { name: "End now" })
     fireEvent.click(go)
@@ -651,8 +681,11 @@ describe("RotateKeyDialog End now", () => {
     fireEvent.click(go)
     await waitFor(() =>
       expect(
-        (within(confirm).getByRole("button", { name: "Working…" }) as HTMLButtonElement)
-          .disabled
+        (
+          within(confirm).getByRole("button", {
+            name: "Working…",
+          }) as HTMLButtonElement
+        ).disabled
       ).toBe(true)
     )
     expect(base.sent.filter((s) => s.intent === "keys.endGrace")).toEqual([
@@ -666,7 +699,9 @@ describe("RotateKeyDialog End now", () => {
     expect(d.textContent).toContain(RAW_KEY)
     expect(within(d).queryByText("sk_live_…a3f8")).toBeNull()
     expect(within(d).queryByRole("button", { name: "End now" })).toBeNull()
-    expect(within(d).getByText("Every previous key has been stopped.")).toBeTruthy()
+    expect(
+      within(d).getByText("Every previous key has been stopped.")
+    ).toBeTruthy()
   })
 
   it("asks about every previous key when there are several", async () => {
@@ -767,7 +802,9 @@ describe("RotateKeyDialog idempotency", () => {
     expect(server.sent[0].idempotencyKey).toBeTruthy()
     expect(server.sent[1].idempotencyKey).toBe(server.sent[0].idempotencyKey)
     expect(server.ran["keys.rotate"]).toBe(1)
-    await waitFor(() => expect(screen.getByRole("alert").textContent).toBe(SPENT))
+    await waitFor(() =>
+      expect(screen.getByRole("alert").textContent).toBe(SPENT)
+    )
   })
 
   it("mints a new key once an edit changes what would be sent", async () => {
@@ -781,7 +818,9 @@ describe("RotateKeyDialog idempotency", () => {
     fireEvent.click(screen.getByRole("radio", { name: "Policy change" }))
     fireEvent.click(rotateButton())
     await screen.findByText("This is the only time Keysmith will show it.")
-    expect(server.sent[1].idempotencyKey).not.toBe(server.sent[0].idempotencyKey)
+    expect(server.sent[1].idempotencyKey).not.toBe(
+      server.sent[0].idempotencyKey
+    )
     expect(server.ran["keys.rotate"]).toBe(2)
   })
 
@@ -794,7 +833,9 @@ describe("RotateKeyDialog idempotency", () => {
     await screen.findByRole("alert")
     fireEvent.click(rotateButton())
 
-    await waitFor(() => expect(screen.getByRole("alert").textContent).toBe(SPENT))
+    await waitFor(() =>
+      expect(screen.getByRole("alert").textContent).toBe(SPENT)
+    )
     expect(document.body.textContent).not.toContain(RAW_KEY)
     expect(storeText()).not.toContain(RAW_KEY)
 
@@ -802,7 +843,9 @@ describe("RotateKeyDialog idempotency", () => {
     fireEvent.click(rotateButton())
     await screen.findByText("This is the only time Keysmith will show it.")
     expect(server.sent).toHaveLength(3)
-    expect(server.sent[2].idempotencyKey).not.toBe(server.sent[0].idempotencyKey)
+    expect(server.sent[2].idempotencyKey).not.toBe(
+      server.sent[0].idempotencyKey
+    )
     expect(server.ran["keys.rotate"]).toBe(2)
   })
 
@@ -899,10 +942,14 @@ describe("RotateKeyDialog idempotency", () => {
     fireEvent.click(rotateButton())
     await screen.findByRole("alert")
 
-    fireEvent.click(screen.getByRole("button", { name: "Switch context", hidden: true }))
+    fireEvent.click(
+      screen.getByRole("button", { name: "Switch context", hidden: true })
+    )
     fireEvent.click(rotateButton())
     await screen.findByText("This is the only time Keysmith will show it.")
-    expect(server.sent[1].idempotencyKey).not.toBe(server.sent[0].idempotencyKey)
+    expect(server.sent[1].idempotencyKey).not.toBe(
+      server.sent[0].idempotencyKey
+    )
   })
 
   it("keeps the key while the first rotation is still running, then says it already ran", async () => {
@@ -923,7 +970,9 @@ describe("RotateKeyDialog idempotency", () => {
     )
     server.finishRuns()
     fireEvent.click(rotateButton())
-    await waitFor(() => expect(screen.getByRole("alert").textContent).toBe(SPENT))
+    await waitFor(() =>
+      expect(screen.getByRole("alert").textContent).toBe(SPENT)
+    )
     expect(server.sent.map((s) => s.idempotencyKey)).toEqual([
       server.sent[0].idempotencyKey,
       server.sent[0].idempotencyKey,
@@ -946,7 +995,10 @@ describe("RotateKeyDialog idempotency", () => {
       ) => {
         keys.push(opts?.idempotencyKey)
         if (keys.length === 1) {
-          throw new ContractError("UNAVAILABLE", "could not claim the idempotency key")
+          throw new ContractError(
+            "UNAVAILABLE",
+            "could not claim the idempotency key"
+          )
         }
         return base.client.command(intent, payload, opts)
       },

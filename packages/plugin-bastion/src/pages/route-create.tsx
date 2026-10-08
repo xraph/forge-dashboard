@@ -19,7 +19,10 @@ export const BastionRouteCreatePage: ComponentType<PluginPageProps> = () => {
 
   return (
     <section className="flex flex-col gap-4">
-      <PageHeader title="New route" description="A manual route. It stays until you delete it, and survives a restart only when the gateway has a route store." />
+      <PageHeader
+        title="New route"
+        description="A manual route. It stays until you delete it, and survives a restart only when the gateway has a route store."
+      />
       <RouteForm
         initial={EMPTY_ROUTE}
         submitLabel="Create route"

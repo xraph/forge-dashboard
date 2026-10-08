@@ -14,7 +14,8 @@ if (typeof globalThis.ResizeObserver === "undefined") {
     unobserve() {}
     disconnect() {}
   }
-  globalThis.ResizeObserver = NoopResizeObserver as unknown as typeof ResizeObserver
+  globalThis.ResizeObserver =
+    NoopResizeObserver as unknown as typeof ResizeObserver
 }
 // jsdom 25 has no PointerEvent, and base-ui's checkbox builds one on click.
 // MouseEvent carries every field it reads.

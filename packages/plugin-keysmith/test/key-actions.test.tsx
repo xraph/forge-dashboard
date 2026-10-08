@@ -1,6 +1,12 @@
 import { useState } from "react"
 import { describe, expect, it } from "vitest"
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react"
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react"
 import { ContractError, PluginProvider } from "@forge-go/dashboard-plugin"
 import type { ScopedClient } from "@forge-go/dashboard-plugin"
 import {
@@ -50,7 +56,7 @@ function renderDialog(D: Dialog, client: ScopedClient) {
   return render(
     <PluginProvider client={client}>
       <Host Dialog={D} />
-    </PluginProvider>,
+    </PluginProvider>
   )
 }
 
@@ -65,11 +71,13 @@ function confirmButton(dialog: HTMLElement, name: string): HTMLButtonElement {
 describe("RevokeKeyDialog", () => {
   it("names the key and says what revoking costs", async () => {
     renderDialog(RevokeKeyDialog, recordingCommandClient({}).client)
-    const d = await screen.findByRole("alertdialog", { name: `Revoke ${MASKED}?` })
+    const d = await screen.findByRole("alertdialog", {
+      name: `Revoke ${MASKED}?`,
+    })
     expect(
       within(d).getByText(
-        "Requests using this key fail from now on, and any open grace window ends with it. A revoked key cannot be brought back.",
-      ),
+        "Requests using this key fail from now on, and any open grace window ends with it. A revoked key cannot be brought back."
+      )
     ).toBeTruthy()
   })
 
@@ -79,7 +87,9 @@ describe("RevokeKeyDialog", () => {
     expect(confirmButton(d, "Revoke").disabled).toBe(true)
     fireEvent.change(reasonField(d), { target: { value: "   " } })
     expect(confirmButton(d, "Revoke").disabled).toBe(true)
-    fireEvent.change(reasonField(d), { target: { value: "Leaked in a ticket" } })
+    fireEvent.change(reasonField(d), {
+      target: { value: "Leaked in a ticket" },
+    })
     expect(confirmButton(d, "Revoke").disabled).toBe(false)
   })
 
@@ -92,43 +102,60 @@ describe("RevokeKeyDialog", () => {
   it("sends keys.revoke once with the trimmed reason on a double click, then closes", async () => {
     const { client, sent } = recordingCommandClient(
       {},
-      { "keys.revoke": { key: { ...KEY, state: "revoked", effectiveState: "revoked" } } },
+      {
+        "keys.revoke": {
+          key: { ...KEY, state: "revoked", effectiveState: "revoked" },
+        },
+      }
     )
     renderDialog(RevokeKeyDialog, client)
     const d = await screen.findByRole("alertdialog")
-    fireEvent.change(reasonField(d), { target: { value: "  Leaked in a ticket  " } })
+    fireEvent.change(reasonField(d), {
+      target: { value: "  Leaked in a ticket  " },
+    })
     const go = confirmButton(d, "Revoke")
     fireEvent.click(go)
     fireEvent.click(go)
     await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull())
     expect(sent).toEqual([
-      { intent: "keys.revoke", payload: { id: KEY.id, reason: "Leaked in a ticket" } },
+      {
+        intent: "keys.revoke",
+        payload: { id: KEY.id, reason: "Leaked in a ticket" },
+      },
     ])
   })
 
   it.each([
     ["CONFLICT", "this key is already revoked"],
     ["BAD_REQUEST", "reason must be at most 500 characters"],
-  ])("shows a %s refusal inside the dialog and stays open", async (code, message) => {
-    renderDialog(RevokeKeyDialog, failingClient(new ContractError(code, message)))
-    const d = await screen.findByRole("alertdialog")
-    fireEvent.change(reasonField(d), { target: { value: "Leaked" } })
-    fireEvent.click(confirmButton(d, "Revoke"))
-    const alert = await within(d).findByRole("alert")
-    expect(alert.textContent).toBe(message)
-    // Not inside the description: that is a <p>, and it names the dialog's
-    // consequence, not this attempt's failure.
-    const description = within(d).getByText(/^Requests using this key fail/)
-    expect(description.contains(alert)).toBe(false)
-    expect(screen.getByRole("alertdialog")).toBe(d)
-    // The reason is kept, so a retry is one click.
-    expect(reasonField(d).value).toBe("Leaked")
-  })
+  ])(
+    "shows a %s refusal inside the dialog and stays open",
+    async (code, message) => {
+      renderDialog(
+        RevokeKeyDialog,
+        failingClient(new ContractError(code, message))
+      )
+      const d = await screen.findByRole("alertdialog")
+      fireEvent.change(reasonField(d), { target: { value: "Leaked" } })
+      fireEvent.click(confirmButton(d, "Revoke"))
+      const alert = await within(d).findByRole("alert")
+      expect(alert.textContent).toBe(message)
+      // Not inside the description: that is a <p>, and it names the dialog's
+      // consequence, not this attempt's failure.
+      const description = within(d).getByText(/^Requests using this key fail/)
+      expect(description.contains(alert)).toBe(false)
+      expect(screen.getByRole("alertdialog")).toBe(d)
+      // The reason is kept, so a retry is one click.
+      expect(reasonField(d).value).toBe("Leaked")
+    }
+  )
 
   it("forgets the last error and reason when it opens again", async () => {
     renderDialog(
       RevokeKeyDialog,
-      failingClient(new ContractError("CONFLICT", "this key is already revoked")),
+      failingClient(
+        new ContractError("CONFLICT", "this key is already revoked")
+      )
     )
     const d = await screen.findByRole("alertdialog")
     fireEvent.change(reasonField(d), { target: { value: "Leaked" } })
@@ -150,8 +177,9 @@ describe("RevokeKeyDialog", () => {
     fireEvent.click(confirmButton(d, "Revoke"))
     await waitFor(() =>
       expect(
-        (within(d).getByRole("button", { name: "Cancel" }) as HTMLButtonElement).disabled,
-      ).toBe(true),
+        (within(d).getByRole("button", { name: "Cancel" }) as HTMLButtonElement)
+          .disabled
+      ).toBe(true)
     )
     fireEvent.keyDown(d, { key: "Escape" })
     expect(screen.getByRole("alertdialog")).toBe(d)
@@ -161,11 +189,13 @@ describe("RevokeKeyDialog", () => {
 describe("SuspendKeyDialog", () => {
   it("names the key and says what suspending does", async () => {
     renderDialog(SuspendKeyDialog, recordingCommandClient({}).client)
-    const d = await screen.findByRole("alertdialog", { name: `Suspend ${MASKED}?` })
+    const d = await screen.findByRole("alertdialog", {
+      name: `Suspend ${MASKED}?`,
+    })
     expect(
       within(d).getByText(
-        "Requests using it fail until you reactivate it. Open grace windows keep running.",
-      ),
+        "Requests using it fail until you reactivate it. Open grace windows keep running."
+      )
     ).toBeTruthy()
     expect(within(d).queryByLabelText("Reason")).toBeNull()
   })
@@ -173,7 +203,11 @@ describe("SuspendKeyDialog", () => {
   it("sends keys.suspend once with the id on a double click, then closes", async () => {
     const { client, sent } = recordingCommandClient(
       {},
-      { "keys.suspend": { key: { ...KEY, state: "suspended", effectiveState: "suspended" } } },
+      {
+        "keys.suspend": {
+          key: { ...KEY, state: "suspended", effectiveState: "suspended" },
+        },
+      }
     )
     renderDialog(SuspendKeyDialog, client)
     const d = await screen.findByRole("alertdialog")
@@ -187,7 +221,9 @@ describe("SuspendKeyDialog", () => {
   it("shows the server's refusal inside the dialog", async () => {
     renderDialog(
       SuspendKeyDialog,
-      failingClient(new ContractError("CONFLICT", "only an active key can be suspended")),
+      failingClient(
+        new ContractError("CONFLICT", "only an active key can be suspended")
+      )
     )
     const d = await screen.findByRole("alertdialog")
     fireEvent.click(confirmButton(d, "Suspend"))
@@ -198,7 +234,9 @@ describe("SuspendKeyDialog", () => {
   it("forgets the last error when it opens again", async () => {
     renderDialog(
       SuspendKeyDialog,
-      failingClient(new ContractError("CONFLICT", "only an active key can be suspended")),
+      failingClient(
+        new ContractError("CONFLICT", "only an active key can be suspended")
+      )
     )
     const d = await screen.findByRole("alertdialog")
     fireEvent.click(confirmButton(d, "Suspend"))
@@ -220,12 +258,14 @@ describe("KeyStateActions", () => {
         onRevoke={() => {}}
         onReactivate={() => {}}
         reactivating={false}
-      />,
+      />
     )
   }
 
   function names(): string[] {
-    return screen.queryAllByRole("button").map((b) => b.getAttribute("aria-label") ?? b.textContent ?? "")
+    return screen
+      .queryAllByRole("button")
+      .map((b) => b.getAttribute("aria-label") ?? b.textContent ?? "")
   }
 
   it("offers Suspend and Revoke on an active key", () => {
@@ -261,10 +301,11 @@ describe("KeyStateActions", () => {
         onRevoke={() => {}}
         onReactivate={() => {}}
         reactivating
-      />,
+      />
     )
     expect(
-      (screen.getByRole("button", { name: "Reactivate" }) as HTMLButtonElement).disabled,
+      (screen.getByRole("button", { name: "Reactivate" }) as HTMLButtonElement)
+        .disabled
     ).toBe(true)
   })
 })

@@ -7,8 +7,22 @@ import { recordingCommandClient, renderPage, stubClient } from "./harness"
 
 const envsAnswer = {
   environments: [
-    { id: "env_1", name: "Production", slug: "production", type: "production", isDefault: true, createdAt: "2026-01-01T00:00:00Z" },
-    { id: "env_2", name: "Staging", slug: "staging", type: "staging", isDefault: false, createdAt: "2026-01-02T00:00:00Z" },
+    {
+      id: "env_1",
+      name: "Production",
+      slug: "production",
+      type: "production",
+      isDefault: true,
+      createdAt: "2026-01-01T00:00:00Z",
+    },
+    {
+      id: "env_2",
+      name: "Staging",
+      slug: "staging",
+      type: "staging",
+      isDefault: false,
+      createdAt: "2026-01-02T00:00:00Z",
+    },
   ],
 }
 
@@ -29,101 +43,145 @@ describe("AuthEnvironmentsPage", () => {
     renderPage(AuthEnvironmentsPage, client)
     await waitFor(() => expect(screen.getByText("Production")).toBeTruthy())
 
-    expect(screen.queryByRole("button", { name: "Make Production the default" })).toBeNull()
-    expect(screen.queryByRole("button", { name: "Delete Production" })).toBeNull()
-    expect(screen.getByRole("button", { name: "Make Staging the default" })).toBeTruthy()
+    expect(
+      screen.queryByRole("button", { name: "Make Production the default" })
+    ).toBeNull()
+    expect(
+      screen.queryByRole("button", { name: "Delete Production" })
+    ).toBeNull()
+    expect(
+      screen.getByRole("button", { name: "Make Staging the default" })
+    ).toBeTruthy()
     expect(screen.getByRole("button", { name: "Delete Staging" })).toBeTruthy()
     // Clone is offered on every environment, default included.
-    expect(screen.getByRole("button", { name: "Clone Production" })).toBeTruthy()
+    expect(
+      screen.getByRole("button", { name: "Clone Production" })
+    ).toBeTruthy()
     expect(screen.getByRole("button", { name: "Clone Staging" })).toBeTruthy()
   })
 
   it("makes a non-default environment the default with no confirmation dialog", async () => {
     const { client, sent } = recordingCommandClient(
       { "environments.list": envsAnswer },
-      { "environments.setDefault": { ok: true } },
+      { "environments.setDefault": { ok: true } }
     )
     renderPage(AuthEnvironmentsPage, client)
     await waitFor(() => expect(screen.getByText("Staging")).toBeTruthy())
 
-    fireEvent.click(screen.getByRole("button", { name: "Make Staging the default" }))
+    fireEvent.click(
+      screen.getByRole("button", { name: "Make Staging the default" })
+    )
 
     await waitFor(() => expect(sent).toHaveLength(1))
-    expect(sent[0]).toEqual({ intent: "environments.setDefault", payload: { id: "env_2" } })
+    expect(sent[0]).toEqual({
+      intent: "environments.setDefault",
+      payload: { id: "env_2" },
+    })
     expect(screen.queryByRole("alertdialog")).toBeNull()
   })
 
   it("confirms before deleting, and sends only the id", async () => {
     const { client, sent } = recordingCommandClient(
       { "environments.list": envsAnswer },
-      { "environments.delete": { ok: true } },
+      { "environments.delete": { ok: true } }
     )
     renderPage(AuthEnvironmentsPage, client)
     await waitFor(() => expect(screen.getByText("Staging")).toBeTruthy())
 
     fireEvent.click(screen.getByRole("button", { name: "Delete Staging" }))
     expect(sent).toHaveLength(0)
-    expect(screen.getByText(/Everything scoped to this environment goes with it/)).toBeTruthy()
+    expect(
+      screen.getByText(/Everything scoped to this environment goes with it/)
+    ).toBeTruthy()
 
     fireEvent.click(screen.getByRole("button", { name: "Delete" }))
     await waitFor(() => expect(sent).toHaveLength(1))
-    expect(sent[0]).toEqual({ intent: "environments.delete", payload: { id: "env_2" } })
+    expect(sent[0]).toEqual({
+      intent: "environments.delete",
+      payload: { id: "env_2" },
+    })
   })
 
   it("clones with the shape the Go handler declares: sourceId, name, slug and an optional type", async () => {
     const { client, sent } = recordingCommandClient(
       { "environments.list": envsAnswer },
-      { "environments.clone": { ok: true, id: "env_3" } },
+      { "environments.clone": { ok: true, id: "env_3" } }
     )
     renderPage(AuthEnvironmentsPage, client)
     await waitFor(() => expect(screen.getByText("Production")).toBeTruthy())
 
     fireEvent.click(screen.getByRole("button", { name: "Clone Production" }))
-    fireEvent.change(screen.getByLabelText("New name"), { target: { value: "Production Copy" } })
-    fireEvent.change(screen.getByLabelText("New slug"), { target: { value: "production-copy" } })
-    fireEvent.change(screen.getByLabelText("Type"), { target: { value: "staging" } })
+    fireEvent.change(screen.getByLabelText("New name"), {
+      target: { value: "Production Copy" },
+    })
+    fireEvent.change(screen.getByLabelText("New slug"), {
+      target: { value: "production-copy" },
+    })
+    fireEvent.change(screen.getByLabelText("Type"), {
+      target: { value: "staging" },
+    })
     fireEvent.click(screen.getByRole("button", { name: "Clone" }))
 
     await waitFor(() => expect(sent).toHaveLength(1))
     expect(sent[0]).toEqual({
       intent: "environments.clone",
-      payload: { sourceId: "env_1", name: "Production Copy", slug: "production-copy", type: "staging" },
+      payload: {
+        sourceId: "env_1",
+        name: "Production Copy",
+        slug: "production-copy",
+        type: "staging",
+      },
     })
   })
 
   it("omits the clone's type when left blank, rather than sending an empty string", async () => {
     const { client, sent } = recordingCommandClient(
       { "environments.list": envsAnswer },
-      { "environments.clone": { ok: true } },
+      { "environments.clone": { ok: true } }
     )
     renderPage(AuthEnvironmentsPage, client)
     await waitFor(() => expect(screen.getByText("Staging")).toBeTruthy())
 
     fireEvent.click(screen.getByRole("button", { name: "Clone Staging" }))
-    fireEvent.change(screen.getByLabelText("New name"), { target: { value: "Staging Copy" } })
-    fireEvent.change(screen.getByLabelText("New slug"), { target: { value: "staging-copy" } })
+    fireEvent.change(screen.getByLabelText("New name"), {
+      target: { value: "Staging Copy" },
+    })
+    fireEvent.change(screen.getByLabelText("New slug"), {
+      target: { value: "staging-copy" },
+    })
     fireEvent.click(screen.getByRole("button", { name: "Clone" }))
 
     await waitFor(() => expect(sent).toHaveLength(1))
-    expect(sent[0].payload).toEqual({ sourceId: "env_2", name: "Staging Copy", slug: "staging-copy" })
+    expect(sent[0].payload).toEqual({
+      sourceId: "env_2",
+      name: "Staging Copy",
+      slug: "staging-copy",
+    })
     expect("type" in (sent[0].payload as object)).toBe(false)
   })
 
   it("creates an environment, omitting type, description and color when left empty", async () => {
     const { client, sent } = recordingCommandClient(
       { "environments.list": envsAnswer },
-      { "environments.create": { ok: true, id: "env_4" } },
+      { "environments.create": { ok: true, id: "env_4" } }
     )
     renderPage(AuthEnvironmentsPage, client)
     await waitFor(() => expect(screen.getByText("Production")).toBeTruthy())
 
     fireEvent.click(screen.getByRole("button", { name: "New environment" }))
-    fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Sandbox" } })
-    fireEvent.change(screen.getByLabelText("Slug"), { target: { value: "sandbox" } })
+    fireEvent.change(screen.getByLabelText("Name"), {
+      target: { value: "Sandbox" },
+    })
+    fireEvent.change(screen.getByLabelText("Slug"), {
+      target: { value: "sandbox" },
+    })
     fireEvent.click(screen.getByRole("button", { name: "Create environment" }))
 
     await waitFor(() => expect(sent).toHaveLength(1))
-    expect(sent[0]).toEqual({ intent: "environments.create", payload: { name: "Sandbox", slug: "sandbox" } })
+    expect(sent[0]).toEqual({
+      intent: "environments.create",
+      payload: { name: "Sandbox", slug: "sandbox" },
+    })
   })
 })
 
@@ -132,8 +190,22 @@ describe("AuthEnvironmentsPage stale command state across rows", () => {
   // `envsAnswer` is the default and has none.
   const twoDeletable = {
     environments: [
-      { id: "env_1", name: "Staging", slug: "staging", type: "staging", isDefault: false, createdAt: "2026-01-01T00:00:00Z" },
-      { id: "env_2", name: "QA", slug: "qa", type: "qa", isDefault: false, createdAt: "2026-01-02T00:00:00Z" },
+      {
+        id: "env_1",
+        name: "Staging",
+        slug: "staging",
+        type: "staging",
+        isDefault: false,
+        createdAt: "2026-01-01T00:00:00Z",
+      },
+      {
+        id: "env_2",
+        name: "QA",
+        slug: "qa",
+        type: "qa",
+        isDefault: false,
+        createdAt: "2026-01-02T00:00:00Z",
+      },
     ],
   }
 
@@ -143,9 +215,12 @@ describe("AuthEnvironmentsPage stale command state across rows", () => {
       {
         "environments.delete": (payload?: unknown) =>
           (payload as { id: string }).id === "env_1"
-            ? new ContractError("VALIDATION", "cannot delete an environment with live sessions")
+            ? new ContractError(
+                "VALIDATION",
+                "cannot delete an environment with live sessions"
+              )
             : { ok: true },
-      },
+      }
     )
     renderPage(AuthEnvironmentsPage, client)
     await waitFor(() => expect(screen.getByText("Staging")).toBeTruthy())
@@ -154,7 +229,9 @@ describe("AuthEnvironmentsPage stale command state across rows", () => {
     fireEvent.click(screen.getByRole("button", { name: "Delete Staging" }))
     fireEvent.click(screen.getByRole("button", { name: "Delete" }))
     const failure = await screen.findByRole("alert")
-    expect(failure.textContent).toContain("cannot delete an environment with live sessions")
+    expect(failure.textContent).toContain(
+      "cannot delete an environment with live sessions"
+    )
 
     // Back out, then open the same dialog pointed at QA instead.
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }))
@@ -164,7 +241,9 @@ describe("AuthEnvironmentsPage stale command state across rows", () => {
     // QA has not been touched. Staging's failure must not show up here.
     expect(screen.getByText(/Delete QA\?/)).toBeTruthy()
     expect(screen.queryByRole("alert")).toBeNull()
-    expect(screen.queryByText("cannot delete an environment with live sessions")).toBeNull()
+    expect(
+      screen.queryByText("cannot delete an environment with live sessions")
+    ).toBeNull()
   })
 
   it("clears a stale clone error, and the previous row's name and slug, when the clone dialog reopens for a different environment", async () => {
@@ -175,15 +254,19 @@ describe("AuthEnvironmentsPage stale command state across rows", () => {
           (payload as { sourceId: string }).sourceId === "env_1"
             ? new ContractError("VALIDATION", "slug already in use")
             : { ok: true },
-      },
+      }
     )
     renderPage(AuthEnvironmentsPage, client)
     await waitFor(() => expect(screen.getByText("Production")).toBeTruthy())
 
     // Clone Production with a name and slug, let it fail.
     fireEvent.click(screen.getByRole("button", { name: "Clone Production" }))
-    fireEvent.change(screen.getByLabelText("New name"), { target: { value: "Production Copy" } })
-    fireEvent.change(screen.getByLabelText("New slug"), { target: { value: "production-copy" } })
+    fireEvent.change(screen.getByLabelText("New name"), {
+      target: { value: "Production Copy" },
+    })
+    fireEvent.change(screen.getByLabelText("New slug"), {
+      target: { value: "production-copy" },
+    })
     fireEvent.click(screen.getByRole("button", { name: "Clone" }))
     const failure = await screen.findByRole("alert")
     expect(failure.textContent).toContain("slug already in use")
@@ -199,8 +282,12 @@ describe("AuthEnvironmentsPage stale command state across rows", () => {
     expect(screen.getByText(/Clone Staging\?/)).toBeTruthy()
     expect(screen.queryByRole("alert")).toBeNull()
     expect(screen.queryByText("slug already in use")).toBeNull()
-    expect((screen.getByLabelText("New name") as HTMLInputElement).value).toBe("")
-    expect((screen.getByLabelText("New slug") as HTMLInputElement).value).toBe("")
+    expect((screen.getByLabelText("New name") as HTMLInputElement).value).toBe(
+      ""
+    )
+    expect((screen.getByLabelText("New slug") as HTMLInputElement).value).toBe(
+      ""
+    )
   })
 })
 
@@ -224,24 +311,32 @@ describe("AuthEnvironmentDetailPage", () => {
     render(
       <PluginProvider client={client}>
         <AuthEnvironmentDetailPage params={{ id: "env_2" }} />
-      </PluginProvider>,
+      </PluginProvider>
     )
-    await waitFor(() => expect(screen.getByRole("heading", { name: "Staging" })).toBeTruthy())
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: "Staging" })).toBeTruthy()
+    )
     // "Pre-production checks" also shows up as the edit panel's seeded
     // textarea value, so this checks presence rather than a single match.
-    expect(screen.getAllByText("Pre-production checks").length).toBeGreaterThan(0)
+    expect(screen.getAllByText("Pre-production checks").length).toBeGreaterThan(
+      0
+    )
   })
 
   it("sends only the changed field when renaming, never an untouched description", async () => {
-    const { client, sent } = recordingCommandClient(detail, { "environments.update": { ok: true } })
+    const { client, sent } = recordingCommandClient(detail, {
+      "environments.update": { ok: true },
+    })
     render(
       <PluginProvider client={client}>
         <AuthEnvironmentDetailPage params={{ id: "env_2" }} />
-      </PluginProvider>,
+      </PluginProvider>
     )
     await waitFor(() => expect(screen.getByLabelText("Name")).toBeTruthy())
 
-    fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Staging Renamed" } })
+    fireEvent.change(screen.getByLabelText("Name"), {
+      target: { value: "Staging Renamed" },
+    })
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }))
 
     await waitFor(() => expect(sent).toHaveLength(1))
@@ -255,15 +350,21 @@ describe("AuthEnvironmentDetailPage", () => {
   })
 
   it("sends a deliberately cleared description as an empty string, present in the payload", async () => {
-    const { client, sent } = recordingCommandClient(detail, { "environments.update": { ok: true } })
+    const { client, sent } = recordingCommandClient(detail, {
+      "environments.update": { ok: true },
+    })
     render(
       <PluginProvider client={client}>
         <AuthEnvironmentDetailPage params={{ id: "env_2" }} />
-      </PluginProvider>,
+      </PluginProvider>
     )
-    await waitFor(() => expect(screen.getByLabelText("Description")).toBeTruthy())
+    await waitFor(() =>
+      expect(screen.getByLabelText("Description")).toBeTruthy()
+    )
 
-    fireEvent.change(screen.getByLabelText("Description"), { target: { value: "" } })
+    fireEvent.change(screen.getByLabelText("Description"), {
+      target: { value: "" },
+    })
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }))
 
     await waitFor(() => expect(sent).toHaveLength(1))
@@ -278,7 +379,7 @@ describe("AuthEnvironmentDetailPage", () => {
     render(
       <PluginProvider client={client}>
         <AuthEnvironmentDetailPage params={{}} />
-      </PluginProvider>,
+      </PluginProvider>
     )
     expect(screen.getByText("No environment selected.")).toBeTruthy()
   })

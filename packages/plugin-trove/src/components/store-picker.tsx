@@ -1,7 +1,10 @@
 import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { useEffect } from "react"
 import { useQuery } from "@forge-go/dashboard-plugin"
-import { NativeSelect, NativeSelectOption } from "@forge-go/dashboard-kit/components/native-select"
+import {
+  NativeSelect,
+  NativeSelectOption,
+} from "@forge-go/dashboard-kit/components/native-select"
 import { setActiveStore, useActiveStore } from "../store"
 import type { StoresList } from "../types"
 
@@ -16,7 +19,10 @@ export function StorePicker() {
   const active = useActiveStore()
   const stores = useQuery<StoresList>("stores.list", {})
   const list = stores.data
-  const known = list === undefined || active === "" || list.stores.some((s) => s.name === active)
+  const known =
+    list === undefined ||
+    active === "" ||
+    list.stores.some((s) => s.name === active)
 
   useEffect(() => {
     if (!known) setActiveStore("")
@@ -26,14 +32,20 @@ export function StorePicker() {
     return (
       <div className="flex items-center gap-2 text-sm">
         <span className="text-muted-foreground">
-          Store list unavailable, showing <span className="font-mono text-xs">{active}</span>
+          Store list unavailable, showing{" "}
+          <span className="font-mono text-xs">{active}</span>
         </span>
-        <IconButton variant="outline" onClick={() => setActiveStore("")} label="Use default" />
+        <IconButton
+          variant="outline"
+          onClick={() => setActiveStore("")}
+          label="Use default"
+        />
       </div>
     )
   }
   if (!list || list.mode !== "multi") return null
-  const fallback = list.stores.find((s) => s.isDefault)?.name ?? list.stores[0]?.name ?? ""
+  const fallback =
+    list.stores.find((s) => s.isDefault)?.name ?? list.stores[0]?.name ?? ""
   const value = active !== "" && known ? active : fallback
 
   return (
@@ -42,7 +54,9 @@ export function StorePicker() {
       <NativeSelect
         aria-label="Store"
         value={value}
-        onChange={(e) => setActiveStore(e.target.value === fallback ? "" : e.target.value)}
+        onChange={(e) =>
+          setActiveStore(e.target.value === fallback ? "" : e.target.value)
+        }
       >
         {list.stores.map((s) => (
           <NativeSelectOption key={s.name} value={s.name}>

@@ -22,11 +22,17 @@ export const ChunkDetailPage: ComponentType<PluginPageProps> = ({ params }) => {
         <section className="flex flex-col gap-6">
           <PageHeader
             title={`Chunk ${chunk.index}`}
-            description={document_title !== "" ? `Of ${document_title}` : "Its document is untitled or has been deleted. Open it to find out."}
+            description={
+              document_title !== ""
+                ? `Of ${document_title}`
+                : "Its document is untitled or has been deleted. Open it to find out."
+            }
           />
           <section className="flex flex-col gap-2">
             <h2 className="text-sm font-medium">Text</h2>
-            <p className="whitespace-pre-wrap rounded-md border p-3 text-sm">{chunk.content}</p>
+            <p className="rounded-md border p-3 text-sm whitespace-pre-wrap">
+              {chunk.content}
+            </p>
           </section>
           <DescriptionList
             items={[
@@ -35,18 +41,44 @@ export const ChunkDetailPage: ComponentType<PluginPageProps> = ({ params }) => {
                 term: "Document",
                 value: (
                   <span className="flex flex-wrap items-center gap-2">
-                    <IdLink to={documentPath(chunk.document_id)} value={chunk.document_id} />
+                    <IdLink
+                      to={documentPath(chunk.document_id)}
+                      value={chunk.document_id}
+                    />
                     {document_title !== "" ? (
-                      <span className="text-sm font-medium">{document_title}</span>
+                      <span className="text-sm font-medium">
+                        {document_title}
+                      </span>
                     ) : (
-                      <span className="text-sm text-muted-foreground">untitled, or deleted</span>
+                      <span className="text-sm text-muted-foreground">
+                        untitled, or deleted
+                      </span>
                     )}
                   </span>
                 ),
               },
-              { term: "Collection", value: <IdLink to={collectionPath(chunk.collection_id)} value={chunk.collection_id} /> },
-              { term: "Tenant", value: chunk.tenant_id !== "" ? <Id value={chunk.tenant_id} /> : <NoneCell label="tenant" /> },
-              { term: "Position", value: <span className="tabular-nums">{chunk.index}</span> },
+              {
+                term: "Collection",
+                value: (
+                  <IdLink
+                    to={collectionPath(chunk.collection_id)}
+                    value={chunk.collection_id}
+                  />
+                ),
+              },
+              {
+                term: "Tenant",
+                value:
+                  chunk.tenant_id !== "" ? (
+                    <Id value={chunk.tenant_id} />
+                  ) : (
+                    <NoneCell label="tenant" />
+                  ),
+              },
+              {
+                term: "Position",
+                value: <span className="tabular-nums">{chunk.index}</span>,
+              },
               {
                 term: "Bytes",
                 value: (
@@ -55,12 +87,27 @@ export const ChunkDetailPage: ComponentType<PluginPageProps> = ({ params }) => {
                   </span>
                 ),
               },
-              { term: "Tokens", value: `about ${formatCount(chunk.token_count)} tokens (characters ÷ 4)` },
-              { term: "Created", value: isRealTime(chunk.created_at) ? <Timestamp value={chunk.created_at} label="creation date" /> : <NoneCell label="creation date" /> },
-              ...(chunk.parent_id ? [{ term: "Parent", value: <Id value={chunk.parent_id} /> }] : []),
+              {
+                term: "Tokens",
+                value: `about ${formatCount(chunk.token_count)} tokens (characters ÷ 4)`,
+              },
+              {
+                term: "Created",
+                value: isRealTime(chunk.created_at) ? (
+                  <Timestamp value={chunk.created_at} label="creation date" />
+                ) : (
+                  <NoneCell label="creation date" />
+                ),
+              },
+              ...(chunk.parent_id
+                ? [{ term: "Parent", value: <Id value={chunk.parent_id} /> }]
+                : []),
             ]}
           />
-          <p className="text-xs text-muted-foreground">Byte offsets into the text after loading and trimming. The semantic and code chunkers only approximate them.</p>
+          <p className="text-xs text-muted-foreground">
+            Byte offsets into the text after loading and trimming. The semantic
+            and code chunkers only approximate them.
+          </p>
           <section className="flex flex-col gap-2">
             <h2 className="text-sm font-medium">Metadata</h2>
             <MetadataList metadata={chunk.metadata} />

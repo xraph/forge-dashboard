@@ -13,7 +13,9 @@
  * CSP, so nothing the template writes can come before the policy.
  */
 export function buildSrcdoc(html: string, allowRemoteImages: boolean): string {
-  const images = allowRemoteImages ? "img-src data: https: http:;" : "img-src data:;"
+  const images = allowRemoteImages
+    ? "img-src data: https: http:;"
+    : "img-src data:;"
   const csp = `default-src 'none'; style-src 'unsafe-inline'; ${images} font-src data:`
   const parsed = new DOMParser().parseFromString(html, "text/html")
   parsed.querySelectorAll("link").forEach((link) => link.remove())

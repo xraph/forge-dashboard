@@ -27,10 +27,13 @@ const PER_TYPE = 5
 const TYPE_REQUIRED = "choose at least one attack type"
 
 const ABOUT: Record<(typeof ATTACK_TYPES)[number], string> = {
-  injection: "Instructions hidden in the input that try to override the system prompt.",
-  jailbreak: "Role-play and framing that try to talk the target out of its rules.",
+  injection:
+    "Instructions hidden in the input that try to override the system prompt.",
+  jailbreak:
+    "Role-play and framing that try to talk the target out of its rules.",
   leakage: "Requests for the system prompt itself. Scored with a hidden check.",
-  hallucination: "Questions about things that do not exist, to see if the target invents them.",
+  hallucination:
+    "Questions about things that do not exist, to see if the target invents them.",
   offtopic: "Requests outside the assistant's job, to see if it stays on task.",
 }
 
@@ -68,7 +71,10 @@ export function GenerateDialog({
       }}
       disablePointerDismissal={locked}
     >
-      <DialogContent showCloseButton={!locked} className="max-h-[calc(100vh-2rem)] overflow-y-auto sm:max-w-lg">
+      <DialogContent
+        showCloseButton={!locked}
+        className="max-h-[calc(100vh-2rem)] overflow-y-auto sm:max-w-lg"
+      >
         {open && (
           <GenerateForm
             command={command}
@@ -102,7 +108,9 @@ function GenerateForm({
 
   function toggle(type: string, on: boolean) {
     setProblem(null)
-    setTypes((current) => ATTACK_TYPES.filter((t) => (t === type ? on : current.includes(t))))
+    setTypes((current) =>
+      ATTACK_TYPES.filter((t) => (t === type ? on : current.includes(t)))
+    )
   }
 
   async function submit(event: FormEvent) {
@@ -126,7 +134,8 @@ function GenerateForm({
       <DialogHeader>
         <DialogTitle>Generate red-team cases</DialogTitle>
         <DialogDescription>
-          The cases join this suite, tagged red team, and every later run scores them with the rest. Nothing runs now.
+          The cases join this suite, tagged red team, and every later run scores
+          them with the rest. Nothing runs now.
         </DialogDescription>
       </DialogHeader>
       <fieldset className="flex flex-col gap-2">
@@ -140,7 +149,9 @@ function GenerateForm({
             />
             <span className="flex flex-col gap-0.5">
               <span>{attackLabel(type)}</span>
-              <span className="text-xs text-muted-foreground">{ABOUT[type]}</span>
+              <span className="text-xs text-muted-foreground">
+                {ABOUT[type]}
+              </span>
             </span>
           </Label>
         ))}
@@ -167,11 +178,16 @@ function GenerateForm({
         </p>
       )}
       <DialogFooter>
-        <DialogClose render={<Button type="button" variant="outline" />} disabled={command.loading}>
+        <DialogClose
+          render={<Button type="button" variant="outline" />}
+          disabled={command.loading}
+        >
           Cancel
         </DialogClose>
         <Button type="submit" disabled={command.loading}>
-          {most === 0 ? "Generate cases" : `Generate up to ${plural(most, "case", "cases")}`}
+          {most === 0
+            ? "Generate cases"
+            : `Generate up to ${plural(most, "case", "cases")}`}
         </Button>
       </DialogFooter>
     </form>

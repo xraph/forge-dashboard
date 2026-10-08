@@ -90,8 +90,17 @@ function sentenceCase(s: string): string {
 }
 
 const columns: Column<EnforcementRow>[] = [
-  { id: "field", header: "Field", className: "font-medium", cell: (r) => r.label },
-  { id: "enforced", header: "Enforced", cell: (r) => (r.enforced ? "Yes" : "No") },
+  {
+    id: "field",
+    header: "Field",
+    className: "font-medium",
+    cell: (r) => r.label,
+  },
+  {
+    id: "enforced",
+    header: "Enforced",
+    cell: (r) => (r.enforced ? "Yes" : "No"),
+  },
   {
     id: "when",
     header: "When",

@@ -3,24 +3,94 @@ import { screen, within } from "@testing-library/react"
 import { ContractError } from "@forge-go/dashboard-plugin"
 import { SettingsPage } from "../src/pages/settings"
 import type { EnforcementRow, Settings } from "../src/types"
-import { failingClient, recordingClient, renderPage, stubClient } from "./harness"
+import {
+  failingClient,
+  recordingClient,
+  renderPage,
+  stubClient,
+} from "./harness"
 
 /** enforcement.go's table, in the editor's order, for a deployment with or without a limiter. */
 function enforcement(limiter: boolean): EnforcementRow[] {
   const rows: Omit<EnforcementRow, "enforced">[] = [
-    { field: "maxKeyLifetimeSeconds", label: "Max key lifetime", group: "keysmith", when: "when a key is created" },
-    { field: "graceSeconds", label: "Grace on rotation", group: "keysmith", when: "when a key is rotated" },
-    { field: "allowedScopes", label: "Allowed scopes", group: "keysmith", when: "when a key is created or its scopes are assigned" },
-    { field: "rateLimit", label: "Rate limit", group: "rateLimiter", when: "when a key is validated" },
-    { field: "rateLimitWindowSeconds", label: "Window", group: "rateLimiter", when: "when a key is validated" },
-    { field: "burstLimit", label: "Burst limit", group: "application", when: "" },
-    { field: "rotationPeriodSeconds", label: "Rotation period", group: "application", when: "" },
-    { field: "dailyQuota", label: "Daily quota", group: "application", when: "" },
-    { field: "monthlyQuota", label: "Monthly quota", group: "application", when: "" },
-    { field: "allowedIps", label: "Allowed IPs", group: "application", when: "" },
-    { field: "allowedOrigins", label: "Allowed origins", group: "application", when: "" },
-    { field: "allowedPaths", label: "Allowed paths", group: "application", when: "" },
-    { field: "allowedMethods", label: "Allowed methods", group: "application", when: "" },
+    {
+      field: "maxKeyLifetimeSeconds",
+      label: "Max key lifetime",
+      group: "keysmith",
+      when: "when a key is created",
+    },
+    {
+      field: "graceSeconds",
+      label: "Grace on rotation",
+      group: "keysmith",
+      when: "when a key is rotated",
+    },
+    {
+      field: "allowedScopes",
+      label: "Allowed scopes",
+      group: "keysmith",
+      when: "when a key is created or its scopes are assigned",
+    },
+    {
+      field: "rateLimit",
+      label: "Rate limit",
+      group: "rateLimiter",
+      when: "when a key is validated",
+    },
+    {
+      field: "rateLimitWindowSeconds",
+      label: "Window",
+      group: "rateLimiter",
+      when: "when a key is validated",
+    },
+    {
+      field: "burstLimit",
+      label: "Burst limit",
+      group: "application",
+      when: "",
+    },
+    {
+      field: "rotationPeriodSeconds",
+      label: "Rotation period",
+      group: "application",
+      when: "",
+    },
+    {
+      field: "dailyQuota",
+      label: "Daily quota",
+      group: "application",
+      when: "",
+    },
+    {
+      field: "monthlyQuota",
+      label: "Monthly quota",
+      group: "application",
+      when: "",
+    },
+    {
+      field: "allowedIps",
+      label: "Allowed IPs",
+      group: "application",
+      when: "",
+    },
+    {
+      field: "allowedOrigins",
+      label: "Allowed origins",
+      group: "application",
+      when: "",
+    },
+    {
+      field: "allowedPaths",
+      label: "Allowed paths",
+      group: "application",
+      when: "",
+    },
+    {
+      field: "allowedMethods",
+      label: "Allowed methods",
+      group: "application",
+      when: "",
+    },
   ]
   return rows.map((r) => {
     const enforced =
@@ -69,7 +139,7 @@ function groupRows(heading: string): string[][] {
     .map((row) =>
       within(row)
         .getAllByRole("cell")
-        .map((c) => c.textContent ?? ""),
+        .map((c) => c.textContent ?? "")
     )
 }
 
@@ -77,7 +147,9 @@ describe("SettingsPage", () => {
   it("asks for the settings and nothing else", async () => {
     const { client, intents } = recordingClient({ settings: settings() })
     renderPage(SettingsPage, client)
-    expect(await screen.findByRole("heading", { name: "Settings" })).toBeTruthy()
+    expect(
+      await screen.findByRole("heading", { name: "Settings" })
+    ).toBeTruthy()
     await screen.findByText("Healthy")
     expect(intents).toEqual(["settings"])
   })
@@ -104,15 +176,16 @@ describe("SettingsPage", () => {
       renderSettings(
         settings({
           storeHealthy: false,
-          storeMessage: "The store did not answer. The error is in the server log.",
-        }),
+          storeMessage:
+            "The store did not answer. The error is in the server log.",
+        })
       )
       await screen.findByText("Not answering")
       const store = section("Store")
       expect(
         within(store).getByText(
-          "The store did not answer. The error is in the server log.",
-        ),
+          "The store did not answer. The error is in the server log."
+        )
       ).toBeTruthy()
       expect(within(store).queryByText("Healthy")).toBeNull()
       // The rest of the page still answers: a down store is reported, not fatal.
@@ -129,8 +202,8 @@ describe("SettingsPage", () => {
       expect(within(limiter).queryByText("Not configured")).toBeNull()
       expect(
         within(limiter).getByText(
-          "Keysmith enforces a policy's Rate limit and Window when a key is validated.",
-        ),
+          "Keysmith enforces a policy's Rate limit and Window when a key is validated."
+        )
       ).toBeTruthy()
     })
 
@@ -141,8 +214,8 @@ describe("SettingsPage", () => {
       expect(within(limiter).queryByText("Configured")).toBeNull()
       expect(
         within(limiter).getByText(
-          "A policy's Rate limit and Window are stored, but not enforced here.",
-        ),
+          "A policy's Rate limit and Window are stored, but not enforced here."
+        )
       ).toBeTruthy()
     })
   })
@@ -153,7 +226,9 @@ describe("SettingsPage", () => {
       await screen.findByText("Healthy")
       const tenant = section("Tenant")
       expect(
-        within(tenant).getByText("Taken from the tenant claim your session carries."),
+        within(tenant).getByText(
+          "Taken from the tenant claim your session carries."
+        )
       ).toBeTruthy()
       expect(within(tenant).queryByText(/extensions\.keysmith/)).toBeNull()
       const id = within(tenant).getByText("t_claimed")
@@ -166,7 +241,7 @@ describe("SettingsPage", () => {
       await screen.findByText("Healthy")
       const tenant = section("Tenant")
       expect(
-        within(tenant).getByText("Taken from your session's organization."),
+        within(tenant).getByText("Taken from your session's organization.")
       ).toBeTruthy()
       expect(within(tenant).queryByText(/extensions\.keysmith/)).toBeNull()
       expect(within(tenant).queryByText(/tenant claim/)).toBeNull()
@@ -178,12 +253,15 @@ describe("SettingsPage", () => {
       // A newer server may add a source. It reads as config, as every
       // non-claim source did before "scope".
       renderSettings(
-        settings({ tenantSource: "header" as unknown as Settings["tenantSource"], tenant: "acme" }),
+        settings({
+          tenantSource: "header" as unknown as Settings["tenantSource"],
+          tenant: "acme",
+        })
       )
       await screen.findByText("Healthy")
       const tenant = section("Tenant")
       expect(tenant.textContent).toContain(
-        "Taken from extensions.keysmith.dashboard.tenant_id in the server's configuration.",
+        "Taken from extensions.keysmith.dashboard.tenant_id in the server's configuration."
       )
     })
 
@@ -192,10 +270,10 @@ describe("SettingsPage", () => {
       await screen.findByText("Healthy")
       const tenant = section("Tenant")
       expect(tenant.textContent).toContain(
-        "Taken from extensions.keysmith.dashboard.tenant_id in the server's configuration.",
+        "Taken from extensions.keysmith.dashboard.tenant_id in the server's configuration."
       )
       const key = within(tenant).getByText(
-        "extensions.keysmith.dashboard.tenant_id",
+        "extensions.keysmith.dashboard.tenant_id"
       )
       expect(key.className).toContain("font-mono")
       expect(key.className).toContain("text-xs")
@@ -211,13 +289,17 @@ describe("SettingsPage", () => {
     it("says 24 hours, the way the policy editor says it", async () => {
       renderSettings()
       await screen.findByText("Healthy")
-      expect(within(section("Default grace")).getByText("24 hours")).toBeTruthy()
+      expect(
+        within(section("Default grace")).getByText("24 hours")
+      ).toBeTruthy()
     })
 
     it("takes the value from the response", async () => {
       renderSettings(settings({ defaultGraceSeconds: 90 * 60 }))
       await screen.findByText("Healthy")
-      expect(within(section("Default grace")).getByText("90 minutes")).toBeTruthy()
+      expect(
+        within(section("Default grace")).getByText("90 minutes")
+      ).toBeTruthy()
     })
   })
 
@@ -233,16 +315,20 @@ describe("SettingsPage", () => {
         expect(el.className).toContain("text-xs")
       }
       expect(
-        audit.compareDocumentPosition(warden) & Node.DOCUMENT_POSITION_FOLLOWING,
+        audit.compareDocumentPosition(warden) & Node.DOCUMENT_POSITION_FOLLOWING
       ).toBeTruthy()
-      expect(within(plugins).queryByText("No hook plugins registered.")).toBeNull()
+      expect(
+        within(plugins).queryByText("No hook plugins registered.")
+      ).toBeNull()
     })
 
     it("says so when no hook plugins are registered", async () => {
       renderSettings(settings({ plugins: [] }))
       await screen.findByText("Healthy")
       const plugins = section("Plugins")
-      expect(within(plugins).getByText("No hook plugins registered.")).toBeTruthy()
+      expect(
+        within(plugins).getByText("No hook plugins registered.")
+      ).toBeTruthy()
       // Not a bare dash: the sentence is the whole answer.
       expect(within(plugins).queryByLabelText("no plugins")).toBeNull()
     })
@@ -252,14 +338,18 @@ describe("SettingsPage", () => {
     it("says how many policy fields this deployment enforces", async () => {
       renderSettings()
       expect(
-        await screen.findByText("This deployment enforces 3 of 13 policy fields."),
+        await screen.findByText(
+          "This deployment enforces 3 of 13 policy fields."
+        )
       ).toBeTruthy()
     })
 
     it("counts 5 of 13 with a limiter", async () => {
       renderSettings(settings({ rateLimiterConfigured: true }))
       expect(
-        await screen.findByText("This deployment enforces 5 of 13 policy fields."),
+        await screen.findByText(
+          "This deployment enforces 5 of 13 policy fields."
+        )
       ).toBeTruthy()
     })
 
@@ -277,21 +367,21 @@ describe("SettingsPage", () => {
       await screen.findByText("Healthy")
       expect(
         within(section("Enforced by Keysmith")).getByText(
-          "Keysmith checks these: the lifetime when a key is created, scopes when they are assigned, and the grace when a key is rotated.",
-        ),
+          "Keysmith checks these: the lifetime when a key is created, scopes when they are assigned, and the grace when a key is rotated."
+        )
       ).toBeTruthy()
       expect(
         within(section("Enforced only with a rate limiter")).getByText(
-          "This deployment has no rate limiter. These are stored, but not enforced here.",
-        ),
+          "This deployment has no rate limiter. These are stored, but not enforced here."
+        )
       ).toBeTruthy()
       const app = section("Stored for your application")
       expect(app.textContent).toContain(
-        "Keysmith does not check these. Your application can read them from ValidationResult.Policy.",
+        "Keysmith does not check these. Your application can read them from ValidationResult.Policy."
       )
-      expect(within(app).getByText("ValidationResult.Policy").className).toContain(
-        "font-mono",
-      )
+      expect(
+        within(app).getByText("ValidationResult.Policy").className
+      ).toContain("font-mono")
     })
 
     it("says the rate limiter group is enforced when one is configured", async () => {
@@ -299,8 +389,8 @@ describe("SettingsPage", () => {
       await screen.findByText("Configured")
       expect(
         within(section("Enforced only with a rate limiter")).getByText(
-          "This deployment has a rate limiter, so Keysmith enforces these.",
-        ),
+          "This deployment has a rate limiter, so Keysmith enforces these."
+        )
       ).toBeTruthy()
     })
 
@@ -312,7 +402,7 @@ describe("SettingsPage", () => {
         expect(
           within(table)
             .getAllByRole("columnheader")
-            .map((h) => h.textContent),
+            .map((h) => h.textContent)
         ).toEqual(["Field", "Enforced", "When"])
       }
     })
@@ -323,7 +413,11 @@ describe("SettingsPage", () => {
       expect(groupRows("Enforced by Keysmith")).toEqual([
         ["Max key lifetime", "Yes", "When a key is created"],
         ["Grace on rotation", "Yes", "When a key is rotated"],
-        ["Allowed scopes", "Yes", "When a key is created or its scopes are assigned"],
+        [
+          "Allowed scopes",
+          "Yes",
+          "When a key is created or its scopes are assigned",
+        ],
       ])
       expect(groupRows("Enforced only with a rate limiter")).toEqual([
         ["Rate limit", "No", "–"],
@@ -361,11 +455,23 @@ describe("SettingsPage", () => {
       renderSettings(
         settings({
           enforcement: [
-            { field: "graceSeconds", label: "Grace on rotation", group: "keysmith", enforced: true, when: "when a key is rotated" },
-            { field: "maxKeyLifetimeSeconds", label: "Max key lifetime", group: "keysmith", enforced: true, when: "when a key is created" },
+            {
+              field: "graceSeconds",
+              label: "Grace on rotation",
+              group: "keysmith",
+              enforced: true,
+              when: "when a key is rotated",
+            },
+            {
+              field: "maxKeyLifetimeSeconds",
+              label: "Max key lifetime",
+              group: "keysmith",
+              enforced: true,
+              when: "when a key is created",
+            },
           ],
           enforcedFields: 2,
-        }),
+        })
       )
       await screen.findByText("Healthy")
       expect(groupRows("Enforced by Keysmith").map((r) => r[0])).toEqual([
@@ -373,7 +479,7 @@ describe("SettingsPage", () => {
         "Max key lifetime",
       ])
       expect(
-        screen.getByText("This deployment enforces 2 of 2 policy fields."),
+        screen.getByText("This deployment enforces 2 of 2 policy fields.")
       ).toBeTruthy()
     })
 
@@ -382,10 +488,16 @@ describe("SettingsPage", () => {
         settings({
           enforcement: [
             ...enforcement(false),
-            { field: "ttl", label: "Time to live", group: "edge", enforced: true, when: "when a key is cached" },
+            {
+              field: "ttl",
+              label: "Time to live",
+              group: "edge",
+              enforced: true,
+              when: "when a key is cached",
+            },
           ],
           enforcedFields: 4,
-        }),
+        })
       )
       await screen.findByText("Healthy")
       const headings = within(section("Policy enforcement"))
@@ -396,7 +508,7 @@ describe("SettingsPage", () => {
         ["Time to live", "Yes", "When a key is cached"],
       ])
       expect(
-        within(section("edge")).getByRole("heading", { name: "edge" }).className,
+        within(section("edge")).getByRole("heading", { name: "edge" }).className
       ).toContain("font-mono")
     })
   })
@@ -404,7 +516,9 @@ describe("SettingsPage", () => {
   it("shows the error state with the message when settings fail", async () => {
     renderPage(
       SettingsPage,
-      failingClient(new ContractError("PERMISSION_DENIED", "no tenant for this request")),
+      failingClient(
+        new ContractError("PERMISSION_DENIED", "no tenant for this request")
+      )
     )
     expect(await screen.findByText(/no tenant for this request/)).toBeTruthy()
     expect(screen.queryByText("Healthy")).toBeNull()

@@ -110,7 +110,8 @@ function parse(type: ConfigType, text: string): Parsed {
     case "duration": {
       // Nothing typed is not an error yet, only not a value.
       if (text === "") return { value: undefined }
-      if (DURATION.test(text) || DURATION_ZERO.test(text)) return { value: text }
+      if (DURATION.test(text) || DURATION_ZERO.test(text))
+        return { value: text }
       return {
         value: undefined,
         error:
@@ -126,7 +127,8 @@ function parse(type: ConfigType, text: string): Parsed {
         if (hasNonFinite(parsed)) {
           return {
             value: undefined,
-            error: "That number is too large to hold. It would be saved as null.",
+            error:
+              "That number is too large to hold. It would be saved as null.",
           }
         }
         return { value: parsed }
@@ -200,7 +202,8 @@ function TextInput({
   useEffect(() => {
     if (reported.current) return
     reported.current = true
-    if (reportEmptyOnMount && type === "string" && typeof value !== "string") onChange("")
+    if (reportEmptyOnMount && type === "string" && typeof value !== "string")
+      onChange("")
   }, [type, value, onChange, reportEmptyOnMount])
 
   function change(next: string) {
@@ -237,7 +240,11 @@ function TextInput({
           {...common}
           className="font-mono"
           inputMode={
-            type === "int" ? "numeric" : type === "float" ? "decimal" : undefined
+            type === "int"
+              ? "numeric"
+              : type === "float"
+                ? "decimal"
+                : undefined
           }
           value={text}
           onChange={(e) => change(e.target.value)}

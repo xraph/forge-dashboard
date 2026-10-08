@@ -1,24 +1,46 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { fireEvent, screen, waitFor, within } from "@testing-library/react"
 import { ContractError } from "@forge-go/dashboard-plugin"
-import { invoiceTransitions, LedgerInvoiceDetailPage } from "../src/pages/invoice-detail"
+import {
+  invoiceTransitions,
+  LedgerInvoiceDetailPage,
+} from "../src/pages/invoice-detail"
 import { failingClient, renderWithNavigation, scriptedClient } from "./harness"
 import { aLineItem, anInvoice, aSubscription, usd } from "./fixtures"
 
 function detail(over = {}) {
-  return { invoice: anInvoice(over), subscription: aSubscription(), export_formats: ["csv", "json"] }
+  return {
+    invoice: anInvoice(over),
+    subscription: aSubscription(),
+    export_formats: ["csv", "json"],
+  }
 }
 
-function open(over = {}, commands: Record<string, unknown> = {}, extra: Record<string, unknown> = {}) {
-  const { client, sent } = scriptedClient({ "invoices.detail": detail(over), ...extra }, commands)
-  return { ...renderWithNavigation(LedgerInvoiceDetailPage, client, { id: "inv_1" }), sent }
+function open(
+  over = {},
+  commands: Record<string, unknown> = {},
+  extra: Record<string, unknown> = {}
+) {
+  const { client, sent } = scriptedClient(
+    { "invoices.detail": detail(over), ...extra },
+    commands
+  )
+  return {
+    ...renderWithNavigation(LedgerInvoiceDetailPage, client, { id: "inv_1" }),
+    sent,
+  }
 }
 
 /** A dialog's description is a paragraph, so nothing block-level may sit inside it. */
 function expectPhrasingOnly(dialog: HTMLElement) {
   // A dialog whose fields carry it has no description at all, which is fine.
-  const description = dialog.querySelector("[data-slot=alert-dialog-description]")
-  expect(description?.querySelector("div, p, ul, ol, table, section, h1, h2, h3") ?? null).toBeNull()
+  const description = dialog.querySelector(
+    "[data-slot=alert-dialog-description]"
+  )
+  expect(
+    description?.querySelector("div, p, ul, ol, table, section, h1, h2, h3") ??
+      null
+  ).toBeNull()
 }
 
 const realCreate = URL.createObjectURL
@@ -26,7 +48,10 @@ const realRevoke = URL.revokeObjectURL
 
 afterEach(() => {
   vi.restoreAllMocks()
-  Object.assign(URL, { createObjectURL: realCreate, revokeObjectURL: realRevoke })
+  Object.assign(URL, {
+    createObjectURL: realCreate,
+    revokeObjectURL: realRevoke,
+  })
 })
 
 describe("invoiceTransitions", () => {
@@ -48,7 +73,9 @@ describe("LedgerInvoiceDetailPage", () => {
   it("reads as a receipt: subtotal, discount, tax, then the total", async () => {
     open()
     const receipt = await screen.findByRole("region", { name: "Totals" })
-    const terms = within(receipt).getAllByRole("term").map((t) => t.textContent)
+    const terms = within(receipt)
+      .getAllByRole("term")
+      .map((t) => t.textContent)
     expect(terms).toEqual(["Subtotal", "Discount", "Tax", "Total"])
     const total = within(receipt).getByText(/120\.10/)
     expect(total.className).toMatch(/tabular-nums/)
@@ -56,7 +83,12 @@ describe("LedgerInvoiceDetailPage", () => {
   })
 
   it("shows the engine's totals as they are, and a zero discount as a plain zero", async () => {
-    open({ discount_amount: usd(0), subtotal: usd(13900), tax_amount: usd(0), total: usd(13900) })
+    open({
+      discount_amount: usd(0),
+      subtotal: usd(13900),
+      tax_amount: usd(0),
+      total: usd(13900),
+    })
     const receipt = await screen.findByRole("region", { name: "Totals" })
     const zero = within(receipt).getAllByText("$0.00")
     expect(zero).toHaveLength(2)
@@ -65,7 +97,12 @@ describe("LedgerInvoiceDetailPage", () => {
   })
 
   it("says so when the discount is larger than the subtotal, because the total then is not a subtraction", async () => {
-    open({ subtotal: usd(1000), discount_amount: usd(1500), tax_amount: usd(0), total: usd(0) })
+    open({
+      subtotal: usd(1000),
+      discount_amount: usd(1500),
+      tax_amount: usd(0),
+      total: usd(0),
+    })
     const receipt = await screen.findByRole("region", { name: "Totals" })
     expect(within(receipt).getByText(/cannot go below zero/)).toBeTruthy()
   })
@@ -79,7 +116,9 @@ describe("LedgerInvoiceDetailPage", () => {
     expect(screen.getByRole("heading", { name: "Tax" })).toBeTruthy()
     expect(screen.queryByRole("heading", { name: "Overage" })).toBeNull()
     const seats = screen.getByRole("region", { name: "1 seat line" })
-    expect(within(seats).getByText("6").closest("td")?.className).toMatch(/text-right/)
+    expect(within(seats).getByText("6").closest("td")?.className).toMatch(
+      /text-right/
+    )
   })
 
   it("shows a tier-priced line's missing unit price as none, not as $0.00", async () => {
@@ -87,8 +126,24 @@ describe("LedgerInvoiceDetailPage", () => {
     // unit amount, because a ladder has no single per-unit price.
     open({
       line_items: [
-        aLineItem({ id: "li_s", description: "Seats", quantity: 6, unit_amount: usd(0), amount: usd(9000), type: "seat", feature_key: "seats" }),
-        aLineItem({ id: "li_o", description: "API calls overage", quantity: 12000, unit_amount: usd(0), amount: usd(2400), type: "overage", feature_key: "api_calls" }),
+        aLineItem({
+          id: "li_s",
+          description: "Seats",
+          quantity: 6,
+          unit_amount: usd(0),
+          amount: usd(9000),
+          type: "seat",
+          feature_key: "seats",
+        }),
+        aLineItem({
+          id: "li_o",
+          description: "API calls overage",
+          quantity: 12000,
+          unit_amount: usd(0),
+          amount: usd(2400),
+          type: "overage",
+          feature_key: "api_calls",
+        }),
         aLineItem(),
       ],
     })
@@ -108,20 +163,31 @@ describe("LedgerInvoiceDetailPage", () => {
 
   it("shows a discount line as a negative amount", async () => {
     open()
-    const discounts = await screen.findByRole("region", { name: "1 discount line" })
+    const discounts = await screen.findByRole("region", {
+      name: "1 discount line",
+    })
     expect(within(discounts).getAllByText(/27\.80/).length).toBeGreaterThan(0)
-    expect(within(discounts).getAllByText(/27\.80/)[0].textContent).toMatch(/^[−-]/)
+    expect(within(discounts).getAllByText(/27\.80/)[0].textContent).toMatch(
+      /^[−-]/
+    )
   })
 
   it("says when an invoice has no line items", async () => {
     open({ line_items: [] })
-    expect(await screen.findByText("This invoice has no line items.")).toBeTruthy()
+    expect(
+      await screen.findByText("This invoice has no line items.")
+    ).toBeTruthy()
   })
 
   it("shows where the invoice is in its life and offers the next step only", async () => {
     open()
     const steps = await screen.findByRole("list", { name: "Invoice progress" })
-    expect(within(steps).getByText("Pending").closest("li")?.getAttribute("aria-current")).toBe("step")
+    expect(
+      within(steps)
+        .getByText("Pending")
+        .closest("li")
+        ?.getAttribute("aria-current")
+    ).toBe("step")
     expect(screen.getByRole("button", { name: "Mark paid" })).toBeTruthy()
     expect(screen.getByRole("button", { name: "Void" })).toBeTruthy()
     expect(screen.queryByRole("button", { name: "Finalize" })).toBeNull()
@@ -130,14 +196,21 @@ describe("LedgerInvoiceDetailPage", () => {
   it("tells the steps apart in words as well as colour", async () => {
     open()
     const steps = await screen.findByRole("list", { name: "Invoice progress" })
-    const items = within(steps).getAllByRole("listitem").map((li) => li.textContent)
+    const items = within(steps)
+      .getAllByRole("listitem")
+      .map((li) => li.textContent)
     expect(items).toEqual(["Draft (done)", "Pending (done)", "Paid (not yet)"])
   })
 
   it("marks a past-due invoice as past due on the progress list and still offers payment", async () => {
     open({ status: "past_due" })
     const steps = await screen.findByRole("list", { name: "Invoice progress" })
-    expect(within(steps).getByText("Past due").closest("li")?.getAttribute("aria-current")).toBe("step")
+    expect(
+      within(steps)
+        .getByText("Past due")
+        .closest("li")
+        ?.getAttribute("aria-current")
+    ).toBe("step")
     expect(screen.getByRole("button", { name: "Mark paid" })).toBeTruthy()
   })
 
@@ -150,7 +223,11 @@ describe("LedgerInvoiceDetailPage", () => {
   })
 
   it("offers nothing on a paid invoice", async () => {
-    open({ status: "paid", paid_at: "2026-09-22T10:00:00Z", payment_ref: "ch_1" })
+    open({
+      status: "paid",
+      paid_at: "2026-09-22T10:00:00Z",
+      payment_ref: "ch_1",
+    })
     await screen.findByRole("region", { name: "Totals" })
     expect(screen.queryByRole("button", { name: "Mark paid" })).toBeNull()
     expect(screen.queryByRole("button", { name: "Void" })).toBeNull()
@@ -158,7 +235,11 @@ describe("LedgerInvoiceDetailPage", () => {
   })
 
   it("says a voided invoice is final and shows why it was voided", async () => {
-    open({ status: "voided", voided_at: "2026-09-23T10:00:00Z", void_reason: "Duplicate" })
+    open({
+      status: "voided",
+      voided_at: "2026-09-23T10:00:00Z",
+      void_reason: "Duplicate",
+    })
     await screen.findByRole("region", { name: "Totals" })
     expect(screen.getByText(/cannot change again/)).toBeTruthy()
     expect(screen.getByText("Duplicate")).toBeTruthy()
@@ -174,41 +255,87 @@ describe("LedgerInvoiceDetailPage", () => {
   })
 
   it("finalizes a draft, and says the due date it sets", async () => {
-    const { sent } = open({ status: "draft" }, { "invoices.finalize": anInvoice() })
+    const { sent } = open(
+      { status: "draft" },
+      { "invoices.finalize": anInvoice() }
+    )
     fireEvent.click(await screen.findByRole("button", { name: "Finalize" }))
     const dialog = await screen.findByRole("alertdialog")
     expectPhrasingOnly(dialog)
     expect(within(dialog).getByText(/30 days/)).toBeTruthy()
-    fireEvent.click(within(dialog).getByRole("button", { name: "Finalize invoice" }))
-    await waitFor(() => expect(sent).toEqual([{ intent: "invoices.finalize", payload: { id: "inv_1" } }]))
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: "Finalize invoice" })
+    )
+    await waitFor(() =>
+      expect(sent).toEqual([
+        { intent: "invoices.finalize", payload: { id: "inv_1" } },
+      ])
+    )
   })
 
   it("marks paid with a trimmed reference, and the time only when given", async () => {
-    const { sent } = open({}, { "invoices.markPaid": anInvoice({ status: "paid" }) })
+    const { sent } = open(
+      {},
+      { "invoices.markPaid": anInvoice({ status: "paid" }) }
+    )
     fireEvent.click(await screen.findByRole("button", { name: "Mark paid" }))
     const dialog = await screen.findByRole("alertdialog")
     expectPhrasingOnly(dialog)
-    fireEvent.change(within(dialog).getByLabelText("Payment reference"), { target: { value: "  ch_123 " } })
-    fireEvent.click(within(dialog).getByRole("button", { name: "Mark as paid" }))
-    await waitFor(() => expect(sent).toEqual([{ intent: "invoices.markPaid", payload: { id: "inv_1", payment_ref: "ch_123" } }]))
+    fireEvent.change(within(dialog).getByLabelText("Payment reference"), {
+      target: { value: "  ch_123 " },
+    })
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: "Mark as paid" })
+    )
+    await waitFor(() =>
+      expect(sent).toEqual([
+        {
+          intent: "invoices.markPaid",
+          payload: { id: "inv_1", payment_ref: "ch_123" },
+        },
+      ])
+    )
   })
 
   it("sends paid_at as RFC3339 when a time is given", async () => {
-    const { sent } = open({}, { "invoices.markPaid": anInvoice({ status: "paid" }) })
+    const { sent } = open(
+      {},
+      { "invoices.markPaid": anInvoice({ status: "paid" }) }
+    )
     fireEvent.click(await screen.findByRole("button", { name: "Mark paid" }))
     const dialog = await screen.findByRole("alertdialog")
-    fireEvent.change(within(dialog).getByLabelText("Paid at"), { target: { value: "2026-09-25T14:30" } })
-    fireEvent.click(within(dialog).getByRole("button", { name: "Mark as paid" }))
+    fireEvent.change(within(dialog).getByLabelText("Paid at"), {
+      target: { value: "2026-09-25T14:30" },
+    })
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: "Mark as paid" })
+    )
     await waitFor(() => expect(sent).toHaveLength(1))
-    expect(sent[0].payload).toEqual({ id: "inv_1", payment_ref: "", paid_at: new Date("2026-09-25T14:30").toISOString() })
+    expect(sent[0].payload).toEqual({
+      id: "inv_1",
+      payment_ref: "",
+      paid_at: new Date("2026-09-25T14:30").toISOString(),
+    })
   })
 
   it("keeps a refusal to mark paid inside the dialog, and clears it when the dialog is opened again", async () => {
-    open({}, { "invoices.markPaid": new ContractError("CONFLICT", "ledger: invoice is voided") })
+    open(
+      {},
+      {
+        "invoices.markPaid": new ContractError(
+          "CONFLICT",
+          "ledger: invoice is voided"
+        ),
+      }
+    )
     fireEvent.click(await screen.findByRole("button", { name: "Mark paid" }))
     let dialog = await screen.findByRole("alertdialog")
-    fireEvent.click(within(dialog).getByRole("button", { name: "Mark as paid" }))
-    expect(await within(dialog).findByText("ledger: invoice is voided")).toBeTruthy()
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: "Mark as paid" })
+    )
+    expect(
+      await within(dialog).findByText("ledger: invoice is voided")
+    ).toBeTruthy()
     fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }))
     await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull())
     fireEvent.click(screen.getByRole("button", { name: "Mark paid" }))
@@ -217,15 +344,29 @@ describe("LedgerInvoiceDetailPage", () => {
   })
 
   it("needs a reason to void, and keeps a refusal in the dialog", async () => {
-    const { sent } = open({}, { "invoices.void": new ContractError("CONFLICT", "a paid invoice cannot be voided") })
+    const { sent } = open(
+      {},
+      {
+        "invoices.void": new ContractError(
+          "CONFLICT",
+          "a paid invoice cannot be voided"
+        ),
+      }
+    )
     fireEvent.click(await screen.findByRole("button", { name: "Void" }))
     const dialog = await screen.findByRole("alertdialog")
     expectPhrasingOnly(dialog)
-    const confirm = within(dialog).getByRole("button", { name: "Void invoice" }) as HTMLButtonElement
+    const confirm = within(dialog).getByRole("button", {
+      name: "Void invoice",
+    }) as HTMLButtonElement
     expect(confirm.disabled).toBe(true)
-    fireEvent.change(within(dialog).getByLabelText("Reason"), { target: { value: "Duplicate" } })
+    fireEvent.change(within(dialog).getByLabelText("Reason"), {
+      target: { value: "Duplicate" },
+    })
     fireEvent.click(confirm)
-    expect(await within(dialog).findByText("a paid invoice cannot be voided")).toBeTruthy()
+    expect(
+      await within(dialog).findByText("a paid invoice cannot be voided")
+    ).toBeTruthy()
     expect(sent[0].payload).toEqual({ id: "inv_1", reason: "Duplicate" })
   })
 
@@ -233,25 +374,42 @@ describe("LedgerInvoiceDetailPage", () => {
     open()
     fireEvent.click(await screen.findByRole("button", { name: "Void" }))
     const dialog = await screen.findByRole("alertdialog")
-    fireEvent.change(within(dialog).getByLabelText("Reason"), { target: { value: "   " } })
-    expect((within(dialog).getByRole("button", { name: "Void invoice" }) as HTMLButtonElement).disabled).toBe(true)
+    fireEvent.change(within(dialog).getByLabelText("Reason"), {
+      target: { value: "   " },
+    })
+    expect(
+      (
+        within(dialog).getByRole("button", {
+          name: "Void invoice",
+        }) as HTMLButtonElement
+      ).disabled
+    ).toBe(true)
   })
 
   it("downloads an export through invoices.export", async () => {
     const created = vi.fn<(blob: Blob) => string>(() => "blob:ledger")
     const revoked = vi.fn()
     Object.assign(URL, { createObjectURL: created, revokeObjectURL: revoked })
-    const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {})
+    const click = vi
+      .spyOn(HTMLAnchorElement.prototype, "click")
+      .mockImplementation(() => {})
     const csv = btoa("description,quantity\n")
     const { client } = scriptedClient({
       "invoices.detail": detail(),
-      "invoices.export": { format: "csv", filename: "invoice-inv_1.csv", content: csv },
+      "invoices.export": {
+        format: "csv",
+        filename: "invoice-inv_1.csv",
+        content: csv,
+      },
     })
     const query = vi.spyOn(client, "query")
     renderWithNavigation(LedgerInvoiceDetailPage, client, { id: "inv_1" })
     fireEvent.click(await screen.findByRole("button", { name: "Download CSV" }))
     await waitFor(() => expect(click).toHaveBeenCalled())
-    expect(query).toHaveBeenCalledWith("invoices.export", { id: "inv_1", format: "csv" })
+    expect(query).toHaveBeenCalledWith("invoices.export", {
+      id: "inv_1",
+      format: "csv",
+    })
     expect(created).toHaveBeenCalled()
     expect(created.mock.calls[0][0].type).toBe("text/csv")
     expect(created.mock.calls[0][0].size).toBe("description,quantity\n".length)
@@ -265,13 +423,23 @@ describe("LedgerInvoiceDetailPage", () => {
     const created = vi.fn<(blob: Blob) => string>(() => "blob:ledger")
     const revoked = vi.fn()
     Object.assign(URL, { createObjectURL: created, revokeObjectURL: revoked })
-    const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {})
+    const click = vi
+      .spyOn(HTMLAnchorElement.prototype, "click")
+      .mockImplementation(() => {})
     const { client } = scriptedClient({
       "invoices.detail": { ...detail(), export_formats: [format] },
-      "invoices.export": { format, filename: `invoice-inv_1.${format}`, content: btoa("%PDF-1.4") },
+      "invoices.export": {
+        format,
+        filename: `invoice-inv_1.${format}`,
+        content: btoa("%PDF-1.4"),
+      },
     })
     renderWithNavigation(LedgerInvoiceDetailPage, client, { id: "inv_1" })
-    fireEvent.click(await screen.findByRole("button", { name: `Download ${format.toUpperCase()}` }))
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: `Download ${format.toUpperCase()}`,
+      })
+    )
     await waitFor(() => expect(click).toHaveBeenCalledTimes(1))
     expect(created.mock.calls[0][0].type).toBe(type)
     await waitFor(() => expect(revoked).toHaveBeenCalledWith("blob:ledger"))
@@ -282,63 +450,125 @@ describe("LedgerInvoiceDetailPage", () => {
     Object.assign(URL, { createObjectURL: created, revokeObjectURL: vi.fn() })
     const { client } = scriptedClient({
       "invoices.detail": detail(),
-      "invoices.export": { format: "csv", filename: "invoice-inv_1.csv", content: "***not base64***" },
+      "invoices.export": {
+        format: "csv",
+        filename: "invoice-inv_1.csv",
+        content: "***not base64***",
+      },
     })
     renderWithNavigation(LedgerInvoiceDetailPage, client, { id: "inv_1" })
     fireEvent.click(await screen.findByRole("button", { name: "Download CSV" }))
     const alert = await screen.findByRole("alert")
     expect(within(alert).getByText("Could not export")).toBeTruthy()
     expect(within(alert).getByText("CLIENT")).toBeTruthy()
-    expect(within(alert).getByText(/InvalidCharacterError|not correctly encoded|invalid/i)).toBeTruthy()
+    expect(
+      within(alert).getByText(
+        /InvalidCharacterError|not correctly encoded|invalid/i
+      )
+    ).toBeTruthy()
     expect(created).not.toHaveBeenCalled()
   })
 
   it("shows an export that failed, and says when no formatter is registered", async () => {
     const { client } = scriptedClient({
       "invoices.detail": detail(),
-      "invoices.export": new ContractError("BAD_REQUEST", 'ledger: invalid input: no invoice formatter for format "csv"'),
+      "invoices.export": new ContractError(
+        "BAD_REQUEST",
+        'ledger: invalid input: no invoice formatter for format "csv"'
+      ),
     })
     renderWithNavigation(LedgerInvoiceDetailPage, client, { id: "inv_1" })
     fireEvent.click(await screen.findByRole("button", { name: "Download CSV" }))
-    expect(await screen.findByText(/no invoice formatter for format/)).toBeTruthy()
-    expect((screen.getByRole("button", { name: "Download CSV" }) as HTMLButtonElement).disabled).toBe(false)
+    expect(
+      await screen.findByText(/no invoice formatter for format/)
+    ).toBeTruthy()
+    expect(
+      (
+        screen.getByRole("button", {
+          name: "Download CSV",
+        }) as HTMLButtonElement
+      ).disabled
+    ).toBe(false)
   })
 
   it("says so when no invoice formatter is registered", async () => {
-    const { client } = scriptedClient({ "invoices.detail": { ...detail(), export_formats: null } })
+    const { client } = scriptedClient({
+      "invoices.detail": { ...detail(), export_formats: null },
+    })
     renderWithNavigation(LedgerInvoiceDetailPage, client, { id: "inv_1" })
-    expect(await screen.findByText("No invoice formatter is registered.")).toBeTruthy()
+    expect(
+      await screen.findByText("No invoice formatter is registered.")
+    ).toBeTruthy()
   })
 
   it("syncs to the provider through invoices.syncToProvider", async () => {
-    const result = { provider_name: "stripe", provider_id: "in_1", entity_type: "invoice", entity_id: "inv_1", direction: "push", success: true }
+    const result = {
+      provider_name: "stripe",
+      provider_id: "in_1",
+      entity_type: "invoice",
+      entity_id: "inv_1",
+      direction: "push",
+      success: true,
+    }
     const { sent } = open({}, { "invoices.syncToProvider": result })
-    fireEvent.click(await screen.findByRole("button", { name: "Sync to provider" }))
-    await waitFor(() => expect(sent).toEqual([{ intent: "invoices.syncToProvider", payload: { id: "inv_1" } }]))
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Sync to provider" })
+    )
+    await waitFor(() =>
+      expect(sent).toEqual([
+        { intent: "invoices.syncToProvider", payload: { id: "inv_1" } },
+      ])
+    )
     expect(await screen.findByText("Synced to stripe.")).toBeTruthy()
   })
 
   it("says so when the invoice does not exist", async () => {
-    const { client } = scriptedClient({ "invoices.detail": new ContractError("NOT_FOUND", "invoice not found") })
+    const { client } = scriptedClient({
+      "invoices.detail": new ContractError("NOT_FOUND", "invoice not found"),
+    })
     renderWithNavigation(LedgerInvoiceDetailPage, client, { id: "inv_gone" })
-    expect(await screen.findByText("No invoice with the id inv_gone.")).toBeTruthy()
+    expect(
+      await screen.findByText("No invoice with the id inv_gone.")
+    ).toBeTruthy()
   })
 
   it("says the same for an id the store has never seen", async () => {
-    const { client } = scriptedClient({ "invoices.detail": new ContractError("NOT_FOUND", "ledger: invoice not found") })
+    const { client } = scriptedClient({
+      "invoices.detail": new ContractError(
+        "NOT_FOUND",
+        "ledger: invoice not found"
+      ),
+    })
     renderWithNavigation(LedgerInvoiceDetailPage, client, { id: "inv_gone" })
-    expect(await screen.findByText("No invoice with the id inv_gone.")).toBeTruthy()
+    expect(
+      await screen.findByText("No invoice with the id inv_gone.")
+    ).toBeTruthy()
   })
 
   it("shows the no-app refusal as an error, not as a missing invoice", async () => {
-    renderWithNavigation(LedgerInvoiceDetailPage, failingClient(new ContractError("PERMISSION_DENIED", "no app selected: set the extension's app_id or send an app_id claim")), { id: "inv_1" })
-    expect(await screen.findByText(/PERMISSION_DENIED: no app selected/)).toBeTruthy()
+    renderWithNavigation(
+      LedgerInvoiceDetailPage,
+      failingClient(
+        new ContractError(
+          "PERMISSION_DENIED",
+          "no app selected: set the extension's app_id or send an app_id claim"
+        )
+      ),
+      { id: "inv_1" }
+    )
+    expect(
+      await screen.findByText(/PERMISSION_DENIED: no app selected/)
+    ).toBeTruthy()
     expect(screen.queryByText(/No invoice with the id/)).toBeNull()
   })
 
   it("says so when the address carries no id", () => {
     const { client } = scriptedClient({})
     renderWithNavigation(LedgerInvoiceDetailPage, client, {})
-    expect(screen.getByText("No invoice id in the address, so there is nothing to show.")).toBeTruthy()
+    expect(
+      screen.getByText(
+        "No invoice id in the address, so there is nothing to show."
+      )
+    ).toBeTruthy()
   })
 })

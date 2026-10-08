@@ -1,6 +1,11 @@
 import { Badge } from "@forge-go/dashboard-kit/components/badge"
 import type { CouponState } from "./lib/coupons"
-import type { CatalogFeatureStatus, InvoiceStatus, PlanStatus, SubscriptionStatus } from "./types"
+import type {
+  CatalogFeatureStatus,
+  InvoiceStatus,
+  PlanStatus,
+  SubscriptionStatus,
+} from "./types"
 
 /*
  * Badge mapping for the ledger pages, and why (spec, "Badge mapping, per
@@ -31,7 +36,10 @@ import type { CatalogFeatureStatus, InvoiceStatus, PlanStatus, SubscriptionStatu
  * seeing. Expired is outline: over, like voided.
  */
 
-const INVOICE: Record<InvoiceStatus, { label: string; variant: "outline" | "secondary" | "destructive" }> = {
+const INVOICE: Record<
+  InvoiceStatus,
+  { label: string; variant: "outline" | "secondary" | "destructive" }
+> = {
   draft: { label: "Draft", variant: "secondary" },
   pending: { label: "Pending", variant: "secondary" },
   past_due: { label: "Past due", variant: "destructive" },
@@ -39,7 +47,10 @@ const INVOICE: Record<InvoiceStatus, { label: string; variant: "outline" | "seco
   voided: { label: "Voided", variant: "outline" },
 }
 
-const SUBSCRIPTION: Record<SubscriptionStatus, { label: string; variant: "outline" | "secondary" | "destructive" }> = {
+const SUBSCRIPTION: Record<
+  SubscriptionStatus,
+  { label: string; variant: "outline" | "secondary" | "destructive" }
+> = {
   active: { label: "Active", variant: "outline" },
   trialing: { label: "Trialing", variant: "secondary" },
   past_due: { label: "Past due", variant: "destructive" },
@@ -48,19 +59,28 @@ const SUBSCRIPTION: Record<SubscriptionStatus, { label: string; variant: "outlin
   expired: { label: "Expired", variant: "outline" },
 }
 
-const PLAN: Record<PlanStatus, { label: string; variant: "default" | "secondary" | "outline" }> = {
+const PLAN: Record<
+  PlanStatus,
+  { label: string; variant: "default" | "secondary" | "outline" }
+> = {
   active: { label: "Active", variant: "default" },
   draft: { label: "Draft", variant: "secondary" },
   archived: { label: "Archived", variant: "outline" },
 }
 
-const FEATURE: Record<CatalogFeatureStatus, { label: string; variant: "secondary" | "outline" }> = {
+const FEATURE: Record<
+  CatalogFeatureStatus,
+  { label: string; variant: "secondary" | "outline" }
+> = {
   active: { label: "Active", variant: "outline" },
   draft: { label: "Draft", variant: "secondary" },
   archived: { label: "Archived", variant: "outline" },
 }
 
-const COUPON: Record<CouponState, { label: string; variant: "secondary" | "outline" }> = {
+const COUPON: Record<
+  CouponState,
+  { label: string; variant: "secondary" | "outline" }
+> = {
   active: { label: "Active", variant: "outline" },
   scheduled: { label: "Scheduled", variant: "secondary" },
   exhausted: { label: "Exhausted", variant: "secondary" },
@@ -72,8 +92,13 @@ const COUPON: Record<CouponState, { label: string; variant: "secondary" | "outli
  * worded exactly as the badge is, so a list's filter and its badges cannot
  * drift apart.
  */
-function optionsOf<S extends string>(map: Record<S, { label: string }>): { value: S; label: string }[] {
-  return (Object.keys(map) as S[]).map((value) => ({ value, label: map[value].label }))
+function optionsOf<S extends string>(
+  map: Record<S, { label: string }>
+): { value: S; label: string }[] {
+  return (Object.keys(map) as S[]).map((value) => ({
+    value,
+    label: map[value].label,
+  }))
 }
 
 export const INVOICE_STATUS_OPTIONS = optionsOf(INVOICE)
@@ -86,8 +111,15 @@ export function InvoiceStatusBadge({ status }: { status: InvoiceStatus }) {
   return <Badge variant={m.variant}>{m.label}</Badge>
 }
 
-export function SubscriptionStatusBadge({ status }: { status: SubscriptionStatus }) {
-  const m = SUBSCRIPTION[status] ?? { label: status, variant: "outline" as const }
+export function SubscriptionStatusBadge({
+  status,
+}: {
+  status: SubscriptionStatus
+}) {
+  const m = SUBSCRIPTION[status] ?? {
+    label: status,
+    variant: "outline" as const,
+  }
   return <Badge variant={m.variant}>{m.label}</Badge>
 }
 
@@ -96,7 +128,11 @@ export function PlanStatusBadge({ status }: { status: PlanStatus }) {
   return <Badge variant={m.variant}>{m.label}</Badge>
 }
 
-export function FeatureStatusBadge({ status }: { status: CatalogFeatureStatus }) {
+export function FeatureStatusBadge({
+  status,
+}: {
+  status: CatalogFeatureStatus
+}) {
   const m = FEATURE[status] ?? { label: status, variant: "outline" as const }
   return <Badge variant={m.variant}>{m.label}</Badge>
 }

@@ -41,7 +41,9 @@ describe("namespaceParam", () => {
   it("sends undefined for all namespaces and an empty string for the root", () => {
     expect(namespaceParam("all")).toEqual({})
     expect(namespaceParam("")).toEqual({ namespacePath: "" })
-    expect(namespaceParam("eng/platform")).toEqual({ namespacePath: "eng/platform" })
+    expect(namespaceParam("eng/platform")).toEqual({
+      namespacePath: "eng/platform",
+    })
   })
 })
 
@@ -101,7 +103,9 @@ function Probe() {
 describe("useNamespaceFilter", () => {
   it("starts on all namespaces and sends no namespace param", async () => {
     render(
-      <PluginProvider client={stubClient({ "namespaces.list": { namespaces: ["", "eng"] } })}>
+      <PluginProvider
+        client={stubClient({ "namespaces.list": { namespaces: ["", "eng"] } })}
+      >
         <Probe />
       </PluginProvider>
     )
@@ -111,7 +115,9 @@ describe("useNamespaceFilter", () => {
 
   it("offers every namespace the query returned", async () => {
     render(
-      <PluginProvider client={stubClient({ "namespaces.list": { namespaces: ["", "eng"] } })}>
+      <PluginProvider
+        client={stubClient({ "namespaces.list": { namespaces: ["", "eng"] } })}
+      >
         <Probe />
       </PluginProvider>
     )
@@ -130,7 +136,9 @@ describe("useNamespaceFilter", () => {
    */
   it("moves param through all, root and a named namespace as onChange fires", async () => {
     render(
-      <PluginProvider client={stubClient({ "namespaces.list": { namespaces: ["", "eng"] } })}>
+      <PluginProvider
+        client={stubClient({ "namespaces.list": { namespaces: ["", "eng"] } })}
+      >
         <Probe />
       </PluginProvider>
     )
@@ -159,7 +167,9 @@ describe("useNamespaceFilter", () => {
     // rows. Falling back to the two options that always exist keeps the
     // filter usable instead of blanking the control or the page.
     render(
-      <PluginProvider client={failingClient(new ContractError("INTERNAL", "boom"))}>
+      <PluginProvider
+        client={failingClient(new ContractError("INTERNAL", "boom"))}
+      >
         <Probe />
       </PluginProvider>
     )

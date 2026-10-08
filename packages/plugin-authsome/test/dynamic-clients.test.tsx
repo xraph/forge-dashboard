@@ -19,7 +19,7 @@ describe("AuthDynamicClientsPage", () => {
     const { client } = stubClient({ "auth.dynamicConfig": { active: false } })
     renderPage(AuthDynamicClientsPage, client)
     await waitFor(() =>
-      expect(screen.getByText(/Dynamic registration is disabled/)).toBeTruthy(),
+      expect(screen.getByText(/Dynamic registration is disabled/)).toBeTruthy()
     )
     expect(screen.queryByLabelText("Email")).toBeNull()
     expect(screen.queryByRole("button", { name: "Register" })).toBeNull()
@@ -28,7 +28,9 @@ describe("AuthDynamicClientsPage", () => {
   it("lists the configured fields with a live count", async () => {
     const { client } = stubClient({ "auth.dynamicConfig": activeConfig })
     renderPage(AuthDynamicClientsPage, client)
-    await waitFor(() => expect(screen.getByText("Create your account")).toBeTruthy())
+    await waitFor(() =>
+      expect(screen.getByText("Create your account")).toBeTruthy()
+    )
     expect(screen.getByText("company")).toBeTruthy()
     expect(screen.getByText("3 fields")).toBeTruthy()
   })
@@ -47,7 +49,9 @@ describe("what this page deliberately does not offer", () => {
   it("has no control that calls auth.dynamicRegister", async () => {
     const client = stubClient({
       "auth.dynamicConfig": {
-        title: "Join", description: "", active: true,
+        title: "Join",
+        description: "",
+        active: true,
         fields: [{ key: "email", label: "Email", type: "email", order: 1 }],
       },
     }).client

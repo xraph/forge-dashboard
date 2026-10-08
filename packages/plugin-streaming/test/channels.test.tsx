@@ -10,10 +10,15 @@ describe("StreamingChannelsPage", () => {
       stubClient({
         "channels.list": {
           channels: [
-            { id: "c1", name: "alerts", subscriberCount: 12, messageCount: 400 },
+            {
+              id: "c1",
+              name: "alerts",
+              subscriberCount: 12,
+              messageCount: 400,
+            },
           ],
         },
-      }),
+      })
     )
     await waitFor(() => expect(screen.getByText("alerts")).toBeTruthy())
     expect(screen.getByText("12")).toBeTruthy()
@@ -39,18 +44,28 @@ describe("StreamingChannelsPage", () => {
       stubClient({
         "channels.list": {
           channels: [
-            { id: "c1", name: "alerts", subscriberCount: 12, messageCount: 400 },
+            {
+              id: "c1",
+              name: "alerts",
+              subscriberCount: 12,
+              messageCount: 400,
+            },
             { id: "c2", name: "general", subscriberCount: 3, messageCount: 9 },
           ],
         },
-      }),
+      })
     )
     await waitFor(() => expect(screen.getByText("alerts")).toBeTruthy())
     expect(screen.getByText("2 channels", { selector: "caption" })).toBeTruthy()
   })
 
   it("says so when there are no channels", async () => {
-    renderPage(StreamingChannelsPage, stubClient({ "channels.list": { channels: [] } }))
-    await waitFor(() => expect(screen.getByText("No channels yet.")).toBeTruthy())
+    renderPage(
+      StreamingChannelsPage,
+      stubClient({ "channels.list": { channels: [] } })
+    )
+    await waitFor(() =>
+      expect(screen.getByText("No channels yet.")).toBeTruthy()
+    )
   })
 })

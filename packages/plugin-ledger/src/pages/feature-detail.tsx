@@ -1,8 +1,16 @@
 import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { useState } from "react"
-import { PluginLink, useCommand, useNavigateTo, useQuery } from "@forge-go/dashboard-plugin"
+import {
+  PluginLink,
+  useCommand,
+  useNavigateTo,
+  useQuery,
+} from "@forge-go/dashboard-plugin"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
-import { DescriptionList, DetailLayout } from "@forge-go/dashboard-kit/components/detail-layout"
+import {
+  DescriptionList,
+  DetailLayout,
+} from "@forge-go/dashboard-kit/components/detail-layout"
 import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
@@ -30,8 +38,17 @@ export function LedgerFeatureDetailPage({ params }: PluginPageProps) {
 
 function FeatureDetailBody({ id }: { id: string }) {
   const detail = useQuery<CatalogFeature>("features.detail", { id })
-  if (detail.data !== undefined) return <FeatureDetailView feature={detail.data} />
-  if (isNotFound(detail.error, "feature")) return <NotFoundState noun="feature" id={id} backTo="/features" backLabel="Back to features" />
+  if (detail.data !== undefined)
+    return <FeatureDetailView feature={detail.data} />
+  if (isNotFound(detail.error, "feature"))
+    return (
+      <NotFoundState
+        noun="feature"
+        id={id}
+        backTo="/features"
+        backLabel="Back to features"
+      />
+    )
   return (
     <QueryBoundary title="Feature" query={detail} skeletonRows={4}>
       {(f) => <FeatureDetailView feature={f} />}
@@ -56,43 +73,99 @@ function FeatureDetailView({ feature }: { feature: CatalogFeature }) {
         actions={
           !readOnly && (
             <>
-              <IconButton label="Edit" nativeButton={false} role="link" render={<PluginLink to={featureEditPath(feature.id)} />} />
+              <IconButton
+                label="Edit"
+                nativeButton={false}
+                role="link"
+                render={<PluginLink to={featureEditPath(feature.id)} />}
+              />
               {feature.status !== "archived" && (
-                <IconButton variant="outline" onClick={() => {
+                <IconButton
+                  variant="outline"
+                  onClick={() => {
                     archive.reset()
                     setPending("archive")
-                  }} label="Archive" />
+                  }}
+                  label="Archive"
+                />
               )}
-              <IconButton variant="destructive" onClick={() => {
+              <IconButton
+                variant="destructive"
+                onClick={() => {
                   remove.reset()
                   setPending("delete")
-                }} label="Delete" />
+                }}
+                label="Delete"
+              />
             </>
           )
         }
       />
       {shared && (
         <p className="flex items-center gap-2 text-sm text-muted-foreground">
-          <SharedBadge /> Shared by every app on this server. It can be changed only with no app selected.
+          <SharedBadge /> Shared by every app on this server. It can be changed
+          only with no app selected.
         </p>
       )}
       <DetailLayout
         main={
           <DescriptionList
             items={[
-              { term: "Key", value: <span className="font-mono text-xs">{feature.key}</span> },
+              {
+                term: "Key",
+                value: <span className="font-mono text-xs">{feature.key}</span>,
+              },
               { term: "Type", value: TYPE_LABEL[feature.type] ?? feature.type },
-              { term: "Default limit", value: <span className="tabular-nums">{limitText(feature.type, feature.default_limit)}</span> },
-              { term: "Resets", value: periodLabel(feature.period) ?? <NoneCell label="reset period" /> },
-              { term: "Over the limit", value: feature.soft_limit ? "Soft: use past the limit is not blocked" : "Hard: use past the limit is refused" },
-              { term: "Status", value: <FeatureStatusBadge status={feature.status} /> },
-              { term: "Description", value: feature.description || <NoneCell label="description" /> },
-              { term: "Created", value: <Timestamp value={feature.created_at} label="creation" /> },
-              { term: "Updated", value: <Timestamp value={feature.updated_at} label="update" /> },
+              {
+                term: "Default limit",
+                value: (
+                  <span className="tabular-nums">
+                    {limitText(feature.type, feature.default_limit)}
+                  </span>
+                ),
+              },
+              {
+                term: "Resets",
+                value: periodLabel(feature.period) ?? (
+                  <NoneCell label="reset period" />
+                ),
+              },
+              {
+                term: "Over the limit",
+                value: feature.soft_limit
+                  ? "Soft: use past the limit is not blocked"
+                  : "Hard: use past the limit is refused",
+              },
+              {
+                term: "Status",
+                value: <FeatureStatusBadge status={feature.status} />,
+              },
+              {
+                term: "Description",
+                value: feature.description || <NoneCell label="description" />,
+              },
+              {
+                term: "Created",
+                value: (
+                  <Timestamp value={feature.created_at} label="creation" />
+                ),
+              },
+              {
+                term: "Updated",
+                value: <Timestamp value={feature.updated_at} label="update" />,
+              },
             ]}
           />
         }
-        aside={<SyncPanel intent="features.syncToProvider" id={feature.id} providerName={feature.provider_name} providerId={feature.provider_id} canSync={!readOnly} />}
+        aside={
+          <SyncPanel
+            intent="features.syncToProvider"
+            id={feature.id}
+            providerName={feature.provider_name}
+            providerId={feature.provider_id}
+            canSync={!readOnly}
+          />
+        }
       />
       <ConfirmAction
         open={pending === "archive"}

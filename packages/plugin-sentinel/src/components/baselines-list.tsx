@@ -12,7 +12,10 @@ import { SettledBoundary } from "./settled-boundary"
  * is saved from a completed run's page, so the empty state says where.
  */
 export function BaselinesList({ suiteId }: { suiteId?: string }) {
-  const baselines = useQuery<BaselinesData>("baselines.list", suiteId ? { suiteId } : undefined)
+  const baselines = useQuery<BaselinesData>(
+    "baselines.list",
+    suiteId ? { suiteId } : undefined
+  )
   const [deleting, setDeleting] = useState(false)
   // Taken when the dialog opens, so its wording holds through the refetch.
   const [target, setTarget] = useState<Baseline | null>(null)
@@ -26,15 +29,25 @@ export function BaselinesList({ suiteId }: { suiteId?: string }) {
             caption={`${plural(data.items.length, "baseline", "baselines")}, newest first`}
             emptyMessage="No baselines yet. Save one from a completed run's page, and later runs are compared with it."
             actions={(b) => (
-              <IconButton variant="ghost" onClick={() => {
+              <IconButton
+                variant="ghost"
+                onClick={() => {
                   setTarget(b)
                   setDeleting(true)
-                }} label={`Delete ${b.name}`} />
+                }}
+                label={`Delete ${b.name}`}
+              />
             )}
           />
         )}
       </SettledBoundary>
-      {target && <DeleteBaselineDialog open={deleting} onOpenChange={setDeleting} baseline={target} />}
+      {target && (
+        <DeleteBaselineDialog
+          open={deleting}
+          onOpenChange={setDeleting}
+          baseline={target}
+        />
+      )}
     </>
   )
 }

@@ -16,7 +16,11 @@ import { StreamingPresencePage } from "./pages/presence"
 import { StreamingRoomDetailPage } from "./pages/room-detail"
 import { StreamingRoomsPage } from "./pages/rooms"
 
-export type { StreamingStats, PresenceInfo, PresenceList } from "./pages/overview"
+export type {
+  StreamingStats,
+  PresenceInfo,
+  PresenceList,
+} from "./pages/overview"
 export type { RoomInfo, RoomsList, CommandResult } from "./pages/rooms"
 export type {
   MemberInfo,
@@ -76,7 +80,12 @@ export const streamingPlugin = definePlugin({
     },
     { label: "Channels", to: "/channels", priority: 40, icon: <RadioIcon /> },
     { label: "Presence", to: "/presence", priority: 50, icon: <UsersIcon /> },
-    { label: "Configuration", to: "/config", priority: 60, icon: <SettingsIcon /> },
+    {
+      label: "Configuration",
+      to: "/config",
+      priority: 60,
+      icon: <SettingsIcon />,
+    },
   ],
   routes: [
     { path: "/", element: StreamingOverviewPage },

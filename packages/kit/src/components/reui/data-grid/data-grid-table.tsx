@@ -122,8 +122,7 @@ function getDataGridScrollAreaViewport(node: HTMLElement): HTMLElement | null {
 }
 
 type DataGridResizeStartEvent =
-  | ReactMouseEvent<HTMLElement>
-  | ReactTouchEvent<HTMLElement>
+  ReactMouseEvent<HTMLElement> | ReactTouchEvent<HTMLElement>
 
 type DataGridResizeDocumentEvent = globalThis.MouseEvent | globalThis.TouchEvent
 
@@ -667,7 +666,7 @@ function DataGridTableAddRow() {
           // Block-level flex: inline-flex would sit on the cell's text
           // baseline and push the icon and label off vertical center.
           className={cn(
-            "text-muted-foreground flex w-full items-center justify-start rounded-none px-3",
+            "flex w-full items-center justify-start rounded-none px-3 text-muted-foreground",
             props.tableLayout?.dense ? "h-8 px-2" : "h-9"
           )}
           onClick={(event) => {
@@ -739,19 +738,16 @@ function DataGridTableBase({ children }: { children: ReactNode }) {
     props.tableLayout?.columnsResizable,
     // Visibility/order/pinning change the flat header set, so a column shown
     // after mount must get its size variable even though sizing is untouched.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
     table.state.columnSizing,
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     table.state.columnVisibility,
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     table.state.columnOrder,
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     table.state.columnPinning,
     // A def swap can change a column's `size` without touching sizing
     // STATE; without this dep the CSS variables keep the old widths. For a
     // consumer defining columns inline the memo degrades to per-render
     // recompute, which is the safe direction.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
     table.options.columns,
   ])
 
@@ -780,7 +776,7 @@ function DataGridTableBase({ children }: { children: ReactNode }) {
           : undefined
       }
       className={cn(
-        "text-foreground caption-bottom text-left align-middle text-sm font-normal rtl:text-right",
+        "caption-bottom text-left align-middle text-sm font-normal text-foreground rtl:text-right",
         props.tableLayout?.columnsResizable ? "min-w-0" : "w-full min-w-full",
         props.tableLayout?.width === "auto" ? "table-auto" : "table-fixed",
         !props.tableLayout?.columnsResizable && "",
@@ -1052,7 +1048,7 @@ function DataGridTableHeadRowCell<TData extends object>({
         isLastStartPinned ? "start" : isFirstEndPinned ? "end" : undefined
       }
       className={cn(
-        "text-foreground relative h-10 text-left align-middle font-medium rtl:text-right [&:has([role=checkbox])]:pe-0",
+        "relative h-10 text-left align-middle font-medium text-foreground rtl:text-right [&:has([role=checkbox])]:pe-0",
         headerCellSpacing,
         props.tableLayout?.headerBackground && "bg-muted",
         props.tableLayout?.cellBorder && "border-e",
@@ -1077,7 +1073,7 @@ function DataGridTableHeadRowCell<TData extends object>({
         props.tableLayout?.columnsPinnable &&
           column.getCanPin() &&
           cn(
-            "data-pinned:bg-muted data-outer-pinned-col:bg-clip-padding data-pinned:isolate",
+            "data-outer-pinned-col:bg-clip-padding data-pinned:isolate data-pinned:bg-muted",
             "[&[data-pinned=end]:last-child_div.cursor-col-resize:last-child]:opacity-0 [&[data-pinned=end][data-last-col=end]]:shadow-[inset_1px_0_0_0_var(--border)] [&[data-pinned=start][data-last-col=start]]:shadow-[inset_-1px_0_0_0_var(--border)]",
             "[&:not([data-pinned]):has(+[data-pinned])_div.cursor-col-resize:last-child]:opacity-0 [&[data-last-col=start]_div.cursor-col-resize:last-child]:opacity-0"
           ),
@@ -1185,7 +1181,7 @@ function DataGridTableHeadRowCellResize<TData extends object>({
         onMouseDown: handleMouseDown,
         onTouchStart: handleTouchStart,
         className: cn(
-          "absolute top-0 h-full cursor-col-resize user-select-none touch-none z-10 flex",
+          "user-select-none absolute top-0 z-10 flex h-full cursor-col-resize touch-none",
           isPinned === "end"
             ? cn(
                 // An end-pinned column grows from its START edge (its end is
@@ -1227,8 +1223,8 @@ function DataGridTableHeadRowCellResize<TData extends object>({
             (isResizeModeOnEnd
               ? "opacity-100"
               : isLastVisibleColumn
-                ? "before:absolute before:end-0 before:block before:inset-y-0 before:w-0.5 before:bg-primary opacity-100"
-                : "before:block before:bg-primary before:w-0.5 opacity-100")
+                ? "opacity-100 before:absolute before:inset-y-0 before:end-0 before:block before:w-0.5 before:bg-primary"
+                : "opacity-100 before:block before:w-0.5 before:bg-primary")
         ),
       }}
     />
@@ -1349,10 +1345,10 @@ function DataGridTableResizeIndicator({
       data-slot="data-grid-table-resize-indicator"
       className="pointer-events-none absolute inset-y-0 z-50"
     >
-      <div className="bg-primary/85 absolute inset-y-0 left-0 w-px -translate-x-1/2" />
+      <div className="absolute inset-y-0 left-0 w-px -translate-x-1/2 bg-primary/85" />
       <div
         ref={indicatorHeadRef}
-        className="bg-primary rounded-b-sm absolute top-0 left-0 -translate-x-1/2 shadow-xs"
+        className="absolute top-0 left-0 -translate-x-1/2 rounded-b-sm bg-primary shadow-xs"
         style={{ width: 5 }}
       />
     </div>
@@ -1376,10 +1372,8 @@ function DataGridTableBody({ children }: { children: ReactNode }) {
     <tbody
       data-slot="data-grid-table-body"
       className={cn(
-        props.tableLayout?.rowRounded &&
-          "[&_td:first-child]:rounded-l-lg",
-        props.tableLayout?.rowRounded &&
-          "[&_td:last-child]:rounded-r-lg",
+        props.tableLayout?.rowRounded && "[&_td:first-child]:rounded-l-lg",
+        props.tableLayout?.rowRounded && "[&_td:last-child]:rounded-r-lg",
         props.tableClassNames?.body
       )}
     >
@@ -1445,7 +1439,7 @@ function DataGridTableFootRowCell({
     <td
       colSpan={colSpan}
       className={cn(
-        "text-secondary-foreground/80 align-middle font-medium",
+        "align-middle font-medium text-secondary-foreground/80",
         spacing,
         props.tableLayout?.footerBackground && "bg-muted/40 dark:bg-background",
         props.tableLayout?.cellBorder && "border-e",
@@ -1467,10 +1461,10 @@ function DataGridTableBodyRowSkeleton({ children }: { children: ReactNode }) {
         props.onRowClick && "cursor-pointer",
         !props.tableLayout?.stripped &&
           props.tableLayout?.rowBorder &&
-          "border-border border-b [&:not(:last-child)>td]:border-b",
+          "border-b border-border [&:not(:last-child)>td]:border-b",
         props.tableLayout?.cellBorder && "*:last:border-e-0",
         props.tableLayout?.stripped &&
-          "odd:bg-muted/90 odd:hover:bg-muted hover:bg-transparent",
+          "odd:bg-muted/90 hover:bg-transparent odd:hover:bg-muted",
         props.tableClassNames?.bodyRow
       )}
     >
@@ -1517,7 +1511,7 @@ function DataGridTableBodyRowSkeletonCell<TData extends object>({
         column.columnDef.meta?.cellClassName,
         props.tableLayout?.columnsPinnable &&
           column.getCanPin() &&
-          "data-pinned:bg-background data-pinned:isolate [&[data-pinned=end][data-last-col=end]]:shadow-[inset_1px_0_0_0_var(--border)] [&[data-pinned=start][data-last-col=start]]:shadow-[inset_-1px_0_0_0_var(--border)]",
+          "data-pinned:isolate data-pinned:bg-background [&[data-pinned=end][data-last-col=end]]:shadow-[inset_1px_0_0_0_var(--border)] [&[data-pinned=start][data-last-col=start]]:shadow-[inset_-1px_0_0_0_var(--border)]",
         column.getIndex() === 0 ||
           column.getIndex() === table.getVisibleLeafColumns().length - 1
           ? props.tableClassNames?.edgeCell
@@ -1611,7 +1605,7 @@ function DataGridTableBodyRow<TData extends object>({
                 "hover:bg-transparent",
                 dataIndex % 2 === 0 && "bg-muted/90 hover:bg-muted"
               )
-            : "odd:bg-muted/90 odd:hover:bg-muted hover:bg-transparent"),
+            : "odd:bg-muted/90 hover:bg-transparent odd:hover:bg-muted"),
         props.tableLayout?.rowsPinnable &&
           isRowPinned &&
           "bg-muted/30 hover:bg-muted/50",
@@ -1803,7 +1797,7 @@ function DataGridTableBodyRowCell<TData extends object>({
         // getCellStatus is wired: amber for "dirty", destructive for
         // "invalid".
         props.getCellStatus &&
-          "data-[cell-status=invalid]:after:border-t-destructive data-[cell-status]:relative data-[cell-status]:after:absolute data-[cell-status]:after:end-0 data-[cell-status]:after:top-0 data-[cell-status]:after:size-0 data-[cell-status]:after:border-s-[5px] data-[cell-status]:after:border-t-[5px] data-[cell-status]:after:border-s-transparent data-[cell-status]:after:content-[''] data-[cell-status=dirty]:after:border-t-amber-500",
+          "data-[cell-status]:relative data-[cell-status]:after:absolute data-[cell-status]:after:end-0 data-[cell-status]:after:top-0 data-[cell-status]:after:size-0 data-[cell-status]:after:border-s-[5px] data-[cell-status]:after:border-t-[5px] data-[cell-status]:after:border-s-transparent data-[cell-status]:after:content-[''] data-[cell-status=dirty]:after:border-t-amber-500 data-[cell-status=invalid]:after:border-t-destructive",
         props.tableLayout?.cellBorder && "border-e",
         // Mirror of the head cell rule: no floating border against the
         // resize filler strip.
@@ -1824,7 +1818,7 @@ function DataGridTableBodyRowCell<TData extends object>({
         props.tableLayout?.columnsPinnable &&
           column.getCanPin() &&
           cn(
-            "data-pinned:bg-background data-pinned:isolate",
+            "data-pinned:isolate data-pinned:bg-background",
             "[&[data-pinned=start][data-last-col=start]]:shadow-[inset_-1px_0_0_0_var(--border)]",
             "[&[data-pinned=end][data-last-col=end]]:shadow-[inset_1px_0_0_0_var(--border)]"
           ),
@@ -1869,14 +1863,14 @@ function DataGridTableBodyRowCell<TData extends object>({
             className={cn(
               "absolute z-10 cursor-crosshair in-data-[cell-editing]:hidden in-data-[cell-selecting]:hidden",
               props.tableLayout?.cellFillHandleVariant === "ring"
-                ? "border-primary bg-background -end-[5px] -bottom-[5px] size-[11px] rounded-full border-2 in-[td:has(+[data-slot=data-grid-table-fill-body-cell]+td[data-pinned])]:end-0 in-[td:has(+[data-slot=data-grid-table-fill-body-cell]:last-child)]:end-0 in-[td:has(+td[data-pinned])]:end-0 in-[td:last-child]:end-0 in-[tr:last-child]:bottom-0"
+                ? "-end-[5px] -bottom-[5px] size-[11px] rounded-full border-2 border-primary bg-background in-[td:has(+[data-slot=data-grid-table-fill-body-cell]+td[data-pinned])]:end-0 in-[td:has(+[data-slot=data-grid-table-fill-body-cell]:last-child)]:end-0 in-[td:has(+td[data-pinned])]:end-0 in-[td:last-child]:end-0 in-[tr:last-child]:bottom-0"
                 : props.tableLayout?.cellFillHandleVariant === "square"
                   ? /* Abutting the cell borders from inside: no gap and no
                        overlap, so the square cannot merge with a gridline
                        into a wider-than-tall blob, and it can never leave
                        the grid, which is why it needs no boundary clamps. */
-                    "bg-primary end-0 bottom-0 size-[5px]"
-                  : "bg-primary border-background end-0 bottom-0 size-[9px] rounded-full border",
+                    "end-0 bottom-0 size-[5px] bg-primary"
+                  : "end-0 bottom-0 size-[9px] rounded-full border border-background bg-primary",
               props.tableClassNames?.cellFillHandle
             )}
           />
@@ -2002,7 +1996,7 @@ function DataGridTableEmpty() {
     <tr>
       <td
         colSpan={Math.max(visibleColumnCount, 1)}
-        className="text-muted-foreground py-6 text-center text-sm"
+        className="py-6 text-center text-sm text-muted-foreground"
       >
         {props.emptyMessage || i18n.labels.empty}
       </td>
@@ -2015,7 +2009,7 @@ function DataGridTableLoader() {
 
   return (
     <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
-      <div className="text-muted-foreground bg-card rounded-lg flex items-center gap-2 border px-4 py-2 text-sm leading-none font-medium">
+      <div className="flex items-center gap-2 rounded-lg border bg-card px-4 py-2 text-sm leading-none font-medium text-muted-foreground">
         <Spinner className="size-5 opacity-60" />
         {props.loadingMessage || i18n.labels.loading}
       </div>
@@ -2046,7 +2040,7 @@ function DataGridTableRowPin<TData extends object>({
         }
       }}
       className={cn(
-        "text-muted-foreground hover:text-foreground rounded-md inline-flex size-7 items-center justify-center transition-colors",
+        "inline-flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:text-foreground",
         isPinned && "text-primary hover:text-primary/80"
       )}
     >
@@ -2193,7 +2187,7 @@ function DataGridTableRowExpand<TData extends object>({
             row.toggleExpanded()
           }}
           className={cn(
-            "text-muted-foreground hover:text-foreground rounded-md inline-flex items-center justify-center transition-colors",
+            "inline-flex items-center justify-center rounded-md text-muted-foreground transition-colors hover:text-foreground",
             controlSize
           )}
         >
@@ -2276,7 +2270,7 @@ function DataGridTableBodyRows<TData extends object>({
         >
           <div className="flex items-center justify-center">
             <svg
-              className="text-muted-foreground mr-3 -ml-1 h-5 w-5 animate-spin"
+              className="mr-3 -ml-1 h-5 w-5 animate-spin text-muted-foreground"
               xmlns="http://www.w3.org/2000/svg"
               fill="none"
               viewBox="0 0 24 24"

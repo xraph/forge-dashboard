@@ -23,7 +23,9 @@ describe("PluginAuth", () => {
   })
 
   it("finds the one plugin declaring auth", () => {
-    expect(resolveAuthProvider([plugin("core"), plugin("auth", minimal)])?.extension).toBe("auth")
+    expect(
+      resolveAuthProvider([plugin("core"), plugin("auth", minimal)])?.extension
+    ).toBe("auth")
   })
 
   it("returns undefined when nothing declares auth", () => {
@@ -31,6 +33,8 @@ describe("PluginAuth", () => {
   })
 
   it("throws when two plugins declare auth, naming both", () => {
-    expect(() => resolveAuthProvider([plugin("a", minimal), plugin("b", minimal)])).toThrow(/a, b/)
+    expect(() =>
+      resolveAuthProvider([plugin("a", minimal), plugin("b", minimal)])
+    ).toThrow(/a, b/)
   })
 })

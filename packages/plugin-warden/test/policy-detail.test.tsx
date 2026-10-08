@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest"
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react"
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react"
 import {
   ContractError,
   NavigationProvider,
@@ -37,7 +43,12 @@ const DETAIL: PolicyDetail = {
   actions: ["document:delete"],
   resources: ["document:*"],
   conditions: [
-    { id: "c1", field: "context.ip", operator: "not_in", value: ["10.0.0.0/8"] },
+    {
+      id: "c1",
+      field: "context.ip",
+      operator: "not_in",
+      value: ["10.0.0.0/8"],
+    },
     { id: "c2", field: "subject.mfa", operator: "exists" },
   ],
   obligations: ["notify-security"],
@@ -87,7 +98,13 @@ const ALWAYS_FALSE: Partial<PolicyDetail> = {
   neverApplies: true,
   decidingCondition: 0,
   conditions: [
-    { field: "context.ip", operator: "in", value: "10.0.0.0/8", problem: "alwaysFalse", reason: "notAList" },
+    {
+      field: "context.ip",
+      operator: "in",
+      value: "10.0.0.0/8",
+      problem: "alwaysFalse",
+      reason: "notAList",
+    },
   ],
 }
 /** No matcher narrows it, and no condition does either. */
@@ -116,19 +133,33 @@ const FAILS_0_WOULD = `If it were in effect, this deny would apply ${SCOPE_0}`
 const FAILS_LATER = `This deny applies ${SCOPE_LATER}`
 const FAILS_LATER_ONCE = `Once it is in effect, this deny applies ${SCOPE_LATER}`
 const FAILS_LATER_WOULD = `If it were in effect, this deny would apply ${SCOPE_LATER}`
-const NEVER_GRANTS = "Condition 2 cannot be evaluated, so this allow never grants anything."
-const NEVER_APPLIES = "Condition 1 is always false, so this policy never applies."
+const NEVER_GRANTS =
+  "Condition 2 cannot be evaluated, so this allow never grants anything."
+const NEVER_APPLIES =
+  "Condition 1 is always false, so this policy never applies."
 const MATCHES_EVERY = "It matches every check in its namespace and below."
-const MATCHES_EVERY_ONCE = "Once it is in effect, it matches every check in its namespace and below."
-const MATCHES_EVERY_WOULD = "If it were in effect, it would match every check in its namespace and below."
-const WINDOW_ENDED = "Its window has ended, so activating it will not put it into effect."
+const MATCHES_EVERY_ONCE =
+  "Once it is in effect, it matches every check in its namespace and below."
+const MATCHES_EVERY_WOULD =
+  "If it were in effect, it would match every check in its namespace and below."
+const WINDOW_ENDED =
+  "Its window has ended, so activating it will not put it into effect."
 const WINDOW_INVERTED =
   "Its window ends before it starts, so activating it will not put it into effect."
 
 /** Windows relative to the real clock: one open now, one long ended, one backwards. */
-const OPEN = { notBefore: "2020-01-01T00:00:00Z", notAfter: "2099-12-31T00:00:00Z" }
-const ENDED = { notBefore: "2020-01-01T00:00:00Z", notAfter: "2020-06-30T00:00:00Z" }
-const INVERTED = { notBefore: "2099-07-01T00:00:00Z", notAfter: "2099-06-01T00:00:00Z" }
+const OPEN = {
+  notBefore: "2020-01-01T00:00:00Z",
+  notAfter: "2099-12-31T00:00:00Z",
+}
+const ENDED = {
+  notBefore: "2020-01-01T00:00:00Z",
+  notAfter: "2020-06-30T00:00:00Z",
+}
+const INVERTED = {
+  notBefore: "2099-07-01T00:00:00Z",
+  notAfter: "2099-06-01T00:00:00Z",
+}
 const INACTIVE = { state: "inactive" as const, isActive: false }
 
 /**
@@ -147,8 +178,19 @@ const FAILS_EVERYTHING: Partial<PolicyDetail> = {
   actionsUnrestricted: true,
   resourcesUnrestricted: true,
   conditions: [
-    { field: "subject.kind", operator: "exists", problem: "alwaysTrue", reason: "alwaysPresent" },
-    { field: "x.y", operator: "bogus", value: "z", problem: "throws", reason: "unknownOperator" },
+    {
+      field: "subject.kind",
+      operator: "exists",
+      problem: "alwaysTrue",
+      reason: "alwaysPresent",
+    },
+    {
+      field: "x.y",
+      operator: "bogus",
+      value: "z",
+      problem: "throws",
+      reason: "unknownOperator",
+    },
   ],
 }
 const FAILS_EVERYTHING_TEXT =
@@ -165,9 +207,13 @@ function answers(detail: PolicyDetail, config: unknown = CONFIG_ON) {
 }
 
 function show(over: Partial<PolicyDetail> = {}, config: unknown = CONFIG_ON) {
-  return renderPage(WardenPolicyDetailPage, stubClient(answers(detailOf(over), config)), {
-    id: "pol_01",
-  })
+  return renderPage(
+    WardenPolicyDetailPage,
+    stubClient(answers(detailOf(over), config)),
+    {
+      id: "pol_01",
+    }
+  )
 }
 
 /** Renders inside a host with a recorded navigate. */
@@ -201,7 +247,10 @@ function recording(over: Partial<PolicyDetail> = {}) {
 }
 
 /** Reads succeed and every command is refused with `error`. */
-function refusing(error: ContractError, over: Partial<PolicyDetail> = {}): ScopedClient {
+function refusing(
+  error: ContractError,
+  over: Partial<PolicyDetail> = {}
+): ScopedClient {
   return {
     ...stubClient(answers(detailOf(over))),
     command: () => Promise.reject(error),
@@ -239,7 +288,8 @@ async function openDialog(button: string) {
 
 describe("WardenPolicyDetailPage", () => {
   describe("routes", () => {
-    const route = (path: string) => wardenPlugin.routes.find((r) => r.path === path)
+    const route = (path: string) =>
+      wardenPlugin.routes.find((r) => r.path === path)
 
     it("registers the detail and the edit route, with no nav entry for either", () => {
       expect(route("/policies/:id")).toBeTruthy()
@@ -262,12 +312,15 @@ describe("WardenPolicyDetailPage", () => {
       // Where the create flow lands and where Edit goes. It must show the
       // policy being edited, never a missing route, and never the read view.
       const { client: c, sent } = recordingQueryClient(answers(DETAIL))
-      const Edit = route("/policies/:id/edit")!.element as ComponentType<PluginPageProps>
+      const Edit = route("/policies/:id/edit")!
+        .element as ComponentType<PluginPageProps>
       renderPage(Edit, c, { id: "pol_01" })
       await heading()
       expect(screen.getByRole("region", { name: "Rule editor" })).toBeTruthy()
       expect(screen.queryByRole("region", { name: "Rule" })).toBeNull()
-      expect((screen.getByLabelText("Name") as HTMLInputElement).value).toBe("office-only")
+      expect((screen.getByLabelText("Name") as HTMLInputElement).value).toBe(
+        "office-only"
+      )
       expect(sent.filter((s) => s.intent === "policies.detail")).toEqual([
         { intent: "policies.detail", params: { id: "pol_01" } },
       ])
@@ -336,7 +389,9 @@ describe("WardenPolicyDetailPage", () => {
       expect(stateLine()!.querySelector("p")!.textContent).toBe(
         "Inactive. It takes no effect until you activate it."
       )
-      expect(within(stateLine()!).getByRole("button", { name: "Activate" })).toBeTruthy()
+      expect(
+        within(stateLine()!).getByRole("button", { name: "Activate" })
+      ).toBeTruthy()
       expect(screen.queryByRole("button", { name: "Deactivate" })).toBeNull()
     })
 
@@ -365,7 +420,11 @@ describe("WardenPolicyDetailPage", () => {
     })
 
     it("says an inactive policy whose window has not opened takes effect on its date once activated", async () => {
-      show({ ...INACTIVE, notBefore: "2099-01-01T00:00:00Z", notAfter: undefined })
+      show({
+        ...INACTIVE,
+        notBefore: "2099-01-01T00:00:00Z",
+        notAfter: undefined,
+      })
       await heading()
       expect(stateLine()!.querySelector("p")!.textContent).toBe(
         "Inactive. If you activate it, it takes effect on 1 Jan 2099, 00:00 UTC."
@@ -397,7 +456,9 @@ describe("WardenPolicyDetailPage", () => {
     it("says a backwards window is never in effect", async () => {
       show({ state: "never", notBefore: "2026-07-01T00:00:00Z" })
       await heading()
-      expect(stateLine()!.textContent).toBe("Never in effect. Its end is before its start.")
+      expect(stateLine()!.textContent).toBe(
+        "Never in effect. Its end is before its start."
+      )
     })
 
     it("shows no state line for an active policy, and offers Deactivate", async () => {
@@ -621,7 +682,12 @@ describe("WardenPolicyDetailPage", () => {
   describe("visual weight", () => {
     const dimmed = () => rule().className.includes("opacity-60")
 
-    for (const state of ["inactive", "scheduled", "expired", "never"] as const) {
+    for (const state of [
+      "inactive",
+      "scheduled",
+      "expired",
+      "never",
+    ] as const) {
       it(`dims the rule for ${state}`, async () => {
         show({ state, isActive: state !== "inactive" })
         await heading()
@@ -660,9 +726,13 @@ describe("WardenPolicyDetailPage", () => {
     })
 
     it("does not assume evaluation is off when the config cannot be read", async () => {
-      renderPage(WardenPolicyDetailPage, stubClient({ "policies.detail": DETAIL }), {
-        id: "pol_01",
-      })
+      renderPage(
+        WardenPolicyDetailPage,
+        stubClient({ "policies.detail": DETAIL }),
+        {
+          id: "pol_01",
+        }
+      )
       await heading()
       expect(dimmed()).toBe(false)
     })
@@ -719,19 +789,26 @@ describe("WardenPolicyDetailPage", () => {
     it("does not promise a scheduled policy starts while evaluation is off", async () => {
       show({ state: "scheduled" }, { abacEnabled: false, rbacEnabled: true })
       await screen.findByText(ABAC_OFF)
-      expect(stateLine()!.textContent).toBe("Its window opens on 1 Jun 2026, 00:00 UTC.")
+      expect(stateLine()!.textContent).toBe(
+        "Its window opens on 1 Jun 2026, 00:00 UTC."
+      )
     })
 
     it("does not say an expired policy was in effect while evaluation is off", async () => {
       show({ state: "expired" }, { abacEnabled: false, rbacEnabled: true })
       await screen.findByText(ABAC_OFF)
-      expect(stateLine()!.textContent).toBe("Its window ended on 30 Jun 2026, 00:00 UTC.")
+      expect(stateLine()!.textContent).toBe(
+        "Its window ended on 30 Jun 2026, 00:00 UTC."
+      )
     })
 
     it("says nothing about role subjects when RBAC is off, because warden still resolves roles for policies", async () => {
       // engine.go evaluateABAC resolves the subject's roles itself when RBAC
       // is disabled, so role subjects still match.
-      show({ subjects: [{ role: "contractor" }], hasRoleMatcher: true }, { abacEnabled: true, rbacEnabled: false })
+      show(
+        { subjects: [{ role: "contractor" }], hasRoleMatcher: true },
+        { abacEnabled: true, rbacEnabled: false }
+      )
       await heading()
       expect(screen.queryByText(/Role-based access/)).toBeNull()
       expect(screen.queryByText(/never applies/)).toBeNull()
@@ -745,7 +822,9 @@ describe("WardenPolicyDetailPage", () => {
       show()
       await heading()
       expect(
-        aside().getByText("Decides which policy is cited when several match, not which one wins.")
+        aside().getByText(
+          "Decides which policy is cited when several match, not which one wins."
+        )
       ).toBeTruthy()
       expect(aside().getByText("10")).toBeTruthy()
     })
@@ -777,7 +856,10 @@ describe("WardenPolicyDetailPage", () => {
 
   describe("activating and deactivating", () => {
     it("activates with exactly this id and active true", async () => {
-      const { client: c, sent } = recording({ state: "inactive", isActive: false })
+      const { client: c, sent } = recording({
+        state: "inactive",
+        isActive: false,
+      })
       renderPage(WardenPolicyDetailPage, c, { id: "pol_01" })
       await openDialog("Activate")
       expect(sent).toEqual([])
@@ -804,20 +886,35 @@ describe("WardenPolicyDetailPage", () => {
     })
 
     it("says in the activate dialog that a fail-closed deny will apply once in effect", async () => {
-      show({ ...FAILS_AT_0, ...INACTIVE, notBefore: undefined, notAfter: undefined })
+      show({
+        ...FAILS_AT_0,
+        ...INACTIVE,
+        notBefore: undefined,
+        notAfter: undefined,
+      })
       await openDialog("Activate")
       expect(dialog().getByText(THROWS_1)).toBeTruthy()
       expect(dialog().getByText(FAILS_0_ONCE)).toBeTruthy()
     })
 
     it("says in the activate dialog that a policy with nothing narrowing it will match every check", async () => {
-      show({ ...EVERYTHING, ...INACTIVE, notBefore: undefined, notAfter: undefined })
+      show({
+        ...EVERYTHING,
+        ...INACTIVE,
+        notBefore: undefined,
+        notAfter: undefined,
+      })
       await openDialog("Activate")
       expect(dialog().getByText(MATCHES_EVERY_ONCE)).toBeTruthy()
     })
 
     it("says both halves in the activate dialog for a fail-closed deny with nothing narrowing it", async () => {
-      show({ ...FAILS_EVERYTHING, ...INACTIVE, notBefore: undefined, notAfter: undefined })
+      show({
+        ...FAILS_EVERYTHING,
+        ...INACTIVE,
+        notBefore: undefined,
+        notAfter: undefined,
+      })
       await openDialog("Activate")
       expect(
         dialog().getByText(
@@ -831,7 +928,9 @@ describe("WardenPolicyDetailPage", () => {
       show({ ...FAILS_AT_0, ...INACTIVE, ...OPEN })
       await openDialog("Activate")
       expect(
-        dialog().getByText("In effect from 1 Jan 2020, 00:00 UTC until 31 Dec 2099, 00:00 UTC.")
+        dialog().getByText(
+          "In effect from 1 Jan 2020, 00:00 UTC until 31 Dec 2099, 00:00 UTC."
+        )
       ).toBeTruthy()
     })
 
@@ -839,22 +938,36 @@ describe("WardenPolicyDetailPage", () => {
       show({ ...FAILS_AT_0, ...INACTIVE, ...ENDED })
       await openDialog("Activate")
       expect(dialog().getByText(WINDOW_ENDED)).toBeTruthy()
-      expect(screen.getByRole("alertdialog").textContent).not.toContain("Once it is in effect")
-      expect(screen.getByRole("alertdialog").textContent).not.toContain("In effect from")
+      expect(screen.getByRole("alertdialog").textContent).not.toContain(
+        "Once it is in effect"
+      )
+      expect(screen.getByRole("alertdialog").textContent).not.toContain(
+        "In effect from"
+      )
     })
 
     it("says activating will not put a policy with a backwards window into effect", async () => {
       show({ ...EVERYTHING, ...INACTIVE, ...INVERTED })
       await openDialog("Activate")
       expect(dialog().getByText(WINDOW_INVERTED)).toBeTruthy()
-      expect(screen.getByRole("alertdialog").textContent).not.toContain("Once it is in effect")
+      expect(screen.getByRole("alertdialog").textContent).not.toContain(
+        "Once it is in effect"
+      )
     })
 
     describe("the deactivate dialog says what deactivating changes, by state", () => {
       const CASES: [string, Partial<PolicyDetail>, string][] = [
         ["an active policy in effect", {}, "It stops taking effect."],
-        ["a scheduled policy", { state: "scheduled" }, "It will not take effect on 1 Jun 2026, 00:00 UTC."],
-        ["an expired policy", { state: "expired" }, "It already takes no effect, because its window has ended."],
+        [
+          "a scheduled policy",
+          { state: "scheduled" },
+          "It will not take effect on 1 Jun 2026, 00:00 UTC.",
+        ],
+        [
+          "an expired policy",
+          { state: "expired" },
+          "It already takes no effect, because its window has ended.",
+        ],
         [
           "a never-in-effect policy",
           { state: "never" },
@@ -879,15 +992,21 @@ describe("WardenPolicyDetailPage", () => {
     it("says a restricted policy with no window takes effect as soon as it is activated", async () => {
       show({ ...INACTIVE, notBefore: undefined, notAfter: undefined })
       await openDialog("Activate")
-      expect(dialog().getByText("It takes effect as soon as you activate it.")).toBeTruthy()
+      expect(
+        dialog().getByText("It takes effect as soon as you activate it.")
+      ).toBeTruthy()
     })
 
     it("does not say it takes effect at once when there is a window", async () => {
       show({ ...INACTIVE, ...OPEN })
       await openDialog("Activate")
-      expect(dialog().queryByText("It takes effect as soon as you activate it.")).toBeNull()
       expect(
-        dialog().getByText("In effect from 1 Jan 2020, 00:00 UTC until 31 Dec 2099, 00:00 UTC.")
+        dialog().queryByText("It takes effect as soon as you activate it.")
+      ).toBeNull()
+      expect(
+        dialog().getByText(
+          "In effect from 1 Jan 2020, 00:00 UTC until 31 Dec 2099, 00:00 UTC."
+        )
       ).toBeTruthy()
     })
 
@@ -897,7 +1016,9 @@ describe("WardenPolicyDetailPage", () => {
       fireEvent.click(screen.getByRole("button", { name: "Activate" }))
       await screen.findByRole("alertdialog")
       expect(dialog().getByText(ABAC_OFF)).toBeTruthy()
-      expect(screen.getByRole("alertdialog").textContent).not.toMatch(/deny applies|Once it is in effect/)
+      expect(screen.getByRole("alertdialog").textContent).not.toMatch(
+        /deny applies|Once it is in effect/
+      )
     })
 
     it("does not say deactivating stops an effect the policy never had while evaluation is off", async () => {
@@ -917,24 +1038,36 @@ describe("WardenPolicyDetailPage", () => {
       )
       await openDialog("Activate")
       fireEvent.click(dialog().getByRole("button", { name: "Activate" }))
-      const working = (await dialog().findByRole("button", { name: "Working…" })) as HTMLButtonElement
+      const working = (await dialog().findByRole("button", {
+        name: "Working…",
+      })) as HTMLButtonElement
       expect(working.disabled).toBe(true)
-      expect((dialog().getByRole("button", { name: "Cancel" }) as HTMLButtonElement).disabled).toBe(true)
+      expect(
+        (dialog().getByRole("button", { name: "Cancel" }) as HTMLButtonElement)
+          .disabled
+      ).toBe(true)
     })
 
     it("shows the deactivate dialog as pending while the command is in flight", async () => {
       renderPage(WardenPolicyDetailPage, neverSettles(), { id: "pol_01" })
       await openDialog("Deactivate")
       fireEvent.click(dialog().getByRole("button", { name: "Deactivate" }))
-      const working = (await dialog().findByRole("button", { name: "Working…" })) as HTMLButtonElement
+      const working = (await dialog().findByRole("button", {
+        name: "Working…",
+      })) as HTMLButtonElement
       expect(working.disabled).toBe(true)
-      expect((dialog().getByRole("button", { name: "Cancel" }) as HTMLButtonElement).disabled).toBe(true)
+      expect(
+        (dialog().getByRole("button", { name: "Cancel" }) as HTMLButtonElement)
+          .disabled
+      ).toBe(true)
     })
 
     it("shows a refusal inside the dialog and stays open", async () => {
       renderPage(
         WardenPolicyDetailPage,
-        refusing(new ContractError("FORBIDDEN", "not allowed to change policies")),
+        refusing(
+          new ContractError("FORBIDDEN", "not allowed to change policies")
+        ),
         { id: "pol_01" }
       )
       await openDialog("Deactivate")
@@ -947,7 +1080,9 @@ describe("WardenPolicyDetailPage", () => {
     it("clears an earlier refusal when the dialog opens again", async () => {
       renderPage(
         WardenPolicyDetailPage,
-        refusing(new ContractError("FORBIDDEN", "not allowed to change policies")),
+        refusing(
+          new ContractError("FORBIDDEN", "not allowed to change policies")
+        ),
         { id: "pol_01" }
       )
       await openDialog("Deactivate")
@@ -968,8 +1103,12 @@ describe("WardenPolicyDetailPage", () => {
       await openDialog("Delete")
       expect(sent).toEqual([])
       fireEvent.click(dialog().getByRole("button", { name: "Delete" }))
-      expect(await screen.findByText("This policy has been deleted.")).toBeTruthy()
-      expect(sent).toEqual([{ intent: "policies.delete", payload: { id: "pol_01" } }])
+      expect(
+        await screen.findByText("This policy has been deleted.")
+      ).toBeTruthy()
+      expect(sent).toEqual([
+        { intent: "policies.delete", payload: { id: "pol_01" } },
+      ])
       expect(navigated).toEqual(["/@warden/acme/policies"])
       expect(screen.queryByRole("region", { name: "Rule" })).toBeNull()
     })
@@ -978,9 +1117,14 @@ describe("WardenPolicyDetailPage", () => {
       renderPage(WardenPolicyDetailPage, neverSettles(), { id: "pol_01" })
       await openDialog("Delete")
       fireEvent.click(dialog().getByRole("button", { name: "Delete" }))
-      const working = (await dialog().findByRole("button", { name: "Working…" })) as HTMLButtonElement
+      const working = (await dialog().findByRole("button", {
+        name: "Working…",
+      })) as HTMLButtonElement
       expect(working.disabled).toBe(true)
-      expect((dialog().getByRole("button", { name: "Cancel" }) as HTMLButtonElement).disabled).toBe(true)
+      expect(
+        (dialog().getByRole("button", { name: "Cancel" }) as HTMLButtonElement)
+          .disabled
+      ).toBe(true)
     })
 
     it("shows a refusal inside the dialog, stays open, and does not leave", async () => {
@@ -1010,7 +1154,9 @@ describe("WardenPolicyDetailPage", () => {
 
     it("shows a loading state while the read is in flight", async () => {
       renderPage(WardenPolicyDetailPage, pendingClient(), { id: "pol_01" })
-      expect(await screen.findByRole("status", { name: /loading policy/i })).toBeTruthy()
+      expect(
+        await screen.findByRole("status", { name: /loading policy/i })
+      ).toBeTruthy()
     })
   })
 })

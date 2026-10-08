@@ -46,10 +46,10 @@ describe("ValueInput bool", () => {
   it("shows the current value as pressed", () => {
     setup("bool", true)
     expect(
-      screen.getByRole("button", { name: "true" }).getAttribute("aria-pressed"),
+      screen.getByRole("button", { name: "true" }).getAttribute("aria-pressed")
     ).toBe("true")
     expect(
-      screen.getByRole("button", { name: "false" }).getAttribute("aria-pressed"),
+      screen.getByRole("button", { name: "false" }).getAttribute("aria-pressed")
     ).toBe("false")
   })
 
@@ -58,7 +58,7 @@ describe("ValueInput bool", () => {
     fireEvent.click(screen.getByRole("button", { name: "true" }))
     expect(onChange).not.toHaveBeenCalledWith(undefined)
     expect(
-      screen.getByRole("button", { name: "true" }).getAttribute("aria-pressed"),
+      screen.getByRole("button", { name: "true" }).getAttribute("aria-pressed")
     ).toBe("true")
   })
 })
@@ -70,7 +70,7 @@ describe("ValueInput string", () => {
     expect(onChange).toHaveBeenLastCalledWith("hello")
   })
 
-  it("keeps the string \"true\" a string", () => {
+  it('keeps the string "true" a string', () => {
     const { onChange } = setup("string")
     fireEvent.change(box(), { target: { value: "true" } })
     expect(onChange).toHaveBeenLastCalledWith("true")
@@ -240,7 +240,13 @@ describe("ValueInput chrome", () => {
   it("puts the id on the control and marks it invalid when told to", () => {
     const onChange = vi.fn()
     render(
-      <ValueInput id="the-id" type="string" value={undefined} onChange={onChange} invalid />,
+      <ValueInput
+        id="the-id"
+        type="string"
+        value={undefined}
+        onChange={onChange}
+        invalid
+      />
     )
     expect(box().id).toBe("the-id")
     expect(box().getAttribute("aria-invalid")).toBe("true")
@@ -253,10 +259,12 @@ describe("ValueInput chrome", () => {
 
   it("starts over when the type changes", () => {
     const { rerender } = render(
-      <ValueInput id="v" type="string" value={undefined} onChange={() => {}} />,
+      <ValueInput id="v" type="string" value={undefined} onChange={() => {}} />
     )
     fireEvent.change(box(), { target: { value: "abc" } })
-    rerender(<ValueInput id="v" type="int" value={undefined} onChange={() => {}} />)
+    rerender(
+      <ValueInput id="v" type="int" value={undefined} onChange={() => {}} />
+    )
     expect(box().value).toBe("")
   })
 })
@@ -264,14 +272,24 @@ describe("ValueInput chrome", () => {
 describe("ValueInput reportEmptyOnMount", () => {
   it("reports an empty string once on mount by default, for a string with no string in it", () => {
     const onChange = vi.fn()
-    render(<ValueInput id="v" type="string" value={undefined} onChange={onChange} />)
+    render(
+      <ValueInput id="v" type="string" value={undefined} onChange={onChange} />
+    )
     expect(onChange).toHaveBeenCalledTimes(1)
     expect(onChange).toHaveBeenCalledWith("")
   })
 
   it("reports nothing on mount when told not to, and still reports what is typed", () => {
     const onChange = vi.fn()
-    render(<ValueInput id="v" type="string" value={5} reportEmptyOnMount={false} onChange={onChange} />)
+    render(
+      <ValueInput
+        id="v"
+        type="string"
+        value={5}
+        reportEmptyOnMount={false}
+        onChange={onChange}
+      />
+    )
     expect(onChange).not.toHaveBeenCalled()
     fireEvent.change(screen.getByRole("textbox"), { target: { value: "a" } })
     expect(onChange).toHaveBeenLastCalledWith("a")
@@ -305,7 +323,17 @@ describe("ValueInput duration", () => {
 
   it("refuses what Go refuses, reporting undefined with a message", () => {
     const { onChange } = setup("duration")
-    for (const bad of ["soon", "90", "1d", "s", "1h 30m", "1..5s", "h1", "1h30", "--5s"]) {
+    for (const bad of [
+      "soon",
+      "90",
+      "1d",
+      "s",
+      "1h 30m",
+      "1..5s",
+      "h1",
+      "1h30",
+      "--5s",
+    ]) {
       fireEvent.change(box(), { target: { value: bad } })
       expect(onChange, bad).toHaveBeenLastCalledWith(undefined)
       expect(box().getAttribute("aria-invalid"), bad).toBe("true")

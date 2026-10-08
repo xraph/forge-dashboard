@@ -52,7 +52,12 @@ export interface ImportCasesDialogProps {
  * file. The server takes all of it or none: a row with no name or no input
  * refuses the whole import, by row number, and nothing is written.
  */
-export function ImportCasesDialog({ open, onOpenChange, suiteId, onImported }: ImportCasesDialogProps) {
+export function ImportCasesDialog({
+  open,
+  onOpenChange,
+  suiteId,
+  onImported,
+}: ImportCasesDialogProps) {
   const command = useCommand<ImportResult>("cases.import")
   const { reset } = command
   useEffect(() => {
@@ -71,7 +76,10 @@ export function ImportCasesDialog({ open, onOpenChange, suiteId, onImported }: I
       }}
       disablePointerDismissal={locked}
     >
-      <DialogContent showCloseButton={!locked} className="max-h-[calc(100vh-2rem)] overflow-y-auto sm:max-w-2xl">
+      <DialogContent
+        showCloseButton={!locked}
+        className="max-h-[calc(100vh-2rem)] overflow-y-auto sm:max-w-2xl"
+      >
         <ImportForm
           command={command}
           suiteId={suiteId}
@@ -177,7 +185,9 @@ function ImportForm({
             aria-describedby={message ? id("error") : undefined}
             onChange={(e) => setData(e.target.value)}
           />
-          <FieldDescription>Up to 1 MiB. Every row is checked before any is written.</FieldDescription>
+          <FieldDescription>
+            Up to 1 MiB. Every row is checked before any is written.
+          </FieldDescription>
         </Field>
       </FieldGroup>
       {message && (
@@ -186,7 +196,10 @@ function ImportForm({
         </p>
       )}
       <DialogFooter>
-        <DialogClose render={<Button type="button" variant="outline" />} disabled={command.loading}>
+        <DialogClose
+          render={<Button type="button" variant="outline" />}
+          disabled={command.loading}
+        >
           Cancel
         </DialogClose>
         <Button type="submit" disabled={command.loading}>

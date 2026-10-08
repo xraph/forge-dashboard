@@ -61,10 +61,14 @@ describe("StreamingOverviewPage", () => {
 
     // The stats grid and the presence panel are separate reads with separate
     // boundaries, so each announces its own busy state rather than sharing one.
-    const statsBusy = screen.getByRole("status", { name: "Loading Streaming stats" })
+    const statsBusy = screen.getByRole("status", {
+      name: "Loading Streaming stats",
+    })
     expect(statsBusy.getAttribute("aria-busy")).toBe("true")
 
-    const presenceBusy = screen.getByRole("status", { name: "Loading Online users" })
+    const presenceBusy = screen.getByRole("status", {
+      name: "Loading Online users",
+    })
     expect(presenceBusy.getAttribute("aria-busy")).toBe("true")
   })
 
@@ -95,11 +99,22 @@ describe("StreamingOverviewPage presence", () => {
         stats,
         "presence.list": {
           presence: [
-            { userID: "ada", status: "online", lastSeen: "2026-09-08T10:00:00Z", rooms: ["r1"] },
-            { userID: "grace", status: "away", customStatus: "lunch", lastSeen: "2026-09-08T09:00:00Z", rooms: [] },
+            {
+              userID: "ada",
+              status: "online",
+              lastSeen: "2026-09-08T10:00:00Z",
+              rooms: ["r1"],
+            },
+            {
+              userID: "grace",
+              status: "away",
+              customStatus: "lunch",
+              lastSeen: "2026-09-08T09:00:00Z",
+              rooms: [],
+            },
           ],
         },
-      }),
+      })
     )
 
     await waitFor(() => expect(screen.getByText("ada")).toBeTruthy())
@@ -108,12 +123,19 @@ describe("StreamingOverviewPage presence", () => {
     expect(screen.getByText("lunch")).toBeTruthy()
     // The caption carries a live row count, not the static "Online users"
     // title this table used to render regardless of how many rows it had.
-    expect(screen.getByText("2 people online", { selector: "caption" })).toBeTruthy()
+    expect(
+      screen.getByText("2 people online", { selector: "caption" })
+    ).toBeTruthy()
   })
 
   it("says so when nobody is online rather than rendering an empty table", async () => {
-    renderPage(StreamingOverviewPage, stubClient({ stats, "presence.list": { presence: [] } }))
-    await waitFor(() => expect(screen.getByText("Nobody is online.")).toBeTruthy())
+    renderPage(
+      StreamingOverviewPage,
+      stubClient({ stats, "presence.list": { presence: [] } })
+    )
+    await waitFor(() =>
+      expect(screen.getByText("Nobody is online.")).toBeTruthy()
+    )
   })
 })
 

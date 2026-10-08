@@ -16,7 +16,9 @@ export function formatScore(n: number): string {
 }
 
 export function formatMs(ms: number): string {
-  return ms < 10 ? `${ms.toFixed(1)} ms` : `${grouped.format(Math.round(ms))} ms`
+  return ms < 10
+    ? `${ms.toFixed(1)} ms`
+    : `${grouped.format(Math.round(ms))} ms`
 }
 
 export function plural(n: number, one: string, many: string): string {

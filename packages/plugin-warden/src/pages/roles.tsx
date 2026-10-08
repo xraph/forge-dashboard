@@ -87,16 +87,25 @@ function CreateRoleForm({
     <div className="flex flex-col gap-3 rounded-md border p-4">
       <CommandAlert error={create.error} title="Could not create the role" />
       <p className="text-sm text-muted-foreground">
-        Creating in {namespacePath === "" ? "the tenant root" : namespacePath}. Slugs
-        are unique per namespace, so the same slug can exist in two of them.
+        Creating in {namespacePath === "" ? "the tenant root" : namespacePath}.
+        Slugs are unique per namespace, so the same slug can exist in two of
+        them.
       </p>
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="role-name">Name</Label>
-        <Input id="role-name" value={name} onChange={(e) => setName(e.target.value)} />
+        <Input
+          id="role-name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+        />
       </div>
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="role-slug">Slug</Label>
-        <Input id="role-slug" value={slug} onChange={(e) => setSlug(e.target.value)} />
+        <Input
+          id="role-slug"
+          value={slug}
+          onChange={(e) => setSlug(e.target.value)}
+        />
       </div>
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="role-description">Description</Label>
@@ -150,8 +159,18 @@ export function WardenRolesPage() {
   }
 
   const columns: Column<RoleSummary>[] = [
-    { id: "name", header: "Name", cell: (r) => r.name, className: "font-medium" },
-    { id: "slug", header: "Slug", cell: (r) => r.slug, className: "font-mono text-xs" },
+    {
+      id: "name",
+      header: "Name",
+      cell: (r) => r.name,
+      className: "font-medium",
+    },
+    {
+      id: "slug",
+      header: "Slug",
+      cell: (r) => r.slug,
+      className: "font-mono text-xs",
+    },
     {
       id: "namespace",
       header: "Namespace",
@@ -197,7 +216,9 @@ export function WardenRolesPage() {
       <PageHeader
         title="Roles"
         actions={
-          !creating && <Button onClick={() => setCreating(true)}>New role</Button>
+          !creating && (
+            <Button onClick={() => setCreating(true)}>New role</Button>
+          )
         }
       />
 
@@ -245,14 +266,18 @@ export function WardenRolesPage() {
                   {/* No delete on a system role: the contract refuses it,
                       so the button would promise a rejection. */}
                   {!r.isSystem && (
-                    <IconButton variant="destructive" onClick={() => {
+                    <IconButton
+                      variant="destructive"
+                      onClick={() => {
                         // Reset at open, not at close: the operator is
                         // about to read whatever this dialog shows for THIS
                         // role, so a failure from a previous row must not
                         // be attributed to one they have not touched.
                         remove.reset()
                         setDeleting(r)
-                      }} label={`Delete ${r.name}`} />
+                      }}
+                      label={`Delete ${r.name}`}
+                    />
                   )}
                 </>
               )}

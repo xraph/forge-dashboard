@@ -15,14 +15,17 @@ import { describe, expect, it } from "vitest"
 interface GlobbingImportMeta {
   glob: (
     pattern: string,
-    options: { query?: string; eager?: boolean },
+    options: { query?: string; eager?: boolean }
   ) => Record<string, { default: string } | string>
 }
 
-const modules = (import.meta as unknown as GlobbingImportMeta).glob("../src/**/*.{ts,tsx}", {
-  query: "?raw",
-  eager: true,
-})
+const modules = (import.meta as unknown as GlobbingImportMeta).glob(
+  "../src/**/*.{ts,tsx}",
+  {
+    query: "?raw",
+    eager: true,
+  }
+)
 
 function sourceOf(mod: { default: string } | string): string {
   return typeof mod === "string" ? mod : mod.default
@@ -52,7 +55,9 @@ describe("CodeMirror loads only with the prompt version and comparison pages", (
 
   it("reaches both pages from the plugin entry through lazy(), not a static import", () => {
     const entry = sourceOf(modules["../src/index.tsx"])
-    expect(entry).toMatch(/lazy\(\(\)\s*=>\s*import\("\.\/pages\/prompt-version"\)\)/)
+    expect(entry).toMatch(
+      /lazy\(\(\)\s*=>\s*import\("\.\/pages\/prompt-version"\)\)/
+    )
     expect(entry).not.toMatch(/^import[^\n]*["']\.\/pages\/prompt-version["']/m)
     expect(entry).toMatch(/lazy\(\(\)\s*=>\s*import\("\.\/pages\/compare"\)\)/)
     expect(entry).not.toMatch(/^import[^\n]*["']\.\/pages\/compare["']/m)
@@ -80,7 +85,9 @@ describe("CodeMirror loads only with the prompt version and comparison pages", (
 
   it("reaches the diff from the page through lazy(), not a static import", () => {
     const page = sourceOf(modules[PAGE])
-    expect(page).toMatch(/lazy\(\(\)\s*=>\s*import\("\.\.\/components\/prompt-diff"\)\)/)
+    expect(page).toMatch(
+      /lazy\(\(\)\s*=>\s*import\("\.\.\/components\/prompt-diff"\)\)/
+    )
     expect(page).not.toMatch(/^import (?!type)[^\n]*components\/prompt-diff"/m)
   })
 

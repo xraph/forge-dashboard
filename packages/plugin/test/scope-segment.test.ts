@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest"
-import { mountPath, routedPathDimension, scopePath, urlValueOf } from "../src/scope"
+import {
+  mountPath,
+  routedPathDimension,
+  scopePath,
+  urlValueOf,
+} from "../src/scope"
 import { definePlugin } from "../src/define"
 import type { ContextDimension } from "../src/types"
 
@@ -30,7 +35,9 @@ describe("scopePath with a segment", () => {
 
   it("puts the segment between the namespace and the page", () => {
     expect(scopePath("auth", "/users", "acme")).toBe("/@auth/acme/users")
-    expect(scopePath("auth", "/users/:id", "acme")).toBe("/@auth/acme/users/:id")
+    expect(scopePath("auth", "/users/:id", "acme")).toBe(
+      "/@auth/acme/users/:id"
+    )
   })
 
   it("does not leave a trailing slash on the scope root", () => {
@@ -46,7 +53,11 @@ describe("scopePath with a segment", () => {
 })
 
 describe("mountPath with a segment", () => {
-  const scoped = definePlugin({ extension: "auth", routes: [], context: [appDimension] })
+  const scoped = definePlugin({
+    extension: "auth",
+    routes: [],
+    context: [appDimension],
+  })
   const root = definePlugin({ extension: "core", root: true, routes: [] })
 
   it("carries the segment through for a scoped plugin", () => {
@@ -78,7 +89,9 @@ describe("routedPathDimension", () => {
 
 describe("urlValueOf", () => {
   it("uses the slug when the dimension asks for one", () => {
-    expect(urlValueOf(appDimension, { id: "app_1", label: "Acme", slug: "acme" })).toBe("acme")
+    expect(
+      urlValueOf(appDimension, { id: "app_1", label: "Acme", slug: "acme" })
+    ).toBe("acme")
   })
 
   it("uses the id when the dimension asks for one", () => {
@@ -86,12 +99,16 @@ describe("urlValueOf", () => {
       ...appDimension,
       routed: { placement: "path", param: "app", by: "id" },
     }
-    expect(urlValueOf(byId, { id: "app_1", label: "Acme", slug: "acme" })).toBe("app_1")
+    expect(urlValueOf(byId, { id: "app_1", label: "Acme", slug: "acme" })).toBe(
+      "app_1"
+    )
   })
 
   it("falls back to the id rather than putting undefined in a path", () => {
     // A dimension asking for slugs whose options have none is an authoring
     // mistake. An ugly URL is a better way to find that out than a broken one.
-    expect(urlValueOf(appDimension, { id: "app_1", label: "Acme" })).toBe("app_1")
+    expect(urlValueOf(appDimension, { id: "app_1", label: "Acme" })).toBe(
+      "app_1"
+    )
   })
 })

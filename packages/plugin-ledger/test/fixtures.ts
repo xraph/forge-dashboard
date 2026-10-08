@@ -1,11 +1,24 @@
-import type { CatalogFeature, Coupon, Invoice, LineItem, Money, Page, Plan, Subscription } from "../src/types"
+import type {
+  CatalogFeature,
+  Coupon,
+  Invoice,
+  LineItem,
+  Money,
+  Page,
+  Plan,
+  Subscription,
+} from "../src/types"
 
 /*
  * Test data in the contract's own shapes. Every builder answers a complete,
  * valid record, and a test overrides only what it is about.
  */
 
-export const usd = (amount: number): Money => ({ amount, currency: "usd", display: `$${(amount / 100).toFixed(2)}` })
+export const usd = (amount: number): Money => ({
+  amount,
+  currency: "usd",
+  display: `$${(amount / 100).toFixed(2)}`,
+})
 
 const STAMP = "2026-09-01T10:00:00Z"
 
@@ -19,9 +32,39 @@ export function aPlan(over: Partial<Plan> = {}): Plan {
     status: "active",
     trial_days: 0,
     features: [
-      { id: "pf_api", key: "api_calls", name: "API calls", type: "metered", limit: 100000, period: "monthly", soft_limit: true, created_at: STAMP, updated_at: STAMP },
-      { id: "pf_seats", key: "seats", name: "Seats", type: "seat", limit: 10, period: "none", soft_limit: false, created_at: STAMP, updated_at: STAMP },
-      { id: "pf_sso", key: "sso", name: "Single sign-on", type: "boolean", limit: 1, period: "none", soft_limit: false, created_at: STAMP, updated_at: STAMP },
+      {
+        id: "pf_api",
+        key: "api_calls",
+        name: "API calls",
+        type: "metered",
+        limit: 100000,
+        period: "monthly",
+        soft_limit: true,
+        created_at: STAMP,
+        updated_at: STAMP,
+      },
+      {
+        id: "pf_seats",
+        key: "seats",
+        name: "Seats",
+        type: "seat",
+        limit: 10,
+        period: "none",
+        soft_limit: false,
+        created_at: STAMP,
+        updated_at: STAMP,
+      },
+      {
+        id: "pf_sso",
+        key: "sso",
+        name: "Single sign-on",
+        type: "boolean",
+        limit: 1,
+        period: "none",
+        soft_limit: false,
+        created_at: STAMP,
+        updated_at: STAMP,
+      },
     ],
     pricing: {
       id: "price_pro",
@@ -29,8 +72,22 @@ export function aPlan(over: Partial<Plan> = {}): Plan {
       base_amount: usd(4900),
       billing_period: "monthly",
       tiers: [
-        { feature_key: "api_calls", type: "graduated", up_to: 100000, unit_amount: usd(0), flat_amount: usd(0), priority: 0 },
-        { feature_key: "api_calls", type: "graduated", up_to: -1, unit_amount: usd(2), flat_amount: usd(0), priority: 1 },
+        {
+          feature_key: "api_calls",
+          type: "graduated",
+          up_to: 100000,
+          unit_amount: usd(0),
+          flat_amount: usd(0),
+          priority: 0,
+        },
+        {
+          feature_key: "api_calls",
+          type: "graduated",
+          up_to: -1,
+          unit_amount: usd(2),
+          flat_amount: usd(0),
+          priority: 1,
+        },
       ],
       created_at: STAMP,
       updated_at: STAMP,
@@ -42,7 +99,9 @@ export function aPlan(over: Partial<Plan> = {}): Plan {
   }
 }
 
-export function aCatalogFeature(over: Partial<CatalogFeature> = {}): CatalogFeature {
+export function aCatalogFeature(
+  over: Partial<CatalogFeature> = {}
+): CatalogFeature {
   return {
     id: "feat_api_calls",
     key: "api_calls",
@@ -102,9 +161,31 @@ export function anInvoice(over: Partial<Invoice> = {}): Invoice {
     total: usd(12010),
     line_items: [
       aLineItem(),
-      aLineItem({ id: "li_2", description: "Seats", quantity: 6, unit_amount: usd(1500), amount: usd(9000), type: "seat", feature_key: "seats" }),
-      aLineItem({ id: "li_3", description: "LAUNCH20 (20% off)", quantity: 1, unit_amount: usd(-2780), amount: usd(-2780), type: "discount" }),
-      aLineItem({ id: "li_4", description: "Sales tax (8%)", quantity: 1, unit_amount: usd(890), amount: usd(890), type: "tax" }),
+      aLineItem({
+        id: "li_2",
+        description: "Seats",
+        quantity: 6,
+        unit_amount: usd(1500),
+        amount: usd(9000),
+        type: "seat",
+        feature_key: "seats",
+      }),
+      aLineItem({
+        id: "li_3",
+        description: "LAUNCH20 (20% off)",
+        quantity: 1,
+        unit_amount: usd(-2780),
+        amount: usd(-2780),
+        type: "discount",
+      }),
+      aLineItem({
+        id: "li_4",
+        description: "Sales tax (8%)",
+        quantity: 1,
+        unit_amount: usd(890),
+        amount: usd(890),
+        type: "tax",
+      }),
     ],
     period_start: "2026-08-20T00:00:00Z",
     period_end: "2026-09-20T00:00:00Z",

@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react"
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react"
 import { usePluginClient } from "./context"
 import { useHostAccess } from "./slots"
 import { queryStore } from "./store"
@@ -44,7 +50,7 @@ const noUnsubscribe = () => {}
 export function useQuery<T = unknown>(
   intent: string,
   params?: Record<string, unknown>,
-  options?: QueryOptions,
+  options?: QueryOptions
 ): QueryState<T> {
   const client = usePluginClient()
   const enabled = options?.enabled ?? true
@@ -55,17 +61,18 @@ export function useQuery<T = unknown>(
   // not read the entry, because that entry belongs to whoever did ask.
   const entry = useSyncExternalStore(
     useCallback(
-      (listener) => (enabled ? queryStore.subscribe(key, listener) : noUnsubscribe),
-      [key, enabled],
+      (listener) =>
+        enabled ? queryStore.subscribe(key, listener) : noUnsubscribe,
+      [key, enabled]
     ),
     useCallback(
       () => (enabled ? queryStore.snapshot<T>(key) : (DISABLED as Entry<T>)),
-      [key, enabled],
+      [key, enabled]
     ),
     useCallback(
       () => (enabled ? queryStore.snapshot<T>(key) : (DISABLED as Entry<T>)),
-      [key, enabled],
-    ),
+      [key, enabled]
+    )
   )
 
   // Reads what the server said about this intent last time. Unknown intents
@@ -85,7 +92,9 @@ export function useQuery<T = unknown>(
     if (!enabled) return
     // staleMs 0 forces the request. A refetch that honoured the cache would
     // be a button that sometimes does nothing, which is worse than no button.
-    queryStore.read<T>(key, () => client.query<T>(intent, params), 0, { force: true })
+    queryStore.read<T>(key, () => client.query<T>(intent, params), 0, {
+      force: true,
+    })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [client, intent, key, enabled])
 
@@ -146,7 +155,11 @@ export interface CommandState<T> {
  */
 export function useCommand<T = unknown>(intent: string): CommandState<T> {
   const client = usePluginClient()
-  const [state, setState] = useState<{ data?: T; error?: ContractError; loading: boolean }>({
+  const [state, setState] = useState<{
+    data?: T
+    error?: ContractError
+    loading: boolean
+  }>({
     loading: false,
   })
   // Same guard as useQuery, for the same reason with a worse failure mode: two
@@ -167,17 +180,21 @@ export function useCommand<T = unknown>(intent: string): CommandState<T> {
     () => () => {
       generationRef.current += 1
     },
-    [],
+    []
   )
 
   const execute = useCallback(
-    async (payload?: unknown, opts?: CommandOptions): Promise<T | undefined> => {
+    async (
+      payload?: unknown,
+      opts?: CommandOptions
+    ): Promise<T | undefined> => {
       const generation = ++generationRef.current
       setState({ loading: true })
 
       try {
         const data = await client.command<T>(intent, payload, opts)
-        if (generationRef.current === generation) setState({ data, loading: false })
+        if (generationRef.current === generation)
+          setState({ data, loading: false })
         return data
       } catch (error) {
         if (generationRef.current === generation) {
@@ -188,7 +205,7 @@ export function useCommand<T = unknown>(intent: string): CommandState<T> {
         return undefined
       }
     },
-    [client, intent],
+    [client, intent]
   )
 
   const reset = useCallback(() => {
@@ -213,7 +230,7 @@ export function useCommand<T = unknown>(intent: string): CommandState<T> {
 export function useHostQuery<T = unknown>(
   intent: string,
   params?: Record<string, unknown>,
-  options?: QueryOptions,
+  options?: QueryOptions
 ): QueryState<T> {
   const client = useHostAccess(intent)
   const enabled = options?.enabled ?? true
@@ -222,17 +239,18 @@ export function useHostQuery<T = unknown>(
   // Disabled means not a reader, for the reasons `useQuery` gives.
   const entry = useSyncExternalStore(
     useCallback(
-      (listener) => (enabled ? queryStore.subscribe(key, listener) : noUnsubscribe),
-      [key, enabled],
+      (listener) =>
+        enabled ? queryStore.subscribe(key, listener) : noUnsubscribe,
+      [key, enabled]
     ),
     useCallback(
       () => (enabled ? queryStore.snapshot<T>(key) : (DISABLED as Entry<T>)),
-      [key, enabled],
+      [key, enabled]
     ),
     useCallback(
       () => (enabled ? queryStore.snapshot<T>(key) : (DISABLED as Entry<T>)),
-      [key, enabled],
-    ),
+      [key, enabled]
+    )
   )
 
   const staleMs = queryStore.staleTimeFor(client.extension, intent)
@@ -249,7 +267,9 @@ export function useHostQuery<T = unknown>(
     // freshness check, but only `force` skips the "already pending, join it"
     // return. Without it a reload pressed during an in-flight request does
     // nothing at all.
-    queryStore.read<T>(key, () => client.query<T>(intent, params), 0, { force: true })
+    queryStore.read<T>(key, () => client.query<T>(intent, params), 0, {
+      force: true,
+    })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [client, intent, key, enabled])
 
@@ -267,7 +287,11 @@ export function useHostQuery<T = unknown>(
  */
 export function useHostCommand<T = unknown>(intent: string): CommandState<T> {
   const client = useHostAccess(intent)
-  const [state, setState] = useState<{ data?: T; error?: ContractError; loading: boolean }>({
+  const [state, setState] = useState<{
+    data?: T
+    error?: ContractError
+    loading: boolean
+  }>({
     loading: false,
   })
   const generationRef = useRef(0)
@@ -276,16 +300,20 @@ export function useHostCommand<T = unknown>(intent: string): CommandState<T> {
     () => () => {
       generationRef.current += 1
     },
-    [],
+    []
   )
 
   const execute = useCallback(
-    async (payload?: unknown, opts?: CommandOptions): Promise<T | undefined> => {
+    async (
+      payload?: unknown,
+      opts?: CommandOptions
+    ): Promise<T | undefined> => {
       const generation = ++generationRef.current
       setState({ loading: true })
       try {
         const data = await client.command<T>(intent, payload, opts)
-        if (generationRef.current === generation) setState({ data, loading: false })
+        if (generationRef.current === generation)
+          setState({ data, loading: false })
         return data
       } catch (error) {
         if (generationRef.current === generation) {
@@ -294,7 +322,7 @@ export function useHostCommand<T = unknown>(intent: string): CommandState<T> {
         return undefined
       }
     },
-    [client, intent],
+    [client, intent]
   )
 
   const reset = useCallback(() => {

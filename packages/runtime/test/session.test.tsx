@@ -26,14 +26,14 @@ function Probe() {
 
 function renderSession(
   fetchImpl: typeof fetch,
-  configOverrides: Partial<typeof config & { authEnabled: boolean }> = {},
+  configOverrides: Partial<typeof config & { authEnabled: boolean }> = {}
 ) {
   return render(
     <ForgeDashboardProvider config={{ ...config, ...configOverrides }}>
       <SessionProvider fetchImpl={fetchImpl}>
         <Probe />
       </SessionProvider>
-    </ForgeDashboardProvider>,
+    </ForgeDashboardProvider>
   )
 }
 
@@ -54,7 +54,9 @@ describe("useSession", () => {
     // A never-resolving fetch keeps the initial state on screen. Without the
     // `unknown` state this would have to render either the gate or the shell,
     // and both would be a guess.
-    const pending = vi.fn(() => new Promise<Response>(() => {})) as unknown as typeof fetch
+    const pending = vi.fn(
+      () => new Promise<Response>(() => {})
+    ) as unknown as typeof fetch
     renderSession(pending)
     expect(screen.getByTestId("status").textContent).toBe("unknown")
   })
@@ -65,7 +67,9 @@ describe("useSession", () => {
       loginPath: "/dashboard/login",
       principal: null,
     }
-    const pending = vi.fn(() => new Promise<Response>(() => {})) as unknown as typeof fetch
+    const pending = vi.fn(
+      () => new Promise<Response>(() => {})
+    ) as unknown as typeof fetch
     // authEnabled: true is the distinction this test pins. A present-but-null
     // principal on an auth-disabled dashboard means "auth is off", not "you
     // are signed out"; see the sibling test below.
@@ -80,7 +84,9 @@ describe("useSession", () => {
       basePath: "/dashboard",
       principal: null,
     }
-    const pending = vi.fn(() => new Promise<Response>(() => {})) as unknown as typeof fetch
+    const pending = vi.fn(
+      () => new Promise<Response>(() => {})
+    ) as unknown as typeof fetch
     // When auth is switched off, the Go middleware that would set an identity
     // never runs, so the handler writes the principal key as an explicit
     // null - the same bytes a real signed-out visitor gets. Without
@@ -93,9 +99,15 @@ describe("useSession", () => {
   it("seeds signedIn from an injected principal", () => {
     ;(window as { __FORGE_DASHBOARD__?: unknown }).__FORGE_DASHBOARD__ = {
       basePath: "/dashboard",
-      principal: { authenticated: true, subject: "u1", email: "seed@example.com" },
+      principal: {
+        authenticated: true,
+        subject: "u1",
+        email: "seed@example.com",
+      },
     }
-    const pending = vi.fn(() => new Promise<Response>(() => {})) as unknown as typeof fetch
+    const pending = vi.fn(
+      () => new Promise<Response>(() => {})
+    ) as unknown as typeof fetch
     renderSession(pending)
     expect(screen.getByTestId("status").textContent).toBe("signedIn")
     expect(screen.getByTestId("detail").textContent).toBe("seed@example.com")
@@ -104,17 +116,27 @@ describe("useSession", () => {
   it("lets the endpoint downgrade an injected principal", async () => {
     ;(window as { __FORGE_DASHBOARD__?: unknown }).__FORGE_DASHBOARD__ = {
       basePath: "/dashboard",
-      principal: { authenticated: true, subject: "u1", email: "seed@example.com" },
+      principal: {
+        authenticated: true,
+        subject: "u1",
+        email: "seed@example.com",
+      },
     }
-    renderSession(answer(401, { code: "UNAUTHENTICATED", loginPath: "/dashboard/login" }))
+    renderSession(
+      answer(401, { code: "UNAUTHENTICATED", loginPath: "/dashboard/login" })
+    )
     // Truth wins, including downwards. Treating the injected value as
     // authoritative once present is the mutation this catches.
-    await waitFor(() => expect(screen.getByTestId("status").textContent).toBe("signedOut"))
+    await waitFor(() =>
+      expect(screen.getByTestId("status").textContent).toBe("signedOut")
+    )
   })
 
   it("resolves anonymous when auth is switched off", async () => {
     renderSession(answer(200, { authenticated: false }))
-    await waitFor(() => expect(screen.getByTestId("status").textContent).toBe("anonymous"))
+    await waitFor(() =>
+      expect(screen.getByTestId("status").textContent).toBe("anonymous")
+    )
   })
 
   it("resolves signedIn and carries the principal", async () => {
@@ -125,29 +147,42 @@ describe("useSession", () => {
         displayName: "Ada Lovelace",
         email: "ada@example.com",
         roles: ["admin"],
-      }),
+      })
     )
-    await waitFor(() => expect(screen.getByTestId("status").textContent).toBe("signedIn"))
+    await waitFor(() =>
+      expect(screen.getByTestId("status").textContent).toBe("signedIn")
+    )
     expect(screen.getByTestId("detail").textContent).toBe("ada@example.com")
   })
 
   it("resolves signedOut and carries the endpoint's loginPath", async () => {
-    renderSession(answer(401, { code: "UNAUTHENTICATED", loginPath: "/ops/login" }))
-    await waitFor(() => expect(screen.getByTestId("status").textContent).toBe("signedOut"))
+    renderSession(
+      answer(401, { code: "UNAUTHENTICATED", loginPath: "/ops/login" })
+    )
+    await waitFor(() =>
+      expect(screen.getByTestId("status").textContent).toBe("signedOut")
+    )
     expect(screen.getByTestId("detail").textContent).toBe("/ops/login")
   })
 
   it("falls back to the configured loginPath when the 401 omits one", async () => {
     renderSession(answer(401, { code: "UNAUTHENTICATED" }))
-    await waitFor(() => expect(screen.getByTestId("status").textContent).toBe("signedOut"))
+    await waitFor(() =>
+      expect(screen.getByTestId("status").textContent).toBe("signedOut")
+    )
     expect(screen.getByTestId("detail").textContent).toBe("/dashboard/login")
   })
 
   it("resolves denied and carries requiredRoles", async () => {
     renderSession(
-      answer(403, { code: "PERMISSION_DENIED", requiredRoles: ["admin", "auditor"] }),
+      answer(403, {
+        code: "PERMISSION_DENIED",
+        requiredRoles: ["admin", "auditor"],
+      })
     )
-    await waitFor(() => expect(screen.getByTestId("status").textContent).toBe("denied"))
+    await waitFor(() =>
+      expect(screen.getByTestId("status").textContent).toBe("denied")
+    )
     expect(screen.getByTestId("detail").textContent).toBe("admin,auditor")
   })
 
@@ -156,12 +191,16 @@ describe("useSession", () => {
       throw new Error("network is down")
     }) as unknown as typeof fetch
     renderSession(failing)
-    await waitFor(() => expect(screen.getByTestId("status").textContent).toBe("unreachable"))
+    await waitFor(() =>
+      expect(screen.getByTestId("status").textContent).toBe("unreachable")
+    )
   })
 
   it("increments epoch once per resolved fetch", async () => {
     renderSession(answer(200, { authenticated: false }))
-    await waitFor(() => expect(screen.getByTestId("epoch").textContent).toBe("1"))
+    await waitFor(() =>
+      expect(screen.getByTestId("epoch").textContent).toBe("1")
+    )
   })
 
   it("throws a named error outside a provider", () => {

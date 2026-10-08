@@ -10,7 +10,10 @@ import {
   useQuery,
 } from "@forge-go/dashboard-plugin"
 import type { CommandState, PluginPageProps } from "@forge-go/dashboard-plugin"
-import { Button, buttonVariants } from "@forge-go/dashboard-kit/components/button"
+import {
+  Button,
+  buttonVariants,
+} from "@forge-go/dashboard-kit/components/button"
 import { ConfirmDialog } from "@forge-go/dashboard-kit/components/confirm-dialog"
 import { DescriptionList } from "@forge-go/dashboard-kit/components/detail-layout"
 import {
@@ -136,7 +139,10 @@ function FlagDetailBody({ flagKey }: { flagKey: string }) {
         title={`No flag named ${flagKey}.`}
         description="It may have been deleted, or the key may be mistyped."
         action={
-          <PluginLink to="/flags" className={buttonVariants({ variant: "outline" })}>
+          <PluginLink
+            to="/flags"
+            className={buttonVariants({ variant: "outline" })}
+          >
             Back to flags
           </PluginLink>
         }
@@ -151,12 +157,20 @@ function FlagDetailBody({ flagKey }: { flagKey: string }) {
   )
 }
 
-function FlagDetailView({ flagKey, data }: { flagKey: string; data: FlagDetail }) {
+function FlagDetailView({
+  flagKey,
+  data,
+}: {
+  flagKey: string
+  data: FlagDetail
+}) {
   const { flag, rules, overrides } = data
   const setEnabled = useCommand<FlagResponse>("flags.setEnabled")
   const update = useCommand<FlagResponse>("flags.update")
   const setOverride = useCommand<OverrideResponse>("flags.setTenantOverride")
-  const removeOverride = useCommand<DeleteOverrideResponse>("flags.deleteTenantOverride")
+  const removeOverride = useCommand<DeleteOverrideResponse>(
+    "flags.deleteTenantOverride"
+  )
   const remove = useCommand<DeleteResponse>("flags.delete")
   const navigateTo = useNavigateTo()
   const client = usePluginClient()
@@ -174,7 +188,10 @@ function FlagDetailView({ flagKey, data }: { flagKey: string; data: FlagDetail }
   // The tenant stays after the dialog closes, with `open` false, so the
   // closing frame keeps its title. Nulling it would leave the exit animation
   // reading "Remove the override for ?".
-  const [removal, setRemoval] = useState<{ tenantId: string; open: boolean } | null>(null)
+  const [removal, setRemoval] = useState<{
+    tenantId: string
+    open: boolean
+  } | null>(null)
   const [deleting, setDeleting] = useState(false)
   // Rung 3 is a draft of the whole list while this is true. The draft itself
   // lives in RuleEditor, which mounts fresh on each open.
@@ -191,10 +208,12 @@ function FlagDetailView({ flagKey, data }: { flagKey: string; data: FlagDetail }
     "flags.evaluate",
     {
       key: flagKey,
-      ...(request?.tenantId === undefined ? {} : { tenantId: request.tenantId }),
+      ...(request?.tenantId === undefined
+        ? {}
+        : { tenantId: request.tenantId }),
       ...(request?.userId === undefined ? {} : { userId: request.userId }),
     },
-    { enabled: request !== null },
+    { enabled: request !== null }
   )
 
   function open(which: Dialogs) {
@@ -212,7 +231,9 @@ function FlagDetailView({ flagKey, data }: { flagKey: string; data: FlagDetail }
   }
 
   function closeRemove() {
-    setRemoval((current) => (current === null ? null : { ...current, open: false }))
+    setRemoval((current) =>
+      current === null ? null : { ...current, open: false }
+    )
   }
 
   function evaluate() {
@@ -224,7 +245,11 @@ function FlagDetailView({ flagKey, data }: { flagKey: string; data: FlagDetail }
     const userId = draftUser.trim() || undefined
     // The same pair is the same query, so the hook would serve what it holds.
     // Each press asks the engine, so it is asked to reload.
-    if (request !== null && request.tenantId === tenantId && request.userId === userId) {
+    if (
+      request !== null &&
+      request.tenantId === tenantId &&
+      request.userId === userId
+    ) {
       evaluated.refetch()
     }
     setRequest({ tenantId, userId })
@@ -250,7 +275,10 @@ function FlagDetailView({ flagKey, data }: { flagKey: string; data: FlagDetail }
 
   async function confirmRemove() {
     if (removal === null || !removal.open) return
-    const result = await removeOverride.execute({ key: flagKey, tenantId: removal.tenantId })
+    const result = await removeOverride.execute({
+      key: flagKey,
+      tenantId: removal.tenantId,
+    })
     // execute() resolves undefined only when the client throws.
     if (result === undefined) return
     closeRemove()
@@ -271,7 +299,8 @@ function FlagDetailView({ flagKey, data }: { flagKey: string; data: FlagDetail }
     answer === undefined || editingRules
       ? undefined
       : readEvaluation(answer, rules, overrides, request?.tenantId)
-  const ruleNumber = marks?.decidedIndex === undefined ? undefined : marks.decidedIndex + 1
+  const ruleNumber =
+    marks?.decidedIndex === undefined ? undefined : marks.decidedIndex + 1
   const ruleWord = plural(rules.length, "rule")
   const overrideWord = plural(overrides.length, "tenant override")
 
@@ -280,12 +309,18 @@ function FlagDetailView({ flagKey, data }: { flagKey: string; data: FlagDetail }
       <div className="flex flex-col gap-2">
         <PageHeader
           title={flag.key}
-          description={flag.description === "" ? "No description" : flag.description}
+          description={
+            flag.description === "" ? "No description" : flag.description
+          }
           className="[&_h1]:font-mono [&_h1]:text-base"
           actions={
             <>
               <FlagTypeBadge type={flag.type} />
-              <IconButton variant="destructive" onClick={openDelete} label="Delete" />
+              <IconButton
+                variant="destructive"
+                onClick={openDelete}
+                label="Delete"
+              />
             </>
           }
         />
@@ -310,7 +345,9 @@ function FlagDetailView({ flagKey, data }: { flagKey: string; data: FlagDetail }
                   <EditButton
                     label="Edit default"
                     onClick={() => open("default")}
-                    disabledBecause={typeReason === undefined ? undefined : typeReasonId}
+                    disabledBecause={
+                      typeReason === undefined ? undefined : typeReasonId
+                    }
                   />
                 </span>
               ),
@@ -324,7 +361,10 @@ function FlagDetailView({ flagKey, data }: { flagKey: string; data: FlagDetail }
                   ) : (
                     <span>{flag.description}</span>
                   )}
-                  <EditButton label="Edit description" onClick={() => open("description")} />
+                  <EditButton
+                    label="Edit description"
+                    onClick={() => open("description")}
+                  />
                 </span>
               ),
             },
@@ -356,7 +396,9 @@ function FlagDetailView({ flagKey, data }: { flagKey: string; data: FlagDetail }
         busy={evaluated.loading}
         canClear={request !== null || draftTenant !== "" || draftUser !== ""}
         disabledReason={
-          editingRules ? "Save or discard the rule changes to evaluate." : undefined
+          editingRules
+            ? "Save or discard the rule changes to evaluate."
+            : undefined
         }
       >
         {evaluated.error ? (
@@ -395,7 +437,10 @@ function FlagDetailView({ flagKey, data }: { flagKey: string; data: FlagDetail }
             />
             <FlagEnabledBadge enabled={flag.enabled} />
           </div>
-          <CommandAlert error={setEnabled.error} title="Could not change the flag" />
+          <CommandAlert
+            error={setEnabled.error}
+            title="Could not change the flag"
+          />
         </Rung>
 
         <Rung
@@ -407,7 +452,11 @@ function FlagDetailView({ flagKey, data }: { flagKey: string; data: FlagDetail }
           mark={marks?.overridesNotReached ? <NotReachedBadge /> : undefined}
           decided={marks?.overrideTenant !== undefined}
           annotation={overridesAnnotation(marks, request?.tenantId)}
-          notice={off ? "The flag is off, so everything below returns the default." : undefined}
+          notice={
+            off
+              ? "The flag is off, so everything below returns the default."
+              : undefined
+          }
           actions={
             <Button
               variant="outline"
@@ -421,14 +470,20 @@ function FlagDetailView({ flagKey, data }: { flagKey: string; data: FlagDetail }
           }
         >
           {overrides.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No tenant overrides.</p>
+            <p className="text-sm text-muted-foreground">
+              No tenant overrides.
+            </p>
           ) : (
             <LadderRows label="Tenant overrides">
               {overrides.map((o) => (
                 <LadderRow
                   key={o.tenantId}
                   decided={marks?.overrideTenant === o.tenantId}
-                  mark={marks?.overrideTenant === o.tenantId ? <DecidedHereBadge /> : undefined}
+                  mark={
+                    marks?.overrideTenant === o.tenantId ? (
+                      <DecidedHereBadge />
+                    ) : undefined
+                  }
                   value={
                     <>
                       {o.valueMatchesType ? null : <WrongTypeBadge />}
@@ -436,10 +491,16 @@ function FlagDetailView({ flagKey, data }: { flagKey: string; data: FlagDetail }
                     </>
                   }
                   actions={
-                    <IconButton variant="ghost" onClick={() => openRemove(o.tenantId)} label={`Remove override for ${o.tenantId}`} />
+                    <IconButton
+                      variant="ghost"
+                      onClick={() => openRemove(o.tenantId)}
+                      label={`Remove override for ${o.tenantId}`}
+                    />
                   }
                 >
-                  <span className="font-mono text-xs font-medium">{o.tenantId}</span>
+                  <span className="font-mono text-xs font-medium">
+                    {o.tenantId}
+                  </span>
                 </LadderRow>
               ))}
             </LadderRows>
@@ -456,7 +517,13 @@ function FlagDetailView({ flagKey, data }: { flagKey: string; data: FlagDetail }
           decided={marks?.decidedIndex !== undefined}
           actions={
             editingRules ? undefined : (
-              <IconButton variant="outline" disabled={type === undefined} aria-describedby={type === undefined ? typeReasonId : undefined} onClick={() => setEditingRules(true)} label="Edit rules" />
+              <IconButton
+                variant="outline"
+                disabled={type === undefined}
+                aria-describedby={type === undefined ? typeReasonId : undefined}
+                onClick={() => setEditingRules(true)}
+                label="Edit rules"
+              />
             )
           }
         >
@@ -500,7 +567,7 @@ function FlagDetailView({ flagKey, data }: { flagKey: string; data: FlagDetail }
                             verdict?.note,
                             verdict?.decided === true,
                             answer?.bucket,
-                            request?.tenantId,
+                            request?.tenantId
                           )
                     }
                     value={
@@ -542,8 +609,8 @@ function FlagDetailView({ flagKey, data }: { flagKey: string; data: FlagDetail }
 
       {data.cacheTtlSeconds > 0 ? (
         <p className="text-xs text-muted-foreground">
-          Applications may serve a cached answer for up to {data.cacheTtlSeconds} seconds
-          after a change.
+          Applications may serve a cached answer for up to{" "}
+          {data.cacheTtlSeconds} seconds after a change.
         </p>
       ) : null}
 
@@ -565,7 +632,11 @@ function FlagDetailView({ flagKey, data }: { flagKey: string; data: FlagDetail }
         />
       )}
       {dialog === "tags" && (
-        <EditTagsDialog flag={flag} update={update} onClose={() => setDialog(null)} />
+        <EditTagsDialog
+          flag={flag}
+          update={update}
+          onClose={() => setDialog(null)}
+        />
       )}
       {dialog === "override" && type !== undefined && (
         <AddOverrideDialog
@@ -580,14 +651,19 @@ function FlagDetailView({ flagKey, data }: { flagKey: string; data: FlagDetail }
         open={removal?.open === true}
         // Escape must not close it while the command is in flight: a failure
         // would then be shown nowhere.
-        onOpenChange={(next) => !next && !removeOverride.loading && closeRemove()}
+        onOpenChange={(next) =>
+          !next && !removeOverride.loading && closeRemove()
+        }
         title={`Remove the override for ${removal?.tenantId ?? ""}?`}
         description={`${removal?.tenantId ?? "That tenant"} goes back to the rules and the default.`}
         confirmLabel="Remove"
         pending={removeOverride.loading}
         onConfirm={() => void confirmRemove()}
       >
-        <CommandAlert error={removeOverride.error} title="Could not remove the override" />
+        <CommandAlert
+          error={removeOverride.error}
+          title="Could not remove the override"
+        />
       </ConfirmDialog>
 
       <ConfirmDialog
@@ -621,7 +697,7 @@ function ruleAnnotation(
   note: string | undefined,
   decided: boolean,
   bucket: number | undefined,
-  tenantId: string | undefined,
+  tenantId: string | undefined
 ): ReactNode {
   if (
     rule.type === "rollout" &&
@@ -645,7 +721,7 @@ function ruleAnnotation(
  */
 function overridesAnnotation(
   marks: ReturnType<typeof readEvaluation> | undefined,
-  tenantId: string | undefined,
+  tenantId: string | undefined
 ): ReactNode {
   if (marks === undefined) return undefined
   if (marks.reason !== "rule" && marks.reason !== "default") return undefined
@@ -665,7 +741,13 @@ function EditButton({
   disabledBecause?: string
 }) {
   return (
-    <IconButton variant="ghost" disabled={disabledBecause !== undefined} aria-describedby={disabledBecause} onClick={onClick} label={label} />
+    <IconButton
+      variant="ghost"
+      disabled={disabledBecause !== undefined}
+      aria-describedby={disabledBecause}
+      onClick={onClick}
+      label={label}
+    />
   )
 }
 
@@ -750,17 +832,27 @@ function FieldDialog({
   }
 
   return (
-    <Dialog open onOpenChange={(next) => !next && !command.loading && onClose()}>
+    <Dialog
+      open
+      onOpenChange={(next) => !next && !command.loading && onClose()}
+    >
       <DialogContent>
         <form onSubmit={(e) => void submit(e)} className="flex flex-col gap-4">
           <DialogHeader>
             <DialogTitle>{title}</DialogTitle>
-            {description ? <DialogDescription>{description}</DialogDescription> : null}
+            {description ? (
+              <DialogDescription>{description}</DialogDescription>
+            ) : null}
           </DialogHeader>
           <CommandAlert error={command.error} title={errorTitle} />
           {children}
           <DialogFooter>
-            <Button type="button" variant="outline" disabled={command.loading} onClick={onClose}>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={command.loading}
+              onClick={onClose}
+            >
               Cancel
             </Button>
             <Button type="submit" disabled={!canSubmit || command.loading}>
@@ -791,7 +883,7 @@ function EditDefaultDialog({
   // A stored default that is not a value of the type is not offered back as
   // if it were one: the field starts empty and save waits for a real value.
   const [value, setValue] = useState<unknown>(
-    flag.defaultMatchesType ? flag.defaultValue : undefined,
+    flag.defaultMatchesType ? flag.defaultValue : undefined
   )
   return (
     <FieldDialog

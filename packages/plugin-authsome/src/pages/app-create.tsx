@@ -37,13 +37,19 @@ export function AuthAppCreatePage() {
 
   return (
     <section className="flex max-w-xl flex-col gap-4">
-      <PageHeader title="New app" description="Its own users, sessions and environments, isolated from every other app." />
+      <PageHeader
+        title="New app"
+        description="Its own users, sessions and environments, isolated from every other app."
+      />
       <CommandAlert error={create.error} title="Could not create the app" />
       {created !== null && (
         <p role="status" className="rounded-md border px-3 py-2 text-sm">
           App created.{" "}
           {created && (
-            <PluginLink to={`/apps/${created}`} className="underline underline-offset-4">
+            <PluginLink
+              to={`/apps/${created}`}
+              className="underline underline-offset-4"
+            >
               Open it
             </PluginLink>
           )}
@@ -51,15 +57,27 @@ export function AuthAppCreatePage() {
       )}
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="new-app-name">Name</Label>
-        <Input id="new-app-name" value={name} onChange={(e) => setName(e.target.value)} />
+        <Input
+          id="new-app-name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+        />
       </div>
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="new-app-slug">Slug</Label>
-        <Input id="new-app-slug" value={slug} onChange={(e) => setSlug(e.target.value)} />
+        <Input
+          id="new-app-slug"
+          value={slug}
+          onChange={(e) => setSlug(e.target.value)}
+        />
       </div>
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="new-app-logo">Logo</Label>
-        <Input id="new-app-logo" value={logo} onChange={(e) => setLogo(e.target.value)} />
+        <Input
+          id="new-app-logo"
+          value={logo}
+          onChange={(e) => setLogo(e.target.value)}
+        />
       </div>
       <Button
         onClick={() => void submit()}

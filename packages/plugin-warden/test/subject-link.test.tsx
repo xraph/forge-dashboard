@@ -12,17 +12,23 @@ describe("SubjectLink", () => {
   it("encodes both parts, so an id holding a slash stays one path segment", () => {
     render(<SubjectLink kind="api key" id="a/b c?d#e" />)
     const link = screen.getByRole("link", { name: "api key:a/b c?d#e" })
-    expect(link.getAttribute("href")).toBe("/subjects/api%20key/a%2Fb%20c%3Fd%23e")
+    expect(link.getAttribute("href")).toBe(
+      "/subjects/api%20key/a%2Fb%20c%3Fd%23e"
+    )
   })
 
   it("encodes the id exactly as encodeURIComponent does", () => {
     const id = "svc/ci:prod+1"
-    expect(subjectPath("service", id)).toBe(`/subjects/service/${encodeURIComponent(id)}`)
+    expect(subjectPath("service", id)).toBe(
+      `/subjects/service/${encodeURIComponent(id)}`
+    )
     expect(subjectPath("service", id)).toContain("%2F")
   })
 
   it("renders plain text when the kind is empty, because the route cannot carry it", () => {
-    const { container } = render(<SubjectLink kind="" id="alice" className="font-medium" />)
+    const { container } = render(
+      <SubjectLink kind="" id="alice" className="font-medium" />
+    )
     expect(screen.queryByRole("link")).toBeNull()
     const text = screen.getByText(":alice")
     expect(text.className).toContain("font-medium")

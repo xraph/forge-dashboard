@@ -17,7 +17,9 @@ import { ContextSwitchers } from "./ContextSwitchers"
  */
 function CurrentValue({ dimension }: { dimension: ContextDimension }) {
   const read = useQuery(dimension.query)
-  const label = read.data ? dimension.select(read.data).current?.label : undefined
+  const label = read.data
+    ? dimension.select(read.data).current?.label
+    : undefined
   return <>{label ?? dimension.label}</>
 }
 
@@ -43,7 +45,7 @@ export function ContextControl({
           <button
             type="button"
             data-slot="context-control"
-            className="flex h-8 w-full min-w-0 items-center gap-2 rounded-md border border-sidebar-border px-2 text-left text-sm outline-hidden hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-sidebar-ring group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0"
+            className="flex h-8 w-full min-w-0 items-center gap-2 rounded-md border border-sidebar-border px-2 text-left text-sm outline-hidden group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0 hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-sidebar-ring"
           />
         }
       >
@@ -61,7 +63,12 @@ export function ContextControl({
           className="size-4 shrink-0 text-muted-foreground group-data-[collapsible=icon]:hidden"
         />
       </PopoverTrigger>
-      <PopoverContent side="right" align="start" className="w-72" aria-label="App and environment">
+      <PopoverContent
+        side="right"
+        align="start"
+        className="w-72"
+        aria-label="App and environment"
+      >
         <ContextSwitchers dimensions={dimensions} plugin={plugin} />
       </PopoverContent>
     </Popover>

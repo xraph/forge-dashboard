@@ -14,13 +14,13 @@ import { describe, expect, it } from "vitest"
 interface GlobbingImportMeta {
   glob: (
     pattern: string,
-    options: { query?: string; eager?: boolean },
+    options: { query?: string; eager?: boolean }
   ) => Record<string, { default: string } | string>
 }
 
 const modules = (import.meta as unknown as GlobbingImportMeta).glob(
   "../src/**/*.{ts,tsx}",
-  { query: "?raw", eager: true },
+  { query: "?raw", eager: true }
 )
 
 function sourceOf(mod: { default: string } | string): string {
@@ -48,16 +48,24 @@ describe("CodeMirror loads only with the config editor route", () => {
 
   it("reaches the config page from the plugin entry through lazy(), not a static import", () => {
     const entry = sourceOf(modules["../src/index.tsx"])
-    expect(entry).toMatch(/lazy\(\(\)\s*=>\s*import\("\.\/pages\/config-detail"\)\)/)
+    expect(entry).toMatch(
+      /lazy\(\(\)\s*=>\s*import\("\.\/pages\/config-detail"\)\)/
+    )
     expect(entry).not.toMatch(/^import[^\n]*["']\.\/pages\/config-detail["']/m)
   })
 
   it("reaches the editor and the diff from the page through lazy(), not a static import", () => {
     const page = sourceOf(modules["../src/pages/config-detail.tsx"])
     for (const name of ["json-editor", "json-diff"]) {
-      expect(page).toMatch(new RegExp(`lazy\\(\\(\\)\\s*=>\\s*import\\("\\.\\./components/${name}"\\)\\)`))
+      expect(page).toMatch(
+        new RegExp(
+          `lazy\\(\\(\\)\\s*=>\\s*import\\("\\.\\./components/${name}"\\)\\)`
+        )
+      )
       // A type-only import is erased, so it may stay.
-      expect(page).not.toMatch(new RegExp(`^import (?!type)[^\\n]*components/${name}"`, "m"))
+      expect(page).not.toMatch(
+        new RegExp(`^import (?!type)[^\\n]*components/${name}"`, "m")
+      )
     }
   })
 })

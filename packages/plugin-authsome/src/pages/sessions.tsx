@@ -69,7 +69,10 @@ export function AuthSessionsPage() {
   // produced it closes: `count` is the whole reason the operator clicked
   // "Revoke all" rather than one row at a time, and a dialog that just closes
   // silently gives them nothing to check that number against.
-  const [bulkResult, setBulkResult] = useState<{ userId: string; count: number } | null>(null)
+  const [bulkResult, setBulkResult] = useState<{
+    userId: string
+    count: number
+  } | null>(null)
 
   const list = useQuery<SessionsList>("sessions.list", {
     userId: userFilter || undefined,
@@ -121,12 +124,19 @@ export function AuthSessionsPage() {
       header: "Last activity",
       cell: (s) => <Timestamp value={s.lastActivityAt} label="last activity" />,
     },
-    { id: "expires", header: "Expires", cell: (s) => formatTimestamp(s.expiresAt) },
+    {
+      id: "expires",
+      header: "Expires",
+      cell: (s) => formatTimestamp(s.expiresAt),
+    },
   ]
 
   return (
     <section className="flex flex-col gap-4">
-      <PageHeader title="Sessions" description={`Showing the most recent ${LIMIT}.`} />
+      <PageHeader
+        title="Sessions"
+        description={`Showing the most recent ${LIMIT}.`}
+      />
       <FilterBar
         search={{
           value: userFilter,
@@ -138,7 +148,8 @@ export function AuthSessionsPage() {
 
       {bulkResult && (
         <p role="status" className="text-sm text-muted-foreground">
-          Revoked {bulkResult.count} {bulkResult.count === 1 ? "session" : "sessions"} for{" "}
+          Revoked {bulkResult.count}{" "}
+          {bulkResult.count === 1 ? "session" : "sessions"} for{" "}
           {bulkResult.userId}.
         </p>
       )}

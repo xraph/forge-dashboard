@@ -63,8 +63,12 @@ function stubFetch(): typeof fetch {
     // basename, not auth, so it runs as a signed-in user.
     if (url.endsWith("/principal")) {
       return new Response(
-        JSON.stringify({ authenticated: true, subject: "usr_test", email: "test@example.com" }),
-        { status: 200, headers: { "Content-Type": "application/json" } },
+        JSON.stringify({
+          authenticated: true,
+          subject: "usr_test",
+          email: "test@example.com",
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
       )
     }
     throw new Error(`unexpected request to ${url}`)

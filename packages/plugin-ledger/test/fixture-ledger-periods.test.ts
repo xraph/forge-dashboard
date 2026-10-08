@@ -7,7 +7,7 @@ class FixtureError extends Error {
   constructor(
     readonly status: number,
     readonly code: string,
-    message: string,
+    message: string
   ) {
     super(message)
   }
@@ -27,7 +27,8 @@ let handlers: Record<string, Handler>
 
 beforeEach(async () => {
   // @ts-expect-error TS7016: ledger-fixtures.mjs has no declaration file.
-  fixture = (await import("../../fixture-server/ledger-fixtures.mjs")) as Fixture
+  const loaded = await import("../../fixture-server/ledger-fixtures.mjs")
+  fixture = loaded as Fixture
   fixture.resetLedger()
   handlers = fixture.createLedgerHandlers(FixtureError)
 })
@@ -36,7 +37,12 @@ beforeEach(async () => {
 function leapYearly() {
   const state = fixture.ledgerState()
   const base = state.plans.find((p) => p.id === "plan_pro") ?? state.plans[0]
-  const plan = { ...base, id: "plan_leap", slug: "leap", pricing: { ...base.pricing, billing_period: "yearly" } }
+  const plan = {
+    ...base,
+    id: "plan_leap",
+    slug: "leap",
+    pricing: { ...base.pricing, billing_period: "yearly" },
+  }
   state.plans.push(plan)
   const sub = {
     ...state.subscriptions[0],
@@ -53,7 +59,11 @@ function leapYearly() {
 }
 
 function generate(start: string, end: string) {
-  return handlers["invoices.generate"].handler({ subscription_id: "sub_leap", period_start: start, period_end: end })
+  return handlers["invoices.generate"].handler({
+    subscription_id: "sub_leap",
+    period_start: start,
+    period_end: end,
+  })
 }
 
 describe("the fixture's named-period rule for a yearly plan created on 29 February", () => {
@@ -66,8 +76,10 @@ describe("the fixture's named-period rule for a yearly plan created on 29 Februa
 
   it("refuses the phantom period, 28 February 2024 to 28 February 2025, with the engine's text", () => {
     leapYearly()
-    expect(() => generate("2024-02-28T10:00:00Z", "2025-02-28T10:00:00Z")).toThrow(
-      "ledger: invalid input: subscription sub_leap had no billing period from 2024-02-28T10:00:00Z to 2025-02-28T10:00:00Z",
+    expect(() =>
+      generate("2024-02-28T10:00:00Z", "2025-02-28T10:00:00Z")
+    ).toThrow(
+      "ledger: invalid input: subscription sub_leap had no billing period from 2024-02-28T10:00:00Z to 2025-02-28T10:00:00Z"
     )
   })
 
@@ -80,16 +92,21 @@ describe("the fixture's named-period rule for a yearly plan created on 29 Februa
   it("does not widen the rule to a monthly plan, whose anchor the period itself recovers", () => {
     const sub = leapYearly()
     const state = fixture.ledgerState()
-    state.plans.find((p) => p.id === "plan_leap")!.pricing.billing_period = "monthly"
+    state.plans.find((p) => p.id === "plan_leap")!.pricing.billing_period =
+      "monthly"
     sub.created_at = "2026-01-31T10:00:00Z"
     sub.current_period_start = "2026-03-31T10:00:00Z"
     sub.current_period_end = "2026-04-30T10:00:00Z"
-    expect(generate("2026-02-28T10:00:00Z", "2026-03-31T10:00:00Z").period_end).toBe("2026-03-31T10:00:00Z")
+    expect(
+      generate("2026-02-28T10:00:00Z", "2026-03-31T10:00:00Z").period_end
+    ).toBe("2026-03-31T10:00:00Z")
   })
 })
 
 describe("the fixture's lifecycle clock", () => {
   it("reports itself off, because nothing here runs one", () => {
-    expect(handlers["settings.detail"].handler({}).lifecycle_interval).toBe("off")
+    expect(handlers["settings.detail"].handler({}).lifecycle_interval).toBe(
+      "off"
+    )
   })
 })

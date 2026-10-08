@@ -1,5 +1,10 @@
 import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
-import { PluginLink, useCommand, useNavigateTo, useQuery } from "@forge-go/dashboard-plugin"
+import {
+  PluginLink,
+  useCommand,
+  useNavigateTo,
+  useQuery,
+} from "@forge-go/dashboard-plugin"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
@@ -27,8 +32,17 @@ function FeatureEditBody({ id }: { id: string }) {
   const detail = useQuery<CatalogFeature>("features.detail", { id })
 
   // Data already on screen stays up while a write's invalidation refetches, so the form keeps what was typed.
-  if (detail.data !== undefined) return <FeatureEditView id={id} feature={detail.data} />
-  if (isNotFound(detail.error, "feature")) return <NotFoundState noun="feature" id={id} backTo="/features" backLabel="Back to features" />
+  if (detail.data !== undefined)
+    return <FeatureEditView id={id} feature={detail.data} />
+  if (isNotFound(detail.error, "feature"))
+    return (
+      <NotFoundState
+        noun="feature"
+        id={id}
+        backTo="/features"
+        backLabel="Back to features"
+      />
+    )
   return (
     <QueryBoundary title="Feature" query={detail} skeletonRows={4}>
       {(f) => <FeatureEditView id={id} feature={f} />}
@@ -36,7 +50,13 @@ function FeatureEditBody({ id }: { id: string }) {
   )
 }
 
-function FeatureEditView({ id, feature: f }: { id: string; feature: CatalogFeature }) {
+function FeatureEditView({
+  id,
+  feature: f,
+}: {
+  id: string
+  feature: CatalogFeature
+}) {
   const update = useCommand<CatalogFeature>("features.update")
   const navigate = useNavigateTo()
   const once = useInFlight()
@@ -47,7 +67,14 @@ function FeatureEditView({ id, feature: f }: { id: string; feature: CatalogFeatu
     // Key and type are fixed once a feature exists; they are never sent. Metadata
     // is never sent either: the engine keeps what an omitted field does not name.
     const result = await once(() =>
-      update.execute({ id, name: parsed.name, description: parsed.description, default_limit: parsed.default_limit, period: parsed.period, soft_limit: parsed.soft_limit }),
+      update.execute({
+        id,
+        name: parsed.name,
+        description: parsed.description,
+        default_limit: parsed.default_limit,
+        period: parsed.period,
+        soft_limit: parsed.soft_limit,
+      })
     )
     if (result === undefined) return
     navigate(featurePath(id))
@@ -63,9 +90,15 @@ function FeatureEditView({ id, feature: f }: { id: string; feature: CatalogFeatu
       ) : writes === "hide" ? (
         <div className="flex flex-col items-start gap-3">
           <p className="flex items-center gap-2 text-sm text-muted-foreground">
-            <SharedBadge /> Shared by every app on this server. It can be changed only with no app selected.
+            <SharedBadge /> Shared by every app on this server. It can be
+            changed only with no app selected.
           </p>
-          <IconButton label="Back to the feature" nativeButton={false} role="link" render={<PluginLink to={featurePath(id)} />} />
+          <IconButton
+            label="Back to the feature"
+            nativeButton={false}
+            role="link"
+            render={<PluginLink to={featurePath(id)} />}
+          />
         </div>
       ) : (
         <FeatureForm

@@ -27,9 +27,15 @@ export function ProgressMeter({
       aria-valuemax={total}
       aria-valuenow={done}
       aria-valuetext={`${done} of ${total}`}
-      className={cn("h-1.5 w-full min-w-16 overflow-hidden rounded-full bg-foreground/10", className)}
+      className={cn(
+        "h-1.5 w-full min-w-16 overflow-hidden rounded-full bg-foreground/10",
+        className
+      )}
     >
-      <div className="h-full rounded-full bg-foreground" style={{ width: `${ratio * 100}%` }} />
+      <div
+        className="h-full rounded-full bg-foreground"
+        style={{ width: `${ratio * 100}%` }}
+      />
     </div>
   )
 }

@@ -9,8 +9,14 @@ import type { ScopedClient } from "../src/client"
 
 const SETTINGS = ["settings.namespace", "settings.update"]
 
-function hostClient(query = vi.fn().mockResolvedValue({ fields: [] })): ScopedClient {
-  return { extension: "auth", query, command: vi.fn().mockResolvedValue({ ok: true }) }
+function hostClient(
+  query = vi.fn().mockResolvedValue({ fields: [] })
+): ScopedClient {
+  return {
+    extension: "auth",
+    query,
+    command: vi.fn().mockResolvedValue({ ok: true }),
+  }
 }
 
 function renderIn(intent: string, allowed: string[], client = hostClient()) {
@@ -23,7 +29,7 @@ function renderIn(intent: string, allowed: string[], client = hostClient()) {
   return render(
     <HostAccessProvider value={{ client, allowed, subExtension: "mfa" }}>
       <Probe />
-    </HostAccessProvider>,
+    </HostAccessProvider>
   )
 }
 
@@ -38,7 +44,11 @@ describe("useHostQuery", () => {
     queryStore.clear()
     const hostQuery = vi.fn().mockResolvedValue({ fields: [] })
     const subQuery = vi.fn().mockResolvedValue({ fields: [] })
-    const subClient: ScopedClient = { extension: "mfa", query: subQuery, command: vi.fn() }
+    const subClient: ScopedClient = {
+      extension: "mfa",
+      query: subQuery,
+      command: vi.fn(),
+    }
 
     const Probe = () => {
       useHostQuery("settings.namespace")
@@ -47,14 +57,20 @@ describe("useHostQuery", () => {
     render(
       <PluginProvider client={subClient}>
         <HostAccessProvider
-          value={{ client: hostClient(hostQuery), allowed: SETTINGS, subExtension: "mfa" }}
+          value={{
+            client: hostClient(hostQuery),
+            allowed: SETTINGS,
+            subExtension: "mfa",
+          }}
         >
           <Probe />
         </HostAccessProvider>
-      </PluginProvider>,
+      </PluginProvider>
     )
 
-    await waitFor(() => expect(hostQuery).toHaveBeenCalledWith("settings.namespace", undefined))
+    await waitFor(() =>
+      expect(hostQuery).toHaveBeenCalledWith("settings.namespace", undefined)
+    )
     // The sub-plugin's own client must not have seen this read. Without the
     // assertion below the test passes even if useHostQuery silently falls back
     // to whatever PluginProvider supplies, which is the exact bug it exists
@@ -84,11 +100,15 @@ describe("useHostQuery", () => {
     let calls = 0
     const query = vi.fn(() => {
       calls += 1
-      return calls === 1 ? new Promise(() => {}) : Promise.resolve({ fields: ["a"] })
+      return calls === 1
+        ? new Promise(() => {})
+        : Promise.resolve({ fields: ["a"] })
     })
 
     const Probe = () => {
-      const { data, refetch } = useHostQuery<{ fields: string[] }>("settings.namespace")
+      const { data, refetch } = useHostQuery<{ fields: string[] }>(
+        "settings.namespace"
+      )
       return (
         <>
           <p>fields {data?.fields.length ?? "none"}</p>
@@ -99,10 +119,14 @@ describe("useHostQuery", () => {
 
     render(
       <HostAccessProvider
-        value={{ client: hostClient(query), allowed: SETTINGS, subExtension: "mfa" }}
+        value={{
+          client: hostClient(query),
+          allowed: SETTINGS,
+          subExtension: "mfa",
+        }}
       >
         <Probe />
-      </HostAccessProvider>,
+      </HostAccessProvider>
     )
 
     // The first read never settles. A refetch must issue a second request

@@ -14,13 +14,18 @@ describe("EmptyState", () => {
     expect(screen.queryByText("Invite somebody to get started.")).toBeNull()
 
     rerender(
-      <EmptyState title="No users yet." description="Invite somebody to get started." />,
+      <EmptyState
+        title="No users yet."
+        description="Invite somebody to get started."
+      />
     )
     expect(screen.getByText("Invite somebody to get started.")).toBeTruthy()
   })
 
   it("renders the action it is handed", () => {
-    render(<EmptyState title="No users yet." action={<button>Invite</button>} />)
+    render(
+      <EmptyState title="No users yet." action={<button>Invite</button>} />
+    )
     expect(screen.getByRole("button", { name: "Invite" })).toBeTruthy()
   })
 })

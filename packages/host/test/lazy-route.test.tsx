@@ -13,7 +13,11 @@ import { MemoryRouter, Route, Routes, useParams } from "react-router"
  * graph canvas, at which point everyone pays for it on first paint whether
  * they open that page or not.
  */
-function RouteParamsLike({ page: Page }: { page: React.ComponentType<{ params: Record<string, string | undefined> }> }) {
+function RouteParamsLike({
+  page: Page,
+}: {
+  page: React.ComponentType<{ params: Record<string, string | undefined> }>
+}) {
   const params = useParams()
   return (
     <Suspense fallback={<p role="status">Loading…</p>}>
@@ -24,8 +28,16 @@ function RouteParamsLike({ page: Page }: { page: React.ComponentType<{ params: R
 
 describe("a lazily loaded plugin page", () => {
   it("shows a fallback, then the page, without throwing", async () => {
-    let resolvePage: (m: { default: React.ComponentType<{ params: Record<string, string | undefined> }> }) => void = () => {}
-    const pending = new Promise<{ default: React.ComponentType<{ params: Record<string, string | undefined> }> }>((r) => {
+    let resolvePage: (m: {
+      default: React.ComponentType<{
+        params: Record<string, string | undefined>
+      }>
+    }) => void = () => {}
+    const pending = new Promise<{
+      default: React.ComponentType<{
+        params: Record<string, string | undefined>
+      }>
+    }>((r) => {
       resolvePage = r
     })
     const LazyPage = lazy(() => pending)
@@ -33,9 +45,12 @@ describe("a lazily loaded plugin page", () => {
     render(
       <MemoryRouter initialEntries={["/policies/p1"]}>
         <Routes>
-          <Route path="/policies/:id" element={<RouteParamsLike page={LazyPage} />} />
+          <Route
+            path="/policies/:id"
+            element={<RouteParamsLike page={LazyPage} />}
+          />
         </Routes>
-      </MemoryRouter>,
+      </MemoryRouter>
     )
 
     // The chunk has not arrived. Before Suspense existed above the page this
@@ -56,15 +71,20 @@ describe("a lazily loaded plugin page", () => {
     // Suspense is transparent when nothing suspends, so wrapping every page
     // costs the ordinary ones nothing. Worth pinning: if this ever starts
     // deferring, every page in the dashboard gains a flash of spinner.
-    const Plain = ({ params }: { params: Record<string, string | undefined> }) => (
-      <p>plain {params.id}</p>
-    )
+    const Plain = ({
+      params,
+    }: {
+      params: Record<string, string | undefined>
+    }) => <p>plain {params.id}</p>
     render(
       <MemoryRouter initialEntries={["/policies/p2"]}>
         <Routes>
-          <Route path="/policies/:id" element={<RouteParamsLike page={Plain} />} />
+          <Route
+            path="/policies/:id"
+            element={<RouteParamsLike page={Plain} />}
+          />
         </Routes>
-      </MemoryRouter>,
+      </MemoryRouter>
     )
     expect(screen.getByText("plain p2")).toBeTruthy()
     expect(screen.queryByRole("status")).toBeNull()

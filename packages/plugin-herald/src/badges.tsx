@@ -45,7 +45,10 @@ import type { MessageStatus, Protection } from "./wire"
  * signal.
  */
 
-const STATUS_VARIANT: Record<MessageStatus, "outline" | "secondary" | "destructive"> = {
+const STATUS_VARIANT: Record<
+  MessageStatus,
+  "outline" | "secondary" | "destructive"
+> = {
   sent: "outline",
   sending: "secondary",
   suppressed: "secondary",
@@ -56,19 +59,35 @@ const STATUS_VARIANT: Record<MessageStatus, "outline" | "secondary" | "destructi
 }
 
 export function MessageStatusBadge({ status }: { status: MessageStatus }) {
-  return <Badge variant={STATUS_VARIANT[status] ?? "outline"}>{statusLabel(status)}</Badge>
+  return (
+    <Badge variant={STATUS_VARIANT[status] ?? "outline"}>
+      {statusLabel(status)}
+    </Badge>
+  )
 }
 
 export function EnabledBadge({ enabled }: { enabled: boolean }) {
-  return <Badge variant={enabled ? "outline" : "secondary"}>{enabled ? "Enabled" : "Disabled"}</Badge>
+  return (
+    <Badge variant={enabled ? "outline" : "secondary"}>
+      {enabled ? "Enabled" : "Disabled"}
+    </Badge>
+  )
 }
 
 export function ProtectionBadge({ protection }: { protection: Protection }) {
-  return protection === "aes-256-gcm" ? <Badge variant="outline">Encrypted</Badge> : <Badge variant="secondary">Plaintext</Badge>
+  return protection === "aes-256-gcm" ? (
+    <Badge variant="outline">Encrypted</Badge>
+  ) : (
+    <Badge variant="secondary">Plaintext</Badge>
+  )
 }
 
 export function VersionBadge({ active }: { active: boolean }) {
-  return <Badge variant={active ? "outline" : "secondary"}>{active ? "Live" : "Inactive"}</Badge>
+  return (
+    <Badge variant={active ? "outline" : "secondary"}>
+      {active ? "Live" : "Inactive"}
+    </Badge>
+  )
 }
 
 export function DanglingBadge() {

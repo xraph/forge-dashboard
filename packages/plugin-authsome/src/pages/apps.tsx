@@ -53,8 +53,18 @@ export function AuthAppsPage() {
   }
 
   const columns: Column<AppSummary>[] = [
-    { id: "name", header: "Name", cell: (a) => a.name, className: "font-medium" },
-    { id: "slug", header: "Slug", cell: (a) => a.slug, className: "font-mono text-xs" },
+    {
+      id: "name",
+      header: "Name",
+      cell: (a) => a.name,
+      className: "font-medium",
+    },
+    {
+      id: "slug",
+      header: "Slug",
+      cell: (a) => a.slug,
+      className: "font-mono text-xs",
+    },
     {
       id: "platform",
       header: "Platform",
@@ -64,7 +74,11 @@ export function AuthAppsPage() {
         </Badge>
       ),
     },
-    { id: "createdAt", header: "Created", cell: (a) => formatTimestamp(a.createdAt) },
+    {
+      id: "createdAt",
+      header: "Created",
+      cell: (a) => formatTimestamp(a.createdAt),
+    },
   ]
 
   return (
@@ -72,7 +86,10 @@ export function AuthAppsPage() {
       <PageHeader
         title="Apps"
         actions={
-          <PluginLink to="/apps/create" className="text-sm underline underline-offset-4">
+          <PluginLink
+            to="/apps/create"
+            className="text-sm underline underline-offset-4"
+          >
             New app
           </PluginLink>
         }

@@ -74,17 +74,19 @@ export function Rung({
       data-decided={decided ? "true" : undefined}
       className={cn(
         "ml-3 flex flex-col gap-2 border-l pb-6 pl-6 last:pb-0",
-        decided ? "border-l-2 border-primary" : "last:border-l-transparent",
+        decided ? "border-l-2 border-primary" : "last:border-l-transparent"
       )}
     >
-      {notice ? <p className="text-sm text-muted-foreground">{notice}</p> : null}
+      {notice ? (
+        <p className="text-sm text-muted-foreground">{notice}</p>
+      ) : null}
       <div
         data-slot="rung-body"
         className={cn("relative flex flex-col gap-2", muted && "opacity-60")}
       >
         <span
           aria-hidden="true"
-          className="absolute -left-[37px] top-0 flex size-6 items-center justify-center rounded-full border bg-background font-mono text-xs font-medium tabular-nums"
+          className="absolute top-0 -left-[37px] flex size-6 items-center justify-center rounded-full border bg-background font-mono text-xs font-medium tabular-nums"
         >
           {number}
         </span>
@@ -96,7 +98,9 @@ export function Rung({
               <span className="text-sm text-muted-foreground">{note}</span>
             ) : null}
           </div>
-          {actions ? <div className="flex items-center gap-2">{actions}</div> : null}
+          {actions ? (
+            <div className="flex items-center gap-2">{actions}</div>
+          ) : null}
         </div>
         {annotation ? (
           <div className="text-sm text-muted-foreground">{annotation}</div>
@@ -159,13 +163,13 @@ export function LadderRow({
       className={cn(
         "flex flex-wrap items-start gap-x-3 gap-y-1 rounded-md border px-3 py-2 text-sm",
         decided && "border-primary",
-        muted && "opacity-60",
+        muted && "opacity-60"
       )}
     >
       {hasLead ? (
         <span
           data-slot="row-lead"
-          className="w-5 shrink-0 font-mono text-xs font-medium tabular-nums text-muted-foreground"
+          className="w-5 shrink-0 font-mono text-xs font-medium text-muted-foreground tabular-nums"
         >
           {lead}
         </span>
@@ -184,7 +188,9 @@ export function LadderRow({
           {value}
         </div>
       ) : null}
-      {actions ? <div className="flex items-center gap-2">{actions}</div> : null}
+      {actions ? (
+        <div className="flex items-center gap-2">{actions}</div>
+      ) : null}
     </li>
   )
 }

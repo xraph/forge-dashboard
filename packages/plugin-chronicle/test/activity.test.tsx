@@ -5,9 +5,17 @@ import { ActivityPage } from "../src/pages/activity"
 import { renderPage, scriptedClient } from "./harness"
 
 const stats = {
-  totalEvents: 12431, criticalEvents: 21, failedEvents: 40, deniedEvents: 12, erasureCount: 2,
-  categories: [{ category: "auth", count: 5000 }, { category: "data", count: 7431 }],
-  severities: [{ severity: "info", count: 12000 }], outcomes: [{ outcome: "success", count: 12379 }],
+  totalEvents: 12431,
+  criticalEvents: 21,
+  failedEvents: 40,
+  deniedEvents: 12,
+  erasureCount: 2,
+  categories: [
+    { category: "auth", count: 5000 },
+    { category: "data", count: 7431 },
+  ],
+  severities: [{ severity: "info", count: 12000 }],
+  outcomes: [{ outcome: "success", count: 12379 }],
 }
 
 function client(over: Partial<Record<string, unknown>> = {}) {
@@ -15,7 +23,13 @@ function client(over: Partial<Record<string, unknown>> = {}) {
     "overview.stats": stats,
     "events.aggregate": (p) =>
       (p.groupBy as string[])[0] === "hour"
-        ? { groups: [{ bucket: "2026-09-28T02:00:00Z", count: 4 }, { bucket: "2026-09-28T04:00:00Z", count: 2 }], total: 6 }
+        ? {
+            groups: [
+              { bucket: "2026-09-28T02:00:00Z", count: 4 },
+              { bucket: "2026-09-28T04:00:00Z", count: 2 },
+            ],
+            total: 6,
+          }
         : { groups: [{ bucket: "2026-09-28", count: 6 }], total: 6 },
     ...over,
   })
@@ -27,7 +41,7 @@ function renderAt(c: ReturnType<typeof client>) {
   return render(
     <PluginProvider client={c.client}>
       <ActivityPage params={{}} now={NOW} />
-    </PluginProvider>,
+    </PluginProvider>
   )
 }
 
@@ -52,15 +66,25 @@ describe("ActivityPage", () => {
 
   it("states each breakdown's numbers in the chart's own label, sorted by count", async () => {
     renderPage(ActivityPage, client().client)
-    expect(await screen.findByRole("img", { name: "By category: data 7,431, auth 5,000" })).toBeTruthy()
-    expect(screen.getByRole("img", { name: "By severity: info 12,000" })).toBeTruthy()
-    expect(screen.getByRole("img", { name: "By outcome: success 12,379" })).toBeTruthy()
+    expect(
+      await screen.findByRole("img", {
+        name: "By category: data 7,431, auth 5,000",
+      })
+    ).toBeTruthy()
+    expect(
+      screen.getByRole("img", { name: "By severity: info 12,000" })
+    ).toBeTruthy()
+    expect(
+      screen.getByRole("img", { name: "By outcome: success 12,379" })
+    ).toBeTruthy()
   })
 
   it("asks for volume by day over the last 30 days by default", async () => {
     const c = client()
     renderPage(ActivityPage, c.client)
-    await waitFor(() => expect(c.queried.some((q) => q.intent === "events.aggregate")).toBe(true))
+    await waitFor(() =>
+      expect(c.queried.some((q) => q.intent === "events.aggregate")).toBe(true)
+    )
     const p = c.queried.find((q) => q.intent === "events.aggregate")!.params
     expect(p.groupBy).toEqual(["day"])
     expect(typeof p.after).toBe("string")
@@ -70,8 +94,14 @@ describe("ActivityPage", () => {
     const c = client()
     renderAt(c)
     fireEvent.click(await screen.findByRole("button", { name: "By hour" }))
-    await waitFor(() => expect(c.queried.some((q) => (q.params.groupBy as string[])?.[0] === "hour")).toBe(true))
-    const p = c.queried.find((q) => (q.params.groupBy as string[])?.[0] === "hour")!.params
+    await waitFor(() =>
+      expect(
+        c.queried.some((q) => (q.params.groupBy as string[])?.[0] === "hour")
+      ).toBe(true)
+    )
+    const p = c.queried.find(
+      (q) => (q.params.groupBy as string[])?.[0] === "hour"
+    )!.params
     expect(p.after).toBe("2026-09-26T05:00:00.000Z")
   })
 
@@ -80,11 +110,17 @@ describe("ActivityPage", () => {
     render(
       <PluginProvider client={c.client}>
         <ActivityPage params={{}} now={new Date("2026-09-28T05:30:00Z")} />
-      </PluginProvider>,
+      </PluginProvider>
     )
     fireEvent.click(await screen.findByRole("button", { name: "By hour" }))
-    await waitFor(() => expect(c.queried.some((q) => (q.params.groupBy as string[])?.[0] === "hour")).toBe(true))
-    const p = c.queried.find((q) => (q.params.groupBy as string[])?.[0] === "hour")!.params
+    await waitFor(() =>
+      expect(
+        c.queried.some((q) => (q.params.groupBy as string[])?.[0] === "hour")
+      ).toBe(true)
+    )
+    const p = c.queried.find(
+      (q) => (q.params.groupBy as string[])?.[0] === "hour"
+    )!.params
     expect(p.after).toBe("2026-09-26T05:00:00.000Z")
   })
 
@@ -101,10 +137,15 @@ describe("ActivityPage", () => {
 
   it("names an empty day", async () => {
     const full = client({
-      "events.aggregate": { groups: [{ bucket: "2026-09-28", count: 6 }], total: 6 },
+      "events.aggregate": {
+        groups: [{ bucket: "2026-09-28", count: 6 }],
+        total: 6,
+      },
     })
     renderAt(full)
-    expect((await screen.findByText(/Nothing was recorded in/)).textContent).toMatch(/of these days/)
+    expect(
+      (await screen.findByText(/Nothing was recorded in/)).textContent
+    ).toMatch(/of these days/)
   })
 
   it("says nothing about empty days when every day in range holds events", async () => {
@@ -115,7 +156,11 @@ describe("ActivityPage", () => {
     }))
     const c = client({ "events.aggregate": { groups, total: 31 } })
     renderAt(c)
-    await waitFor(() => expect(screen.getByRole("img", { name: /^Events per day: 29 Aug 1, 30 Aug 1/ })).toBeTruthy())
+    await waitFor(() =>
+      expect(
+        screen.getByRole("img", { name: /^Events per day: 29 Aug 1, 30 Aug 1/ })
+      ).toBeTruthy()
+    )
     expect(screen.queryByText(/Nothing was recorded in/)).toBeNull()
   })
 
@@ -124,10 +169,14 @@ describe("ActivityPage", () => {
     render(
       <PluginProvider client={c.client}>
         <ActivityPage params={{}} now={new Date("2026-09-28T05:30:00Z")} />
-      </PluginProvider>,
+      </PluginProvider>
     )
-    await waitFor(() => expect(c.queried.some((q) => q.intent === "events.aggregate")).toBe(true))
-    expect(c.queried.find((q) => q.intent === "events.aggregate")!.params.after).toBe("2026-08-29T00:00:00.000Z")
+    await waitFor(() =>
+      expect(c.queried.some((q) => q.intent === "events.aggregate")).toBe(true)
+    )
+    expect(
+      c.queried.find((q) => q.intent === "events.aggregate")!.params.after
+    ).toBe("2026-08-29T00:00:00.000Z")
   })
 
   it("says so when the period holds no events, instead of drawing an empty plot", async () => {

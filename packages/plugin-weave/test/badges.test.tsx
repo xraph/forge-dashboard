@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest"
 import { render, screen } from "@testing-library/react"
 import { Badge } from "@forge-go/dashboard-kit/components/badge"
-import { DocumentStateBadge, DocumentStateCell, StalledMarker } from "../src/badges"
+import {
+  DocumentStateBadge,
+  DocumentStateCell,
+  StalledMarker,
+} from "../src/badges"
 
 type Variant = "default" | "secondary" | "destructive" | "outline"
 
@@ -43,10 +47,18 @@ describe("StalledMarker", () => {
 describe("DocumentStateCell", () => {
   it("adds the marker only to a row the server calls stalled", () => {
     const old = "2020-01-01T00:00:00Z"
-    const { unmount } = render(<DocumentStateCell doc={{ state: "processing", stalled: false, updated_at: old }} />)
+    const { unmount } = render(
+      <DocumentStateCell
+        doc={{ state: "processing", stalled: false, updated_at: old }}
+      />
+    )
     expect(screen.queryByText(/no update for/)).toBeNull()
     unmount()
-    render(<DocumentStateCell doc={{ state: "processing", stalled: true, updated_at: old }} />)
+    render(
+      <DocumentStateCell
+        doc={{ state: "processing", stalled: true, updated_at: old }}
+      />
+    )
     expect(screen.getByText("processing")).toBeTruthy()
     expect(screen.getByText(/no update for \d+ d/)).toBeTruthy()
   })

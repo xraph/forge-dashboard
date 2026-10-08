@@ -3,51 +3,86 @@ import { fireEvent, screen, waitFor } from "@testing-library/react"
 import { ContractError } from "@forge-go/dashboard-plugin"
 import { LedgerFeatureCreatePage } from "../src/pages/feature-create"
 import { LedgerFeatureEditPage } from "../src/pages/feature-edit"
-import { emptyFeatureForm, featureToForm, parseFeatureForm } from "../src/pages/feature-form"
+import {
+  emptyFeatureForm,
+  featureToForm,
+  parseFeatureForm,
+} from "../src/pages/feature-form"
 import { renderWithNavigation, scriptedClient } from "./harness"
 import { aCatalogFeature } from "./fixtures"
 
-const fill = (label: string, value: string) => fireEvent.change(screen.getByLabelText(label), { target: { value } })
+const fill = (label: string, value: string) =>
+  fireEvent.change(screen.getByLabelText(label), { target: { value } })
 
 describe("LedgerFeatureCreatePage", () => {
   it("sends the contract's fields and lands on the new feature", async () => {
-    const { client, sent } = scriptedClient({}, { "features.create": aCatalogFeature({ id: "feat_new" }) })
+    const { client, sent } = scriptedClient(
+      {},
+      { "features.create": aCatalogFeature({ id: "feat_new" }) }
+    )
     const { navigate } = renderWithNavigation(LedgerFeatureCreatePage, client)
     fill("Key", " exports ")
     fill("Name", "Exports")
-    fireEvent.change(screen.getByLabelText("Type"), { target: { value: "boolean" } })
+    fireEvent.change(screen.getByLabelText("Type"), {
+      target: { value: "boolean" },
+    })
     fill("Default limit", "1")
-    fireEvent.change(screen.getByLabelText("Resets"), { target: { value: "none" } })
+    fireEvent.change(screen.getByLabelText("Resets"), {
+      target: { value: "none" },
+    })
     fireEvent.click(screen.getByRole("button", { name: "Create feature" }))
-    await waitFor(() => expect(navigate).toHaveBeenCalledWith("/features/feat_new"))
+    await waitFor(() =>
+      expect(navigate).toHaveBeenCalledWith("/features/feat_new")
+    )
     expect(sent[0]).toEqual({
       intent: "features.create",
-      payload: { key: "exports", name: "Exports", description: "", type: "boolean", default_limit: 1, period: "none", soft_limit: false },
+      payload: {
+        key: "exports",
+        name: "Exports",
+        description: "",
+        type: "boolean",
+        default_limit: 1,
+        period: "none",
+        soft_limit: false,
+      },
     })
   })
 
   it("sends -1 for an unlimited default", async () => {
-    const { client, sent } = scriptedClient({}, { "features.create": aCatalogFeature({ id: "feat_new" }) })
+    const { client, sent } = scriptedClient(
+      {},
+      { "features.create": aCatalogFeature({ id: "feat_new" }) }
+    )
     renderWithNavigation(LedgerFeatureCreatePage, client)
     fill("Key", "seats")
     fireEvent.click(screen.getByLabelText("Unlimited"))
     fireEvent.click(screen.getByRole("button", { name: "Create feature" }))
     await waitFor(() => expect(sent).toHaveLength(1))
-    expect((sent[0].payload as { default_limit: number }).default_limit).toBe(-1)
+    expect((sent[0].payload as { default_limit: number }).default_limit).toBe(
+      -1
+    )
   })
 
   it("keeps the input when the key is taken", async () => {
     const message = 'feature key "seats" already exists in this app'
-    const { client } = scriptedClient({}, { "features.create": new ContractError("CONFLICT", message) })
+    const { client } = scriptedClient(
+      {},
+      { "features.create": new ContractError("CONFLICT", message) }
+    )
     renderWithNavigation(LedgerFeatureCreatePage, client)
     fill("Key", "seats")
     fireEvent.click(screen.getByRole("button", { name: "Create feature" }))
     expect(await screen.findByText(message)).toBeTruthy()
-    expect((screen.getByLabelText("Key") as HTMLInputElement).value).toBe("seats")
+    expect((screen.getByLabelText("Key") as HTMLInputElement).value).toBe(
+      "seats"
+    )
   })
 
   it("refuses a missing key and a bad limit before sending anything", async () => {
-    const { client, sent } = scriptedClient({}, { "features.create": aCatalogFeature() })
+    const { client, sent } = scriptedClient(
+      {},
+      { "features.create": aCatalogFeature() }
+    )
     renderWithNavigation(LedgerFeatureCreatePage, client)
     fireEvent.click(screen.getByRole("button", { name: "Create feature" }))
     expect(await screen.findByText("Key is required.")).toBeTruthy()
@@ -62,10 +97,14 @@ describe("LedgerFeatureCreatePage", () => {
     const { client } = scriptedClient({})
     renderWithNavigation(LedgerFeatureCreatePage, client)
     expect(screen.getByLabelText("Unlimited")).toBeTruthy()
-    fireEvent.change(screen.getByLabelText("Type"), { target: { value: "boolean" } })
+    fireEvent.change(screen.getByLabelText("Type"), {
+      target: { value: "boolean" },
+    })
     expect(screen.queryByLabelText("Unlimited")).toBeNull()
     // Switching to on-or-off starts it included, as the engine's own dashboard does.
-    expect((screen.getByLabelText("Default limit") as HTMLInputElement).value).toBe("1")
+    expect(
+      (screen.getByLabelText("Default limit") as HTMLInputElement).value
+    ).toBe("1")
   })
 })
 
@@ -73,27 +112,43 @@ describe("FeatureForm accessibility", () => {
   it("ties the limit input to its help text and focuses the problems after a failed submit", async () => {
     const { client } = scriptedClient({})
     renderWithNavigation(LedgerFeatureCreatePage, client)
-    expect(screen.getByLabelText("Key").getAttribute("aria-describedby")).toBe("feature-key-help")
-    fireEvent.change(screen.getByLabelText("Type"), { target: { value: "boolean" } })
+    expect(screen.getByLabelText("Key").getAttribute("aria-describedby")).toBe(
+      "feature-key-help"
+    )
+    fireEvent.change(screen.getByLabelText("Type"), {
+      target: { value: "boolean" },
+    })
     const limit = screen.getByLabelText("Default limit")
     const helpId = limit.getAttribute("aria-describedby")
     expect(helpId).toBeTruthy()
-    expect(document.getElementById(helpId!)?.textContent).toMatch(/1 or more includes the feature/)
+    expect(document.getElementById(helpId!)?.textContent).toMatch(
+      /1 or more includes the feature/
+    )
     fireEvent.click(screen.getByRole("button", { name: "Create feature" }))
     const alert = await screen.findByText("Key is required.")
-    await waitFor(() => expect(document.activeElement).toBe(alert.closest('[role="alert"]')))
+    await waitFor(() =>
+      expect(document.activeElement).toBe(alert.closest('[role="alert"]'))
+    )
   })
 })
 
 describe("parseFeatureForm", () => {
   it("drops unlimited for a boolean feature and keeps the typed limit", () => {
-    const v = { ...emptyFeatureForm(), key: "sso", type: "boolean" as const, unlimited: true, limit: "0" }
+    const v = {
+      ...emptyFeatureForm(),
+      key: "sso",
+      type: "boolean" as const,
+      unlimited: true,
+      limit: "0",
+    }
     const parsed = parseFeatureForm(v, "create")
     expect(parsed.ok && parsed.value.default_limit).toBe(0)
   })
 
   it("reads a stored -1 on a boolean feature as not included rather than unlimited", () => {
-    const form = featureToForm(aCatalogFeature({ type: "boolean", default_limit: -1 }))
+    const form = featureToForm(
+      aCatalogFeature({ type: "boolean", default_limit: -1 })
+    )
     expect(form.unlimited).toBe(false)
     expect(form.limit).toBe("0")
   })
@@ -101,14 +156,21 @@ describe("parseFeatureForm", () => {
 
 describe("LedgerFeatureEditPage", () => {
   it("sends only the fields that may change", async () => {
-    const { client, sent } = scriptedClient({ "features.detail": aCatalogFeature() }, { "features.update": aCatalogFeature() })
-    const { navigate } = renderWithNavigation(LedgerFeatureEditPage, client, { id: "feat_api_calls" })
+    const { client, sent } = scriptedClient(
+      { "features.detail": aCatalogFeature() },
+      { "features.update": aCatalogFeature() }
+    )
+    const { navigate } = renderWithNavigation(LedgerFeatureEditPage, client, {
+      id: "feat_api_calls",
+    })
     await screen.findByDisplayValue("API calls")
     expect(screen.queryByLabelText("Key")).toBeNull()
     expect(screen.getByText("api_calls")).toBeTruthy()
     fill("Default limit", "20000")
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }))
-    await waitFor(() => expect(navigate).toHaveBeenCalledWith("/features/feat_api_calls"))
+    await waitFor(() =>
+      expect(navigate).toHaveBeenCalledWith("/features/feat_api_calls")
+    )
     expect(sent[0].payload).toEqual({
       id: "feat_api_calls",
       name: "API calls",
@@ -121,7 +183,10 @@ describe("LedgerFeatureEditPage", () => {
 
   it("leaves metadata alone: the update binder keeps what an omitted field does not name", async () => {
     const stored = aCatalogFeature({ metadata: { tier: "gold" } })
-    const { client, sent } = scriptedClient({ "features.detail": stored }, { "features.update": stored })
+    const { client, sent } = scriptedClient(
+      { "features.detail": stored },
+      { "features.update": stored }
+    )
     renderWithNavigation(LedgerFeatureEditPage, client, { id: stored.id })
     await screen.findByDisplayValue("API calls")
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }))
@@ -135,20 +200,33 @@ describe("LedgerFeatureEditPage", () => {
   })
 
   it("says so when the feature does not exist", async () => {
-    const { client } = scriptedClient({ "features.detail": new ContractError("NOT_FOUND", "feature not found") })
+    const { client } = scriptedClient({
+      "features.detail": new ContractError("NOT_FOUND", "feature not found"),
+    })
     renderWithNavigation(LedgerFeatureEditPage, client, { id: "feat_gone" })
-    expect(await screen.findByText("No feature with the id feat_gone.")).toBeTruthy()
+    expect(
+      await screen.findByText("No feature with the id feat_gone.")
+    ).toBeTruthy()
   })
 
   it("shows a refused save and keeps the form", async () => {
     const { client } = scriptedClient(
       { "features.detail": aCatalogFeature() },
-      { "features.update": new ContractError("BAD_REQUEST", "default_limit -2 is below -1; use -1 for unlimited") },
+      {
+        "features.update": new ContractError(
+          "BAD_REQUEST",
+          "default_limit -2 is below -1; use -1 for unlimited"
+        ),
+      }
     )
-    renderWithNavigation(LedgerFeatureEditPage, client, { id: "feat_api_calls" })
+    renderWithNavigation(LedgerFeatureEditPage, client, {
+      id: "feat_api_calls",
+    })
     await screen.findByDisplayValue("API calls")
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }))
     expect(await screen.findByText(/below -1/)).toBeTruthy()
-    expect((screen.getByLabelText("Name") as HTMLInputElement).value).toBe("API calls")
+    expect((screen.getByLabelText("Name") as HTMLInputElement).value).toBe(
+      "API calls"
+    )
   })
 })

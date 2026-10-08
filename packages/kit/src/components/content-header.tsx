@@ -23,18 +23,33 @@ export function ContentHeader({
       {showTrigger ? (
         <>
           <SidebarTrigger className="-ml-1" />
-          <Separator orientation="vertical" className="mx-1 h-4 data-vertical:self-auto" />
+          <Separator
+            orientation="vertical"
+            className="mx-1 h-4 data-vertical:self-auto"
+          />
         </>
       ) : null}
-      <nav aria-label="Breadcrumb" className="flex min-w-0 items-center gap-2 text-sm">
+      <nav
+        aria-label="Breadcrumb"
+        className="flex min-w-0 items-center gap-2 text-sm"
+      >
         {crumbs.map((crumb, index) => {
           const last = index === crumbs.length - 1
           return (
             <Fragment key={`${index}:${crumb}`}>
-              {index > 0 ? <ChevronRightIcon aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" /> : null}
+              {index > 0 ? (
+                <ChevronRightIcon
+                  aria-hidden="true"
+                  className="size-4 shrink-0 text-muted-foreground"
+                />
+              ) : null}
               <span
                 aria-current={last ? "page" : undefined}
-                className={last ? "truncate font-medium" : "shrink-0 text-muted-foreground"}
+                className={
+                  last
+                    ? "truncate font-medium"
+                    : "shrink-0 text-muted-foreground"
+                }
               >
                 {crumb}
               </span>
@@ -42,7 +57,11 @@ export function ContentHeader({
           )
         })}
       </nav>
-      {actions ? <div className="ml-auto flex shrink-0 items-center gap-2">{actions}</div> : null}
+      {actions ? (
+        <div className="ml-auto flex shrink-0 items-center gap-2">
+          {actions}
+        </div>
+      ) : null}
     </header>
   )
 }

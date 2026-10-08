@@ -78,9 +78,9 @@ describe("SecretCreatePage", () => {
     expect(value.type).toBe("password")
     expect(value.getAttribute("autocomplete")).toBe("new-password")
     expect(value.getAttribute("spellcheck")).toBe("false")
-    expect((screen.getByLabelText("Key") as HTMLInputElement).className).toMatch(
-      /font-mono/
-    )
+    expect(
+      (screen.getByLabelText("Key") as HTMLInputElement).className
+    ).toMatch(/font-mono/)
   })
 
   it("says the value cannot be shown again", () => {
@@ -94,7 +94,9 @@ describe("SecretCreatePage", () => {
     renderCreate(client)
     expect(submitButton().disabled).toBe(true)
     fireEvent.change(screen.getByLabelText("Key"), { target: { value: "   " } })
-    fireEvent.change(screen.getByLabelText("Value"), { target: { value: CANARY } })
+    fireEvent.change(screen.getByLabelText("Value"), {
+      target: { value: CANARY },
+    })
     expect(submitButton().disabled).toBe(true)
     fireEvent.change(screen.getByLabelText("Key"), { target: { value: "k" } })
     expect(submitButton().disabled).toBe(false)
@@ -110,8 +112,14 @@ describe("SecretCreatePage", () => {
     fireEvent.click(submitButton())
     await waitFor(() => expect(sent).toHaveLength(1))
     expect(sent[0]?.intent).toBe("secrets.create")
-    expect(sent[0]?.payload).toEqual({ key: "db/primary.password", value: CANARY })
-    expect(Object.keys(sent[0]?.payload as object).sort()).toEqual(["key", "value"])
+    expect(sent[0]?.payload).toEqual({
+      key: "db/primary.password",
+      value: CANARY,
+    })
+    expect(Object.keys(sent[0]?.payload as object).sort()).toEqual([
+      "key",
+      "value",
+    ])
   })
 
   it("sends expiresAt as RFC3339 UTC when an expiry is set", async () => {
@@ -155,12 +163,16 @@ describe("SecretCreatePage", () => {
     renderCreate(client)
     fill("k", CANARY)
     // The live property holds it; the markup does not.
-    expect((screen.getByLabelText("Value") as HTMLInputElement).value).toBe(CANARY)
+    expect((screen.getByLabelText("Value") as HTMLInputElement).value).toBe(
+      CANARY
+    )
     expectValueNotInMarkup()
   })
 
   it("keeps key, expiry and value and shows the alert when the client throws", async () => {
-    const failing = failingClient(new ContractError("INTERNAL", "vault is unavailable"))
+    const failing = failingClient(
+      new ContractError("INTERNAL", "vault is unavailable")
+    )
     const { navigate } = renderCreate(failing)
     const local = "2099-01-02T03:04"
     fill("db/primary.password", CANARY, local)
@@ -171,8 +183,12 @@ describe("SecretCreatePage", () => {
     expect((screen.getByLabelText("Key") as HTMLInputElement).value).toBe(
       "db/primary.password"
     )
-    expect((screen.getByLabelText(/Expires/) as HTMLInputElement).value).toBe(local)
-    expect((screen.getByLabelText("Value") as HTMLInputElement).value).toBe(CANARY)
+    expect((screen.getByLabelText(/Expires/) as HTMLInputElement).value).toBe(
+      local
+    )
+    expect((screen.getByLabelText("Value") as HTMLInputElement).value).toBe(
+      CANARY
+    )
     expectValueNotInMarkup()
     // Retry is possible.
     expect(submitButton().disabled).toBe(false)
@@ -202,7 +218,9 @@ describe("SecretCreatePage", () => {
     fill("db/primary.password", CANARY)
     fireEvent.click(submitButton())
     await screen.findByRole("alert")
-    fireEvent.change(screen.getByLabelText("Key"), { target: { value: "db/typo" } })
+    fireEvent.change(screen.getByLabelText("Key"), {
+      target: { value: "db/typo" },
+    })
     const link = screen.getByRole("link", { name: "Open the existing secret" })
     expect(link.getAttribute("href")).toBe(secretPath("db/primary.password"))
     const alert = screen.getByRole("alert")
@@ -216,7 +234,9 @@ describe("SecretCreatePage", () => {
     fill("k", CANARY)
     fireEvent.click(submitButton())
     await screen.findByText("boom")
-    expect(screen.queryByRole("link", { name: "Open the existing secret" })).toBeNull()
+    expect(
+      screen.queryByRole("link", { name: "Open the existing secret" })
+    ).toBeNull()
   })
 
   it("blocks a past expiry with a message and sends nothing", async () => {

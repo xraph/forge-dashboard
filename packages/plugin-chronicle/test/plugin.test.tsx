@@ -52,14 +52,25 @@ describe("chroniclePlugin", () => {
     // other test would catch, because nav and routes are independent lists.
     const paths = new Set(chroniclePlugin.routes.map((r) => r.path))
     for (const item of chroniclePlugin.nav ?? []) {
-      expect(paths, `nav "${item.label}" points at ${item.to}`).toContain(item.to)
+      expect(paths, `nav "${item.label}" points at ${item.to}`).toContain(
+        item.to
+      )
     }
   })
 
   it("serves retention's four pages, with policies and archives under their own section", () => {
     const paths = chroniclePlugin.routes.map((r) => r.path)
-    expect(paths).toEqual(expect.arrayContaining(["/retention", "/new-policy", "/retention/:id", "/archives"]))
-    const retention = (chroniclePlugin.nav ?? []).filter((n) => n.group === "Retention")
+    expect(paths).toEqual(
+      expect.arrayContaining([
+        "/retention",
+        "/new-policy",
+        "/retention/:id",
+        "/archives",
+      ])
+    )
+    const retention = (chroniclePlugin.nav ?? []).filter(
+      (n) => n.group === "Retention"
+    )
     expect(retention.map((n) => [n.label, n.to, n.priority])).toEqual([
       ["Policies", "/retention", 60],
       ["Archives", "/archives", 70],
@@ -68,8 +79,17 @@ describe("chroniclePlugin", () => {
 
   it("serves compliance reports: the list, a report, and both forms, under Compliance ahead of erasures", () => {
     const paths = chroniclePlugin.routes.map((r) => r.path)
-    expect(paths).toEqual(expect.arrayContaining(["/reports", "/reports/:id", "/new-report", "/new-custom-report"]))
-    const compliance = (chroniclePlugin.nav ?? []).filter((n) => n.group === "Compliance")
+    expect(paths).toEqual(
+      expect.arrayContaining([
+        "/reports",
+        "/reports/:id",
+        "/new-report",
+        "/new-custom-report",
+      ])
+    )
+    const compliance = (chroniclePlugin.nav ?? []).filter(
+      (n) => n.group === "Compliance"
+    )
     expect(compliance.map((n) => [n.label, n.to, n.priority])).toEqual([
       ["Reports", "/reports", 40],
       ["Erasures", "/erasures", 50],
@@ -80,15 +100,25 @@ describe("chroniclePlugin", () => {
     const allowed = ["Integrity", "Log", "Compliance", "Retention", "Settings"]
     for (const item of chroniclePlugin.nav ?? []) {
       expect(item.group, `nav "${item.label}" has no group`).toBeTruthy()
-      expect(allowed, `nav "${item.label}" is in group "${item.group}"`).toContain(item.group)
+      expect(
+        allowed,
+        `nav "${item.label}" is in group "${item.group}"`
+      ).toContain(item.group)
     }
   })
 
   it("draws no check mark in the nav, which would read as a pass on a chain nobody verified", () => {
-    const { container } = render(<>{chroniclePlugin.nav!.map((n) => <span key={n.to}>{n.icon}</span>)}</>)
-    const classes = [...container.querySelectorAll("svg")].map((svg) => svg.getAttribute("class") ?? "")
+    const { container } = render(
+      <>
+        {chroniclePlugin.nav!.map((n) => (
+          <span key={n.to}>{n.icon}</span>
+        ))}
+      </>
+    )
+    const classes = [...container.querySelectorAll("svg")].map(
+      (svg) => svg.getAttribute("class") ?? ""
+    )
     expect(classes).toHaveLength(chroniclePlugin.nav!.length)
     expect(classes.filter((c) => /check/.test(c))).toEqual([])
   })
 })
-

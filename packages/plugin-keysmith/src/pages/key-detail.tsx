@@ -69,7 +69,7 @@ const UsageChart = lazy(() =>
         <m.UsageChart buckets={buckets} period={period} compact />
       ),
     }))
-    .catch(() => ({ default: ChartUnavailable })),
+    .catch(() => ({ default: ChartUnavailable }))
 )
 
 /**
@@ -263,11 +263,17 @@ function isPast(at: string | undefined): boolean {
 function previousMasked(data: KeyDetail): string[] {
   const { key } = data
   return (data.previousKeys ?? []).map((p) =>
-    maskedKey({ prefix: key.prefix, environment: key.environment, hint: p.hint })
+    maskedKey({
+      prefix: key.prefix,
+      environment: key.environment,
+      hint: p.hint,
+    })
   )
 }
 
-function isNoSuchKey(error: { code: string; message: string } | undefined | null): boolean {
+function isNoSuchKey(
+  error: { code: string; message: string } | undefined | null
+): boolean {
   if (!error) return false
   if (error.code === "NOT_FOUND") return /key not found/i.test(error.message)
   if (error.code === "BAD_REQUEST") {
@@ -327,7 +333,8 @@ function KeyDetailView({
     (key.effectiveState === "active" || key.effectiveState === "suspended") &&
     !isPast(key.expiresAt)
   const offer = stateActionsFor(key)
-  const anyAction = rotatable || offer.suspend || offer.reactivate || offer.revoke
+  const anyAction =
+    rotatable || offer.suspend || offer.reactivate || offer.revoke
 
   return (
     <section className="flex flex-col gap-6">
@@ -338,7 +345,9 @@ function KeyDetailView({
           actions={
             anyAction ? (
               <>
-                {rotatable && <IconButton onClick={onRotate} label="Rotate key" />}
+                {rotatable && (
+                  <IconButton onClick={onRotate} label="Rotate key" />
+                )}
                 <KeyStateActions
                   summary={key}
                   onSuspend={onSuspend}
@@ -366,7 +375,9 @@ function KeyDetailView({
         </div>
         {expiredUnmarked && (
           <p className="text-sm text-muted-foreground">
-            {key.expiresAt ? `Expired on ${formatTimestamp(key.expiresAt)}.` : "Expired."}{" "}
+            {key.expiresAt
+              ? `Expired on ${formatTimestamp(key.expiresAt)}.`
+              : "Expired."}{" "}
             Keysmith marks expiry when the key is next used, so its recorded
             state is still active.
           </p>
@@ -639,8 +650,14 @@ function DetailsSection({ data }: { data: KeyDetail }) {
     <Section title="Details">
       <DescriptionList
         items={[
-          { term: "ID", value: <span className="font-mono text-xs">{key.id}</span> },
-          { term: "Prefix", value: <span className="font-mono text-xs">{key.prefix}</span> },
+          {
+            term: "ID",
+            value: <span className="font-mono text-xs">{key.id}</span>,
+          },
+          {
+            term: "Prefix",
+            value: <span className="font-mono text-xs">{key.prefix}</span>,
+          },
           { term: "Environment", value: key.environment },
           {
             term: "Created by",
@@ -650,12 +667,30 @@ function DetailsSection({ data }: { data: KeyDetail }) {
               <NoneCell label="creator" />
             ),
           },
-          { term: "Created", value: <Timestamp value={key.createdAt} label="creation time" /> },
-          { term: "Updated", value: <Timestamp value={key.updatedAt} label="update time" /> },
-          { term: "Last used", value: <Timestamp value={key.lastUsedAt} label="recorded use" /> },
-          { term: "Expires", value: <Timestamp value={key.expiresAt} label="expiry" /> },
-          { term: "Rotated", value: <Timestamp value={key.rotatedAt} label="rotation" /> },
-          { term: "Revoked", value: <Timestamp value={key.revokedAt} label="revocation" /> },
+          {
+            term: "Created",
+            value: <Timestamp value={key.createdAt} label="creation time" />,
+          },
+          {
+            term: "Updated",
+            value: <Timestamp value={key.updatedAt} label="update time" />,
+          },
+          {
+            term: "Last used",
+            value: <Timestamp value={key.lastUsedAt} label="recorded use" />,
+          },
+          {
+            term: "Expires",
+            value: <Timestamp value={key.expiresAt} label="expiry" />,
+          },
+          {
+            term: "Rotated",
+            value: <Timestamp value={key.rotatedAt} label="rotation" />,
+          },
+          {
+            term: "Revoked",
+            value: <Timestamp value={key.revokedAt} label="revocation" />,
+          },
         ]}
       />
     </Section>
@@ -695,7 +730,11 @@ function PolicySection({
           items={[
             {
               term: "Name",
-              value: <PluginLink to={policyPath(policy.id)}>{policy.name}</PluginLink>,
+              value: (
+                <PluginLink to={policyPath(policy.id)}>
+                  {policy.name}
+                </PluginLink>
+              ),
             },
             {
               term: "Max lifetime",
@@ -721,7 +760,7 @@ function PolicySection({
 
 function MetadataSection({ metadata }: { metadata: KeyDetail["metadata"] }) {
   const entries = Object.entries(metadata ?? {}).sort(([a], [b]) =>
-    a.localeCompare(b),
+    a.localeCompare(b)
   )
   return (
     <Section title="Metadata">

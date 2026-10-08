@@ -45,7 +45,10 @@ export function WardenOverviewPage() {
 
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="text-sm font-medium">Recent checks</h2>
-        <PluginLink to="/check-log" className="text-sm underline underline-offset-4">
+        <PluginLink
+          to="/check-log"
+          className="text-sm underline underline-offset-4"
+        >
           View the check log
         </PluginLink>
       </div>

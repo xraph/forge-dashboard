@@ -23,30 +23,36 @@ describe("PluginLink", () => {
   })
 
   it("accepts children supplied by a composed control", () => {
-    render(cloneElement(<PluginLink to="/routes/example/edit" />, {
-      "aria-label": "Edit route",
-      children: <svg aria-hidden="true" />,
-    }))
-    expect(screen.getByRole("link", { name: "Edit route" }).querySelector("svg")).toBeTruthy()
+    render(
+      cloneElement(<PluginLink to="/routes/example/edit" />, {
+        "aria-label": "Edit route",
+        children: <svg aria-hidden="true" />,
+      })
+    )
+    expect(
+      screen.getByRole("link", { name: "Edit route" }).querySelector("svg")
+    ).toBeTruthy()
   })
 
   it("uses the host's router link when there is one", () => {
     render(
       <NavigationProvider value={{ Link: RouterLink, navigate: () => {} }}>
         <PluginLink to="/@auth/users/u1">Details</PluginLink>
-      </NavigationProvider>,
+      </NavigationProvider>
     )
     // Inside the shell this must be a client-side navigation. A plain anchor
     // is a full document load: capabilities refetched, every plugin remounted,
     // the query store thrown away, all to look at one user.
-    expect(screen.getByRole("link", { name: "Details" }).getAttribute("data-router")).toBe("yes")
+    expect(
+      screen.getByRole("link", { name: "Details" }).getAttribute("data-router")
+    ).toBe("yes")
   })
 
   it("carries className and aria-label through in both modes", () => {
     const { rerender } = render(
       <PluginLink to="/x" className="underline" aria-label="Open x">
         x
-      </PluginLink>,
+      </PluginLink>
     )
     expect(screen.getByLabelText("Open x").className).toBe("underline")
     rerender(
@@ -54,7 +60,7 @@ describe("PluginLink", () => {
         <PluginLink to="/x" className="underline" aria-label="Open x">
           x
         </PluginLink>
-      </NavigationProvider>,
+      </NavigationProvider>
     )
     expect(screen.getByLabelText("Open x").className).toBe("underline")
   })
@@ -71,25 +77,25 @@ describe("PluginLink with a host that resolves scope-relative paths", () => {
     render(
       <NavigationProvider value={nav}>
         <PluginLink to="/users/u1">Details</PluginLink>
-      </NavigationProvider>,
+      </NavigationProvider>
     )
     // The page wrote "/users/u1" and never had to know it was mounted under
     // an app. That is the property: a hardcoded "/@auth/users/u1" resolves
     // and renders and is about the wrong app.
-    expect(screen.getByRole("link", { name: "Details" }).getAttribute("href")).toBe(
-      "/@auth/acme/users/u1?env=prod",
-    )
+    expect(
+      screen.getByRole("link", { name: "Details" }).getAttribute("href")
+    ).toBe("/@auth/acme/users/u1?env=prod")
   })
 
   it("leaves an already-addressed path alone, so cross-scope links still work", () => {
     render(
       <NavigationProvider value={nav}>
         <PluginLink to="/@streaming/rooms">Rooms</PluginLink>
-      </NavigationProvider>,
+      </NavigationProvider>
     )
-    expect(screen.getByRole("link", { name: "Rooms" }).getAttribute("href")).toBe(
-      "/@streaming/rooms",
-    )
+    expect(
+      screen.getByRole("link", { name: "Rooms" }).getAttribute("href")
+    ).toBe("/@streaming/rooms")
   })
 
   it("uses the path as written when the host offers no resolver", () => {
@@ -98,9 +104,11 @@ describe("PluginLink with a host that resolves scope-relative paths", () => {
     render(
       <NavigationProvider value={{ Link: RouterLink, navigate: () => {} }}>
         <PluginLink to="/users/u1">Details</PluginLink>
-      </NavigationProvider>,
+      </NavigationProvider>
     )
-    expect(screen.getByRole("link", { name: "Details" }).getAttribute("href")).toBe("/users/u1")
+    expect(
+      screen.getByRole("link", { name: "Details" }).getAttribute("href")
+    ).toBe("/users/u1")
   })
 })
 
@@ -114,7 +122,11 @@ describe("useNavigateTo", () => {
   it("hands replace to the host's navigate, after resolving the path", () => {
     const navigate = vi.fn()
     const { result } = renderHook(() => useNavigateTo(), {
-      wrapper: withHost({ Link: RouterLink, navigate, resolve: (to) => `/@keys${to}` }),
+      wrapper: withHost({
+        Link: RouterLink,
+        navigate,
+        resolve: (to) => `/@keys${to}`,
+      }),
     })
 
     result.current("/keys", { replace: true })

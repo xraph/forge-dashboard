@@ -22,8 +22,13 @@ import type { SettingsDetail } from "../types"
  * stay and the server decides.
  */
 export function useSharedWrites(shared: boolean): "show" | "hide" | "wait" {
-  const settings = useQuery<SettingsDetail>("settings.detail", undefined, { enabled: shared })
+  const settings = useQuery<SettingsDetail>("settings.detail", undefined, {
+    enabled: shared,
+  })
   if (!shared) return "show"
-  if (settings.data !== undefined) return settings.data.app_id !== "" || settings.data.require_app_claim ? "hide" : "show"
+  if (settings.data !== undefined)
+    return settings.data.app_id !== "" || settings.data.require_app_claim
+      ? "hide"
+      : "show"
   return settings.error === undefined ? "wait" : "show"
 }

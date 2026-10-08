@@ -10,7 +10,8 @@ import type { ForgePlugin } from "@forge-go/dashboard-plugin"
 function contextKeys(plugin: ForgePlugin | undefined): Set<string> {
   const keys = new Set<string>()
   for (const dimension of plugin?.context ?? []) {
-    if (dimension.routed?.placement === "query") keys.add(dimension.routed.param)
+    if (dimension.routed?.placement === "query")
+      keys.add(dimension.routed.param)
   }
   return keys
 }
@@ -25,7 +26,10 @@ function contextKeys(plugin: ForgePlugin | undefined): Set<string> {
  * Context is different: `?env=prod` is what the whole scope is being read
  * through, and dropping it on a click would quietly change the environment.
  */
-export function contextSearch(search: string, plugin: ForgePlugin | undefined): string {
+export function contextSearch(
+  search: string,
+  plugin: ForgePlugin | undefined
+): string {
   const keys = contextKeys(plugin)
   if (keys.size === 0) return ""
   const kept = new URLSearchParams()
@@ -62,6 +66,7 @@ export function withContext(to: string, context: string): string {
   }
   const added = extra.toString()
   if (!added) return to
-  const separator = beforeHash.endsWith("?") || beforeHash.endsWith("&") ? "" : "&"
+  const separator =
+    beforeHash.endsWith("?") || beforeHash.endsWith("&") ? "" : "&"
   return `${beforeHash}${separator}${added}${hash}`
 }

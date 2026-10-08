@@ -31,13 +31,16 @@ beforeEach(() => {
  */
 export function stubClient(
   answers: Record<string, unknown>,
-  commands: Record<string, unknown> = {},
+  commands: Record<string, unknown> = {}
 ): ScopedClient {
   return {
     extension: "ledger",
     query: async (intent: string) => {
       if (!(intent in answers)) {
-        throw new ContractError("NOT_FOUND", `no handler for intent "${intent}"`)
+        throw new ContractError(
+          "NOT_FOUND",
+          `no handler for intent "${intent}"`
+        )
       }
       return answers[intent]
     },
@@ -46,7 +49,10 @@ export function stubClient(
     // resolve to undefined and look like a success.
     command: async (intent: string) => {
       if (!(intent in commands)) {
-        throw new ContractError("NOT_FOUND", `no handler for command "${intent}"`)
+        throw new ContractError(
+          "NOT_FOUND",
+          `no handler for command "${intent}"`
+        )
       }
       return commands[intent]
     },
@@ -56,7 +62,7 @@ export function stubClient(
 /** Records every command a page sends, with its payload, in order. */
 export function recordingCommandClient(
   answers: Record<string, unknown>,
-  commands: Record<string, unknown> = {},
+  commands: Record<string, unknown> = {}
 ): { client: ScopedClient; sent: { intent: string; payload: unknown }[] } {
   const sent: { intent: string; payload: unknown }[] = []
   const inner = stubClient(answers, commands)
@@ -151,20 +157,28 @@ export function recordingClient(answers: Record<string, unknown>): {
  */
 export function scriptedClient(
   answers: Record<string, unknown>,
-  commands: Record<string, unknown> = {},
+  commands: Record<string, unknown> = {}
 ): { client: ScopedClient; sent: { intent: string; payload: unknown }[] } {
   const sent: { intent: string; payload: unknown }[] = []
   const client = {
     extension: "ledger",
     query: async (intent: string) => {
-      if (!(intent in answers)) throw new ContractError("NOT_FOUND", `no handler for intent "${intent}"`)
+      if (!(intent in answers))
+        throw new ContractError(
+          "NOT_FOUND",
+          `no handler for intent "${intent}"`
+        )
       const answer = answers[intent]
       if (answer instanceof ContractError) throw answer
       return answer
     },
     command: async (intent: string, payload?: unknown) => {
       sent.push({ intent, payload })
-      if (!(intent in commands)) throw new ContractError("NOT_FOUND", `no handler for command "${intent}"`)
+      if (!(intent in commands))
+        throw new ContractError(
+          "NOT_FOUND",
+          `no handler for command "${intent}"`
+        )
       const answer = commands[intent]
       if (answer instanceof ContractError) throw answer
       return answer
@@ -177,7 +191,7 @@ export function scriptedClient(
 export function renderPage(
   Page: ComponentType<PluginPageProps>,
   client: ScopedClient,
-  params: PluginPageProps["params"] = {},
+  params: PluginPageProps["params"] = {}
 ) {
   return render(
     <PluginProvider client={client}>
@@ -194,7 +208,7 @@ export function renderPage(
 export function renderWithNavigation(
   Page: ComponentType<PluginPageProps>,
   client: ScopedClient,
-  params: PluginPageProps["params"] = {},
+  params: PluginPageProps["params"] = {}
 ) {
   const navigate = vi.fn()
   const view = render(
@@ -211,7 +225,7 @@ export function renderWithNavigation(
       >
         <Page params={params} />
       </NavigationProvider>
-    </PluginProvider>,
+    </PluginProvider>
   )
   return { ...view, navigate }
 }

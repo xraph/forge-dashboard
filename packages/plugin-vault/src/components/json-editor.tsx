@@ -65,7 +65,11 @@ const theme = EditorView.theme({
  * every change and gates Save on it. Loaded lazily by the config page, so none
  * of this is in the shell's entry chunk.
  */
-export default function JsonEditor({ label, initial, onChange }: JsonEditorProps) {
+export default function JsonEditor({
+  label,
+  initial,
+  onChange,
+}: JsonEditorProps) {
   const host = useRef<HTMLDivElement>(null)
   const [problem, setProblem] = useState(() => {
     const first = parseJsonText(initial)
@@ -94,8 +98,16 @@ export default function JsonEditor({ label, initial, onChange }: JsonEditorProps
           json(),
           search({ top: true }),
           highlightSelectionMatches(),
-          keymap.of([...defaultKeymap, ...historyKeymap, ...searchKeymap, ...foldKeymap]),
-          EditorView.contentAttributes.of({ "aria-label": label, spellcheck: "false" }),
+          keymap.of([
+            ...defaultKeymap,
+            ...historyKeymap,
+            ...searchKeymap,
+            ...foldKeymap,
+          ]),
+          EditorView.contentAttributes.of({
+            "aria-label": label,
+            spellcheck: "false",
+          }),
           EditorView.updateListener.of((update) => {
             if (!update.docChanged) return
             const text = update.state.doc.toString()

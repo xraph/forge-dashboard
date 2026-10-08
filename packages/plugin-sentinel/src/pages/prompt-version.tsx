@@ -21,7 +21,8 @@ const PromptDiff = lazy(() => import("../components/prompt-diff"))
 export default function PromptVersionPage({ params }: PluginPageProps) {
   const suiteId = params.id
   const versionId = params.versionId
-  if (!suiteId || !versionId) return <p className="text-sm text-muted-foreground">No version selected.</p>
+  if (!suiteId || !versionId)
+    return <p className="text-sm text-muted-foreground">No version selected.</p>
   return <PromptVersionBody key={versionId} versionId={versionId} />
 }
 
@@ -30,7 +31,11 @@ function PromptVersionBody({ versionId }: { versionId: string }) {
   // The suite is the one the version names, not the one in the URL, so it is
   // asked for once the version has answered.
   const ownSuiteId = detail.data?.suiteId
-  const suite = useQuery<Suite>("suites.detail", { suiteId: ownSuiteId }, { enabled: ownSuiteId !== undefined })
+  const suite = useQuery<Suite>(
+    "suites.detail",
+    { suiteId: ownSuiteId },
+    { enabled: ownSuiteId !== undefined }
+  )
   const [making, setMaking] = useState(false)
   const [target, setTarget] = useState<PromptVersion | null>(null)
   return (
@@ -43,10 +48,14 @@ function PromptVersionBody({ versionId }: { versionId: string }) {
                 title={`Version ${v.version}`}
                 actions={
                   v.isCurrent ? undefined : (
-                    <IconButton variant="outline" onClick={() => {
+                    <IconButton
+                      variant="outline"
+                      onClick={() => {
                         setTarget(v)
                         setMaking(true)
-                      }} label="Make current" />
+                      }}
+                      label="Make current"
+                    />
                   )
                 }
               />
@@ -61,10 +70,15 @@ function PromptVersionBody({ versionId }: { versionId: string }) {
                 {
                   term: "Suite",
                   value: (
-                    <PluginLink to={suitePath(v.suiteId)}>{suite.data?.name ?? "Back to the suite"}</PluginLink>
+                    <PluginLink to={suitePath(v.suiteId)}>
+                      {suite.data?.name ?? "Back to the suite"}
+                    </PluginLink>
                   ),
                 },
-                { term: "Changelog", value: v.changelog || <NoneCell label="changelog" /> },
+                {
+                  term: "Changelog",
+                  value: v.changelog || <NoneCell label="changelog" />,
+                },
                 { term: "Runs", value: String(v.runCount) },
                 {
                   term: "Latest pass rate",
@@ -75,10 +89,18 @@ function PromptVersionBody({ versionId }: { versionId: string }) {
                       formatScore(v.latestPassRate)
                     ),
                 },
-                { term: "Created", value: <Timestamp value={v.createdAt} label="creation time" /> },
+                {
+                  term: "Created",
+                  value: (
+                    <Timestamp value={v.createdAt} label="creation time" />
+                  ),
+                },
               ]}
             />
-            <section aria-labelledby="sentinel-version-prompt" className="flex flex-col gap-2">
+            <section
+              aria-labelledby="sentinel-version-prompt"
+              className="flex flex-col gap-2"
+            >
               <h2 id="sentinel-version-prompt" className="text-sm font-medium">
                 Prompt
               </h2>
@@ -90,7 +112,13 @@ function PromptVersionBody({ versionId }: { versionId: string }) {
           </div>
         )}
       </SettledBoundary>
-      {target && <SetCurrentDialog open={making} onOpenChange={setMaking} version={target} />}
+      {target && (
+        <SetCurrentDialog
+          open={making}
+          onOpenChange={setMaking}
+          version={target}
+        />
+      )}
     </section>
   )
 }
@@ -107,7 +135,10 @@ function Changes({ version }: { version: PromptVersionDetail }) {
   }
   const label = `Version ${previous.version} against version ${version.version}`
   return (
-    <section aria-labelledby="sentinel-version-changes" className="flex flex-col gap-2">
+    <section
+      aria-labelledby="sentinel-version-changes"
+      className="flex flex-col gap-2"
+    >
       <h2 id="sentinel-version-changes" className="text-sm font-medium">
         {`Changes from version ${previous.version}`}
       </h2>
@@ -123,7 +154,11 @@ function Changes({ version }: { version: PromptVersionDetail }) {
             </p>
           }
         >
-          <PromptDiff was={previous.systemPrompt} now={version.systemPrompt} label={label} />
+          <PromptDiff
+            was={previous.systemPrompt}
+            now={version.systemPrompt}
+            label={label}
+          />
         </Suspense>
       )}
     </section>

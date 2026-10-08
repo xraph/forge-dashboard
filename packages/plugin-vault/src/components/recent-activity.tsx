@@ -47,7 +47,11 @@ export function RecentActivity({
                     </span>
                   ) : null}
                 </span>
-                <Timestamp value={e.createdAt} label="time" className="text-muted-foreground" />
+                <Timestamp
+                  value={e.createdAt}
+                  label="time"
+                  className="text-muted-foreground"
+                />
               </div>
               {e.error ? (
                 <span className="text-xs text-destructive">{e.error}</span>

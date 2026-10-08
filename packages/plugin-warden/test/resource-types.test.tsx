@@ -86,10 +86,14 @@ function refusingCommands(error: ContractError): ScopedClient {
 }
 
 function pendingCommands(): ScopedClient {
-  return { ...client(), command: () => new Promise<never>(() => {}) } as ScopedClient
+  return {
+    ...client(),
+    command: () => new Promise<never>(() => {}),
+  } as ScopedClient
 }
 
-const rowOf = async (name: string) => (await screen.findByText(name)).closest("tr")!
+const rowOf = async (name: string) =>
+  (await screen.findByText(name)).closest("tr")!
 
 function listQueries(sent: { intent: string; params?: unknown }[]) {
   return sent.filter((q) => q.intent === "resourceTypes.list")
@@ -169,14 +173,19 @@ describe("WardenResourceTypesPage", () => {
       items: [{ ...TYPES.items[0], updatedAt: "" }],
       total: 1,
     }
-    renderPage(WardenResourceTypesPage, client({ "resourceTypes.list": missing }))
+    renderPage(
+      WardenResourceTypesPage,
+      client({ "resourceTypes.list": missing })
+    )
     const row = await rowOf("document")
     expect(within(row).getByLabelText("no updated at")).toBeTruthy()
   })
 
   it("links each row to its own detail page", async () => {
     renderPage(WardenResourceTypesPage, client())
-    const link = within(await rowOf("folder")).getByRole("link", { name: "Details" })
+    const link = within(await rowOf("folder")).getByRole("link", {
+      name: "Details",
+    })
     // The link goes through PluginLink, which resolves against the plugin's
     // scope. Without a host it renders the plugin-relative path.
     expect(link.getAttribute("href")).toContain("/resource-types/rt_folder")
@@ -195,11 +204,19 @@ describe("WardenResourceTypesPage", () => {
     renderPage(WardenResourceTypesPage, client({ "resourceTypes.list": EMPTY }))
     expect(await screen.findByText(/0 resource types/)).toBeTruthy()
     expect(await screen.findByText("No resource types yet.")).toBeTruthy()
-    fireEvent.change(screen.getByLabelText("Namespace"), { target: { value: "eng/platform" } })
-    expect(await screen.findByText("No resource types in eng/platform.")).toBeTruthy()
+    fireEvent.change(screen.getByLabelText("Namespace"), {
+      target: { value: "eng/platform" },
+    })
+    expect(
+      await screen.findByText("No resource types in eng/platform.")
+    ).toBeTruthy()
     expect(screen.queryByText("No resource types yet.")).toBeNull()
-    fireEvent.change(screen.getByLabelText("Namespace"), { target: { value: "" } })
-    expect(await screen.findByText("No resource types in the tenant root.")).toBeTruthy()
+    fireEvent.change(screen.getByLabelText("Namespace"), {
+      target: { value: "" },
+    })
+    expect(
+      await screen.findByText("No resource types in the tenant root.")
+    ).toBeTruthy()
   })
 
   it("names the search when a search is what emptied the list", async () => {
@@ -208,14 +225,18 @@ describe("WardenResourceTypesPage", () => {
     fireEvent.change(screen.getByLabelText("Search resource types"), {
       target: { value: "zzz" },
     })
-    expect(await screen.findByText(/No resource types match .zzz./)).toBeTruthy()
+    expect(
+      await screen.findByText(/No resource types match .zzz./)
+    ).toBeTruthy()
     expect(screen.queryByText("No resource types yet.")).toBeNull()
   })
 
   it("surfaces a list failure instead of rendering an empty table", async () => {
     renderPage(
       WardenResourceTypesPage,
-      failingClient(new ContractError("PERMISSION_DENIED", "no tenant in scope"))
+      failingClient(
+        new ContractError("PERMISSION_DENIED", "no tenant in scope")
+      )
     )
     expect(await screen.findAllByText(/no tenant in scope/i)).toBeTruthy()
     expect(screen.queryByText("document")).toBeNull()
@@ -253,7 +274,10 @@ describe("WardenResourceTypesPage", () => {
         target: { value: "   " },
       })
       await waitFor(() =>
-        expect(Object.keys(lastList(sent) ?? {}).sort()).toEqual(["limit", "offset"])
+        expect(Object.keys(lastList(sent) ?? {}).sort()).toEqual([
+          "limit",
+          "offset",
+        ])
       )
     })
 
@@ -266,7 +290,9 @@ describe("WardenResourceTypesPage", () => {
       fireEvent.click(screen.getByRole("button", { name: /next page/i }))
       await waitFor(() => expect(lastList(sent)?.offset).toBe(25))
 
-      fireEvent.change(screen.getByLabelText("Namespace"), { target: { value: "eng/platform" } })
+      fireEvent.change(screen.getByLabelText("Namespace"), {
+        target: { value: "eng/platform" },
+      })
       await waitFor(() =>
         expect(lastList(sent)).toEqual({
           namespacePath: "eng/platform",
@@ -280,9 +306,15 @@ describe("WardenResourceTypesPage", () => {
       const { client: c, sent } = recordingQueryClient(answers())
       renderPage(WardenResourceTypesPage, c)
       await screen.findByText("document")
-      fireEvent.change(screen.getByLabelText("Namespace"), { target: { value: "" } })
+      fireEvent.change(screen.getByLabelText("Namespace"), {
+        target: { value: "" },
+      })
       await waitFor(() =>
-        expect(lastList(sent)).toEqual({ namespacePath: "", limit: 25, offset: 0 })
+        expect(lastList(sent)).toEqual({
+          namespacePath: "",
+          limit: 25,
+          offset: 0,
+        })
       )
     })
 
@@ -290,7 +322,9 @@ describe("WardenResourceTypesPage", () => {
       const { client: c, sent } = recordingQueryClient(answers())
       renderPage(WardenResourceTypesPage, c)
       await screen.findByText("document")
-      fireEvent.change(screen.getByLabelText("Namespace"), { target: { value: "eng/platform" } })
+      fireEvent.change(screen.getByLabelText("Namespace"), {
+        target: { value: "eng/platform" },
+      })
       fireEvent.change(screen.getByLabelText("Search resource types"), {
         target: { value: "fold" },
       })
@@ -309,11 +343,17 @@ describe("WardenResourceTypesPage", () => {
     it("waits for a name before it can be confirmed", async () => {
       renderPage(WardenResourceTypesPage, client())
       const dialog = await openCreate()
-      const confirm = dialog.getByRole("button", { name: CREATE }) as HTMLButtonElement
+      const confirm = dialog.getByRole("button", {
+        name: CREATE,
+      }) as HTMLButtonElement
       expect(confirm.disabled).toBe(true)
-      fireEvent.change(dialog.getByLabelText("Name"), { target: { value: "   " } })
+      fireEvent.change(dialog.getByLabelText("Name"), {
+        target: { value: "   " },
+      })
       expect(confirm.disabled).toBe(true)
-      fireEvent.change(dialog.getByLabelText("Name"), { target: { value: "report" } })
+      fireEvent.change(dialog.getByLabelText("Name"), {
+        target: { value: "report" },
+      })
       expect(confirm.disabled).toBe(false)
     })
 
@@ -323,10 +363,16 @@ describe("WardenResourceTypesPage", () => {
       })
       renderPage(WardenResourceTypesPage, c)
       await screen.findByText("document")
-      fireEvent.change(screen.getByLabelText("Namespace"), { target: { value: "eng/platform" } })
+      fireEvent.change(screen.getByLabelText("Namespace"), {
+        target: { value: "eng/platform" },
+      })
       const dialog = await openCreate()
-      fireEvent.change(dialog.getByLabelText("Name"), { target: { value: " report " } })
-      fireEvent.change(dialog.getByLabelText(/^Description/), { target: { value: " a report " } })
+      fireEvent.change(dialog.getByLabelText("Name"), {
+        target: { value: " report " },
+      })
+      fireEvent.change(dialog.getByLabelText(/^Description/), {
+        target: { value: " a report " },
+      })
       fireEvent.click(dialog.getByRole("button", { name: CREATE }))
 
       await waitFor(() => expect(sent).toHaveLength(1))
@@ -344,8 +390,12 @@ describe("WardenResourceTypesPage", () => {
       })
       renderPage(WardenResourceTypesPage, c)
       const dialog = await openCreate()
-      fireEvent.change(dialog.getByLabelText("Name"), { target: { value: "report" } })
-      fireEvent.change(dialog.getByLabelText(/^Description/), { target: { value: "   " } })
+      fireEvent.change(dialog.getByLabelText("Name"), {
+        target: { value: "report" },
+      })
+      fireEvent.change(dialog.getByLabelText(/^Description/), {
+        target: { value: "   " },
+      })
       fireEvent.click(dialog.getByRole("button", { name: CREATE }))
 
       await waitFor(() => expect(sent).toHaveLength(1))
@@ -361,7 +411,9 @@ describe("WardenResourceTypesPage", () => {
       })
       renderPage(WardenResourceTypesPage, c)
       const dialog = await openCreate()
-      fireEvent.change(dialog.getByLabelText("Name"), { target: { value: "report" } })
+      fireEvent.change(dialog.getByLabelText("Name"), {
+        target: { value: "report" },
+      })
       fireEvent.click(dialog.getByRole("button", { name: CREATE }))
       await waitFor(() => expect(sent).toHaveLength(1))
       const keys = Object.keys(sent[0]?.payload as Record<string, unknown>)
@@ -376,10 +428,14 @@ describe("WardenResourceTypesPage", () => {
       renderPage(WardenResourceTypesPage, c)
       const dialog = await openCreate()
       expect(dialog.getByText(/in the tenant root/i)).toBeTruthy()
-      fireEvent.change(dialog.getByLabelText("Name"), { target: { value: "report" } })
+      fireEvent.change(dialog.getByLabelText("Name"), {
+        target: { value: "report" },
+      })
       fireEvent.click(dialog.getByRole("button", { name: CREATE }))
       await waitFor(() => expect(sent).toHaveLength(1))
-      expect((sent[0]?.payload as { namespacePath: string }).namespacePath).toBe("")
+      expect(
+        (sent[0]?.payload as { namespacePath: string }).namespacePath
+      ).toBe("")
     })
 
     it("closes the dialog once the create succeeds", async () => {
@@ -388,7 +444,9 @@ describe("WardenResourceTypesPage", () => {
       })
       renderPage(WardenResourceTypesPage, c)
       const dialog = await openCreate()
-      fireEvent.change(dialog.getByLabelText("Name"), { target: { value: "report" } })
+      fireEvent.change(dialog.getByLabelText("Name"), {
+        target: { value: "report" },
+      })
       fireEvent.click(dialog.getByRole("button", { name: CREATE }))
       await waitFor(() => expect(sent).toHaveLength(1))
       await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull())
@@ -397,17 +455,28 @@ describe("WardenResourceTypesPage", () => {
     it("shows a refused create inside the dialog and keeps what was typed", async () => {
       renderPage(
         WardenResourceTypesPage,
-        refusingCommands(new ContractError("CONFLICT", "a resource type named report already exists"))
+        refusingCommands(
+          new ContractError(
+            "CONFLICT",
+            "a resource type named report already exists"
+          )
+        )
       )
       const dialog = await openCreate()
-      fireEvent.change(dialog.getByLabelText("Name"), { target: { value: "report" } })
+      fireEvent.change(dialog.getByLabelText("Name"), {
+        target: { value: "report" },
+      })
       fireEvent.click(dialog.getByRole("button", { name: CREATE }))
 
       const alert = await dialog.findByRole("alert")
-      expect(alert.textContent).toContain("a resource type named report already exists")
+      expect(alert.textContent).toContain(
+        "a resource type named report already exists"
+      )
       expect(alert.textContent).toContain("CONFLICT")
       expect(screen.getByRole("alertdialog")).toBeTruthy()
-      expect((dialog.getByLabelText("Name") as HTMLInputElement).value).toBe("report")
+      expect((dialog.getByLabelText("Name") as HTMLInputElement).value).toBe(
+        "report"
+      )
     })
 
     it("clears an earlier refusal, and what was typed, when the dialog is opened again", async () => {
@@ -416,7 +485,9 @@ describe("WardenResourceTypesPage", () => {
         refusingCommands(new ContractError("CONFLICT", "already exists"))
       )
       const first = await openCreate()
-      fireEvent.change(first.getByLabelText("Name"), { target: { value: "report" } })
+      fireEvent.change(first.getByLabelText("Name"), {
+        target: { value: "report" },
+      })
       fireEvent.click(first.getByRole("button", { name: CREATE }))
       await first.findByRole("alert")
 
@@ -431,9 +502,13 @@ describe("WardenResourceTypesPage", () => {
     it("shows the create as pending while the command is in flight", async () => {
       renderPage(WardenResourceTypesPage, pendingCommands())
       const dialog = await openCreate()
-      fireEvent.change(dialog.getByLabelText("Name"), { target: { value: "report" } })
+      fireEvent.change(dialog.getByLabelText("Name"), {
+        target: { value: "report" },
+      })
       fireEvent.click(dialog.getByRole("button", { name: CREATE }))
-      const working = (await dialog.findByRole("button", { name: /working/i })) as HTMLButtonElement
+      const working = (await dialog.findByRole("button", {
+        name: /working/i,
+      })) as HTMLButtonElement
       expect(working.disabled).toBe(true)
     })
   })
@@ -481,7 +556,9 @@ describe("WardenResourceTypesPage", () => {
       const dialog = await openDelete("document")
       fireEvent.click(dialog.getByRole("button", { name: /^Delete$/ }))
       const alert = await dialog.findByRole("alert")
-      expect(alert.textContent).toContain("14 relation tuples still use document")
+      expect(alert.textContent).toContain(
+        "14 relation tuples still use document"
+      )
       expect(alert.textContent).toContain("CONFLICT")
       // The dialog stays open, because everything outside it is inert.
       expect(screen.getByRole("alertdialog")).toBeTruthy()
@@ -490,7 +567,9 @@ describe("WardenResourceTypesPage", () => {
     it("clears an earlier refusal when the dialog is opened for another type", async () => {
       renderPage(
         WardenResourceTypesPage,
-        refusingCommands(new ContractError("CONFLICT", "14 relation tuples still use document"))
+        refusingCommands(
+          new ContractError("CONFLICT", "14 relation tuples still use document")
+        )
       )
       const first = await openDelete("document")
       fireEvent.click(first.getByRole("button", { name: /^Delete$/ }))
@@ -509,9 +588,14 @@ describe("WardenResourceTypesPage", () => {
       renderPage(WardenResourceTypesPage, pendingCommands())
       const dialog = await openDelete("document")
       fireEvent.click(dialog.getByRole("button", { name: /^Delete$/ }))
-      const working = (await dialog.findByRole("button", { name: /working/i })) as HTMLButtonElement
+      const working = (await dialog.findByRole("button", {
+        name: /working/i,
+      })) as HTMLButtonElement
       expect(working.disabled).toBe(true)
-      expect((dialog.getByRole("button", { name: /^cancel$/i }) as HTMLButtonElement).disabled).toBe(true)
+      expect(
+        (dialog.getByRole("button", { name: /^cancel$/i }) as HTMLButtonElement)
+          .disabled
+      ).toBe(true)
     })
 
     it("steps back a page when a delete empties the last one", async () => {
@@ -522,7 +606,9 @@ describe("WardenResourceTypesPage", () => {
         limit: 25,
         offset: 25,
       }
-      const { client: c, sent } = recordingQueryClient(answers({ "resourceTypes.list": lastPage }))
+      const { client: c, sent } = recordingQueryClient(
+        answers({ "resourceTypes.list": lastPage })
+      )
       const withDelete = { ...c, command: async () => ({}) } as typeof c
       renderPage(WardenResourceTypesPage, withDelete)
       await screen.findByText("document")

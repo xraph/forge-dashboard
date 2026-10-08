@@ -6,7 +6,12 @@ import { StreamingPresencePage } from "../src/pages/presence"
 const answers = {
   "presence.list": {
     presence: [
-      { userID: "ada", status: "online", lastSeen: "2026-09-08T10:00:00Z", rooms: ["r1"] },
+      {
+        userID: "ada",
+        status: "online",
+        lastSeen: "2026-09-08T10:00:00Z",
+        rooms: ["r1"],
+      },
     ],
   },
 }
@@ -48,19 +53,28 @@ describe("StreamingPresencePage", () => {
     })
 
     await waitFor(() =>
-      expect(screen.getByRole("alert").textContent).toContain("presence.set"),
+      expect(screen.getByRole("alert").textContent).toContain("presence.set")
     )
 
     // The select is driven off the server's own record, not off what the
     // operator picked. A failed override must leave the row showing what the
     // status actually is, not what the operator hoped it would become.
     expect(
-      (screen.getByRole("combobox", { name: "Status for ada" }) as HTMLSelectElement).value,
+      (
+        screen.getByRole("combobox", {
+          name: "Status for ada",
+        }) as HTMLSelectElement
+      ).value
     ).toBe("online")
   })
 
   it("says so when nobody has a presence record", async () => {
-    renderPage(StreamingPresencePage, stubClient({ "presence.list": { presence: [] } }))
-    await waitFor(() => expect(screen.getByText("No presence records.")).toBeTruthy())
+    renderPage(
+      StreamingPresencePage,
+      stubClient({ "presence.list": { presence: [] } })
+    )
+    await waitFor(() =>
+      expect(screen.getByText("No presence records.")).toBeTruthy()
+    )
   })
 })

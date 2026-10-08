@@ -42,10 +42,7 @@ describe("streamingPlugin", () => {
    */
   it("resolves to ready against a host reporting streaming's contributor", () => {
     expect(
-      resolvePluginState(
-        streamingPlugin,
-        capabilities({ name: "streaming" })
-      )
+      resolvePluginState(streamingPlugin, capabilities({ name: "streaming" }))
     ).toEqual({ kind: "ready" })
   })
 
@@ -55,7 +52,10 @@ describe("streamingPlugin", () => {
     // rather than render against one that is not there: no routes, no nav,
     // no log.
     expect(
-      resolvePluginState(streamingPlugin, capabilities({ name: "streaming-contract" }))
+      resolvePluginState(
+        streamingPlugin,
+        capabilities({ name: "streaming-contract" })
+      )
     ).toEqual({ kind: "hidden" })
   })
 
@@ -155,7 +155,12 @@ describe("streamingPlugin", () => {
       },
       "channels.list": {
         channels: [
-          { id: "chan_1", name: "alerts", subscriberCount: 3, messageCount: 10 },
+          {
+            id: "chan_1",
+            name: "alerts",
+            subscriberCount: 3,
+            messageCount: 10,
+          },
         ],
       },
       "presence.list": {

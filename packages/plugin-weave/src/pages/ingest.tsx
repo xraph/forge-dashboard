@@ -2,23 +2,44 @@ import { useState } from "react"
 import type { ComponentType, FormEvent } from "react"
 import { PluginLink, useCommand, useQuery } from "@forge-go/dashboard-plugin"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
-import { Alert, AlertDescription, AlertTitle } from "@forge-go/dashboard-kit/components/alert"
+import {
+  Alert,
+  AlertDescription,
+  AlertTitle,
+} from "@forge-go/dashboard-kit/components/alert"
 import { Button } from "@forge-go/dashboard-kit/components/button"
 import { Input } from "@forge-go/dashboard-kit/components/input"
 import { Label } from "@forge-go/dashboard-kit/components/label"
-import { NativeSelect, NativeSelectOption } from "@forge-go/dashboard-kit/components/native-select"
+import {
+  NativeSelect,
+  NativeSelectOption,
+} from "@forge-go/dashboard-kit/components/native-select"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
-import { CommandAlert, QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
+import {
+  CommandAlert,
+  QueryBoundary,
+} from "@forge-go/dashboard-kit/components/query-boundary"
 import { TagList } from "@forge-go/dashboard-kit/components/tag-list"
 import { Textarea } from "@forge-go/dashboard-kit/components/textarea"
 import { MetadataEditor, metadataOf } from "../components/metadata-editor"
 import type { MetadataRow } from "../components/metadata-editor"
 import { formatBytes, plural, utf8Length } from "../format"
-import { isBodyLimitError, readText, sizeProblem, sourceTypeFor } from "../ingest"
+import {
+  isBodyLimitError,
+  readText,
+  sizeProblem,
+  sourceTypeFor,
+} from "../ingest"
 import { collectionPath, documentPath, documentsHref } from "../links"
 import type { CollectionDetail, ComponentsOutput, IngestOutput } from "../types"
 
-const FALLBACK_TYPES = ["text/plain", "text/markdown", "text/html", "text/csv", "application/json"]
+const FALLBACK_TYPES = [
+  "text/plain",
+  "text/markdown",
+  "text/html",
+  "text/csv",
+  "application/json",
+]
 
 export const IngestPage: ComponentType<PluginPageProps> = ({ params }) => {
   const id = params.id ?? ""
@@ -33,7 +54,12 @@ export const IngestPage: ComponentType<PluginPageProps> = ({ params }) => {
   const [result, setResult] = useState<IngestOutput | null>(null)
 
   const supported = report.data?.components.loader.content_types ?? []
-  const types = Array.from(new Set([...(supported.length > 0 ? supported : FALLBACK_TYPES), sourceType]))
+  const types = Array.from(
+    new Set([
+      ...(supported.length > 0 ? supported : FALLBACK_TYPES),
+      sourceType,
+    ])
+  )
   const meta = metadataOf(rows)
   const payload = {
     collection_id: id,
@@ -46,7 +72,11 @@ export const IngestPage: ComponentType<PluginPageProps> = ({ params }) => {
   const problem = content === "" ? null : sizeProblem(content, payload)
   // Only Weave's own cap is final. The transport's limit is the default one,
   // which an operator can have raised, so past it the choice is yours.
-  const canSubmit = !ingest.loading && content.trim() !== "" && problem?.kind !== "content" && "metadata" in meta
+  const canSubmit =
+    !ingest.loading &&
+    content.trim() !== "" &&
+    problem?.kind !== "content" &&
+    "metadata" in meta
 
   async function pick(file: File | undefined) {
     if (!file) return
@@ -80,7 +110,10 @@ export const IngestPage: ComponentType<PluginPageProps> = ({ params }) => {
             title="Ingest"
             description={`Paste text or pick a text file, and Weave chunks and embeds it into ${c.name} inside this request.`}
             actions={
-              <PluginLink to={collectionPath(c.id)} className="text-sm underline">
+              <PluginLink
+                to={collectionPath(c.id)}
+                className="text-sm underline"
+              >
                 Back to {c.name}
               </PluginLink>
             }
@@ -90,9 +123,14 @@ export const IngestPage: ComponentType<PluginPageProps> = ({ params }) => {
 
       {result?.state === "ready" ? (
         <Alert>
-          <AlertTitle>Ready: {plural(result.chunk_count, "chunk", "chunks")}.</AlertTitle>
+          <AlertTitle>
+            Ready: {plural(result.chunk_count, "chunk", "chunks")}.
+          </AlertTitle>
           <AlertDescription>
-            <PluginLink to={documentPath(result.document_id)} className="underline">
+            <PluginLink
+              to={documentPath(result.document_id)}
+              className="underline"
+            >
               Open the document
             </PluginLink>
           </AlertDescription>
@@ -102,9 +140,17 @@ export const IngestPage: ComponentType<PluginPageProps> = ({ params }) => {
         <Alert variant="destructive">
           <AlertTitle>Ingest failed</AlertTitle>
           <AlertDescription className="flex flex-col gap-1">
-            <span className="font-mono text-xs break-all">{result.error ?? "Weave stored no reason."}</span>
-            <span>The document row exists in state failed. Delete it before you ingest the same text again.</span>
-            <PluginLink to={documentPath(result.document_id)} className="underline">
+            <span className="font-mono text-xs break-all">
+              {result.error ?? "Weave stored no reason."}
+            </span>
+            <span>
+              The document row exists in state failed. Delete it before you
+              ingest the same text again.
+            </span>
+            <PluginLink
+              to={documentPath(result.document_id)}
+              className="underline"
+            >
               Open the document
             </PluginLink>
           </AlertDescription>
@@ -114,47 +160,93 @@ export const IngestPage: ComponentType<PluginPageProps> = ({ params }) => {
       <CommandAlert title="Could not ingest" error={ingest.error} />
       {bodyLimit ? (
         <p className="text-sm">
-          The dashboard's request limit refused this. An operator can raise contract_max_body_bytes in the dashboard's config; about 3 MiB covers files near Weave's 1 MiB cap.
+          The dashboard's request limit refused this. An operator can raise
+          contract_max_body_bytes in the dashboard's config; about 3 MiB covers
+          files near Weave's 1 MiB cap.
         </p>
       ) : null}
       {conflict ? (
         <div className="flex gap-4 text-sm">
-          <PluginLink to={documentsHref({ collection_id: id, state: "failed" })} className="underline">
+          <PluginLink
+            to={documentsHref({ collection_id: id, state: "failed" })}
+            className="underline"
+          >
             Failed documents in this collection
           </PluginLink>
-          <PluginLink to={documentsHref({ collection_id: id, state: "processing" })} className="underline">
+          <PluginLink
+            to={documentsHref({ collection_id: id, state: "processing" })}
+            className="underline"
+          >
             Processing documents in this collection
           </PluginLink>
         </div>
       ) : null}
 
-      <form onSubmit={(e) => void submit(e)} className="flex max-w-3xl flex-col gap-4">
+      <form
+        onSubmit={(e) => void submit(e)}
+        className="flex max-w-3xl flex-col gap-4"
+      >
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="ingest-file">Pick a text file</Label>
-          <Input id="ingest-file" type="file" accept=".txt,.md,.markdown,.html,.htm,.csv,.json" onChange={(e) => void pick(e.target.files?.[0])} />
-          <p className="text-xs text-muted-foreground">The browser reads it as text. Nothing is uploaded until you press Ingest.</p>
+          <Input
+            id="ingest-file"
+            type="file"
+            accept=".txt,.md,.markdown,.html,.htm,.csv,.json"
+            onChange={(e) => void pick(e.target.files?.[0])}
+          />
+          <p className="text-xs text-muted-foreground">
+            The browser reads it as text. Nothing is uploaded until you press
+            Ingest.
+          </p>
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="ingest-content">Content</Label>
-          <Textarea id="ingest-content" rows={12} className="font-mono text-xs" value={content} onChange={(e) => setContent(e.target.value)} />
+          <Textarea
+            id="ingest-content"
+            rows={12}
+            className="font-mono text-xs"
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+          />
           <p className="text-xs text-muted-foreground">
-            <span className="font-mono">{formatBytes(utf8Length(content))}</span> of 1 MiB.
+            <span className="font-mono">
+              {formatBytes(utf8Length(content))}
+            </span>{" "}
+            of 1 MiB.
           </p>
-          {problem ? <p role="alert" className="text-sm text-destructive">{problem.message}</p> : null}
+          {problem ? (
+            <p role="alert" className="text-sm text-destructive">
+              {problem.message}
+            </p>
+          ) : null}
         </div>
         <div className="grid grid-cols-2 gap-4">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="ingest-title">Title</Label>
-            <Input id="ingest-title" value={title} onChange={(e) => setTitle(e.target.value)} />
+            <Input
+              id="ingest-title"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+            />
           </div>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="ingest-source">Source</Label>
-            <Input id="ingest-source" className="font-mono text-xs" spellCheck={false} value={source} onChange={(e) => setSource(e.target.value)} />
+            <Input
+              id="ingest-source"
+              className="font-mono text-xs"
+              spellCheck={false}
+              value={source}
+              onChange={(e) => setSource(e.target.value)}
+            />
           </div>
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="ingest-type">Content type</Label>
-          <NativeSelect id="ingest-type" value={sourceType} onChange={(e) => setSourceType(e.target.value)}>
+          <NativeSelect
+            id="ingest-type"
+            value={sourceType}
+            onChange={(e) => setSourceType(e.target.value)}
+          >
             {types.map((t) => (
               <NativeSelectOption key={t} value={t}>
                 {t}
@@ -169,11 +261,19 @@ export const IngestPage: ComponentType<PluginPageProps> = ({ params }) => {
         <div className="flex flex-col gap-1.5">
           <span className="text-sm font-medium">Metadata</span>
           <MetadataEditor rows={rows} onChange={setRows} />
-          {"error" in meta ? <p role="alert" className="text-sm text-destructive">{meta.error}</p> : null}
+          {"error" in meta ? (
+            <p role="alert" className="text-sm text-destructive">
+              {meta.error}
+            </p>
+          ) : null}
         </div>
         <div>
           <Button type="submit" disabled={!canSubmit}>
-            {ingest.loading ? "Ingesting…" : problem?.kind === "envelope" ? "Send anyway" : "Ingest"}
+            {ingest.loading
+              ? "Ingesting…"
+              : problem?.kind === "envelope"
+                ? "Send anyway"
+                : "Ingest"}
           </Button>
         </div>
       </form>

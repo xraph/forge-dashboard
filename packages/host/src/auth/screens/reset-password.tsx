@@ -11,7 +11,10 @@ import { CommandAlert } from "@forge-go/dashboard-kit/components/query-boundary"
 import type { AuthScreenProps } from "../routes"
 import { currentServerHost } from "../server-host"
 
-export function ResetPasswordScreen({ intents, onAuthenticated }: AuthScreenProps) {
+export function ResetPasswordScreen({
+  intents,
+  onAuthenticated,
+}: AuthScreenProps) {
   const config = useQuery<AuthConfig>(intents.config)
   const reset = useCommand<{ ok: boolean }>(intents.resetPassword ?? "")
   const [params] = useSearchParams()
@@ -40,7 +43,7 @@ export function ResetPasswordScreen({ intents, onAuthenticated }: AuthScreenProp
         serverHost={currentServerHost()}
         title="That link is incomplete"
       >
-        <p className="text-muted-foreground text-sm" role="alert">
+        <p className="text-sm text-muted-foreground" role="alert">
           This reset link carries no token. Request a new one from the sign-in
           page.
         </p>
@@ -55,7 +58,11 @@ export function ResetPasswordScreen({ intents, onAuthenticated }: AuthScreenProp
       serverHost={currentServerHost()}
       title="Choose a new password"
     >
-      <CommandAlert error={reset.error} showCode={false} title="Could not reset your password" />
+      <CommandAlert
+        error={reset.error}
+        showCode={false}
+        title="Could not reset your password"
+      />
       <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor={passwordId}>New password</Label>
@@ -80,7 +87,7 @@ export function ResetPasswordScreen({ intents, onAuthenticated }: AuthScreenProp
           />
         </div>
         {mismatch ? (
-          <p className="text-destructive text-sm" role="alert">
+          <p className="text-sm text-destructive" role="alert">
             Those two passwords do not match.
           </p>
         ) : null}

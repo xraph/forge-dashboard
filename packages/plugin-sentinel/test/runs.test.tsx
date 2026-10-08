@@ -10,7 +10,9 @@ const OTHER_SUITE = "suite_01j9se00000000000000000009"
 function answers(items: Run[] = [runningRun(), run()], hasMore = false) {
   return {
     "runs.list": { items, hasMore },
-    "suites.list": { items: [suite(), suite({ id: OTHER_SUITE, name: "Sales assistant" })] },
+    "suites.list": {
+      items: [suite(), suite({ id: OTHER_SUITE, name: "Sales assistant" })],
+    },
   }
 }
 
@@ -21,13 +23,23 @@ afterEach(() => {
 describe("RunsPage", () => {
   it("lists runs newest first with their suite, state and progress", async () => {
     renderNavPage(RunsPage, stubClient(answers()), {})
-    const table = await screen.findByRole("region", { name: "2 runs, newest first" })
+    const table = await screen.findByRole("region", {
+      name: "2 runs, newest first",
+    })
     const rows = within(table).getAllByRole("row")
     expect(within(rows[1]).getByText("Running")).toBeTruthy()
     expect(within(rows[1]).getByText("2 of 4")).toBeTruthy()
-    expect(within(rows[1]).getByRole("progressbar", { name: "Cases scored" })).toBeTruthy()
-    expect(within(rows[2]).getByRole("link", { name: RUN_ID }).getAttribute("href")).toBe(`/runs/${RUN_ID}`)
-    expect(within(rows[2]).getByRole("link", { name: "Support assistant" }).getAttribute("href")).toBe(`/suites/${SUITE_ID}`)
+    expect(
+      within(rows[1]).getByRole("progressbar", { name: "Cases scored" })
+    ).toBeTruthy()
+    expect(
+      within(rows[2]).getByRole("link", { name: RUN_ID }).getAttribute("href")
+    ).toBe(`/runs/${RUN_ID}`)
+    expect(
+      within(rows[2])
+        .getByRole("link", { name: "Support assistant" })
+        .getAttribute("href")
+    ).toBe(`/suites/${SUITE_ID}`)
     expect(within(rows[2]).queryByRole("progressbar")).toBeNull()
     expect(within(rows[2]).getByText("$0.0123")).toBeTruthy()
   })
@@ -36,16 +48,25 @@ describe("RunsPage", () => {
     const { client, queries } = recordingFullClient(answers())
     renderNavPage(RunsPage, client, {})
     await screen.findByRole("region", { name: "2 runs, newest first" })
-    expect(queries.find((q) => q.intent === "runs.list")?.params).toEqual({ limit: 25, offset: 0 })
-    fireEvent.change(screen.getByLabelText("State"), { target: { value: "failed" } })
-    fireEvent.change(screen.getByLabelText("Suite"), { target: { value: OTHER_SUITE } })
+    expect(queries.find((q) => q.intent === "runs.list")?.params).toEqual({
+      limit: 25,
+      offset: 0,
+    })
+    fireEvent.change(screen.getByLabelText("State"), {
+      target: { value: "failed" },
+    })
+    fireEvent.change(screen.getByLabelText("Suite"), {
+      target: { value: OTHER_SUITE },
+    })
     await waitFor(() =>
-      expect(queries.filter((q) => q.intent === "runs.list").at(-1)?.params).toEqual({
+      expect(
+        queries.filter((q) => q.intent === "runs.list").at(-1)?.params
+      ).toEqual({
         limit: 25,
         offset: 0,
         suiteId: OTHER_SUITE,
         state: "failed",
-      }),
+      })
     )
   })
 
@@ -53,16 +74,28 @@ describe("RunsPage", () => {
     const { client, queries } = recordingFullClient(answers([run()], true))
     renderNavPage(RunsPage, client, {})
     await screen.findByRole("region", { name: "Runs 1 to 1, newest first" })
-    expect(screen.getByRole("button", { name: "Newer runs" }).hasAttribute("disabled")).toBe(true)
+    expect(
+      screen
+        .getByRole("button", { name: "Newer runs" })
+        .hasAttribute("disabled")
+    ).toBe(true)
     fireEvent.click(screen.getByRole("button", { name: "Older runs" }))
-    await waitFor(() => expect(queries.filter((q) => q.intent === "runs.list").at(-1)?.params).toMatchObject({ offset: 25 }))
-    expect(await screen.findByRole("region", { name: "Runs 26 to 26, newest first" })).toBeTruthy()
+    await waitFor(() =>
+      expect(
+        queries.filter((q) => q.intent === "runs.list").at(-1)?.params
+      ).toMatchObject({ offset: 25 })
+    )
+    expect(
+      await screen.findByRole("region", { name: "Runs 26 to 26, newest first" })
+    ).toBeTruthy()
   })
 
   it("says there are no runs yet, or that none match the filters", async () => {
     renderNavPage(RunsPage, stubClient(answers([])), {})
     expect(await screen.findByText("No runs yet.")).toBeTruthy()
-    fireEvent.change(screen.getByLabelText("State"), { target: { value: "running" } })
+    fireEvent.change(screen.getByLabelText("State"), {
+      target: { value: "running" },
+    })
     expect(await screen.findByText("No runs match these filters.")).toBeTruthy()
   })
 
@@ -75,7 +108,9 @@ describe("RunsPage", () => {
     await act(async () => {
       vi.advanceTimersByTime(3000)
     })
-    expect(queries.filter((q) => q.intent === "runs.list").length).toBe(before + 1)
+    expect(queries.filter((q) => q.intent === "runs.list").length).toBe(
+      before + 1
+    )
   })
 
   it("does not refresh when nothing on the page is running", async () => {

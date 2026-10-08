@@ -1,5 +1,11 @@
 import { describe, expect, it, vi } from "vitest"
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react"
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react"
 import {
   ContractError,
   NavigationProvider,
@@ -37,7 +43,12 @@ function policy(over: Record<string, unknown> = {}) {
 }
 
 function detail(over: Record<string, unknown> = {}) {
-  return { policy: policy(), rotatable: true, records: [] as unknown[], ...over }
+  return {
+    policy: policy(),
+    rotatable: true,
+    records: [] as unknown[],
+    ...over,
+  }
 }
 
 const NO_POLICY = detail({ policy: null })
@@ -50,7 +61,12 @@ const RECORDS = [
     rotatedBy: "usr_1",
     rotatedAt: "2026-09-22T04:00:00Z",
   },
-  { id: "rec_1", oldVersion: 2, newVersion: 3, rotatedAt: "2026-09-21T04:00:00Z" },
+  {
+    id: "rec_1",
+    oldVersion: 2,
+    newVersion: 3,
+    rotatedAt: "2026-09-21T04:00:00Z",
+  },
 ]
 
 interface Harness {
@@ -85,7 +101,10 @@ function harness(
 }
 
 /** A client whose commands throw, for the failure path. */
-function failingCommands(error: ContractError, answer: unknown = detail()): Harness {
+function failingCommands(
+  error: ContractError,
+  answer: unknown = detail()
+): Harness {
   const h = harness(answer)
   return {
     ...h,
@@ -114,7 +133,10 @@ function neverSettles(answer: unknown = detail()): Harness {
   }
 }
 
-function renderDetail(client: ScopedClient, params: Record<string, string> = { key: KEY }) {
+function renderDetail(
+  client: ScopedClient,
+  params: Record<string, string> = { key: KEY }
+) {
   render(
     <PluginProvider client={client}>
       <NavigationProvider
@@ -137,7 +159,9 @@ const interval = () => screen.getByLabelText("Rotate every") as HTMLInputElement
 const unit = () => screen.getByLabelText("Interval unit") as HTMLSelectElement
 const enabledBox = () => screen.getByRole("checkbox") as HTMLElement
 const save = () =>
-  screen.getByRole("button", { name: /^(Create|Save) policy$/ }) as HTMLButtonElement
+  screen.getByRole("button", {
+    name: /^(Create|Save) policy$/,
+  }) as HTMLButtonElement
 
 async function ready() {
   await screen.findByLabelText("Rotate every")
@@ -153,7 +177,9 @@ describe("RotationDetailPage reads", () => {
     const h = harness()
     renderDetail(h.client)
     await ready()
-    expect(h.queries.filter((q) => q.intent === "rotation.detail")[0]?.params).toEqual({
+    expect(
+      h.queries.filter((q) => q.intent === "rotation.detail")[0]?.params
+    ).toEqual({
       key: KEY,
     })
   })
@@ -215,7 +241,9 @@ describe("RotationDetailPage create (no policy)", () => {
   })
 
   it("computes seconds from days and sends enabled false when unchecked", async () => {
-    const h = harness(NO_POLICY, { "rotation.savePolicy": { policy: policy() } })
+    const h = harness(NO_POLICY, {
+      "rotation.savePolicy": { policy: policy() },
+    })
     renderDetail(h.client)
     await ready()
     setInterval("2", "days")
@@ -230,21 +258,29 @@ describe("RotationDetailPage create (no policy)", () => {
   })
 
   it("rounds a fractional interval to whole seconds", async () => {
-    const h = harness(NO_POLICY, { "rotation.savePolicy": { policy: policy() } })
+    const h = harness(NO_POLICY, {
+      "rotation.savePolicy": { policy: policy() },
+    })
     renderDetail(h.client)
     await ready()
     setInterval("1.5", "hours")
     fireEvent.click(save())
     await screen.findByText("Policy saved.")
-    expect((h.commands[0]?.payload as { intervalSeconds: number }).intervalSeconds).toBe(5400)
+    expect(
+      (h.commands[0]?.payload as { intervalSeconds: number }).intervalSeconds
+    ).toBe(5400)
   })
 
   it("refuses an interval below 60 seconds with a message and sends nothing", async () => {
-    const h = harness(NO_POLICY, { "rotation.savePolicy": { policy: policy() } })
+    const h = harness(NO_POLICY, {
+      "rotation.savePolicy": { policy: policy() },
+    })
     renderDetail(h.client)
     await ready()
     setInterval("0.01", "hours") // 36 seconds
-    expect((await screen.findByRole("alert")).textContent).toMatch(/at least 60 seconds/)
+    expect((await screen.findByRole("alert")).textContent).toMatch(
+      /at least 60 seconds/
+    )
     expect(save().disabled).toBe(true)
     fireEvent.click(save())
     // Enter in the field submits the form even with the button disabled.
@@ -254,14 +290,18 @@ describe("RotationDetailPage create (no policy)", () => {
   })
 
   it("accepts an interval just over the minimum", async () => {
-    const h = harness(NO_POLICY, { "rotation.savePolicy": { policy: policy() } })
+    const h = harness(NO_POLICY, {
+      "rotation.savePolicy": { policy: policy() },
+    })
     renderDetail(h.client)
     await ready()
     setInterval("0.02", "hours") // 72 seconds
     expect(screen.queryByRole("alert")).toBeNull()
     fireEvent.click(save())
     await screen.findByText("Policy saved.")
-    expect((h.commands[0]?.payload as { intervalSeconds: number }).intervalSeconds).toBe(72)
+    expect(
+      (h.commands[0]?.payload as { intervalSeconds: number }).intervalSeconds
+    ).toBe(72)
   })
 
   it("cannot submit an empty interval, and says nothing about it", async () => {
@@ -298,7 +338,9 @@ describe("RotationDetailPage create (no policy)", () => {
 
 describe("RotationDetailPage edit (policy present)", () => {
   it("prefills whole days as days", async () => {
-    renderDetail(harness(detail({ policy: policy({ intervalSeconds: 172800 }) })).client)
+    renderDetail(
+      harness(detail({ policy: policy({ intervalSeconds: 172800 }) })).client
+    )
     await ready()
     expect(interval().value).toBe("2")
     expect(unit().value).toBe("days")
@@ -313,7 +355,11 @@ describe("RotationDetailPage edit (policy present)", () => {
     expect(unit().value).toBe("hours")
     fireEvent.click(save())
     await screen.findByText("Policy saved.")
-    expect(h.commands[0]?.payload).toEqual({ key: KEY, intervalSeconds: 21600, enabled: true })
+    expect(h.commands[0]?.payload).toEqual({
+      key: KEY,
+      intervalSeconds: 21600,
+      enabled: true,
+    })
   })
 
   it("keeps an interval that is not whole hours exact when saved untouched", async () => {
@@ -324,7 +370,9 @@ describe("RotationDetailPage edit (policy present)", () => {
     await ready()
     fireEvent.click(save())
     await screen.findByText("Policy saved.")
-    expect((h.commands[0]?.payload as { intervalSeconds: number }).intervalSeconds).toBe(100)
+    expect(
+      (h.commands[0]?.payload as { intervalSeconds: number }).intervalSeconds
+    ).toBe(100)
   })
 
   it("prefills the enabled checkbox from the policy", async () => {
@@ -337,18 +385,27 @@ describe("RotationDetailPage edit (policy present)", () => {
     renderDetail(harness().client)
     await ready()
     expect(screen.queryByLabelText(/no next rotation/i)).toBeNull()
-    expect(screen.getByText(new Date("2026-09-29T04:00:00Z").toLocaleString())).toBeTruthy()
+    expect(
+      screen.getByText(new Date("2026-09-29T04:00:00Z").toLocaleString())
+    ).toBeTruthy()
   })
 
   it("shows no next rotation for a disabled policy, even when the payload carries one", async () => {
     renderDetail(
       harness(
-        detail({ policy: policy({ enabled: false, nextRotationAt: "2026-10-05T04:00:00Z" }) })
+        detail({
+          policy: policy({
+            enabled: false,
+            nextRotationAt: "2026-10-05T04:00:00Z",
+          }),
+        })
       ).client
     )
     await ready()
     expect(screen.getByLabelText(/no next rotation/i)).toBeTruthy()
-    expect(screen.queryByText(new Date("2026-10-05T04:00:00Z").toLocaleString())).toBeNull()
+    expect(
+      screen.queryByText(new Date("2026-10-05T04:00:00Z").toLocaleString())
+    ).toBeNull()
   })
 })
 
@@ -358,13 +415,18 @@ describe("RotationDetailPage next rotation needs a rotator", () => {
       harness(
         detail({
           rotatable: false,
-          policy: policy({ rotatable: false, nextRotationAt: "2026-10-05T04:00:00Z" }),
+          policy: policy({
+            rotatable: false,
+            nextRotationAt: "2026-10-05T04:00:00Z",
+          }),
         })
       ).client
     )
     await ready()
     expect(screen.getByLabelText(/no next rotation/i)).toBeTruthy()
-    expect(screen.queryByText(new Date("2026-10-05T04:00:00Z").toLocaleString())).toBeNull()
+    expect(
+      screen.queryByText(new Date("2026-10-05T04:00:00Z").toLocaleString())
+    ).toBeNull()
   })
 })
 
@@ -376,8 +438,12 @@ describe("RotationDetailPage save preview", () => {
     await ready()
     const line = preview()
     expect(line).toBeTruthy()
-    expect(line!.textContent).toMatch(/^This secret will rotate every 1 day, next at about /)
-    expect(line!.textContent).toMatch(/Applications must pick up each new value\.$/)
+    expect(line!.textContent).toMatch(
+      /^This secret will rotate every 1 day, next at about /
+    )
+    expect(line!.textContent).toMatch(
+      /Applications must pick up each new value\.$/
+    )
   })
 
   it("computes the next time as now plus the interval, formatted like the other times", async () => {
@@ -402,13 +468,16 @@ describe("RotationDetailPage save preview", () => {
   const keeps = () => screen.queryByText(/^Saving keeps the next rotation at/)
   const NOW = new Date("2026-10-01T00:00:00Z")
   const STORED = "2026-09-29T04:00:00Z"
-  const nowPlus = (seconds: number) => new Date(NOW.getTime() + seconds * 1000).toLocaleString()
+  const nowPlus = (seconds: number) =>
+    new Date(NOW.getTime() + seconds * 1000).toLocaleString()
 
   it("says saving keeps the stored next rotation for an unchanged enabled policy", async () => {
     vi.useFakeTimers({ toFake: ["Date"] })
     try {
       vi.setSystemTime(NOW)
-      renderDetail(harness(detail({ policy: policy({ nextRotationAt: STORED }) })).client)
+      renderDetail(
+        harness(detail({ policy: policy({ nextRotationAt: STORED }) })).client
+      )
       await ready()
       expect(keeps()!.textContent).toBe(
         `Saving keeps the next rotation at ${new Date(STORED).toLocaleString()}. This secret rotates every 6 hours. Applications must pick up each new value.`
@@ -424,7 +493,9 @@ describe("RotationDetailPage save preview", () => {
     vi.useFakeTimers({ toFake: ["Date"] })
     try {
       vi.setSystemTime(NOW)
-      renderDetail(harness(detail({ policy: policy({ nextRotationAt: STORED }) })).client)
+      renderDetail(
+        harness(detail({ policy: policy({ nextRotationAt: STORED }) })).client
+      )
       await ready()
       setInterval("12", "hours")
       expect(keeps()).toBeNull()
@@ -440,7 +511,10 @@ describe("RotationDetailPage save preview", () => {
     vi.useFakeTimers({ toFake: ["Date"] })
     try {
       vi.setSystemTime(NOW)
-      renderDetail(harness(detail({ policy: policy({ nextRotationAt: undefined }) })).client)
+      renderDetail(
+        harness(detail({ policy: policy({ nextRotationAt: undefined }) }))
+          .client
+      )
       await ready()
       expect(keeps()).toBeNull()
       expect(preview()!.textContent).toBe(
@@ -456,7 +530,11 @@ describe("RotationDetailPage save preview", () => {
     try {
       vi.setSystemTime(NOW)
       renderDetail(
-        harness(detail({ policy: policy({ enabled: false, nextRotationAt: undefined }) })).client
+        harness(
+          detail({
+            policy: policy({ enabled: false, nextRotationAt: undefined }),
+          })
+        ).client
       )
       await ready()
       expect(preview()).toBeNull()
@@ -505,7 +583,9 @@ describe("RotationDetailPage rotate now", () => {
   it("is disabled with an explanation when no rotator is registered", async () => {
     renderDetail(harness(detail({ rotatable: false })).client)
     await ready()
-    const button = screen.getByRole("button", { name: "Rotate now" }) as HTMLButtonElement
+    const button = screen.getByRole("button", {
+      name: "Rotate now",
+    }) as HTMLButtonElement
     expect(button.disabled).toBe(true)
     const why = screen.getByText(/No rotator is registered for this secret/)
     expect(why.textContent).toMatch(/registered in application code/)
@@ -515,7 +595,9 @@ describe("RotationDetailPage rotate now", () => {
   it("is enabled, with no explanation, when a rotator is registered", async () => {
     renderDetail(harness().client)
     await ready()
-    const button = screen.getByRole("button", { name: "Rotate now" }) as HTMLButtonElement
+    const button = screen.getByRole("button", {
+      name: "Rotate now",
+    }) as HTMLButtonElement
     expect(button.disabled).toBe(false)
     expect(screen.queryByText(/No rotator is registered/)).toBeNull()
   })
@@ -529,11 +611,15 @@ describe("RotationDetailPage rotate now", () => {
     fireEvent.click(screen.getByRole("button", { name: "Rotate now" }))
     const dialog = await screen.findByRole("alertdialog")
     expect(dialog.textContent).toMatch(/creates a new version/)
-    expect(dialog.textContent).toMatch(/Applications must pick up the new value/)
+    expect(dialog.textContent).toMatch(
+      /Applications must pick up the new value/
+    )
     expect(h.commands).toEqual([])
     fireEvent.click(within(dialog).getByRole("button", { name: "Rotate now" }))
     expect(await screen.findByText("Rotated from v3 to v4.")).toBeTruthy()
-    expect(h.commands).toEqual([{ intent: "rotation.rotateNow", payload: { key: KEY } }])
+    expect(h.commands).toEqual([
+      { intent: "rotation.rotateNow", payload: { key: KEY } },
+    ])
     await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull())
   })
 
@@ -578,25 +664,37 @@ describe("RotationDetailPage rotate now", () => {
 
 describe("RotationDetailPage delete policy", () => {
   async function openDelete() {
-    fireEvent.click(await screen.findByRole("button", { name: "Delete policy" }))
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Delete policy" })
+    )
     return await screen.findByRole("alertdialog")
   }
 
   it("sends only the key after confirmation", async () => {
-    const h = harness(detail(), { "rotation.deletePolicy": { ok: true, key: KEY } })
+    const h = harness(detail(), {
+      "rotation.deletePolicy": { ok: true, key: KEY },
+    })
     renderDetail(h.client)
     const dialog = await openDelete()
     expect(h.commands).toEqual([])
-    fireEvent.click(within(dialog).getByRole("button", { name: "Delete policy" }))
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: "Delete policy" })
+    )
     expect(await screen.findByText("Policy deleted.")).toBeTruthy()
-    expect(h.commands).toEqual([{ intent: "rotation.deletePolicy", payload: { key: KEY } }])
+    expect(h.commands).toEqual([
+      { intent: "rotation.deletePolicy", payload: { key: KEY } },
+    ])
     await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull())
   })
 
   it("shows a failure inside the dialog, keeps it open, and clears it on reopen", async () => {
-    renderDetail(failingCommands(new ContractError("INTERNAL", "policy store down")).client)
+    renderDetail(
+      failingCommands(new ContractError("INTERNAL", "policy store down")).client
+    )
     const dialog = await openDelete()
-    fireEvent.click(within(dialog).getByRole("button", { name: "Delete policy" }))
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: "Delete policy" })
+    )
     expect(await within(dialog).findByText(/policy store down/)).toBeTruthy()
     expect(screen.queryByText("Policy deleted.")).toBeNull()
     fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }))
@@ -608,7 +706,9 @@ describe("RotationDetailPage delete policy", () => {
   it("keeps the dialog open on Escape while the delete runs", async () => {
     renderDetail(neverSettles().client)
     const dialog = await openDelete()
-    fireEvent.click(within(dialog).getByRole("button", { name: "Delete policy" }))
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: "Delete policy" })
+    )
     await within(dialog).findByRole("button", { name: /Working/ })
     fireEvent.keyDown(dialog, { key: "Escape" })
     fireEvent.keyDown(document.body, { key: "Escape" })

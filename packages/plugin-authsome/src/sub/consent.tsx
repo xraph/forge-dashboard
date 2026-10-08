@@ -1,6 +1,10 @@
 import { useEffect, useState } from "react"
 import type { ComponentType } from "react"
-import { defineSubPlugin, useCommand, useQuery } from "@forge-go/dashboard-plugin"
+import {
+  defineSubPlugin,
+  useCommand,
+  useQuery,
+} from "@forge-go/dashboard-plugin"
 import { Badge } from "@forge-go/dashboard-kit/components/badge"
 import { Button } from "@forge-go/dashboard-kit/components/button"
 import { ConfirmDialog } from "@forge-go/dashboard-kit/components/confirm-dialog"
@@ -8,7 +12,10 @@ import { FilterBar } from "@forge-go/dashboard-kit/components/filter-bar"
 import type { FilterOption } from "@forge-go/dashboard-kit/components/filter-bar"
 import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
-import { CommandAlert, QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
+import {
+  CommandAlert,
+  QueryBoundary,
+} from "@forge-go/dashboard-kit/components/query-boundary"
 import {
   ResourceTable,
   type Column,
@@ -125,6 +132,7 @@ export function ConsentsPage() {
   const [userId, setUserId] = useState("")
   const [purpose, setPurpose] = useState("")
   const page = useCursorStack()
+  const resetPage = page.reset
   const [revoking, setRevoking] = useState<ConsentRecord | null>(null)
 
   useEffect(() => {
@@ -132,10 +140,10 @@ export function ConsentsPage() {
       setUserId(searchInput)
       // A cursor points into the previous result set. Carrying it across a
       // new search returns page two of an answer nobody asked for.
-      page.reset()
+      resetPage()
     }, 300)
     return () => clearTimeout(timer)
-  }, [searchInput, page.reset])
+  }, [searchInput, resetPage])
 
   const list = useQuery<ConsentList>("consent.list", {
     userId: userId || undefined,
@@ -170,7 +178,10 @@ export function ConsentsPage() {
     { label: "All purposes", value: "" },
     ...Array.from(new Set((list.data?.items ?? []).map((r) => r.purpose)))
       .sort()
-      .map((p) => ({ label: p.charAt(0).toUpperCase() + p.slice(1), value: p })),
+      .map((p) => ({
+        label: p.charAt(0).toUpperCase() + p.slice(1),
+        value: p,
+      })),
   ]
 
   const columns: Column<ConsentRecord>[] = [
@@ -335,7 +346,14 @@ export const consentSubPlugin = defineSubPlugin({
   extension: "consent",
   host: "authsome",
   label: "Consent",
-  nav: [{ label: "Consent", to: "/compliance/consent", group: "Compliance", priority: 0 }],
+  nav: [
+    {
+      label: "Consent",
+      to: "/compliance/consent",
+      group: "Compliance",
+      priority: 0,
+    },
+  ],
   routes: [{ path: "/compliance/consent", element: ConsentsPage }],
   // Reads nothing of its host's. Every intent it uses is its own.
   hostIntents: [],
@@ -350,7 +368,9 @@ export const consentSubPlugin = defineSubPlugin({
         // string }>` does not assign without help even though the section
         // only ever reads a `userId` string. The cast changes nothing at
         // runtime: it is still the exact same component instance.
-        render: ConsentUserSection as unknown as ComponentType<Record<string, unknown>>,
+        render: ConsentUserSection as unknown as ComponentType<
+          Record<string, unknown>
+        >,
       },
     ],
   },

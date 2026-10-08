@@ -95,8 +95,12 @@ describe("WardenRoleDetailPage", () => {
       { id: "role_01hq" }
     )
     await screen.findByText("Reader")
-    expect(describedAs("Created").textContent).toBe(formatTimestamp("2025-01-02T03:04:05Z"))
-    expect(describedAs("Updated").textContent).toBe(formatTimestamp("2026-09-23T10:00:00Z"))
+    expect(describedAs("Created").textContent).toBe(
+      formatTimestamp("2025-01-02T03:04:05Z")
+    )
+    expect(describedAs("Updated").textContent).toBe(
+      formatTimestamp("2026-09-23T10:00:00Z")
+    )
   })
 
   it("marks a missing created time with the empty mark, never undefined", async () => {
@@ -115,7 +119,9 @@ describe("WardenRoleDetailPage", () => {
       id: "role_01hq",
     })
     const row = (await screen.findByText("Editor")).closest("tr") as HTMLElement
-    expect(cellUnder(row, "Created").textContent).toBe(formatTimestamp("2025-03-04T05:06:07Z"))
+    expect(cellUnder(row, "Created").textContent).toBe(
+      formatTimestamp("2025-03-04T05:06:07Z")
+    )
   })
 
   it("marks a child with no created time with the empty mark", async () => {
@@ -136,11 +142,9 @@ describe("WardenRoleDetailPage", () => {
   })
 
   it("says which kind of empty a role with no grants is", async () => {
-    renderPage(
-      WardenRoleDetailPage,
-      client({ ...DETAIL, permissions: [] }),
-      { id: "role_01hq" }
-    )
+    renderPage(WardenRoleDetailPage, client({ ...DETAIL, permissions: [] }), {
+      id: "role_01hq",
+    })
     expect(await screen.findByText(/0 permissions/)).toBeTruthy()
     expect(await screen.findByText(/grants nothing/i)).toBeTruthy()
   })
@@ -150,12 +154,16 @@ describe("WardenRoleDetailPage", () => {
     // its own Details link to /roles/:id and an unscoped query would be
     // ambiguous between the two.
     renderPage(WardenRoleDetailPage, client(), { id: "role_01hq" })
-    const row = (await screen.findByText("document:read")).closest("tr") as HTMLElement
+    const row = (await screen.findByText("document:read")).closest(
+      "tr"
+    ) as HTMLElement
     expect(row).toBeTruthy()
-    expect(within(row).getByRole("link", { name: "Details" }).getAttribute("href")).toBe(
-      "/permissions/perm_01a"
-    )
-    expect(within(row).getByRole("button", { name: "Revoke document:read" })).toBeTruthy()
+    expect(
+      within(row).getByRole("link", { name: "Details" }).getAttribute("href")
+    ).toBe("/permissions/perm_01a")
+    expect(
+      within(row).getByRole("button", { name: "Revoke document:read" })
+    ).toBeTruthy()
   })
 
   it("still links a grant on a system role, which has no Revoke", async () => {
@@ -164,10 +172,12 @@ describe("WardenRoleDetailPage", () => {
     renderPage(WardenRoleDetailPage, client({ ...DETAIL, isSystem: true }), {
       id: "role_01hq",
     })
-    const row = (await screen.findByText("document:read")).closest("tr") as HTMLElement
-    expect(within(row).getByRole("link", { name: "Details" }).getAttribute("href")).toBe(
-      "/permissions/perm_01a"
-    )
+    const row = (await screen.findByText("document:read")).closest(
+      "tr"
+    ) as HTMLElement
+    expect(
+      within(row).getByRole("link", { name: "Details" }).getAttribute("href")
+    ).toBe("/permissions/perm_01a")
     expect(within(row).queryByRole("button", { name: /Revoke/ })).toBeNull()
   })
 
@@ -183,7 +193,9 @@ describe("WardenRoleDetailPage", () => {
     const row = (await screen.findByText("Editor")).closest("tr")
     expect(row).toBeTruthy()
     expect(
-      within(row as HTMLElement).getByRole("link", { name: /Details/i }).getAttribute("href")
+      within(row as HTMLElement)
+        .getByRole("link", { name: /Details/i })
+        .getAttribute("href")
     ).toBe("/roles/role_01hr")
   })
 
@@ -202,7 +214,9 @@ describe("WardenRoleDetailPage", () => {
       { "roles.detachPermission": { id: "role_01hq" } }
     )
     renderPage(WardenRoleDetailPage, c, { id: "role_01hq" })
-    const detach = await screen.findByRole("button", { name: /Revoke document:read/i })
+    const detach = await screen.findByRole("button", {
+      name: /Revoke document:read/i,
+    })
     fireEvent.click(detach)
     const confirm = await screen.findByRole("button", { name: /^Revoke$/i })
     fireEvent.click(confirm)
@@ -225,7 +239,9 @@ describe("WardenRoleDetailPage", () => {
     // The contract refuses each of these on a system role, so none may be
     // offered. Edit and Replace all are asserted in the "system role" block
     // below, paired with their presence on an ordinary role.
-    expect(screen.queryByRole("button", { name: /Attach permission/i })).toBeNull()
+    expect(
+      screen.queryByRole("button", { name: /Attach permission/i })
+    ).toBeNull()
     expect(screen.queryByRole("button", { name: /Revoke/i })).toBeNull()
     expect(screen.queryByRole("button", { name: "Edit" })).toBeNull()
     expect(screen.queryByRole("button", { name: "Replace all" })).toBeNull()
@@ -235,8 +251,12 @@ describe("WardenRoleDetailPage", () => {
 
   it("offers attach and revoke on an ordinary role", async () => {
     renderPage(WardenRoleDetailPage, client(), { id: "role_01hq" })
-    expect(await screen.findByRole("button", { name: /Attach permission/i })).toBeTruthy()
-    expect(await screen.findByRole("button", { name: /Revoke document:read/i })).toBeTruthy()
+    expect(
+      await screen.findByRole("button", { name: /Attach permission/i })
+    ).toBeTruthy()
+    expect(
+      await screen.findByRole("button", { name: /Revoke document:read/i })
+    ).toBeTruthy()
   })
 
   it("surfaces a read failure instead of a blank page", async () => {
@@ -255,7 +275,9 @@ describe("WardenRoleDetailPage", () => {
         stubClient({ "roles.detail": DETAIL, ...answers }),
         { id: "role_01hq" }
       )
-      fireEvent.click(await screen.findByRole("button", { name: /Attach permission/i }))
+      fireEvent.click(
+        await screen.findByRole("button", { name: /Attach permission/i })
+      )
       await screen.findByLabelText("Permission to attach")
     }
 
@@ -264,19 +286,28 @@ describe("WardenRoleDetailPage", () => {
       // after a failed read used to say "Every permission is already
       // granted", which is a lie about a read that never happened.
       await openPicker({})
-      expect(await screen.findByText(/Could not load permissions/i)).toBeTruthy()
+      expect(
+        await screen.findByText(/Could not load permissions/i)
+      ).toBeTruthy()
       expect(screen.queryByText(/already granted/i)).toBeNull()
     })
 
     it("says no permissions exist when the tenant has none", async () => {
-      await openPicker({ "permissions.list": { items: [], total: 0, limit: 200, offset: 0 } })
+      await openPicker({
+        "permissions.list": { items: [], total: 0, limit: 200, offset: 0 },
+      })
       expect(await screen.findByText(/No permissions exist yet/i)).toBeTruthy()
       expect(screen.queryByText(/already granted/i)).toBeNull()
     })
 
     it("says everything is granted only when the whole list was read and all of it is held", async () => {
       await openPicker({
-        "permissions.list": { items: [DETAIL.permissions[0]], total: 1, limit: 200, offset: 0 },
+        "permissions.list": {
+          items: [DETAIL.permissions[0]],
+          total: 1,
+          limit: 200,
+          offset: 0,
+        },
       })
       expect(await screen.findByText(/already granted/i)).toBeTruthy()
     })
@@ -286,10 +317,19 @@ describe("WardenRoleDetailPage", () => {
       // got is all held. Claiming "every permission is granted" here would
       // hide 50 that were never listed.
       await openPicker({
-        "permissions.list": { items: [DETAIL.permissions[0]], total: 250, limit: 200, offset: 0 },
+        "permissions.list": {
+          items: [DETAIL.permissions[0]],
+          total: 250,
+          limit: 200,
+          offset: 0,
+        },
       })
-      expect(await screen.findByText(/Showing the first 1 of 250/i)).toBeTruthy()
-      expect(screen.queryByText(/Every permission is already granted/i)).toBeNull()
+      expect(
+        await screen.findByText(/Showing the first 1 of 250/i)
+      ).toBeTruthy()
+      expect(
+        screen.queryByText(/Every permission is already granted/i)
+      ).toBeNull()
     })
   })
 
@@ -331,14 +371,20 @@ describe("WardenRoleDetailPage", () => {
       // Exact name: a bare /edit/i would also match "Editor" if that child
       // role ever became a control.
       fireEvent.click(screen.getByRole("button", { name: "Edit" }))
-      return screen.findByRole("button", { name: "Save changes" }) as Promise<HTMLButtonElement>
+      return screen.findByRole("button", {
+        name: "Save changes",
+      }) as Promise<HTMLButtonElement>
     }
 
-    const field = (label: string) => screen.getByLabelText(label) as HTMLInputElement
+    const field = (label: string) =>
+      screen.getByLabelText(label) as HTMLInputElement
     const type = (label: string, value: string) =>
       fireEvent.change(field(label), { target: { value } })
 
-    async function saveAndRead(save: HTMLButtonElement, sent: { payload: unknown }[]) {
+    async function saveAndRead(
+      save: HTMLButtonElement,
+      sent: { payload: unknown }[]
+    ) {
       fireEvent.click(save)
       await waitFor(() => expect(sent).toHaveLength(1))
       return sent[0]?.payload as Record<string, unknown>
@@ -417,7 +463,10 @@ describe("WardenRoleDetailPage", () => {
       renderPage(WardenRoleDetailPage, c, { id: "role_01hq" })
       const save = await openEdit()
       type("Inherits from", "  other ")
-      expect(await saveAndRead(save, sent)).toEqual({ id: "role_01hq", parentSlug: "other" })
+      expect(await saveAndRead(save, sent)).toEqual({
+        id: "role_01hq",
+        parentSlug: "other",
+      })
     })
 
     describe("member cap", () => {
@@ -465,7 +514,10 @@ describe("WardenRoleDetailPage", () => {
         type("Member cap", "0")
         expect(save.disabled).toBe(true)
         type("Member cap", "3")
-        expect(await saveAndRead(save, sent)).toEqual({ id: "role_01hq", maxMembers: 3 })
+        expect(await saveAndRead(save, sent)).toEqual({
+          id: "role_01hq",
+          maxMembers: 3,
+        })
       })
 
       it("refuses text that is not a whole number, and says so", async () => {
@@ -474,14 +526,18 @@ describe("WardenRoleDetailPage", () => {
         const save = await openEdit()
         type("Member cap", "lots")
         expect(save.disabled).toBe(true)
-        expect(screen.getByText(/whole number, or empty for no limit/i)).toBeTruthy()
+        expect(
+          screen.getByText(/whole number, or empty for no limit/i)
+        ).toBeTruthy()
         type("Member cap", "-1")
         expect(save.disabled).toBe(true)
         type("Member cap", "2.5")
         expect(save.disabled).toBe(true)
         type("Member cap", "7")
         expect(save.disabled).toBe(false)
-        expect(screen.queryByText(/whole number, or empty for no limit/i)).toBeNull()
+        expect(
+          screen.queryByText(/whole number, or empty for no limit/i)
+        ).toBeNull()
         expect(sent).toHaveLength(0)
       })
     })
@@ -504,7 +560,10 @@ describe("WardenRoleDetailPage", () => {
         renderPage(WardenRoleDetailPage, c, { id: "role_01hq" })
         const save = await openEdit()
         fireEvent.click(field("Default role"))
-        expect(await saveAndRead(save, sent)).toEqual({ id: "role_01hq", isDefault: true })
+        expect(await saveAndRead(save, sent)).toEqual({
+          id: "role_01hq",
+          isDefault: true,
+        })
       })
     })
 
@@ -590,7 +649,9 @@ describe("WardenRoleDetailPage", () => {
       renderPage(WardenRoleDetailPage, recording().client, { id: "role_01hq" })
       await openEdit()
       const described = (label: string) =>
-        document.getElementById(field(label).getAttribute("aria-describedby") ?? "")?.textContent
+        document.getElementById(
+          field(label).getAttribute("aria-describedby") ?? ""
+        )?.textContent
       expect(described("Inherits from")).toBe(
         "The slug of another role in this namespace. Leave it empty for no parent."
       )
@@ -617,11 +678,14 @@ describe("WardenRoleDetailPage", () => {
       const save = await openEdit()
       type("Name", "Renamed")
       fireEvent.click(save)
-      const working = (await screen.findByRole("button", { name: "Saving…" })) as HTMLButtonElement
+      const working = (await screen.findByRole("button", {
+        name: "Saving…",
+      })) as HTMLButtonElement
       expect(working.disabled).toBe(true)
-      expect((screen.getByRole("button", { name: "Cancel" }) as HTMLButtonElement).disabled).toBe(
-        true
-      )
+      expect(
+        (screen.getByRole("button", { name: "Cancel" }) as HTMLButtonElement)
+          .disabled
+      ).toBe(true)
     })
 
     it("keeps the form open, with what was typed, when the save fails", async () => {
@@ -629,7 +693,10 @@ describe("WardenRoleDetailPage", () => {
       // parent slug with no role in this namespace. roles.update never checks
       // the member cap, so a cap refusal here would be invented.
       const { client: c, sent } = refusing(
-        new ContractError("BAD_REQUEST", "no role with slug ghost in this namespace")
+        new ContractError(
+          "BAD_REQUEST",
+          "no role with slug ghost in this namespace"
+        )
       )
       renderPage(WardenRoleDetailPage, c, { id: "role_01hq" })
       const save = await openEdit()
@@ -638,16 +705,22 @@ describe("WardenRoleDetailPage", () => {
       type("Member cap", "1")
       fireEvent.click(save)
       const alert = await screen.findByRole("alert")
-      expect(alert.textContent).toContain("no role with slug ghost in this namespace")
+      expect(alert.textContent).toContain(
+        "no role with slug ghost in this namespace"
+      )
       expect(alert.textContent).toContain("BAD_REQUEST")
       expect(sent).toHaveLength(1)
       expect(field("Name").value).toBe("Renamed")
       expect(field("Inherits from").value).toBe("ghost")
       expect(field("Member cap").value).toBe("1")
       // Still the form, and still saveable once the operator fixes it.
-      expect((screen.getByRole("button", { name: "Save changes" }) as HTMLButtonElement).disabled).toBe(
-        false
-      )
+      expect(
+        (
+          screen.getByRole("button", {
+            name: "Save changes",
+          }) as HTMLButtonElement
+        ).disabled
+      ).toBe(false)
     })
 
     it("says where the cap is checked, the bootstrap exception, and that it cannot go below the holders", async () => {
@@ -665,7 +738,9 @@ describe("WardenRoleDetailPage", () => {
     })
 
     it("does not show an earlier refusal when the form is opened again", async () => {
-      const { client: c } = refusing(new ContractError("CONFLICT", "nope, not this time"))
+      const { client: c } = refusing(
+        new ContractError("CONFLICT", "nope, not this time")
+      )
       renderPage(WardenRoleDetailPage, c, { id: "role_01hq" })
       const save = await openEdit()
       type("Name", "Renamed")
@@ -697,7 +772,9 @@ describe("WardenRoleDetailPage", () => {
     it("offers both on an ordinary role", async () => {
       renderPage(WardenRoleDetailPage, client(), { id: "role_01hq" })
       expect(await screen.findByRole("button", { name: "Edit" })).toBeTruthy()
-      expect(await screen.findByRole("button", { name: "Replace all" })).toBeTruthy()
+      expect(
+        await screen.findByRole("button", { name: "Replace all" })
+      ).toBeTruthy()
       expect(screen.queryByText(/This is a system role/i)).toBeNull()
     })
   })
@@ -729,7 +806,8 @@ describe("WardenRoleDetailPage", () => {
     }
 
     const dialog = () => within(screen.getByRole("alertdialog"))
-    const box = (label: string) => dialog().getByLabelText(label) as HTMLInputElement
+    const box = (label: string) =>
+      dialog().getByLabelText(label) as HTMLInputElement
 
     async function openReplace() {
       await screen.findByText("document:read")
@@ -739,7 +817,10 @@ describe("WardenRoleDetailPage", () => {
       await dialog().findByLabelText("document:write (/)")
     }
 
-    const confirm = () => dialog().getByRole("button", { name: "Replace grants" }) as HTMLButtonElement
+    const confirm = () =>
+      dialog().getByRole("button", {
+        name: "Replace grants",
+      }) as HTMLButtonElement
 
     it("replaces the whole grant set in one call", async () => {
       const { client: c, sent } = recording()
@@ -753,7 +834,10 @@ describe("WardenRoleDetailPage", () => {
       expect(sent[0]?.intent).toBe("roles.setPermissions")
       // roleId, not id, and permissions named by name plus namespace.
       const payload = sent[0]?.payload as Record<string, unknown>
-      expect(payload).toEqual({ roleId: "role_01hq", permissions: [REF_READ, REF_WRITE] })
+      expect(payload).toEqual({
+        roleId: "role_01hq",
+        permissions: [REF_READ, REF_WRITE],
+      })
       expect(Object.keys(payload).sort()).toEqual(["permissions", "roleId"])
       expect(Object.keys((payload.permissions as object[])[0]).sort()).toEqual([
         "name",
@@ -769,7 +853,10 @@ describe("WardenRoleDetailPage", () => {
       fireEvent.click(box("document:write (/)"))
       fireEvent.click(confirm())
       await waitFor(() => expect(sent).toHaveLength(1))
-      expect(sent[0]?.payload).toEqual({ roleId: "role_01hq", permissions: [REF_WRITE] })
+      expect(sent[0]?.payload).toEqual({
+        roleId: "role_01hq",
+        permissions: [REF_WRITE],
+      })
     })
 
     it("can revoke everything with an empty set", async () => {
@@ -779,7 +866,9 @@ describe("WardenRoleDetailPage", () => {
       renderPage(WardenRoleDetailPage, c, { id: "role_01hq" })
       await openReplace()
       fireEvent.click(box("document:read (/)"))
-      expect(dialog().getByText(/This revokes all 1 permission from the role/)).toBeTruthy()
+      expect(
+        dialog().getByText(/This revokes all 1 permission from the role/)
+      ).toBeTruthy()
       expect(confirm().disabled).toBe(false)
       fireEvent.click(confirm())
       await waitFor(() => expect(sent).toHaveLength(1))
@@ -844,7 +933,10 @@ describe("WardenRoleDetailPage", () => {
       await waitFor(() => expect(sent).toHaveLength(1))
       expect(sent[0]?.payload).toEqual({
         roleId: "role_01hq",
-        permissions: [REF_READ, { name: "invoice:read", namespacePath: "acme/eu" }],
+        permissions: [
+          REF_READ,
+          { name: "invoice:read", namespacePath: "acme/eu" },
+        ],
       })
     })
 
@@ -861,7 +953,9 @@ describe("WardenRoleDetailPage", () => {
       renderPage(WardenRoleDetailPage, c, { id: "role_01hq" })
       await openReplace()
       expect(box("document:read (/)").checked).toBe(true)
-      expect(await dialog().findByText(/Showing the first 1 of 250/i)).toBeTruthy()
+      expect(
+        await dialog().findByText(/Showing the first 1 of 250/i)
+      ).toBeTruthy()
       fireEvent.click(box("document:write (/)"))
       fireEvent.click(confirm())
       await waitFor(() => expect(sent).toHaveLength(1))
@@ -879,7 +973,9 @@ describe("WardenRoleDetailPage", () => {
       renderPage(WardenRoleDetailPage, c, { id: "role_01hq" })
       await screen.findByText("document:read")
       fireEvent.click(screen.getByRole("button", { name: "Replace all" }))
-      expect(await dialog().findByText(/Could not load permissions/i)).toBeTruthy()
+      expect(
+        await dialog().findByText(/Could not load permissions/i)
+      ).toBeTruthy()
       fireEvent.click(box("document:read (/)"))
       fireEvent.click(confirm())
       await waitFor(() => expect(sent).toHaveLength(1))
@@ -921,21 +1017,27 @@ describe("WardenRoleDetailPage", () => {
         name: "Working…",
       })) as HTMLButtonElement
       expect(working.disabled).toBe(true)
-      expect((dialog().getByRole("button", { name: "Cancel" }) as HTMLButtonElement).disabled).toBe(
-        true
-      )
+      expect(
+        (dialog().getByRole("button", { name: "Cancel" }) as HTMLButtonElement)
+          .disabled
+      ).toBe(true)
     })
 
     it("shows a refusal inside the dialog, stays open, and keeps the selection", async () => {
       const { client: c, sent } = refusing(
-        new ContractError("NOT_FOUND", 'permission "document:write" does not exist')
+        new ContractError(
+          "NOT_FOUND",
+          'permission "document:write" does not exist'
+        )
       )
       renderPage(WardenRoleDetailPage, c, { id: "role_01hq" })
       await openReplace()
       fireEvent.click(box("document:write (/)"))
       fireEvent.click(confirm())
       const alert = await dialog().findByRole("alert")
-      expect(alert.textContent).toContain('permission "document:write" does not exist')
+      expect(alert.textContent).toContain(
+        'permission "document:write" does not exist'
+      )
       expect(alert.textContent).toContain("NOT_FOUND")
       expect(sent).toHaveLength(1)
       expect(screen.getByRole("alertdialog")).toBeTruthy()
@@ -944,7 +1046,9 @@ describe("WardenRoleDetailPage", () => {
     })
 
     it("does not show an earlier refusal when the dialog is opened again", async () => {
-      const { client: c } = refusing(new ContractError("CONFLICT", "not this time"))
+      const { client: c } = refusing(
+        new ContractError("CONFLICT", "not this time")
+      )
       renderPage(WardenRoleDetailPage, c, { id: "role_01hq" })
       await openReplace()
       fireEvent.click(box("document:write (/)"))

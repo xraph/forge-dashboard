@@ -37,7 +37,12 @@ export interface PromptVersionDialogProps {
  * the form asks only for the prompt, a changelog line and whether runs should
  * use it from now on.
  */
-export function PromptVersionDialog({ open, onOpenChange, suiteId, initialPrompt }: PromptVersionDialogProps) {
+export function PromptVersionDialog({
+  open,
+  onOpenChange,
+  suiteId,
+  initialPrompt,
+}: PromptVersionDialogProps) {
   const command = useCommand<PromptVersion>("prompts.create")
   const { reset } = command
   useEffect(() => {
@@ -56,7 +61,10 @@ export function PromptVersionDialog({ open, onOpenChange, suiteId, initialPrompt
       }}
       disablePointerDismissal={locked}
     >
-      <DialogContent showCloseButton={!locked} className="max-h-[calc(100vh-2rem)] overflow-y-auto sm:max-w-2xl">
+      <DialogContent
+        showCloseButton={!locked}
+        className="max-h-[calc(100vh-2rem)] overflow-y-auto sm:max-w-2xl"
+      >
         <PromptVersionForm
           command={command}
           suiteId={suiteId}
@@ -96,7 +104,12 @@ function PromptVersionForm({
     sending.current = true
     let saved: PromptVersion | undefined
     try {
-      saved = await command.execute({ suiteId, systemPrompt, changelog: changelog.trim(), makeCurrent })
+      saved = await command.execute({
+        suiteId,
+        systemPrompt,
+        changelog: changelog.trim(),
+        makeCurrent,
+      })
     } finally {
       sending.current = false
     }
@@ -119,7 +132,9 @@ function PromptVersionForm({
             aria-describedby={message ? id("error") : undefined}
             onChange={(e) => setSystemPrompt(e.target.value)}
           />
-          <FieldDescription>Starts from the prompt runs use today.</FieldDescription>
+          <FieldDescription>
+            Starts from the prompt runs use today.
+          </FieldDescription>
         </Field>
         <Field>
           <Label htmlFor={id("changelog")}>Changelog</Label>
@@ -132,7 +147,10 @@ function PromptVersionForm({
           <FieldDescription>One line on what changed and why.</FieldDescription>
         </Field>
         <Label className="font-normal">
-          <Checkbox checked={makeCurrent} onCheckedChange={(on) => setMakeCurrent(on === true)} />
+          <Checkbox
+            checked={makeCurrent}
+            onCheckedChange={(on) => setMakeCurrent(on === true)}
+          />
           Make it current, so runs started from now use it
         </Label>
       </FieldGroup>
@@ -142,7 +160,10 @@ function PromptVersionForm({
         </p>
       )}
       <DialogFooter>
-        <DialogClose render={<Button type="button" variant="outline" />} disabled={command.loading}>
+        <DialogClose
+          render={<Button type="button" variant="outline" />}
+          disabled={command.loading}
+        >
           Cancel
         </DialogClose>
         <Button type="submit" disabled={command.loading}>

@@ -133,7 +133,9 @@ const PART_PLACEHOLDERS: Record<keyof Parts, string> = {
  * This is how warden's own docs and its DSL write it, and it is the string
  * somebody copies into a check.
  */
-function tupleString(t: Omit<RelationSummary, "id" | "namespacePath" | "createdAt">) {
+function tupleString(
+  t: Omit<RelationSummary, "id" | "namespacePath" | "createdAt">
+) {
   const subject = `${t.subjectType}:${t.subjectId}`
   return (
     `${t.objectType}:${t.objectId}#${t.relation}@` +
@@ -227,10 +229,11 @@ function GraphPicker() {
         .flatMap((n) => n.relations.map((r) => r.name))
     ),
   ]
-  const nsOptions = namespaceOptions(namespaces.data?.namespaces ?? [""]).filter(
-    (o) => o.value !== "all"
-  )
-  const complete = objectType !== "" && objectId.trim() !== "" && relation !== ""
+  const nsOptions = namespaceOptions(
+    namespaces.data?.namespaces ?? [""]
+  ).filter((o) => o.value !== "all")
+  const complete =
+    objectType !== "" && objectId.trim() !== "" && relation !== ""
 
   return (
     <div className="mt-3 flex flex-col gap-3">
@@ -243,14 +246,14 @@ function GraphPicker() {
           otherwise read as "there are none". */}
       {graph.error && (
         <p className="text-sm text-muted-foreground">
-          Could not read the resource types, so no object types can be
-          offered: {graph.error.message}
+          Could not read the resource types, so no object types can be offered:{" "}
+          {graph.error.message}
         </p>
       )}
       {namespaces.error && (
         <p className="text-sm text-muted-foreground">
-          Could not read the namespaces, so only the tenant root can be
-          chosen: {namespaces.error.message}
+          Could not read the namespaces, so only the tenant root can be chosen:{" "}
+          {namespaces.error.message}
         </p>
       )}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
@@ -316,12 +319,21 @@ function GraphPicker() {
       </div>
       <div>
         {complete ? (
-          <IconButton label="Show graph" nativeButton={false} role="link" render={<PluginLink to={relationGraphPath({
-              objectType,
-              objectId: objectId.trim(),
-              relation,
-              namespace,
-            })} />} />
+          <IconButton
+            label="Show graph"
+            nativeButton={false}
+            role="link"
+            render={
+              <PluginLink
+                to={relationGraphPath({
+                  objectType,
+                  objectId: objectId.trim(),
+                  relation,
+                  namespace,
+                })}
+              />
+            }
+          />
         ) : (
           <IconButton variant="outline" disabled label="Show graph" />
         )}
@@ -470,10 +482,10 @@ export function WardenRelationsPage() {
             that are in scope there. Both halves have to be said. */}
         <p>
           A tuple is in scope for checks in its own namespace and in every
-          namespace below it, the same way roles and policies are. Filtering
-          by namespace shows only the tuples stored in exactly that namespace,
-          so tuples stored in a parent namespace are not listed under it,
-          although they are in scope there too.
+          namespace below it, the same way roles and policies are. Filtering by
+          namespace shows only the tuples stored in exactly that namespace, so
+          tuples stored in a parent namespace are not listed under it, although
+          they are in scope there too.
         </p>
       </div>
 
@@ -524,14 +536,13 @@ export function WardenRelationsPage() {
                   mark does not judge. */}
               {anyMarked && (
                 <p className="text-sm text-muted-foreground">
-                  Undeclared marks a tuple its resource type does not
-                  declare. The resource type is the one that governs the
-                  object type from the tuple's own namespace, the rule the
-                  write check uses, and the reason shown is why that check
-                  would refuse the tuple now. Checks do not consult the
-                  resource type's relations or allowed subjects, so warden
-                  still evaluates a marked tuple. To clear a mark, delete the
-                  tuple or declare it on the resource type.
+                  Undeclared marks a tuple its resource type does not declare.
+                  The resource type is the one that governs the object type from
+                  the tuple's own namespace, the rule the write check uses, and
+                  the reason shown is why that check would refuse the tuple now.
+                  Checks do not consult the resource type's relations or allowed
+                  subjects, so warden still evaluates a marked tuple. To clear a
+                  mark, delete the tuple or declare it on the resource type.
                 </p>
               )}
               {/* Without read on warden:resourcetype the server checks no
@@ -540,9 +551,9 @@ export function WardenRelationsPage() {
                   An empty page has no relations to speak of. */}
               {withheld && rows.length > 0 && (
                 <p className="text-sm text-muted-foreground">
-                  These relations were not checked against their resource
-                  types, because you cannot read resource types. A relation
-                  shown here may still break its resource type.
+                  These relations were not checked against their resource types,
+                  because you cannot read resource types. A relation shown here
+                  may still break its resource type.
                 </p>
               )}
               <ResourceTable<RelationSummary>
@@ -571,10 +582,14 @@ export function WardenRelationsPage() {
                     >
                       Graph
                     </PluginLink>
-                    <IconButton variant="destructive" onClick={() => {
+                    <IconButton
+                      variant="destructive"
+                      onClick={() => {
                         remove.reset()
                         setDeleting(r)
-                      }} label={`Delete ${tupleString(r)}`} />
+                      }}
+                      label={`Delete ${tupleString(r)}`}
+                    />
                   </>
                 )}
               />
@@ -636,13 +651,18 @@ export function WardenRelationsPage() {
             </span>
           )}
         </div>
-        <CommandAlert error={create.error} title="Could not create the relation" />
+        <CommandAlert
+          error={create.error}
+          title="Could not create the relation"
+        />
       </ConfirmDialog>
 
       <ConfirmDialog
         open={deleting !== null}
         onOpenChange={(open) => !open && setDeleting(null)}
-        title={deleting ? `Delete ${tupleString(deleting)}?` : "Delete relation?"}
+        title={
+          deleting ? `Delete ${tupleString(deleting)}?` : "Delete relation?"
+        }
         description="Access that depends on this tuple stops. Writing the same tuple again restores it."
         confirmLabel="Delete"
         pending={remove.loading}

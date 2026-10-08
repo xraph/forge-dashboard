@@ -10,7 +10,12 @@ import type { SpansOutput } from "../types"
  */
 export function SpanMap({ spans }: { spans: SpansOutput }) {
   const navigateTo = useNavigateTo()
-  if (spans.total === 0) return <p className="text-sm text-muted-foreground">This document has no chunks.</p>
+  if (spans.total === 0)
+    return (
+      <p className="text-sm text-muted-foreground">
+        This document has no chunks.
+      </p>
+    )
   const layout = layoutSpans(spans.spans)
   const loaderChanged = spans.content_length !== layout.scale
 
@@ -18,7 +23,10 @@ export function SpanMap({ spans }: { spans: SpansOutput }) {
     <figure className="flex flex-col gap-2">
       {/* A picture for the mouse. Keyboard and screen-reader users read the
           chunks, with a link each, in the reader below. */}
-      <div aria-hidden="true" className="relative h-8 w-full overflow-hidden rounded bg-muted">
+      <div
+        aria-hidden="true"
+        className="relative h-8 w-full overflow-hidden rounded bg-muted"
+      >
         {layout.segments.map((s, i) => (
           <span
             key={s.span.id}
@@ -35,7 +43,10 @@ export function SpanMap({ spans }: { spans: SpansOutput }) {
               key={`overlap-${s.span.id}`}
               aria-hidden
               className="pointer-events-none absolute top-1 h-6 bg-foreground/25"
-              style={{ left: `${s.left}%`, width: `${(s.overlap / layout.scale) * 100}%` }}
+              style={{
+                left: `${s.left}%`,
+                width: `${(s.overlap / layout.scale) * 100}%`,
+              }}
             />
           ))}
         {layout.gaps.map((g) => (
@@ -43,16 +54,22 @@ export function SpanMap({ spans }: { spans: SpansOutput }) {
             key={`gap-${g.start}`}
             aria-hidden
             className="pointer-events-none absolute top-0 h-8 bg-destructive/60"
-            style={{ left: `${(g.start / layout.scale) * 100}%`, width: `${Math.max(0.3, ((g.end - g.start) / layout.scale) * 100)}%` }}
+            style={{
+              left: `${(g.start / layout.scale) * 100}%`,
+              width: `${Math.max(0.3, ((g.end - g.start) / layout.scale) * 100)}%`,
+            }}
           />
         ))}
       </div>
       <p className="sr-only">
-        {plural(spans.spans.length, "chunk", "chunks")} over {formatBytes(layout.scale)}
+        {plural(spans.spans.length, "chunk", "chunks")} over{" "}
+        {formatBytes(layout.scale)}
       </p>
       <figcaption className="text-xs text-muted-foreground">
-        Offsets are byte offsets into the text after loading and trimming, and the semantic and code chunkers only approximate them. The
-        bar runs to the last chunk's end, byte {formatCount(layout.scale)}. Shaded parts overlap the chunk before.{" "}
+        Offsets are byte offsets into the text after loading and trimming, and
+        the semantic and code chunkers only approximate them. The bar runs to
+        the last chunk's end, byte {formatCount(layout.scale)}. Shaded parts
+        overlap the chunk before.{" "}
         {loaderChanged
           ? `The raw input was ${formatBytes(spans.content_length)}; a loader changed the text, so the two don't share a scale.`
           : null}
@@ -64,7 +81,8 @@ export function SpanMap({ spans }: { spans: SpansOutput }) {
       ))}
       {!spans.complete ? (
         <p className="text-sm">
-          Showing the first {formatCount(spans.spans.length)} of {plural(spans.total, "chunk", "chunks")}.
+          Showing the first {formatCount(spans.spans.length)} of{" "}
+          {plural(spans.total, "chunk", "chunks")}.
         </p>
       ) : null}
     </figure>

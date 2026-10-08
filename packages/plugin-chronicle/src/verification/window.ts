@@ -35,8 +35,15 @@ export function wholeChain(headSeq: number): SeqRange {
 }
 
 /** A verify.run input. Genesis to head goes as the chain alone, with no range. */
-export function verifyInput(streamId: string, r: SeqRange): Record<string, unknown> {
-  if (r.fromSeq === GENESIS_TO_HEAD.fromSeq && r.toSeq === GENESIS_TO_HEAD.toSeq) return { streamId }
+export function verifyInput(
+  streamId: string,
+  r: SeqRange
+): Record<string, unknown> {
+  if (
+    r.fromSeq === GENESIS_TO_HEAD.fromSeq &&
+    r.toSeq === GENESIS_TO_HEAD.toSeq
+  )
+    return { streamId }
   return { streamId, fromSeq: r.fromSeq, toSeq: r.toSeq }
 }
 
@@ -46,7 +53,10 @@ export function exceedsCap(r: SeqRange): boolean {
 
 /** A window around one event, for the "check the chain around this event" link. */
 export function aroundSeq(seq: number, headSeq: number, radius = 50): SeqRange {
-  return { fromSeq: Math.max(1, seq - radius), toSeq: Math.min(headSeq, seq + radius) }
+  return {
+    fromSeq: Math.max(1, seq - radius),
+    toSeq: Math.min(headSeq, seq + radius),
+  }
 }
 
 /** Route params are strings; a range the page cannot trust is no range. */

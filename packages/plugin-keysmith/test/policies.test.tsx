@@ -55,11 +55,13 @@ function rowFor(name: string): HTMLElement {
 describe("PoliciesPage", () => {
   it("says what the page is for", async () => {
     renderPage(PoliciesPage, stubClient({ "policies.list": list([STANDARD]) }))
-    expect(await screen.findByRole("heading", { name: "Policies" })).toBeTruthy()
+    expect(
+      await screen.findByRole("heading", { name: "Policies" })
+    ).toBeTruthy()
     expect(
       screen.getByText(
-        "Rules attached to keys. Each field says whether Keysmith enforces it.",
-      ),
+        "Rules attached to keys. Each field says whether Keysmith enforces it."
+      )
     ).toBeTruthy()
   })
 
@@ -77,20 +79,20 @@ describe("PoliciesPage", () => {
   it("links each name to its policy page", async () => {
     renderPage(
       PoliciesPage,
-      stubClient({ "policies.list": list([STANDARD, OPEN, SHORT]) }),
+      stubClient({ "policies.list": list([STANDARD, OPEN, SHORT]) })
     )
     const link = await screen.findByRole("link", { name: "Standard" })
     expect(link.getAttribute("href")).toBe(policyPath("kpol_standard"))
     expect(link.closest("td")?.className).toMatch(/font-medium/)
-    expect(screen.getByRole("link", { name: "Open" }).getAttribute("href")).toBe(
-      policyPath("kpol_open"),
-    )
+    expect(
+      screen.getByRole("link", { name: "Open" }).getAttribute("href")
+    ).toBe(policyPath("kpol_open"))
   })
 
   it("counts the rows in the caption", async () => {
     renderPage(
       PoliciesPage,
-      stubClient({ "policies.list": list([STANDARD, OPEN, SHORT]) }),
+      stubClient({ "policies.list": list([STANDARD, OPEN, SHORT]) })
     )
     await screen.findByText("Standard")
     expect(screen.getByText("3 policies")).toBeTruthy()
@@ -105,32 +107,38 @@ describe("PoliciesPage", () => {
   it("shows the maximum lifetime, and says so when there is none", async () => {
     renderPage(
       PoliciesPage,
-      stubClient({ "policies.list": list([STANDARD, OPEN, SHORT]) }),
+      stubClient({ "policies.list": list([STANDARD, OPEN, SHORT]) })
     )
     await screen.findByText("Standard")
     expect(within(rowFor("Standard")).getByText("90 days")).toBeTruthy()
     expect(within(rowFor("Short grace")).getByText("25 hours")).toBeTruthy()
-    expect(within(rowFor("Open")).getByLabelText("no maximum lifetime")).toBeTruthy()
-    expect(within(rowFor("Standard")).queryByLabelText("no maximum lifetime")).toBeNull()
+    expect(
+      within(rowFor("Open")).getByLabelText("no maximum lifetime")
+    ).toBeTruthy()
+    expect(
+      within(rowFor("Standard")).queryByLabelText("no maximum lifetime")
+    ).toBeNull()
   })
 
   it("shows the grace, and the 24 hour default in muted text when none is set", async () => {
     renderPage(
       PoliciesPage,
-      stubClient({ "policies.list": list([STANDARD, OPEN, SHORT]) }),
+      stubClient({ "policies.list": list([STANDARD, OPEN, SHORT]) })
     )
     await screen.findByText("Standard")
     expect(within(rowFor("Standard")).getByText("1 day")).toBeTruthy()
     expect(within(rowFor("Short grace")).getByText("1 hour")).toBeTruthy()
     const fallback = within(rowFor("Open")).getByText("24 hours (default)")
     expect(fallback.className).toMatch(/text-muted-foreground/)
-    expect(within(rowFor("Standard")).queryByText("24 hours (default)")).toBeNull()
+    expect(
+      within(rowFor("Standard")).queryByText("24 hours (default)")
+    ).toBeNull()
   })
 
   it("shows allowed scopes as mono tags, and Any scope when the list is empty", async () => {
     renderPage(
       PoliciesPage,
-      stubClient({ "policies.list": list([STANDARD, OPEN, SHORT]) }),
+      stubClient({ "policies.list": list([STANDARD, OPEN, SHORT]) })
     )
     await screen.findByText("Standard")
     const tag = within(rowFor("Standard")).getByText("billing:write")
@@ -143,7 +151,7 @@ describe("PoliciesPage", () => {
   it("says when it is showing only the first 200", async () => {
     renderPage(
       PoliciesPage,
-      stubClient({ "policies.list": list([STANDARD, OPEN], true) }),
+      stubClient({ "policies.list": list([STANDARD, OPEN], true) })
     )
     await screen.findByText("Standard")
     expect(screen.getByText("Showing the first 200 policies.")).toBeTruthy()
@@ -152,7 +160,7 @@ describe("PoliciesPage", () => {
   it("does not say so when the list is complete", async () => {
     renderPage(
       PoliciesPage,
-      stubClient({ "policies.list": list([STANDARD, OPEN]) }),
+      stubClient({ "policies.list": list([STANDARD, OPEN]) })
     )
     await screen.findByText("Standard")
     expect(screen.queryByText("Showing the first 200 policies.")).toBeNull()
@@ -169,7 +177,7 @@ describe("PoliciesPage", () => {
   it("shows the error state with the message when the list fails", async () => {
     renderPage(
       PoliciesPage,
-      failingClient(new ContractError("INTERNAL", "policy store is down")),
+      failingClient(new ContractError("INTERNAL", "policy store is down"))
     )
     expect(await screen.findByText(/policy store is down/)).toBeTruthy()
     expect(screen.queryByRole("table")).toBeNull()
@@ -181,22 +189,22 @@ describe("PoliciesPage", () => {
       stubClient({
         "policies.list": { ...list([STANDARD]), rateLimiterConfigured: true },
         "scopes.list": { scopes: [], hasMore: false },
-      }),
+      })
     )
     await screen.findByText("Standard")
     fireEvent.click(screen.getByRole("button", { name: "Create policy" }))
     const d = await screen.findByRole("dialog", { name: "Create policy" })
     expect(
       within(d).getByText(
-        "This deployment has a rate limiter, so Keysmith enforces these.",
-      ),
+        "This deployment has a rate limiter, so Keysmith enforces these."
+      )
     ).toBeTruthy()
   })
 
   it("offers Create policy when the list fails, and says the rate limiter is not known", async () => {
     renderPage(
       PoliciesPage,
-      failingClient(new ContractError("INTERNAL", "policy store is down")),
+      failingClient(new ContractError("INTERNAL", "policy store is down"))
     )
     await screen.findByText(/policy store is down/)
     const create = screen.getByRole("button", {
@@ -207,8 +215,8 @@ describe("PoliciesPage", () => {
     const d = await screen.findByRole("dialog", { name: "Create policy" })
     expect(
       within(d).getByText(
-        "Whether this deployment enforces these is not known right now.",
-      ),
+        "Whether this deployment enforces these is not known right now."
+      )
     ).toBeTruthy()
   })
 
@@ -222,14 +230,19 @@ describe("PoliciesPage", () => {
         }
         if (intent !== "policies.list") {
           return Promise.reject(
-            new ContractError("NOT_FOUND", `no handler for intent "${intent}"`),
+            new ContractError("NOT_FOUND", `no handler for intent "${intent}"`)
           )
         }
         reads += 1
         if (reads === 1) {
-          return Promise.resolve({ ...list([STANDARD]), rateLimiterConfigured: true })
+          return Promise.resolve({
+            ...list([STANDARD]),
+            rateLimiterConfigured: true,
+          })
         }
-        return Promise.reject(new ContractError("INTERNAL", "policy store is down"))
+        return Promise.reject(
+          new ContractError("INTERNAL", "policy store is down")
+        )
       },
       command: () => Promise.reject(new ContractError("NOT_FOUND", "none")),
     } as unknown as ScopedClient
@@ -242,13 +255,11 @@ describe("PoliciesPage", () => {
 
     act(() => queryStore.invalidate("keysmith", ["policies.list"]))
     await screen.findByText(/policy store is down/)
-    expect(
-      within(screen.getByRole("dialog")).getByText(enforced),
-    ).toBeTruthy()
+    expect(within(screen.getByRole("dialog")).getByText(enforced)).toBeTruthy()
 
     // Closed and opened again, it still says what the list last said.
     fireEvent.click(
-      within(screen.getByRole("dialog")).getByRole("button", { name: "Cancel" }),
+      within(screen.getByRole("dialog")).getByRole("button", { name: "Cancel" })
     )
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull())
     fireEvent.click(screen.getByRole("button", { name: "Create policy" }))
@@ -270,7 +281,7 @@ describe("PoliciesPage", () => {
         }
         if (intent !== "policies.list") {
           return Promise.reject(
-            new ContractError("NOT_FOUND", `no handler for intent "${intent}"`),
+            new ContractError("NOT_FOUND", `no handler for intent "${intent}"`)
           )
         }
         reads += 1
@@ -289,10 +300,13 @@ describe("PoliciesPage", () => {
     })
 
     act(() => queryStore.invalidate("keysmith", ["policies.list"]))
-    await screen.findByRole("status", { name: "Loading Policies", hidden: true })
+    await screen.findByRole("status", {
+      name: "Loading Policies",
+      hidden: true,
+    })
     const d = screen.getByRole("dialog", { name: "Create policy" })
     expect((within(d).getByLabelText("Name") as HTMLInputElement).value).toBe(
-      "Partner",
+      "Partner"
     )
 
     act(() => {
@@ -300,11 +314,11 @@ describe("PoliciesPage", () => {
     })
     await waitFor(() =>
       expect(
-        screen.queryByRole("status", { name: "Loading Policies", hidden: true }),
-      ).toBeNull(),
+        screen.queryByRole("status", { name: "Loading Policies", hidden: true })
+      ).toBeNull()
     )
-    expect(
-      (screen.getByLabelText("Name") as HTMLInputElement).value,
-    ).toBe("Partner")
+    expect((screen.getByLabelText("Name") as HTMLInputElement).value).toBe(
+      "Partner"
+    )
   })
 })

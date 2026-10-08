@@ -11,13 +11,20 @@
  * against the kit's tokens once the host loads its stylesheet.
  */
 
-export function MismatchPanel({ required, reported }: { required: string; reported: string }) {
+export function MismatchPanel({
+  required,
+  reported,
+}: {
+  required: string
+  reported: string
+}) {
   return (
     <div
       role="status"
       className="rounded-md border border-dashed px-3 py-2 text-xs text-muted-foreground"
     >
-      Version mismatch: this UI requires {required}, but the running extension reports {reported}.
+      Version mismatch: this UI requires {required}, but the running extension
+      reports {reported}.
     </div>
   )
 }

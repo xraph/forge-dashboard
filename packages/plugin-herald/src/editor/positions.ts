@@ -42,7 +42,11 @@ const TOKEN = /^[A-Za-z0-9_.$]+/
  * character when no token starts there, the character before the end when
  * the column is past the line, or the whole line when it has no column.
  */
-export function diagnosticRange(text: string, line: number, column: number): { from: number; to: number } {
+export function diagnosticRange(
+  text: string,
+  line: number,
+  column: number
+): { from: number; to: number } {
   const l = lineOf(text, line)
   if (column <= 0) return { from: l.start, to: l.start + l.text.length }
   const at = offsetOf(text, line, column)
@@ -53,5 +57,7 @@ export function diagnosticRange(text: string, line: number, column: number): { f
   if (next !== undefined) return { from: at, to: at + next.length }
   const before = [...l.text.slice(0, at - l.start)]
   const last = before[before.length - 1]
-  return last === undefined ? { from: at, to: at } : { from: at - last.length, to: at }
+  return last === undefined
+    ? { from: at, to: at }
+    : { from: at - last.length, to: at }
 }

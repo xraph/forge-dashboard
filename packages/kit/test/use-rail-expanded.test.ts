@@ -1,6 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { act, renderHook } from "@testing-library/react"
-import { RAIL_STORAGE_KEY, useRailExpanded } from "../src/hooks/use-rail-expanded"
+import {
+  RAIL_STORAGE_KEY,
+  useRailExpanded,
+} from "../src/hooks/use-rail-expanded"
 
 describe("useRailExpanded", () => {
   beforeEach(() => {

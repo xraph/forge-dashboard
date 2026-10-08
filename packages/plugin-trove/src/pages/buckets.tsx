@@ -17,7 +17,10 @@ import { Input } from "@forge-go/dashboard-kit/components/input"
 import { Label } from "@forge-go/dashboard-kit/components/label"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { CommandAlert } from "@forge-go/dashboard-kit/components/query-boundary"
-import { ResourceTable, type Column } from "@forge-go/dashboard-kit/components/resource-table"
+import {
+  ResourceTable,
+  type Column,
+} from "@forge-go/dashboard-kit/components/resource-table"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { browserHref } from "../browser-location"
 import { SettledBoundary } from "../components/settled-boundary"
@@ -29,7 +32,10 @@ function bucketCaption(n: number): string {
   return `${n} ${n === 1 ? "bucket" : "buckets"}`
 }
 
-function columnsFor(meaning: BucketsList["createdAtMeaning"], store: string): Column<BucketRow>[] {
+function columnsFor(
+  meaning: BucketsList["createdAtMeaning"],
+  store: string
+): Column<BucketRow>[] {
   const created = meaning === "created"
   return [
     {
@@ -37,7 +43,10 @@ function columnsFor(meaning: BucketsList["createdAtMeaning"], store: string): Co
       header: "Name",
       className: "font-mono text-xs font-medium",
       cell: (b) => (
-        <PluginLink to={browserHref(b.name, { store })} className="hover:underline">
+        <PluginLink
+          to={browserHref(b.name, { store })}
+          className="hover:underline"
+        >
           {b.name}
         </PluginLink>
       ),
@@ -45,7 +54,12 @@ function columnsFor(meaning: BucketsList["createdAtMeaning"], store: string): Co
     {
       id: "time",
       header: created ? "Created" : "Last modified",
-      cell: (b) => <Timestamp value={b.createdAt ?? undefined} label={created ? "creation time" : "modified time"} />,
+      cell: (b) => (
+        <Timestamp
+          value={b.createdAt ?? undefined}
+          label={created ? "creation time" : "modified time"}
+        />
+      ),
     },
   ]
 }
@@ -98,14 +112,22 @@ export const BucketsPage: ComponentType<PluginPageProps> = () => {
             caption={bucketCaption(data.buckets.length)}
             emptyMessage="No buckets in this store yet. Create one to start storing objects."
             rowActions={(b) => (
-              <IconButton variant="ghost" onClick={() => openDelete(b.name)} label={`Delete ${b.name}`} />
+              <IconButton
+                variant="ghost"
+                onClick={() => openDelete(b.name)}
+                label={`Delete ${b.name}`}
+              />
             )}
           />
         )}
       </SettledBoundary>
 
       {creating ? (
-        <CreateBucketDialog store={store} create={create} onClose={() => setCreating(false)} />
+        <CreateBucketDialog
+          store={store}
+          create={create}
+          onClose={() => setCreating(false)}
+        />
       ) : null}
 
       <ConfirmDialog
@@ -117,7 +139,10 @@ export const BucketsPage: ComponentType<PluginPageProps> = () => {
         pending={remove.loading}
         onConfirm={() => void confirmDelete()}
       >
-        <CommandAlert error={remove.error} title="Could not delete the bucket" />
+        <CommandAlert
+          error={remove.error}
+          title="Could not delete the bucket"
+        />
       </ConfirmDialog>
     </section>
   )
@@ -149,9 +174,14 @@ function CreateBucketDialog({
         <form onSubmit={(e) => void submit(e)} className="flex flex-col gap-4">
           <DialogHeader>
             <DialogTitle>Create a bucket</DialogTitle>
-            <DialogDescription>The driver decides which names it accepts.</DialogDescription>
+            <DialogDescription>
+              The driver decides which names it accepts.
+            </DialogDescription>
           </DialogHeader>
-          <CommandAlert error={create.error} title="Could not create the bucket" />
+          <CommandAlert
+            error={create.error}
+            title="Could not create the bucket"
+          />
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="bucket-name">Name</Label>
             <Input
@@ -164,7 +194,12 @@ function CreateBucketDialog({
             />
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" disabled={create.loading} onClick={onClose}>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={create.loading}
+              onClick={onClose}
+            >
               Cancel
             </Button>
             <Button type="submit" disabled={!canSubmit}>

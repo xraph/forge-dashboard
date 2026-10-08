@@ -29,7 +29,12 @@ const columns: Column<ChannelInfo>[] = [
     cell: (c) => c.subscriberCount,
     align: "end",
   },
-  { id: "messageCount", header: "Messages", cell: (c) => c.messageCount, align: "end" },
+  {
+    id: "messageCount",
+    header: "Messages",
+    cell: (c) => c.messageCount,
+    align: "end",
+  },
 ]
 
 export function StreamingChannelsPage() {

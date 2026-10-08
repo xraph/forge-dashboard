@@ -90,11 +90,14 @@ export function AuthFeaturesPage() {
                     <Label id={`feature-${row.key}-label`}>{row.label}</Label>
                     {row.available ? (
                       row.description && (
-                        <p className="text-sm text-muted-foreground">{row.description}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {row.description}
+                        </p>
                       )
                     ) : (
                       <p className="text-sm text-muted-foreground">
-                        Not available{row.description ? `: ${row.description}` : "."}
+                        Not available
+                        {row.description ? `: ${row.description}` : "."}
                       </p>
                     )}
                   </div>
@@ -103,7 +106,9 @@ export function AuthFeaturesPage() {
                     aria-labelledby={`feature-${row.key}-label`}
                     checked={row.enabled}
                     disabled={!row.available || toggle.loading}
-                    onCheckedChange={(checked) => void handleToggle(row, checked)}
+                    onCheckedChange={(checked) =>
+                      void handleToggle(row, checked)
+                    }
                   />
                 </li>
               ))}

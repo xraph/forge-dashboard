@@ -1,8 +1,16 @@
 import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { useState } from "react"
-import { PluginLink, useCommand, useNavigateTo, useQuery } from "@forge-go/dashboard-plugin"
+import {
+  PluginLink,
+  useCommand,
+  useNavigateTo,
+  useQuery,
+} from "@forge-go/dashboard-plugin"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
-import { Alert, AlertDescription } from "@forge-go/dashboard-kit/components/alert"
+import {
+  Alert,
+  AlertDescription,
+} from "@forge-go/dashboard-kit/components/alert"
 import { ConfirmDialog } from "@forge-go/dashboard-kit/components/confirm-dialog"
 import {
   DescriptionList,
@@ -49,7 +57,11 @@ const LINK_CLASS = "text-sm underline underline-offset-4"
  * window, so these lines then describe only the switch and the window, and
  * promise nothing about activation or a start date.
  */
-export function stateLine(p: PolicyDetail, evaluationOff: boolean, now: number): string | null {
+export function stateLine(
+  p: PolicyDetail,
+  evaluationOff: boolean,
+  now: number
+): string | null {
   switch (p.state) {
     case "inactive":
       return inactiveLine(p, evaluationOff, now)
@@ -77,11 +89,16 @@ export function stateLine(p: PolicyDetail, evaluationOff: boolean, now: number):
  * window that has not opened puts it into effect only on its date, and a
  * policy that never applies takes no effect in any state.
  */
-function inactiveLine(p: PolicyDetail, evaluationOff: boolean, now: number): string {
+function inactiveLine(
+  p: PolicyDetail,
+  evaluationOff: boolean,
+  now: number
+): string {
   if (evaluationOff || p.neverApplies) return "Inactive."
   const closed = closedWindow(p, now)
   if (closed === "ended") return "Inactive, and its window has ended."
-  if (closed === "inverted") return "Inactive, and its window ends before it starts."
+  if (closed === "inverted")
+    return "Inactive, and its window ends before it starts."
   const start = p.notBefore ? Date.parse(p.notBefore) : Number.NaN
   if (p.notBefore && !Number.isNaN(start) && start > now) {
     return `Inactive. If you activate it, it takes effect on ${windowTime(p.notBefore)}.`
@@ -94,9 +111,13 @@ function inactiveLine(p: PolicyDetail, evaluationOff: boolean, now: number): str
  * set, which includes one whose window keeps it out of effect already, so it
  * is worded by the server's state.
  */
-export function deactivateSentence(p: PolicyDetail, evaluationOff: boolean): string {
+export function deactivateSentence(
+  p: PolicyDetail,
+  evaluationOff: boolean
+): string {
   if (evaluationOff) return ABAC_OFF
-  if (p.neverApplies) return "It already takes no effect, because it never applies."
+  if (p.neverApplies)
+    return "It already takes no effect, because it never applies."
   switch (p.state) {
     case "scheduled":
       return p.notBefore
@@ -134,8 +155,15 @@ export function moodOf(p: PolicyDetail, now: number): Mood {
 }
 
 /** One sentence in the right mood. `who` is "this deny" or "it". */
-function tensed(mood: Mood, who: string, does: string, would: string, rest: string): string {
-  if (mood === "present") return `${who[0].toUpperCase()}${who.slice(1)} ${does} ${rest}`
+function tensed(
+  mood: Mood,
+  who: string,
+  does: string,
+  would: string,
+  rest: string
+): string {
+  if (mood === "present")
+    return `${who[0].toUpperCase()}${who.slice(1)} ${does} ${rest}`
   if (mood === "once") return `Once it is in effect, ${who} ${does} ${rest}`
   return `If it were in effect, ${who} would ${would} ${rest}`
 }
@@ -187,11 +215,21 @@ export function effectSentences(p: PolicyDetail, now: number): string[] {
     }
   } else if (p.neverApplies && d !== undefined) {
     return conditions[d]?.problem === "throws"
-      ? [`Condition ${d + 1} cannot be evaluated, so this allow never grants anything.`]
+      ? [
+          `Condition ${d + 1} cannot be evaluated, so this allow never grants anything.`,
+        ]
       : [`Condition ${d + 1} is always false, so this policy never applies.`]
   }
   if (p.matchesEverything) {
-    out.push(tensed(mood, "it", "matches", "match", "every check in its namespace and below."))
+    out.push(
+      tensed(
+        mood,
+        "it",
+        "matches",
+        "match",
+        "every check in its namespace and below."
+      )
+    )
   }
   return out
 }
@@ -204,20 +242,29 @@ export function effectSentences(p: PolicyDetail, now: number): string[] {
  * no "once it is in effect" sentence may show. Otherwise the callout's own
  * sentences, which are the "once" forms, and the window they apply inside.
  */
-export function activateSentences(p: PolicyDetail, now: number, evaluationOff: boolean): string[] {
+export function activateSentences(
+  p: PolicyDetail,
+  now: number,
+  evaluationOff: boolean
+): string[] {
   if (evaluationOff) return [ABAC_OFF]
   const closed = closedWindow(p, now)
   if (closed === "inverted") {
-    return ["Its window ends before it starts, so activating it will not put it into effect."]
+    return [
+      "Its window ends before it starts, so activating it will not put it into effect.",
+    ]
   }
   if (closed === "ended") {
-    return ["Its window has ended, so activating it will not put it into effect."]
+    return [
+      "Its window has ended, so activating it will not put it into effect.",
+    ]
   }
   const inEffect = windowPhrase(p.notBefore, p.notAfter)
   const effect = effectSentences(p, now)
   // Nothing to warn about and no window: it takes effect the moment it is
   // active, and the dialog says so rather than saying nothing.
-  if (effect.length === 0 && !inEffect) return ["It takes effect as soon as you activate it."]
+  if (effect.length === 0 && !inEffect)
+    return ["It takes effect as soon as you activate it."]
   return [...effect, ...(inEffect ? [`In effect ${inEffect}.`] : [])]
 }
 
@@ -229,7 +276,10 @@ export function activateSentences(p: PolicyDetail, now: number, evaluationOff: b
  */
 export type PolicyPageProps = PluginPageProps & { editing?: boolean }
 
-export function WardenPolicyDetailPage({ params, editing = false }: PolicyPageProps) {
+export function WardenPolicyDetailPage({
+  params,
+  editing = false,
+}: PolicyPageProps) {
   const id = params.id as string
   const detail = useQuery<PolicyDetail>("policies.detail", { id })
   const config = useQuery<ConfigDetail>("config.detail")
@@ -299,7 +349,10 @@ export function WardenPolicyDetailPage({ params, editing = false }: PolicyPagePr
         if (editing) {
           return (
             <section className="flex flex-col gap-6">
-              <PageHeader title={policy.name} description="Editing this policy." />
+              <PageHeader
+                title={policy.name}
+                description="Editing this policy."
+              />
               {abacOff && (
                 <Alert>
                   <AlertDescription>{ABAC_OFF}</AlertDescription>
@@ -325,16 +378,28 @@ export function WardenPolicyDetailPage({ params, editing = false }: PolicyPagePr
               description={policy.description || undefined}
               actions={
                 <>
-                  <IconButton variant="outline" onClick={() => navigate(`/policies/${id}/edit`)} label="Edit" />
+                  <IconButton
+                    variant="outline"
+                    onClick={() => navigate(`/policies/${id}/edit`)}
+                    label="Edit"
+                  />
                   {policy.isActive && (
-                    <IconButton variant="outline" onClick={() => openToggle(false)} label="Deactivate" />
+                    <IconButton
+                      variant="outline"
+                      onClick={() => openToggle(false)}
+                      label="Deactivate"
+                    />
                   )}
                   {/* Outline, not destructive: on this page colour means
                       "this overrides", and only the Deny heading carries it. */}
-                  <IconButton variant="outline" onClick={() => {
+                  <IconButton
+                    variant="outline"
+                    onClick={() => {
                       remove.reset()
                       setDeleting(true)
-                    }} label="Delete" />
+                    }}
+                    label="Delete"
+                  />
                 </>
               }
             />
@@ -353,17 +418,31 @@ export function WardenPolicyDetailPage({ params, editing = false }: PolicyPagePr
                       term: "Priority",
                       value: (
                         <span className="flex flex-col gap-0.5">
-                          <span className="tabular-nums">{policy.priority}</span>
-                          <span className="text-xs text-muted-foreground">{PRIORITY_HELP}</span>
+                          <span className="tabular-nums">
+                            {policy.priority}
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            {PRIORITY_HELP}
+                          </span>
                         </span>
                       ),
                     },
-                    { term: "Version", value: <span className="tabular-nums">{policy.version}</span> },
-                    { term: "Namespace", value: <NamespaceCell path={policy.namespacePath} /> },
+                    {
+                      term: "Version",
+                      value: (
+                        <span className="tabular-nums">{policy.version}</span>
+                      ),
+                    },
+                    {
+                      term: "Namespace",
+                      value: <NamespaceCell path={policy.namespacePath} />,
+                    },
                     {
                       term: "Created by",
                       value: policy.createdBy ? (
-                        <span className="font-mono text-xs">{policy.createdBy}</span>
+                        <span className="font-mono text-xs">
+                          {policy.createdBy}
+                        </span>
                       ) : (
                         <NoneCell label="creator" />
                       ),
@@ -371,18 +450,30 @@ export function WardenPolicyDetailPage({ params, editing = false }: PolicyPagePr
                     {
                       term: "Updated by",
                       value: policy.updatedBy ? (
-                        <span className="font-mono text-xs">{policy.updatedBy}</span>
+                        <span className="font-mono text-xs">
+                          {policy.updatedBy}
+                        </span>
                       ) : (
                         <NoneCell label="updater" />
                       ),
                     },
                     {
                       term: "Created",
-                      value: <Timestamp value={policy.createdAt} label="creation time" />,
+                      value: (
+                        <Timestamp
+                          value={policy.createdAt}
+                          label="creation time"
+                        />
+                      ),
                     },
                     {
                       term: "Updated",
-                      value: <Timestamp value={policy.updatedAt} label="updated at" />,
+                      value: (
+                        <Timestamp
+                          value={policy.updatedAt}
+                          label="updated at"
+                        />
+                      ),
                     },
                   ]}
                 />
@@ -396,7 +487,10 @@ export function WardenPolicyDetailPage({ params, editing = false }: PolicyPagePr
                     >
                       <p>{state}</p>
                       {policy.state === "inactive" && (
-                        <IconButton onClick={() => openToggle(true)} label="Activate" />
+                        <IconButton
+                          onClick={() => openToggle(true)}
+                          label="Activate"
+                        />
                       )}
                     </div>
                   )}
@@ -418,7 +512,11 @@ export function WardenPolicyDetailPage({ params, editing = false }: PolicyPagePr
             <ConfirmDialog
               open={target !== null}
               onOpenChange={(open) => !open && setTarget(null)}
-              title={target ? `Activate ${policy.name}?` : `Deactivate ${policy.name}?`}
+              title={
+                target
+                  ? `Activate ${policy.name}?`
+                  : `Deactivate ${policy.name}?`
+              }
               destructive={false}
               confirmLabel={target ? "Activate" : "Deactivate"}
               pending={setActive.loading}

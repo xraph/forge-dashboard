@@ -46,7 +46,7 @@ export interface RenderSubOptions {
 
 export function renderSubPage(
   Page: ComponentType<{ params: Record<string, string | undefined> }>,
-  opts: RenderSubOptions,
+  opts: RenderSubOptions
 ) {
   const spy = opts.catchErrors
     ? vi.spyOn(console, "error").mockImplementation(() => {})
@@ -55,12 +55,16 @@ export function renderSubPage(
   try {
     return render(
       <HostAccessProvider
-        value={{ client: opts.hostClient, allowed: opts.allowed, subExtension: "test-sub" }}
+        value={{
+          client: opts.hostClient,
+          allowed: opts.allowed,
+          subExtension: "test-sub",
+        }}
       >
         <PluginProvider client={opts.client}>
           <Page params={opts.params ?? {}} />
         </PluginProvider>
-      </HostAccessProvider>,
+      </HostAccessProvider>
     )
   } finally {
     spy?.mockRestore()
@@ -88,7 +92,7 @@ export function renderSubPage(
  */
 export function renderContribution(
   contribution: SlotContribution,
-  opts: RenderContributionOptions,
+  opts: RenderContributionOptions
 ) {
   const subPlugin = defineSubPlugin({
     extension: opts.extension ?? "test-sub",
@@ -99,10 +103,12 @@ export function renderContribution(
 
   return render(
     <SubPluginProvider
-      entries={[{ subPlugin, client: opts.client, hostClient: opts.hostClient }]}
+      entries={[
+        { subPlugin, client: opts.client, hostClient: opts.hostClient },
+      ]}
     >
       <PluginSlot name={opts.slot} params={opts.params} />
-    </SubPluginProvider>,
+    </SubPluginProvider>
   )
 }
 

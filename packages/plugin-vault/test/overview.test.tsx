@@ -3,7 +3,12 @@ import { screen } from "@testing-library/react"
 import { ContractError } from "@forge-go/dashboard-plugin"
 import { OverviewPage } from "../src/pages/overview"
 import type { OverviewStats } from "../src/pages/overview"
-import { failingClient, recordingQueryClient, renderPage, stubClient } from "./harness"
+import {
+  failingClient,
+  recordingQueryClient,
+  renderPage,
+  stubClient,
+} from "./harness"
 
 function stats(over: Partial<OverviewStats> = {}): OverviewStats {
   return {
@@ -35,12 +40,15 @@ function show(over: Partial<OverviewStats> = {}) {
 const NOTHING = "Nothing needs attention."
 const UNENCRYPTED = /secrets? (is|are) stored without encryption\./
 const OVERDUE = /rotation polic(y|ies) (is|are) overdue\./
-const NO_ROTATOR = /enabled polic(y|ies) (has|have) no rotator and will never rotate\./
+const NO_ROTATOR =
+  /enabled polic(y|ies) (has|have) no rotator and will never rotate\./
 const FAILED = /rotation attempts? failed in the last 24 hours\./
 const EXPIRED = /secrets? (has|have) expired\./
 const EXPIRING = /secrets? expires? within 30 days\./
-const PLAINTEXT_VERSIONS = /earlier versions? (is|are) stored without encryption\. Replacing/
-const PLAINTEXT_PROBLEM = /earlier secret versions? (is|are) stored without encryption\./
+const PLAINTEXT_VERSIONS =
+  /earlier versions? (is|are) stored without encryption\. Replacing/
+const PLAINTEXT_PROBLEM =
+  /earlier secret versions? (is|are) stored without encryption\./
 const UNRECORDED = /Vault can't tell how/
 
 describe("OverviewPage", () => {
@@ -48,7 +56,9 @@ describe("OverviewPage", () => {
     const { client, sent } = recordingQueryClient({ "overview.stats": stats() })
     renderPage(OverviewPage, client)
     await screen.findByText(NOTHING)
-    expect(sent.filter((i) => i.intent === "overview.stats")[0]?.params).toEqual({})
+    expect(
+      sent.filter((i) => i.intent === "overview.stats")[0]?.params
+    ).toEqual({})
   })
 
   it("says nothing needs attention when every problem count is zero", async () => {
@@ -63,7 +73,9 @@ describe("OverviewPage", () => {
 
   it("lists unencrypted secrets alone, linked to the secrets list", async () => {
     show({ unencryptedSecrets: 3 })
-    const line = await screen.findByText("3 secrets are stored without encryption.")
+    const line = await screen.findByText(
+      "3 secrets are stored without encryption."
+    )
     expect(line.closest("a")?.getAttribute("href")).toBe("/secrets")
     expect(screen.getByText("Needs attention")).toBeTruthy()
     expect(screen.queryByText(NOTHING)).toBeNull()
@@ -73,13 +85,22 @@ describe("OverviewPage", () => {
   })
 
   it("uses the singular for a count of one", async () => {
-    show({ unencryptedSecrets: 1, rotationOverdue: 1, rotationWithoutRotator: 1, rotationFailures24h: 1 })
-    expect(await screen.findByText("1 secret is stored without encryption.")).toBeTruthy()
+    show({
+      unencryptedSecrets: 1,
+      rotationOverdue: 1,
+      rotationWithoutRotator: 1,
+      rotationFailures24h: 1,
+    })
+    expect(
+      await screen.findByText("1 secret is stored without encryption.")
+    ).toBeTruthy()
     expect(screen.getByText("1 rotation policy is overdue.")).toBeTruthy()
     expect(
       screen.getByText("1 enabled policy has no rotator and will never rotate.")
     ).toBeTruthy()
-    expect(screen.getByText("1 rotation attempt failed in the last 24 hours.")).toBeTruthy()
+    expect(
+      screen.getByText("1 rotation attempt failed in the last 24 hours.")
+    ).toBeTruthy()
   })
 
   it("lists overdue policies alone, linked to the rotation list", async () => {
@@ -106,7 +127,9 @@ describe("OverviewPage", () => {
 
   it("lists failed rotations alone, linked to the audit log filtered to them", async () => {
     show({ rotationFailures24h: 4 })
-    const line = await screen.findByText("4 rotation attempts failed in the last 24 hours.")
+    const line = await screen.findByText(
+      "4 rotation attempts failed in the last 24 hours."
+    )
     const href = line.closest("a")?.getAttribute("href") ?? ""
     const url = new URL(href, "http://x")
     expect(url.pathname).toBe("/audit")
@@ -140,13 +163,17 @@ describe("OverviewPage", () => {
 
   it("names the algorithm when a key is configured and every secret is encrypted", async () => {
     show()
-    expect(await screen.findByText("New secrets are encrypted with AES-256-GCM.")).toBeTruthy()
+    expect(
+      await screen.findByText("New secrets are encrypted with AES-256-GCM.")
+    ).toBeTruthy()
   })
 
   it("does not call the vault encrypted while an unencrypted secret exists", async () => {
     show({ unencryptedSecrets: 2 })
     await screen.findByText("Needs attention")
-    expect(screen.queryByText("New secrets are encrypted with AES-256-GCM.")).toBeNull()
+    expect(
+      screen.queryByText("New secrets are encrypted with AES-256-GCM.")
+    ).toBeNull()
     expect(
       screen.getByText(
         "New secrets are encrypted with AES-256-GCM. Secrets stored without encryption stay that way until their values are replaced."
@@ -157,7 +184,9 @@ describe("OverviewPage", () => {
   it("lists expired secrets, linked to the expired filter", async () => {
     show({ expiredSecrets: 2 })
     const line = await screen.findByText("2 secrets have expired.")
-    expect(line.closest("a")?.getAttribute("href")).toBe("/secrets?expiry=expired")
+    expect(line.closest("a")?.getAttribute("href")).toBe(
+      "/secrets?expiry=expired"
+    )
     expect(screen.getByText("Needs attention")).toBeTruthy()
     expect(screen.queryByText(EXPIRING)).toBeNull()
     expect(screen.queryByText(NOTHING)).toBeNull()
@@ -187,29 +216,43 @@ describe("OverviewPage", () => {
   it("names the earlier versions stored without encryption", async () => {
     show({ plaintextVersions: 3 })
     const line = await screen.findByText(PLAINTEXT_VERSIONS)
-    expect(line.textContent).toContain("3 earlier versions are stored without encryption.")
-    expect(line.textContent).not.toMatch(/can't count|cannot count|can't be counted/i)
+    expect(line.textContent).toContain(
+      "3 earlier versions are stored without encryption."
+    )
+    expect(line.textContent).not.toMatch(
+      /can't count|cannot count|can't be counted/i
+    )
     // Plaintext remains, so the line is not a bare claim that all is encrypted.
-    expect(screen.queryByText("New secrets are encrypted with AES-256-GCM.")).toBeNull()
+    expect(
+      screen.queryByText("New secrets are encrypted with AES-256-GCM.")
+    ).toBeNull()
     expect(screen.queryByText(UNRECORDED)).toBeNull()
   })
 
   it("uses the singular for one plaintext version", async () => {
     show({ plaintextVersions: 1 })
     const line = await screen.findByText(PLAINTEXT_VERSIONS)
-    expect(line.textContent).toContain("1 earlier version is stored without encryption.")
+    expect(line.textContent).toContain(
+      "1 earlier version is stored without encryption."
+    )
   })
 
   it("adds the versions vault never recorded", async () => {
     show({ plaintextVersions: 3, unrecordedVersions: 5 })
     const line = await screen.findByText(UNRECORDED)
-    expect(line.textContent).toContain("3 earlier versions are stored without encryption.")
-    expect(line.textContent).toContain("Vault can't tell how 5 older versions were stored.")
+    expect(line.textContent).toContain(
+      "3 earlier versions are stored without encryption."
+    )
+    expect(line.textContent).toContain(
+      "Vault can't tell how 5 older versions were stored."
+    )
   })
 
   it("flags plaintext versions under Needs attention, linked to the secrets list", async () => {
     show({ plaintextVersions: 3 })
-    const line = await screen.findByText("3 earlier secret versions are stored without encryption.")
+    const line = await screen.findByText(
+      "3 earlier secret versions are stored without encryption."
+    )
     expect(line.closest("a")?.getAttribute("href")).toBe("/secrets")
     expect(screen.getByText("Needs attention")).toBeTruthy()
     expect(screen.queryByText(NOTHING)).toBeNull()
@@ -217,7 +260,11 @@ describe("OverviewPage", () => {
 
   it("uses the singular for one plaintext version in Needs attention", async () => {
     show({ plaintextVersions: 1 })
-    expect(await screen.findByText("1 earlier secret version is stored without encryption.")).toBeTruthy()
+    expect(
+      await screen.findByText(
+        "1 earlier secret version is stored without encryption."
+      )
+    ).toBeTruthy()
     expect(screen.queryByText(NOTHING)).toBeNull()
   })
 
@@ -228,7 +275,11 @@ describe("OverviewPage", () => {
   })
 
   it("has no plaintext version line when no key is configured", async () => {
-    show({ encryptionEnabled: false, encryptionAlgorithm: "", plaintextVersions: 4 })
+    show({
+      encryptionEnabled: false,
+      encryptionAlgorithm: "",
+      plaintextVersions: 4,
+    })
     await screen.findByText(
       "No encryption key is configured, so new secrets are stored unencrypted."
     )
@@ -246,13 +297,17 @@ describe("OverviewPage", () => {
   it("uses the singular for one unrecorded version", async () => {
     show({ unrecordedVersions: 1 })
     const line = await screen.findByText(UNRECORDED)
-    expect(line.textContent).toContain("Vault can't tell how 1 older version was stored.")
+    expect(line.textContent).toContain(
+      "Vault can't tell how 1 older version was stored."
+    )
     expect(screen.queryByText(PLAINTEXT_VERSIONS)).toBeNull()
   })
 
   it("shows neither version sentence at zero", async () => {
     show()
-    expect(await screen.findByText("New secrets are encrypted with AES-256-GCM.")).toBeTruthy()
+    expect(
+      await screen.findByText("New secrets are encrypted with AES-256-GCM.")
+    ).toBeTruthy()
     expect(screen.queryByText(PLAINTEXT_VERSIONS)).toBeNull()
     expect(screen.queryByText(UNRECORDED)).toBeNull()
   })
@@ -278,8 +333,16 @@ describe("OverviewPage", () => {
       rotationEnabled: 0,
     })
     await screen.findByText(NOTHING)
-    for (const label of ["Secrets", "Flags", "Config entries", "Config overrides", "Rotation policies"]) {
-      const card = screen.getByText(label).closest("[data-slot=card]") as HTMLElement
+    for (const label of [
+      "Secrets",
+      "Flags",
+      "Config entries",
+      "Config overrides",
+      "Rotation policies",
+    ]) {
+      const card = screen
+        .getByText(label)
+        .closest("[data-slot=card]") as HTMLElement
       expect(card.textContent).toContain("0")
     }
     expect(screen.getByText("0 enabled")).toBeTruthy()
@@ -289,7 +352,8 @@ describe("OverviewPage", () => {
     show()
     await screen.findByText(NOTHING)
     const value = (label: string) =>
-      (screen.getByText(label).closest("[data-slot=card]") as HTMLElement).textContent
+      (screen.getByText(label).closest("[data-slot=card]") as HTMLElement)
+        .textContent
     expect(value("Secrets")).toContain("12")
     expect(value("Flags")).toContain("5")
     expect(value("Config entries")).toContain("7")
@@ -337,7 +401,10 @@ describe("OverviewPage", () => {
   })
 
   it("renders the query error and never zeros or an all clear", async () => {
-    renderPage(OverviewPage, failingClient(new ContractError("INTERNAL", "count failed")))
+    renderPage(
+      OverviewPage,
+      failingClient(new ContractError("INTERNAL", "count failed"))
+    )
     expect(await screen.findByText(/INTERNAL: count failed/)).toBeTruthy()
     expect(screen.queryByText(NOTHING)).toBeNull()
     expect(screen.queryByText("Secrets")).toBeNull()

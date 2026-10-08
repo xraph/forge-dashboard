@@ -84,14 +84,12 @@ export const cortexPlugin = definePlugin({
   icon: <BotIcon />,
   nav: [
     { label: "Overview", to: "/", group: "Overview", priority: 0 },
-    ...resources
-      .slice(0, 5)
-      .map((r, i) => ({
-        label: r[0].toUpperCase() + r.slice(1),
-        to: `/${r}`,
-        group: "Configuration",
-        priority: 10 + i,
-      })),
+    ...resources.slice(0, 5).map((r, i) => ({
+      label: r[0].toUpperCase() + r.slice(1),
+      to: `/${r}`,
+      group: "Configuration",
+      priority: 10 + i,
+    })),
     { label: "Chat", to: "/chat", group: "Execution", priority: 30 },
     {
       label: "Playground",

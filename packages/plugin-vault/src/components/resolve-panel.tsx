@@ -48,8 +48,11 @@ export function ResolvePanel({
 
   const result = useQuery<ResolveResult>(
     "config.resolve",
-    { key: entryKey, ...(asked?.tenantId === undefined ? {} : { tenantId: asked.tenantId }) },
-    { enabled: asked !== null },
+    {
+      key: entryKey,
+      ...(asked?.tenantId === undefined ? {} : { tenantId: asked.tenantId }),
+    },
+    { enabled: asked !== null }
   )
 
   function submit(event: FormEvent) {
@@ -78,7 +81,10 @@ export function ResolvePanel({
         className="flex flex-wrap items-end gap-x-3 gap-y-2"
       >
         <div className="flex flex-col gap-1">
-          <Label htmlFor="resolve-tenant" className="text-xs text-muted-foreground">
+          <Label
+            htmlFor="resolve-tenant"
+            className="text-xs text-muted-foreground"
+          >
             Resolve for tenant
           </Label>
           <Input
@@ -94,12 +100,24 @@ export function ResolvePanel({
           <Button type="submit" disabled={result.loading}>
             Resolve
           </Button>
-          <IconButton type="button" variant="outline" disabled={asked === null && text === ""} onClick={clear} label="Clear" />
+          <IconButton
+            type="button"
+            variant="outline"
+            disabled={asked === null && text === ""}
+            onClick={clear}
+            label="Clear"
+          />
         </div>
       </form>
       {asked === null ? null : (
         <QueryBoundary title="Resolve" query={result} skeletonRows={1}>
-          {(data) => <Answer data={data} tenantId={data.tenantId ?? asked.tenantId} valueType={valueType} />}
+          {(data) => (
+            <Answer
+              data={data}
+              tenantId={data.tenantId ?? asked.tenantId}
+              valueType={valueType}
+            />
+          )}
         </QueryBoundary>
       )}
     </section>

@@ -7,15 +7,27 @@ import { AuthDeviceDetailPage } from "../src/pages/device-detail"
 
 const devicesAnswer = {
   devices: [
-    { id: "d1", userId: "u1", name: "laptop", type: "desktop", browser: "Firefox",
-      os: "linux", ipAddress: "10.0.0.1", trusted: false,
-      lastSeenAt: "2026-02-02T00:00:00Z", createdAt: "2026-01-01T00:00:00Z" },
+    {
+      id: "d1",
+      userId: "u1",
+      name: "laptop",
+      type: "desktop",
+      browser: "Firefox",
+      os: "linux",
+      ipAddress: "10.0.0.1",
+      trusted: false,
+      lastSeenAt: "2026-02-02T00:00:00Z",
+      createdAt: "2026-01-01T00:00:00Z",
+    },
   ],
 }
 
 describe("AuthDevicesPage", () => {
   it("lists devices with their trust state", async () => {
-    renderPage(AuthDevicesPage, stubClient({ "devices.list": devicesAnswer }).client)
+    renderPage(
+      AuthDevicesPage,
+      stubClient({ "devices.list": devicesAnswer }).client
+    )
     await waitFor(() => expect(screen.getByText("laptop")).toBeTruthy())
     expect(screen.getByText("untrusted")).toBeTruthy()
     // The Device column is what an operator reads to identify the row, the
@@ -33,8 +45,14 @@ describe("AuthDevicesPage", () => {
     const { client } = stubClient({
       "devices.list": {
         devices: [
-          { id: "d1", userId: "u1", name: "laptop", trusted: false,
-            lastSeenAt: "2026-02-02T00:00:00Z", createdAt: "2026-01-01T00:00:00Z" },
+          {
+            id: "d1",
+            userId: "u1",
+            name: "laptop",
+            trusted: false,
+            lastSeenAt: "2026-02-02T00:00:00Z",
+            createdAt: "2026-01-01T00:00:00Z",
+          },
         ],
       },
     })
@@ -48,7 +66,7 @@ describe("AuthDevicesPage", () => {
   it("trusts a device without a confirmation, because trusting is not destructive", async () => {
     const { client, sent } = recordingCommandClient(
       { "devices.list": devicesAnswer },
-      { "devices.trust": { ok: true } },
+      { "devices.trust": { ok: true } }
     )
     renderPage(AuthDevicesPage, client)
     await waitFor(() => expect(screen.getByText("laptop")).toBeTruthy())
@@ -61,7 +79,7 @@ describe("AuthDevicesPage", () => {
   it("confirms before forgetting a device", async () => {
     const { client, sent } = recordingCommandClient(
       { "devices.list": devicesAnswer },
-      { "devices.delete": { ok: true } },
+      { "devices.delete": { ok: true } }
     )
     renderPage(AuthDevicesPage, client)
     await waitFor(() => expect(screen.getByText("laptop")).toBeTruthy())
@@ -74,8 +92,13 @@ describe("AuthDevicesPage", () => {
   })
 
   it("says so when nobody has registered a device", async () => {
-    renderPage(AuthDevicesPage, stubClient({ "devices.list": { devices: [] } }).client)
-    await waitFor(() => expect(screen.getByText("No devices seen.")).toBeTruthy())
+    renderPage(
+      AuthDevicesPage,
+      stubClient({ "devices.list": { devices: [] } }).client
+    )
+    await waitFor(() =>
+      expect(screen.getByText("No devices seen.")).toBeTruthy()
+    )
     // The count is information ("0 devices"), not something to drop just
     // because the table itself has nothing to show.
     expect(screen.getByText("0 devices")).toBeTruthy()
@@ -85,12 +108,30 @@ describe("AuthDevicesPage", () => {
 describe("AuthDevicesPage stale command state across rows", () => {
   const twoDevices = {
     devices: [
-      { id: "d1", userId: "u1", name: "laptop", type: "desktop", browser: "Firefox",
-        os: "linux", ipAddress: "10.0.0.1", trusted: false,
-        lastSeenAt: "2026-02-02T00:00:00Z", createdAt: "2026-01-01T00:00:00Z" },
-      { id: "d2", userId: "u2", name: "phone", type: "mobile", browser: "Safari",
-        os: "ios", ipAddress: "10.0.0.2", trusted: false,
-        lastSeenAt: "2026-02-02T00:00:00Z", createdAt: "2026-01-01T00:00:00Z" },
+      {
+        id: "d1",
+        userId: "u1",
+        name: "laptop",
+        type: "desktop",
+        browser: "Firefox",
+        os: "linux",
+        ipAddress: "10.0.0.1",
+        trusted: false,
+        lastSeenAt: "2026-02-02T00:00:00Z",
+        createdAt: "2026-01-01T00:00:00Z",
+      },
+      {
+        id: "d2",
+        userId: "u2",
+        name: "phone",
+        type: "mobile",
+        browser: "Safari",
+        os: "ios",
+        ipAddress: "10.0.0.2",
+        trusted: false,
+        lastSeenAt: "2026-02-02T00:00:00Z",
+        createdAt: "2026-01-01T00:00:00Z",
+      },
     ],
   }
 
@@ -100,7 +141,10 @@ describe("AuthDevicesPage stale command state across rows", () => {
       {
         "devices.delete": (payload?: unknown) =>
           (payload as { id: string }).id === "d1"
-            ? new ContractError("VALIDATION", "cannot forget the current device")
+            ? new ContractError(
+                "VALIDATION",
+                "cannot forget the current device"
+              )
             : { ok: true },
       }
     )
@@ -150,9 +194,16 @@ describe("AuthDevicesPage stale command state across rows", () => {
 
 describe("AuthDeviceDetailPage", () => {
   const device = {
-    id: "d1", userId: "u1", name: "laptop", type: "desktop", browser: "Firefox",
-    os: "linux", ipAddress: "10.0.0.1", trusted: false,
-    lastSeenAt: "2026-02-02T00:00:00Z", createdAt: "2026-01-01T00:00:00Z",
+    id: "d1",
+    userId: "u1",
+    name: "laptop",
+    type: "desktop",
+    browser: "Firefox",
+    os: "linux",
+    ipAddress: "10.0.0.1",
+    trusted: false,
+    lastSeenAt: "2026-02-02T00:00:00Z",
+    createdAt: "2026-01-01T00:00:00Z",
   }
 
   // `devices.delete` invalidates `devices.list` only (never `devices.detail`),
@@ -174,7 +225,8 @@ describe("AuthDeviceDetailPage", () => {
   })
 
   afterEach(() => {
-    if (originalLocation) Object.defineProperty(window, "location", originalLocation)
+    if (originalLocation)
+      Object.defineProperty(window, "location", originalLocation)
   })
 
   it("gives an untrusted device the same secondary treatment as the devices list, not the destructive one used for a banned user", async () => {
@@ -187,10 +239,12 @@ describe("AuthDeviceDetailPage", () => {
   it("leaves the detail view once forgetting the device it is showing succeeds", async () => {
     const { client, sent } = recordingCommandClient(
       { "devices.detail": device },
-      { "devices.delete": { ok: true } },
+      { "devices.delete": { ok: true } }
     )
     renderPage(AuthDeviceDetailPage, client, { id: "d1" })
-    await waitFor(() => expect(screen.getByRole("button", { name: "Forget laptop" })).toBeTruthy())
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Forget laptop" })).toBeTruthy()
+    )
 
     fireEvent.click(screen.getByRole("button", { name: "Forget laptop" }))
     fireEvent.click(screen.getByRole("button", { name: "Forget" }))

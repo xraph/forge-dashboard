@@ -63,10 +63,7 @@ const WINDOW_UNITS: DurationUnit[] = ["seconds", "hours", "minutes"]
 const ROTATION_UNITS: DurationUnit[] = ["days"]
 
 type DurationKey =
-  | "maxKeyLifetime"
-  | "grace"
-  | "rateLimitWindow"
-  | "rotationPeriod"
+  "maxKeyLifetime" | "grace" | "rateLimitWindow" | "rotationPeriod"
 type CountKey = "rateLimit" | "burstLimit" | "dailyQuota" | "monthlyQuota"
 type ListKey = "ips" | "origins" | "paths"
 type GroupKey = "scopes" | "methods"
@@ -136,7 +133,7 @@ interface Duration {
  */
 function initialDuration(
   seconds: number | null | undefined,
-  units: DurationUnit[],
+  units: DurationUnit[]
 ): Duration {
   const split = splitDuration(seconds ?? null, units)
   const offered = units.includes(split.unit) ? units : [...units, split.unit]
@@ -257,18 +254,18 @@ function PolicyForm({
     () => ({
       maxKeyLifetime: initialDuration(
         policy?.maxKeyLifetimeSeconds,
-        LIFETIME_UNITS,
+        LIFETIME_UNITS
       ),
       grace: initialDuration(policy?.graceSeconds, GRACE_UNITS),
       rateLimitWindow: initialDuration(
         policy?.rateLimitWindowSeconds,
-        WINDOW_UNITS,
+        WINDOW_UNITS
       ),
       rotationPeriod: initialDuration(
         policy?.rotationPeriodSeconds,
-        ROTATION_UNITS,
+        ROTATION_UNITS
       ),
-    }),
+    })
   )
   const [counts, setCounts] = useState<Record<CountKey, string>>(() => ({
     rateLimit: initialCount(policy?.rateLimit),
@@ -277,17 +274,17 @@ function PolicyForm({
     monthlyQuota: initialCount(policy?.monthlyQuota),
   }))
   const [pickedScopes, setPickedScopes] = useState<string[]>(
-    () => policy?.allowedScopes ?? [],
+    () => policy?.allowedScopes ?? []
   )
   const [ips, setIps] = useState(() => (policy?.allowedIps ?? []).join("\n"))
   const [origins, setOrigins] = useState(() =>
-    (policy?.allowedOrigins ?? []).join("\n"),
+    (policy?.allowedOrigins ?? []).join("\n")
   )
   const [paths, setPaths] = useState(() =>
-    (policy?.allowedPaths ?? []).join("\n"),
+    (policy?.allowedPaths ?? []).join("\n")
   )
   const [pickedMethods, setPickedMethods] = useState<string[]>(
-    () => policy?.allowedMethods ?? [],
+    () => policy?.allowedMethods ?? []
   )
   // The allow lists as they were when the form opened. A name on them that
   // the pickers do not list stays on screen, so unticking it is a choice and
@@ -353,11 +350,21 @@ function PolicyForm({
       ["monthlyQuota", "Monthly quota", toCount(counts.monthlyQuota)],
     ]
     for (const [field, label, n] of numbers) {
-      if (Number.isNaN(n)) return fail(field, `${label} must be a whole number.`)
+      if (Number.isNaN(n))
+        return fail(field, `${label} must be a whole number.`)
     }
-    const [lifetime, grace, rateLimit, window, burst, rotation, daily, monthly] =
-      numbers.map(([, , n]) => n ?? 0)
-    if (rateLimit > 0 && window === 0) return fail("rateLimitWindow", NEEDS_WINDOW)
+    const [
+      lifetime,
+      grace,
+      rateLimit,
+      window,
+      burst,
+      rotation,
+      daily,
+      monthly,
+    ] = numbers.map(([, , n]) => n ?? 0)
+    if (rateLimit > 0 && window === 0)
+      return fail("rateLimitWindow", NEEDS_WINDOW)
     setProblem(null)
 
     // Every field goes out. On update a blank one clears with 0 or [], which
@@ -386,7 +393,7 @@ function PolicyForm({
     let result: { policy: PolicyDetail } | undefined
     try {
       result = await command.execute(
-        policy ? { id: policy.id, ...fields } : fields,
+        policy ? { id: policy.id, ...fields } : fields
       )
     } finally {
       sending.current = false
@@ -399,7 +406,7 @@ function PolicyForm({
   const durationField = (
     key: DurationKey,
     label: string,
-    placeholder?: string,
+    placeholder?: string
   ) => (
     <Field>
       <Label htmlFor={id(key)}>{label}</Label>
@@ -454,7 +461,7 @@ function PolicyForm({
     label: string,
     text: string,
     set: (v: string) => void,
-    example: ReactNode,
+    example: ReactNode
   ) => (
     <Field>
       <Label htmlFor={id(key)}>{label}</Label>
@@ -513,8 +520,16 @@ function PolicyForm({
           )}
           <FieldGroup>
             <div className="grid gap-4 sm:grid-cols-2">
-              {durationField("maxKeyLifetime", "Max key lifetime", "No maximum")}
-              {durationField("grace", "Grace on rotation", "24 hours (default)")}
+              {durationField(
+                "maxKeyLifetime",
+                "Max key lifetime",
+                "No maximum"
+              )}
+              {durationField(
+                "grace",
+                "Grace on rotation",
+                "24 hours (default)"
+              )}
             </div>
             <AllowedScopesField
               stored={storedScopes}
@@ -529,7 +544,9 @@ function PolicyForm({
 
         <FieldSet>
           <FieldLegend>{GROUP_HEADING.rateLimiter}</FieldLegend>
-          <FieldDescription>{rateLimiterLine(rateLimiterConfigured)}</FieldDescription>
+          <FieldDescription>
+            {rateLimiterLine(rateLimiterConfigured)}
+          </FieldDescription>
           <div className="grid gap-4 sm:grid-cols-2">
             {countField("rateLimit", "Rate limit", "No limit")}
             {durationField("rateLimitWindow", "Window")}
@@ -558,21 +575,21 @@ function PolicyForm({
               "Allowed IPs",
               ips,
               setIps,
-              <span className="font-mono">10.0.0.0/8</span>,
+              <span className="font-mono">10.0.0.0/8</span>
             )}
             {listField(
               "origins",
               "Allowed origins",
               origins,
               setOrigins,
-              <span className="font-mono">https://example.com</span>,
+              <span className="font-mono">https://example.com</span>
             )}
             {listField(
               "paths",
               "Allowed paths",
               paths,
               setPaths,
-              <span className="font-mono">/v1/billing</span>,
+              <span className="font-mono">/v1/billing</span>
             )}
             <FieldSet {...invalidProps("methods")}>
               <FieldLegend variant="label">Allowed methods</FieldLegend>
@@ -585,7 +602,7 @@ function PolicyForm({
                         setPickedMethods((cur) =>
                           on === true
                             ? [...cur.filter((x) => x !== m), m]
-                            : cur.filter((x) => x !== m),
+                            : cur.filter((x) => x !== m)
                         )
                       }
                     />

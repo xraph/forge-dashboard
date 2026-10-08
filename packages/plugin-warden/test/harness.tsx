@@ -30,13 +30,16 @@ beforeEach(() => {
  */
 export function stubClient(
   answers: Record<string, unknown>,
-  commands: Record<string, unknown> = {},
+  commands: Record<string, unknown> = {}
 ): ScopedClient {
   return {
     extension: "warden",
     query: async (intent: string) => {
       if (!(intent in answers)) {
-        throw new ContractError("NOT_FOUND", `no handler for intent "${intent}"`)
+        throw new ContractError(
+          "NOT_FOUND",
+          `no handler for intent "${intent}"`
+        )
       }
       return answers[intent]
     },
@@ -45,7 +48,10 @@ export function stubClient(
     // resolve to undefined and look like a success.
     command: async (intent: string) => {
       if (!(intent in commands)) {
-        throw new ContractError("NOT_FOUND", `no handler for command "${intent}"`)
+        throw new ContractError(
+          "NOT_FOUND",
+          `no handler for command "${intent}"`
+        )
       }
       return commands[intent]
     },
@@ -55,7 +61,7 @@ export function stubClient(
 /** Records every command a page sends, with its payload, in order. */
 export function recordingCommandClient(
   answers: Record<string, unknown>,
-  commands: Record<string, unknown> = {},
+  commands: Record<string, unknown> = {}
 ): { client: ScopedClient; sent: { intent: string; payload: unknown }[] } {
   const sent: { intent: string; payload: unknown }[] = []
   const inner = stubClient(answers, commands)
@@ -147,7 +153,7 @@ export function recordingClient(answers: Record<string, unknown>): {
 export function renderPage(
   Page: ComponentType<PluginPageProps>,
   client: ScopedClient,
-  params: PluginPageProps["params"] = {},
+  params: PluginPageProps["params"] = {}
 ) {
   return render(
     <PluginProvider client={client}>
@@ -167,15 +173,20 @@ export function renderPage(
 export function cellUnder(row: HTMLElement, header: string): HTMLElement {
   const table = row.closest("table")
   if (!table) throw new Error("row is not inside a table")
-  const headers = Array.from(table.querySelectorAll("thead th")).map((th) => th.textContent)
+  const headers = Array.from(table.querySelectorAll("thead th")).map(
+    (th) => th.textContent
+  )
   const index = headers.indexOf(header)
-  if (index < 0) throw new Error(`no column headed "${header}", only ${headers.join(", ")}`)
+  if (index < 0)
+    throw new Error(`no column headed "${header}", only ${headers.join(", ")}`)
   return row.querySelectorAll("td")[index] as HTMLElement
 }
 
 /** The value beside the term `term` in a DescriptionList. */
 export function describedAs(term: string): HTMLElement {
-  const dt = Array.from(document.querySelectorAll("dt")).find((el) => el.textContent === term)
+  const dt = Array.from(document.querySelectorAll("dt")).find(
+    (el) => el.textContent === term
+  )
   if (!dt) throw new Error(`no term "${term}"`)
   return dt.nextElementSibling as HTMLElement
 }

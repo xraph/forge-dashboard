@@ -27,20 +27,31 @@ import {
 } from "../format"
 import type { CasePair, Comparison, ResultRow, Run } from "../types"
 
-const RATES: Record<string, string> = { pass_rate: "Pass rate", avg_score: "Avg score" }
+const RATES: Record<string, string> = {
+  pass_rate: "Pass rate",
+  avg_score: "Avg score",
+}
 
 /** A case changed when its status or score moved, or only one run scored it. */
 function changed(pair: CasePair): boolean {
   if (!pair.a || !pair.b) return true
-  return pair.a.status !== pair.b.status || Math.abs(pair.b.score - pair.a.score) >= 0.005
+  return (
+    pair.a.status !== pair.b.status ||
+    Math.abs(pair.b.score - pair.a.score) >= 0.005
+  )
 }
 
 function side(row: ResultRow | undefined, which: "A" | "B") {
-  if (!row) return <span className="text-muted-foreground">{`Only in ${which === "A" ? "B" : "A"}`}</span>
+  if (!row)
+    return (
+      <span className="text-muted-foreground">{`Only in ${which === "A" ? "B" : "A"}`}</span>
+    )
   return (
     <span className="inline-flex items-center gap-2">
       <ResultStatusBadge status={row.status} />
-      <span className="font-mono text-xs tabular-nums">{row.score.toFixed(2)}</span>
+      <span className="font-mono text-xs tabular-nums">
+        {row.score.toFixed(2)}
+      </span>
     </span>
   )
 }
@@ -55,12 +66,18 @@ function side(row: ResultRow | undefined, which: "A" | "B") {
 export default function ComparePage({ params }: PluginPageProps) {
   const runId = params.id
   const otherId = params.otherId
-  if (!runId || !otherId) return <p className="text-sm text-muted-foreground">No runs selected.</p>
-  return <CompareBody key={`${runId}:${otherId}`} runId={runId} otherId={otherId} />
+  if (!runId || !otherId)
+    return <p className="text-sm text-muted-foreground">No runs selected.</p>
+  return (
+    <CompareBody key={`${runId}:${otherId}`} runId={runId} otherId={otherId} />
+  )
 }
 
 function CompareBody({ runId, otherId }: { runId: string; otherId: string }) {
-  const comparison = useQuery<Comparison>("runs.compare", { runId, otherRunId: otherId })
+  const comparison = useQuery<Comparison>("runs.compare", {
+    runId,
+    otherRunId: otherId,
+  })
   const navigate = useNavigateTo()
   const [changedOnly, setChangedOnly] = useState(false)
   const [open, setOpen] = useState<string | null>(null)
@@ -75,14 +92,25 @@ function CompareBody({ runId, otherId }: { runId: string; otherId: string }) {
       <PageHeader
         title="Compare runs"
         actions={
-          <IconButton variant="outline" onClick={() => navigate(comparePath(otherId, runId))} label="Swap A and B" />
+          <IconButton
+            variant="outline"
+            onClick={() => navigate(comparePath(otherId, runId))}
+            label="Swap A and B"
+          />
         }
       />
       <SettledBoundary title="Comparison" query={comparison} skeletonRows={6}>
         {(c) => {
           const dims = orderDimensions(Object.keys(c.dimensionDeltas))
           const rows: DumbbellRow[] = [
-            ...c.deltas.filter((d) => d.metric in RATES).map((d) => ({ key: d.metric, label: RATES[d.metric], a: d.a, b: d.b })),
+            ...c.deltas
+              .filter((d) => d.metric in RATES)
+              .map((d) => ({
+                key: d.metric,
+                label: RATES[d.metric],
+                a: d.a,
+                b: d.b,
+              })),
             ...dims.map((dim) => ({
               key: dim,
               label: dim,
@@ -100,8 +128,14 @@ function CompareBody({ runId, otherId }: { runId: string; otherId: string }) {
                 <RunLine which="A" run={c.a} />
                 <RunLine which="B" run={c.b} />
               </dl>
-              <section aria-labelledby="sentinel-compare-scores" className="flex flex-col gap-2">
-                <h2 id="sentinel-compare-scores" className="text-sm font-medium">
+              <section
+                aria-labelledby="sentinel-compare-scores"
+                className="flex flex-col gap-2"
+              >
+                <h2
+                  id="sentinel-compare-scores"
+                  className="text-sm font-medium"
+                >
                   Scores, A to B
                 </h2>
                 <DumbbellKey a={shortRunId(c.a.id)} b={shortRunId(c.b.id)} />
@@ -115,12 +149,23 @@ function CompareBody({ runId, otherId }: { runId: string; otherId: string }) {
                     `Cost reported ${formatCost(cost.a)} to ${formatCost(cost.b)} (${cost.delta < 0 ? "−" : "+"}${formatCost(Math.abs(cost.delta))}); LLM judge calls are not metered.`}
                 </p>
               </section>
-              <section aria-labelledby="sentinel-compare-cases" className="flex flex-col gap-3">
+              <section
+                aria-labelledby="sentinel-compare-cases"
+                className="flex flex-col gap-3"
+              >
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <h2 id="sentinel-compare-cases" className="text-sm font-medium">
+                  <h2
+                    id="sentinel-compare-cases"
+                    className="text-sm font-medium"
+                  >
                     Cases
                   </h2>
-                  <Button variant="outline" size="sm" aria-pressed={changedOnly} onClick={() => setChangedOnly((on) => !on)}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    aria-pressed={changedOnly}
+                    onClick={() => setChangedOnly((on) => !on)}
+                  >
                     Changed only
                   </Button>
                 </div>
@@ -133,22 +178,49 @@ function CompareBody({ runId, otherId }: { runId: string; otherId: string }) {
                       ? `${shown.length} of ${plural(c.cases.length, "case", "cases")} changed`
                       : plural(c.cases.length, "case", "cases")
                   }
-                  emptyMessage={changedOnly ? "No case changed between these runs." : "Neither run scored a case."}
+                  emptyMessage={
+                    changedOnly
+                      ? "No case changed between these runs."
+                      : "Neither run scored a case."
+                  }
                   rowActions={(p) => (
-                    <IconButton variant="ghost" aria-pressed={open === p.caseId} onClick={() => setOpen(open === p.caseId ? null : p.caseId)} label={`Compare outputs of ${p.caseName}`} />
+                    <IconButton
+                      variant="ghost"
+                      aria-pressed={open === p.caseId}
+                      onClick={() =>
+                        setOpen(open === p.caseId ? null : p.caseId)
+                      }
+                      label={`Compare outputs of ${p.caseName}`}
+                    />
                   )}
                 />
                 {pair && (
-                  <section aria-label={`Outputs of ${pair.caseName}`} className="flex flex-col gap-2 rounded-lg border p-4">
+                  <section
+                    aria-label={`Outputs of ${pair.caseName}`}
+                    className="flex flex-col gap-2 rounded-lg border p-4"
+                  >
                     <div className="flex items-center justify-between gap-2">
-                      <h3 ref={panelHeading} tabIndex={-1} className="text-sm font-medium outline-none">
+                      <h3
+                        ref={panelHeading}
+                        tabIndex={-1}
+                        className="text-sm font-medium outline-none"
+                      >
                         {`Outputs of ${pair.caseName}`}
                       </h3>
-                      <Button variant="ghost" size="sm" onClick={() => setOpen(null)}>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setOpen(null)}
+                      >
                         Close
                       </Button>
                     </div>
-                    <OutputDiff key={pair.caseId} pair={pair} aRunId={c.a.id} bRunId={c.b.id} />
+                    <OutputDiff
+                      key={pair.caseId}
+                      pair={pair}
+                      aRunId={c.a.id}
+                      bRunId={c.b.id}
+                    />
                   </section>
                 )}
               </section>
@@ -182,7 +254,12 @@ const caseColumns: Column<CasePair>[] = [
     header: "Change",
     align: "end",
     className: "tabular-nums",
-    cell: (p) => (p.a && p.b ? formatDelta(p.b.score - p.a.score) : <NoneCell label="change, one run only" />),
+    cell: (p) =>
+      p.a && p.b ? (
+        formatDelta(p.b.score - p.a.score)
+      ) : (
+        <NoneCell label="change, one run only" />
+      ),
   },
 ]
 
@@ -195,7 +272,9 @@ function RunLine({ which, run }: { which: "A" | "B"; run: Run }) {
           <span className="font-mono text-xs">{shortRunId(run.id)}</span>
         </PluginLink>
         <RunStateBadge state={run.state} />
-        <PluginLink to={suitePath(run.suiteId)}>{run.suiteName || "Suite"}</PluginLink>
+        <PluginLink to={suitePath(run.suiteId)}>
+          {run.suiteName || "Suite"}
+        </PluginLink>
         <span>
           {"Model "}
           <span className="font-mono text-xs text-foreground">{run.model}</span>
@@ -211,5 +290,7 @@ function RunLine({ which, run }: { which: "A" | "B"; run: Run }) {
 
 function OnlyIn({ label, dims }: { label: string; dims: string[] }) {
   if (dims.length === 0) return null
-  return <p className="text-sm text-muted-foreground">{`${label}: ${orderDimensions(dims).join(", ")}.`}</p>
+  return (
+    <p className="text-sm text-muted-foreground">{`${label}: ${orderDimensions(dims).join(", ")}.`}</p>
+  )
 }

@@ -67,7 +67,9 @@ describe("useQuery", () => {
       <PluginProvider client={client}>{children}</PluginProvider>
     )
 
-    const { result } = renderHook(() => useQuery<{ n: number }>("x.y"), { wrapper })
+    const { result } = renderHook(() => useQuery<{ n: number }>("x.y"), {
+      wrapper,
+    })
 
     // A second, overlapping request: issued while the first is still in flight.
     await act(async () => {
@@ -113,7 +115,9 @@ describe("useQuery", () => {
       <PluginProvider client={client}>{children}</PluginProvider>
     )
 
-    const { unmount } = renderHook(() => useQuery<{ n: number }>("x.y"), { wrapper })
+    const { unmount } = renderHook(() => useQuery<{ n: number }>("x.y"), {
+      wrapper,
+    })
     unmount()
 
     // Settling after unmount must not throw. The store owns the entry and the
@@ -125,7 +129,9 @@ describe("useQuery", () => {
     // And the answer is kept rather than thrown away, so a later reader inside
     // the stale window is served without a second request. That is the
     // behaviour the store buys; the old hook discarded this result on unmount.
-    const { result } = renderHook(() => useQuery<{ n: number }>("x.y"), { wrapper })
+    const { result } = renderHook(() => useQuery<{ n: number }>("x.y"), {
+      wrapper,
+    })
     expect(result.current.data).toEqual({ n: 1 })
     expect(queryMock).toHaveBeenCalledOnce()
   })
@@ -144,7 +150,9 @@ describe("useCommand", () => {
     const wrapper = ({ children }: { children: ReactNode }) => (
       <PluginProvider client={client}>{children}</PluginProvider>
     )
-    return renderHook(() => useCommand<{ n: number }>("session.login"), { wrapper })
+    return renderHook(() => useCommand<{ n: number }>("session.login"), {
+      wrapper,
+    })
   }
 
   // The whole reason this is not useQuery. A command writes; firing one
@@ -165,13 +173,16 @@ describe("useCommand", () => {
     const { result } = mount(commandMock)
 
     await act(async () => {
-      await result.current.execute({ user: "rex" }, { idempotencyKey: "caller-key" })
+      await result.current.execute(
+        { user: "rex" },
+        { idempotencyKey: "caller-key" }
+      )
     })
 
     expect(commandMock).toHaveBeenCalledWith(
       "session.login",
       { user: "rex" },
-      { idempotencyKey: "caller-key" },
+      { idempotencyKey: "caller-key" }
     )
     expect(result.current.data).toEqual({ n: 1 })
     expect(result.current.loading).toBe(false)
@@ -291,7 +302,7 @@ describe("useQuery over the store", () => {
       <PluginProvider client={stubClient(query)}>
         <Reader />
         <Reader />
-      </PluginProvider>,
+      </PluginProvider>
     )
     await waitFor(() => expect(screen.getAllByText("total 2")).toHaveLength(2))
     expect(query).toHaveBeenCalledOnce()
@@ -303,7 +314,7 @@ describe("useQuery over the store", () => {
     const { unmount } = render(
       <PluginProvider client={stubClient(query)}>
         <Reader />
-      </PluginProvider>,
+      </PluginProvider>
     )
     await waitFor(() => expect(screen.getByText("total 2")).toBeTruthy())
     unmount()
@@ -311,7 +322,7 @@ describe("useQuery over the store", () => {
     render(
       <PluginProvider client={stubClient(query)}>
         <Reader />
-      </PluginProvider>,
+      </PluginProvider>
     )
     await waitFor(() => expect(query).toHaveBeenCalledTimes(2))
   })
@@ -323,7 +334,7 @@ describe("useQuery over the store", () => {
     const { unmount } = render(
       <PluginProvider client={stubClient(query)}>
         <Reader />
-      </PluginProvider>,
+      </PluginProvider>
     )
     await waitFor(() => expect(screen.getByText("total 2")).toBeTruthy())
     unmount()
@@ -331,7 +342,7 @@ describe("useQuery over the store", () => {
     render(
       <PluginProvider client={stubClient(query)}>
         <Reader />
-      </PluginProvider>,
+      </PluginProvider>
     )
     expect(screen.getByText("total 2")).toBeTruthy()
     expect(query).toHaveBeenCalledOnce()
@@ -355,7 +366,7 @@ describe("useQuery over the store", () => {
     render(
       <PluginProvider client={stubClient(query)}>
         <WithButton />
-      </PluginProvider>,
+      </PluginProvider>
     )
     await waitFor(() => expect(screen.getByText("total 2")).toBeTruthy())
     screen.getByRole("button", { name: "reload" }).click()
@@ -375,7 +386,7 @@ describe("useQuery over the store", () => {
     render(
       <PluginProvider client={stubClient(query)}>
         <ErrorReader />
-      </PluginProvider>,
+      </PluginProvider>
     )
     await waitFor(() => expect(screen.getByText("failed")).toBeTruthy())
   })

@@ -1,6 +1,11 @@
 import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { useState, type FormEvent, type ReactNode } from "react"
-import { PluginLink, useCommand, useQuery, type QueryState } from "@forge-go/dashboard-plugin"
+import {
+  PluginLink,
+  useCommand,
+  useQuery,
+  type QueryState,
+} from "@forge-go/dashboard-plugin"
 import { Badge } from "@forge-go/dashboard-kit/components/badge"
 import { Button } from "@forge-go/dashboard-kit/components/button"
 import { ConfirmDialog } from "@forge-go/dashboard-kit/components/confirm-dialog"
@@ -226,7 +231,9 @@ function RoleSelect({
         </span>
       )}
       {!roles.loading && !roles.error && items.length === 0 && (
-        <span>No roles exist yet, so there is nothing to assign. Create one first.</span>
+        <span>
+          No roles exist yet, so there is nothing to assign. Create one first.
+        </span>
       )}
     </span>
   )
@@ -286,7 +293,8 @@ function ExpiringList({
     limit: EXPIRING_LIMIT,
   })
   const window =
-    EXPIRING_WINDOWS.find((w) => w.hours === windowHours)?.label ?? `${windowHours} hours`
+    EXPIRING_WINDOWS.find((w) => w.hours === windowHours)?.label ??
+    `${windowHours} hours`
 
   return (
     <div className="flex flex-col gap-2">
@@ -294,9 +302,9 @@ function ExpiringList({
         Assignments that expire within the next {window}, in every namespace of
         this tenant, earliest expiry first. Assignments that have already
         expired but are still stored are listed too, ahead of the rest: they
-        grant nothing, and they stay until they are deleted. Maintenance
-        deletes them: warden&apos;s background maintenance loop, or Run
-        maintenance on the Config page for this tenant.
+        grant nothing, and they stay until they are deleted. Maintenance deletes
+        them: warden&apos;s background maintenance loop, or Run maintenance on
+        the Config page for this tenant.
       </p>
       <QueryBoundary title="Expiring assignments" query={feed} skeletonRows={5}>
         {(data) => {
@@ -365,7 +373,7 @@ export function WardenAssignmentsPage() {
       limit: PAGE_SIZE,
       offset: (page - 1) * PAGE_SIZE,
     },
-    { enabled: view === "all" },
+    { enabled: view === "all" }
   )
   // Every namespace's roles, because an assignment's role can sit in a
   // namespace above the assignment's own. The same read as the create
@@ -374,7 +382,7 @@ export function WardenAssignmentsPage() {
   const roles = useQuery<RolesList>(
     "roles.list",
     { limit: ROLE_PICKER_LIMIT },
-    { enabled: view === "all" },
+    { enabled: view === "all" }
   )
   const filtered = subjectKind !== "" || subjectId !== "" || roleId !== ""
 
@@ -451,7 +459,11 @@ export function WardenAssignmentsPage() {
       id: "subject",
       header: "Subject",
       cell: (a) => (
-        <SubjectLink kind={a.subjectKind} id={a.subjectId} className="font-medium" />
+        <SubjectLink
+          kind={a.subjectKind}
+          id={a.subjectId}
+          className="font-medium"
+        />
       ),
       className: "font-medium",
     },
@@ -530,10 +542,14 @@ export function WardenAssignmentsPage() {
 
   function deleteAction(a: AssignmentSummary) {
     return (
-      <IconButton variant="destructive" onClick={() => {
+      <IconButton
+        variant="destructive"
+        onClick={() => {
           remove.reset()
           setDeleting(a)
-        }} label={`Delete ${subjectLabel(a)} from ${a.roleSlug || a.roleId}`} />
+        }}
+        label={`Delete ${subjectLabel(a)} from ${a.roleSlug || a.roleId}`}
+      />
     )
   }
 
@@ -545,12 +561,15 @@ export function WardenAssignmentsPage() {
       { label: "All assignments", value: "all" },
       { label: "Expiring soon", value: "expiring" },
     ],
-    onChange: (next: string) => setView(next === "expiring" ? "expiring" : "all"),
+    onChange: (next: string) =>
+      setView(next === "expiring" ? "expiring" : "all"),
   }
 
   // The feed is about when rows lapse, so who granted them and when they
   // were made are left out.
-  const expiringColumns = columns.filter((c) => c.id !== "grantedBy" && c.id !== "createdAt")
+  const expiringColumns = columns.filter(
+    (c) => c.id !== "grantedBy" && c.id !== "createdAt"
+  )
 
   return (
     <section className="flex flex-col gap-4">
@@ -602,7 +621,10 @@ export function WardenAssignmentsPage() {
                 value: subjectKind,
                 options: [
                   { label: "Any kind", value: "" },
-                  ...SUBJECT_KINDS.map((kind) => ({ label: kind, value: kind })),
+                  ...SUBJECT_KINDS.map((kind) => ({
+                    label: kind,
+                    value: kind,
+                  })),
                 ],
                 onChange: (next) => {
                   setSubjectKind(next)
@@ -629,9 +651,14 @@ export function WardenAssignmentsPage() {
           />
           <RoleFilterNote roles={roles} />
 
-          <form className="flex flex-wrap items-end gap-3" onSubmit={applySubjectId}>
+          <form
+            className="flex flex-wrap items-end gap-3"
+            onSubmit={applySubjectId}
+          >
             <span className="flex flex-col gap-1.5">
-              <Label htmlFor="assignments-filter-subject-id">Filter by subject id</Label>
+              <Label htmlFor="assignments-filter-subject-id">
+                Filter by subject id
+              </Label>
               <Input
                 id="assignments-filter-subject-id"
                 className="font-mono text-xs"
@@ -641,7 +668,12 @@ export function WardenAssignmentsPage() {
               />
             </span>
             <Button type="submit">Apply</Button>
-            <IconButton type="button" variant="outline" onClick={clearSubjectId} label="Clear" />
+            <IconButton
+              type="button"
+              variant="outline"
+              onClick={clearSubjectId}
+              label="Clear"
+            />
           </form>
 
           <QueryBoundary title="Assignments" query={list} skeletonRows={5}>
@@ -719,11 +751,15 @@ export function WardenAssignmentsPage() {
             id="assignment-subject-id"
             className="font-mono text-xs"
             value={form.subjectId}
-            onChange={(e) => setForm((f) => ({ ...f, subjectId: e.target.value }))}
+            onChange={(e) =>
+              setForm((f) => ({ ...f, subjectId: e.target.value }))
+            }
           />
         </div>
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="assignment-resource-type">Resource type (optional)</Label>
+          <Label htmlFor="assignment-resource-type">
+            Resource type (optional)
+          </Label>
           <Input
             id="assignment-resource-type"
             className="font-mono text-xs"
@@ -741,11 +777,13 @@ export function WardenAssignmentsPage() {
             id="assignment-resource-id"
             className="font-mono text-xs"
             value={form.resourceId}
-            onChange={(e) => setForm((f) => ({ ...f, resourceId: e.target.value }))}
+            onChange={(e) =>
+              setForm((f) => ({ ...f, resourceId: e.target.value }))
+            }
           />
           <span className="text-xs/relaxed text-muted-foreground">
-            Fill in both to limit the assignment to one resource, or leave
-            both empty.
+            Fill in both to limit the assignment to one resource, or leave both
+            empty.
           </span>
           {halfScoped && (
             <span className="text-xs/relaxed text-destructive">
@@ -761,13 +799,18 @@ export function WardenAssignmentsPage() {
             id="assignment-expires"
             type="datetime-local"
             value={form.expires}
-            onChange={(e) => setForm((f) => ({ ...f, expires: e.target.value }))}
+            onChange={(e) =>
+              setForm((f) => ({ ...f, expires: e.target.value }))
+            }
           />
           <span className="text-xs/relaxed text-muted-foreground">
             Leave empty for a permanent assignment.
           </span>
         </div>
-        <CommandAlert error={create.error} title="Could not create the assignment" />
+        <CommandAlert
+          error={create.error}
+          title="Could not create the assignment"
+        />
       </ConfirmDialog>
 
       <ConfirmDialog

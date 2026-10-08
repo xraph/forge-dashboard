@@ -2,14 +2,22 @@ import type { ComponentType } from "react"
 import { PluginLink, useQuery } from "@forge-go/dashboard-plugin"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
-import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@forge-go/dashboard-kit/components/resizable"
+import {
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+} from "@forge-go/dashboard-kit/components/resizable"
 import { TROVE_MOUNT, folderOf, useBrowserLocation } from "../browser-location"
 import { Inspector } from "../components/inspector"
 import { ObjectActions } from "../components/object-actions"
 import { ObjectListing } from "../components/object-listing"
 import { PathBar } from "../components/path-bar"
 import { Preview } from "../components/preview"
-import { UploadButton, UploadDropZone, UploadTray } from "../components/upload-tray"
+import {
+  UploadButton,
+  UploadDropZone,
+  UploadTray,
+} from "../components/upload-tray"
 import { withStore } from "../store"
 import type { CasStatus, SystemStatus } from "../types"
 
@@ -41,14 +49,26 @@ const BrowserPage: ComponentType<PluginPageProps> = ({ params }) => {
       <PageHeader
         title={bucket}
         description="Objects as the driver lists them, one prefix at a time."
-        actions={<UploadButton store={store} bucket={bucket} folder={folder} maxBytes={maxBytes} disabled={uploadsRefused} />}
+        actions={
+          <UploadButton
+            store={store}
+            bucket={bucket}
+            folder={folder}
+            maxBytes={maxBytes}
+            disabled={uploadsRefused}
+          />
+        }
       />
       {uploadsRefused ? (
-        <p className="text-sm text-muted-foreground">CAS manages this bucket. Its objects are written through CAS, not uploaded here.</p>
+        <p className="text-sm text-muted-foreground">
+          CAS manages this bucket. Its objects are written through CAS, not
+          uploaded here.
+        </p>
       ) : null}
       {store !== "" ? (
         <p className="text-sm text-muted-foreground">
-          Store <span className="font-mono text-xs text-foreground">{store}</span>
+          Store{" "}
+          <span className="font-mono text-xs text-foreground">{store}</span>
         </p>
       ) : null}
       <PathBar key={prefix} bucket={bucket} store={store} prefix={prefix} />
@@ -57,11 +77,27 @@ const BrowserPage: ComponentType<PluginPageProps> = ({ params }) => {
         grows to the listing's height and the inspector sits at its top, off
         screen once the operator scrolls down to a row.
       */}
-      <ResizablePanelGroup orientation="horizontal" className="rounded-md border" style={{ height: "calc(100vh - 16rem)", minHeight: "24rem" }}>
+      <ResizablePanelGroup
+        orientation="horizontal"
+        className="rounded-md border"
+        style={{ height: "calc(100vh - 16rem)", minHeight: "24rem" }}
+      >
         <ResizablePanel defaultSize="62" minSize="35">
           <div className="h-full p-3">
-            <UploadDropZone store={store} bucket={bucket} folder={folder} maxBytes={maxBytes} disabled={uploadsRefused}>
-              <ObjectListing key={`${store}\n${bucket}\n${prefix}`} store={store} bucket={bucket} prefix={prefix} selectedKey={key} />
+            <UploadDropZone
+              store={store}
+              bucket={bucket}
+              folder={folder}
+              maxBytes={maxBytes}
+              disabled={uploadsRefused}
+            >
+              <ObjectListing
+                key={`${store}\n${bucket}\n${prefix}`}
+                store={store}
+                bucket={bucket}
+                prefix={prefix}
+                selectedKey={key}
+              />
               <UploadTray />
             </UploadDropZone>
           </div>
@@ -70,16 +106,34 @@ const BrowserPage: ComponentType<PluginPageProps> = ({ params }) => {
         <ResizablePanel defaultSize="38" minSize="25">
           <div className="h-full overflow-auto p-3">
             {key !== "" ? (
-              <Inspector key={`${store}\n${bucket}\n${key}`} store={store} bucket={bucket} objectKey={key}>
+              <Inspector
+                key={`${store}\n${bucket}\n${key}`}
+                store={store}
+                bucket={bucket}
+                objectKey={key}
+              >
                 {(head) => (
                   <>
-                    <ObjectActions store={store} bucket={bucket} prefix={prefix} head={head} casBucket={casBucket} />
-                    <Preview key={`${head.object.key}\n${head.object.etag ?? ""}\n${head.object.lastModified ?? ""}`} store={store} bucket={bucket} head={head} />
+                    <ObjectActions
+                      store={store}
+                      bucket={bucket}
+                      prefix={prefix}
+                      head={head}
+                      casBucket={casBucket}
+                    />
+                    <Preview
+                      key={`${head.object.key}\n${head.object.etag ?? ""}\n${head.object.lastModified ?? ""}`}
+                      store={store}
+                      bucket={bucket}
+                      head={head}
+                    />
                   </>
                 )}
               </Inspector>
             ) : (
-              <p className="text-sm text-muted-foreground">Select an object to see it here.</p>
+              <p className="text-sm text-muted-foreground">
+                Select an object to see it here.
+              </p>
             )}
           </div>
         </ResizablePanel>

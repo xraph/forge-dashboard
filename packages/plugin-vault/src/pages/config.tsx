@@ -119,7 +119,10 @@ export const ConfigPage: ComponentType<PluginPageProps> = () => {
 
       {/* Outside the boundary, so typing never takes the control away. */}
       <div className="flex max-w-sm flex-col gap-1.5">
-        <Label htmlFor="config-prefix-filter" className="text-xs text-muted-foreground">
+        <Label
+          htmlFor="config-prefix-filter"
+          className="text-xs text-muted-foreground"
+        >
           Key starts with
         </Label>
         <Input
@@ -144,7 +147,9 @@ export const ConfigPage: ComponentType<PluginPageProps> = () => {
               rowKey={(e) => e.id}
               caption={caption}
               emptyMessage={
-                prefix === "" ? "No config yet." : `No keys start with ${prefix}.`
+                prefix === ""
+                  ? "No config yet."
+                  : `No keys start with ${prefix}.`
               }
               emptyAction={<NewConfigLink />}
               pagination={{ page, pageSize: PAGE_SIZE, total: data.total }}

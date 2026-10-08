@@ -23,7 +23,11 @@ function client(extension: string): ScopedClient {
 }
 
 function entry(sub: ReturnType<typeof defineSubPlugin>) {
-  return { subPlugin: sub, client: client(sub.extension), hostClient: client(sub.host) }
+  return {
+    subPlugin: sub,
+    client: client(sub.extension),
+    hostClient: client(sub.host),
+  }
 }
 
 const Widget = () => <p>org count</p>
@@ -33,7 +37,7 @@ describe("PluginSlot", () => {
     const { container } = render(
       <SubPluginProvider entries={[]}>
         <PluginSlot name="overview.widgets" />
-      </SubPluginProvider>,
+      </SubPluginProvider>
     )
     expect(container.firstChild).toBeNull()
   })
@@ -47,7 +51,7 @@ describe("PluginSlot", () => {
     render(
       <SubPluginProvider entries={[entry(sub)]}>
         <PluginSlot name="overview.widgets" />
-      </SubPluginProvider>,
+      </SubPluginProvider>
     )
     expect(screen.getByText("org count")).toBeTruthy()
   })
@@ -57,12 +61,14 @@ describe("PluginSlot", () => {
     const sub = defineSubPlugin({
       extension: "mfa",
       host: "auth",
-      contributions: { "user.detail.sections": [{ id: "factors", render: Section }] },
+      contributions: {
+        "user.detail.sections": [{ id: "factors", render: Section }],
+      },
     })
     render(
       <SubPluginProvider entries={[entry(sub)]}>
         <PluginSlot name="user.detail.sections" params={{ userId: "u1" }} />
-      </SubPluginProvider>,
+      </SubPluginProvider>
     )
     expect(screen.getByText("user u1")).toBeTruthy()
   })
@@ -77,7 +83,7 @@ describe("PluginSlot", () => {
     render(
       <SubPluginProvider entries={[entry(sub)]}>
         <PluginSlot name="overview.widgets" />
-      </SubPluginProvider>,
+      </SubPluginProvider>
     )
     expect(screen.getByText("organization")).toBeTruthy()
   })
@@ -100,7 +106,7 @@ describe("PluginSlot", () => {
     const { container } = render(
       <SubPluginProvider entries={[entry(sub)]}>
         <PluginSlot name="overview.widgets" />
-      </SubPluginProvider>,
+      </SubPluginProvider>
     )
     expect(container.textContent).toBe("bac")
   })
@@ -126,7 +132,7 @@ describe("PluginSlot", () => {
     render(
       <SubPluginProvider entries={[entry(bad), entry(good)]}>
         <PluginSlot name="overview.widgets" />
-      </SubPluginProvider>,
+      </SubPluginProvider>
     )
     spy.mockRestore()
 
@@ -136,7 +142,9 @@ describe("PluginSlot", () => {
   it("lets a contribution read a host intent it declared", async () => {
     const hostQuery = vi.fn().mockResolvedValue({ fields: [] })
     const Panel = () => {
-      const { data, loading } = useHostQuery<{ fields: unknown[] }>("settings.namespace")
+      const { data, loading } = useHostQuery<{ fields: unknown[] }>(
+        "settings.namespace"
+      )
       if (loading) return <p>loading</p>
       return <p>fields {data?.fields.length}</p>
     }
@@ -153,12 +161,16 @@ describe("PluginSlot", () => {
           {
             subPlugin: sub,
             client: client("mfa"),
-            hostClient: { extension: "auth", query: hostQuery, command: vi.fn() },
+            hostClient: {
+              extension: "auth",
+              query: hostQuery,
+              command: vi.fn(),
+            },
           },
         ]}
       >
         <PluginSlot name="settings.tabs" />
-      </SubPluginProvider>,
+      </SubPluginProvider>
     )
 
     await waitFor(() => expect(screen.getByText("fields 0")).toBeTruthy())
@@ -182,14 +194,24 @@ describe("PluginSlot", () => {
     // The contribution must still be held to its own declaration.
     render(
       <HostAccessProvider
-        value={{ client: client("auth"), allowed: ["users.list"], subExtension: "other" }}
+        value={{
+          client: client("auth"),
+          allowed: ["users.list"],
+          subExtension: "other",
+        }}
       >
         <SubPluginProvider
-          entries={[{ subPlugin: sub, client: client("mfa"), hostClient: client("auth") }]}
+          entries={[
+            {
+              subPlugin: sub,
+              client: client("mfa"),
+              hostClient: client("auth"),
+            },
+          ]}
         >
           <PluginSlot name="settings.tabs" />
         </SubPluginProvider>
-      </HostAccessProvider>,
+      </HostAccessProvider>
     )
 
     // If the ambient allowlist won, the hook would not throw and this would
@@ -217,7 +239,7 @@ describe("useSlotCount", () => {
     render(
       <SubPluginProvider entries={[entry(sub)]}>
         <Probe />
-      </SubPluginProvider>,
+      </SubPluginProvider>
     )
     expect(screen.getByText("count 1")).toBeTruthy()
   })

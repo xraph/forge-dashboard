@@ -10,10 +10,17 @@ import type { CircuitState, RouteProtocol, RouteSource } from "./types"
  */
 
 export function HealthBadge({ healthy }: { healthy: boolean }) {
-  return <Badge variant={healthy ? "outline" : "destructive"}>{healthy ? "Healthy" : "Unhealthy"}</Badge>
+  return (
+    <Badge variant={healthy ? "outline" : "destructive"}>
+      {healthy ? "Healthy" : "Unhealthy"}
+    </Badge>
+  )
 }
 
-const CIRCUIT: Record<CircuitState, { label: string; variant: "outline" | "default" | "destructive" }> = {
+const CIRCUIT: Record<
+  CircuitState,
+  { label: string; variant: "outline" | "default" | "destructive" }
+> = {
   closed: { label: "Closed", variant: "outline" },
   half_open: { label: "Half-open", variant: "default" },
   open: { label: "Open", variant: "destructive" },
@@ -25,10 +32,18 @@ export function CircuitBadge({ state }: { state: CircuitState }) {
 }
 
 export function EnabledBadge({ enabled }: { enabled: boolean }) {
-  return <Badge variant={enabled ? "outline" : "secondary"}>{enabled ? "Enabled" : "Disabled"}</Badge>
+  return (
+    <Badge variant={enabled ? "outline" : "secondary"}>
+      {enabled ? "Enabled" : "Disabled"}
+    </Badge>
+  )
 }
 
-const SOURCE: Record<RouteSource, string> = { manual: "Manual", farp: "FARP", discovery: "Discovery" }
+const SOURCE: Record<RouteSource, string> = {
+  manual: "Manual",
+  farp: "FARP",
+  discovery: "Discovery",
+}
 
 export function SourceBadge({ source }: { source: RouteSource }) {
   return <Badge variant="outline">{SOURCE[source] ?? source}</Badge>

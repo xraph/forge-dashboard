@@ -121,11 +121,11 @@ export function hasSetupFlow(intents: AuthIntents): boolean {
 export function authRoutesFor(
   intents: AuthIntents,
   screens: AuthScreens,
-  defaults: AuthScreens & Required<Pick<AuthScreens, "signIn">>,
+  defaults: AuthScreens & Required<Pick<AuthScreens, "signIn">>
 ): AuthRoute[] {
   const routes: AuthRoute[] = []
   const pick = (
-    key: keyof AuthScreens,
+    key: keyof AuthScreens
   ): ComponentType<AuthScreenProps> | undefined => screens[key] ?? defaults[key]
 
   const add = (path: string, key: keyof AuthScreens) => {

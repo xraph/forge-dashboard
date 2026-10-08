@@ -35,15 +35,28 @@ describe("consent list", () => {
       allowed: [],
     })
     await waitFor(() => expect(screen.getByText("marketing")).toBeTruthy())
-    expect(screen.getByText("granted").getAttribute("data-variant")).toBe("default")
-    expect(screen.getByText("revoked").getAttribute("data-variant")).toBe("destructive")
+    expect(screen.getByText("granted").getAttribute("data-variant")).toBe(
+      "default"
+    )
+    expect(screen.getByText("revoked").getAttribute("data-variant")).toBe(
+      "destructive"
+    )
   })
 
   it("revokes by user and purpose, never by the record id", async () => {
-    const own = subStubClient({ "consent.list": items }, { "consent.revoke": { ok: true } })
-    renderSubPage(page, { client: own.client, hostClient: subStubClient({}).client, allowed: [] })
+    const own = subStubClient(
+      { "consent.list": items },
+      { "consent.revoke": { ok: true } }
+    )
+    renderSubPage(page, {
+      client: own.client,
+      hostClient: subStubClient({}).client,
+      allowed: [],
+    })
     await waitFor(() => expect(screen.getByText("marketing")).toBeTruthy())
-    fireEvent.click(screen.getByRole("button", { name: /revoke marketing for u1/i }))
+    fireEvent.click(
+      screen.getByRole("button", { name: /revoke marketing for u1/i })
+    )
     fireEvent.click(screen.getByRole("button", { name: /^revoke$/i }))
     // The plan's draft asserted on `own.commands`, which `stubClient` does not
     // return - it returns `{ client, intents, payloads }`, and `payloads`
@@ -51,7 +64,10 @@ describe("consent list", () => {
     await waitFor(() => expect(own.payloads).toHaveLength(1))
     // The row carries an id and the intent does not take one. It matches on
     // the (userId, purpose) composite.
-    expect(own.payloads[0].payload).toEqual({ userId: "u1", purpose: "marketing" })
+    expect(own.payloads[0].payload).toEqual({
+      userId: "u1",
+      purpose: "marketing",
+    })
   })
 
   it("offers revoke only on a granted record", async () => {
@@ -61,7 +77,9 @@ describe("consent list", () => {
       allowed: [],
     })
     await waitFor(() => expect(screen.getByText("marketing")).toBeTruthy())
-    expect(screen.queryByRole("button", { name: /revoke analytics for u2/i })).toBeNull()
+    expect(
+      screen.queryByRole("button", { name: /revoke analytics for u2/i })
+    ).toBeNull()
   })
 
   it("forgets a failed revoke before the next row's dialog opens", async () => {
@@ -74,15 +92,23 @@ describe("consent list", () => {
     // client actually throws.
     const own = subStubClient(
       { "consent.list": items },
-      { "consent.revoke": new ContractError("INTERNAL", "nope") },
+      { "consent.revoke": new ContractError("INTERNAL", "nope") }
     )
-    renderSubPage(page, { client: own.client, hostClient: subStubClient({}).client, allowed: [] })
+    renderSubPage(page, {
+      client: own.client,
+      hostClient: subStubClient({}).client,
+      allowed: [],
+    })
     await waitFor(() => expect(screen.getByText("marketing")).toBeTruthy())
-    fireEvent.click(screen.getByRole("button", { name: /revoke marketing for u1/i }))
+    fireEvent.click(
+      screen.getByRole("button", { name: /revoke marketing for u1/i })
+    )
     fireEvent.click(screen.getByRole("button", { name: /^revoke$/i }))
     await waitFor(() => expect(screen.getByRole("alert")).toBeTruthy())
     fireEvent.click(screen.getByRole("button", { name: /cancel/i }))
-    fireEvent.click(screen.getByRole("button", { name: /revoke marketing for u1/i }))
+    fireEvent.click(
+      screen.getByRole("button", { name: /revoke marketing for u1/i })
+    )
     // One command hook serves every row, so without reset() the previous
     // failure follows the operator to the next dialog and reads as this row's.
     expect(screen.queryByRole("alert")).toBeNull()
@@ -103,12 +129,20 @@ describe("consent list", () => {
         return { ...items, nextCursor: "c9" }
       },
     })
-    renderSubPage(page, { client: own.client, hostClient: subStubClient({}).client, allowed: [] })
+    renderSubPage(page, {
+      client: own.client,
+      hostClient: subStubClient({}).client,
+      allowed: [],
+    })
     await waitFor(() => expect(screen.getByText("marketing")).toBeTruthy())
     fireEvent.click(screen.getByRole("button", { name: /next/i }))
     await waitFor(() => expect(lastParams).toMatchObject({ cursor: "c9" }))
-    fireEvent.change(screen.getByLabelText(/purpose/i), { target: { value: "analytics" } })
-    await waitFor(() => expect(lastParams).toMatchObject({ purpose: "analytics" }))
+    fireEvent.change(screen.getByLabelText(/purpose/i), {
+      target: { value: "analytics" },
+    })
+    await waitFor(() =>
+      expect(lastParams).toMatchObject({ purpose: "analytics" })
+    )
     expect(lastParams?.cursor).toBeUndefined()
   })
 })
@@ -121,7 +155,8 @@ describe("ConsentUserSection", () => {
   // nesting them under one `params` prop the way a routed page's are.
   // `renderContribution` goes through a real `SubPluginProvider` and a real
   // `PluginSlot`, so the tree under test is the production one.
-  const contribution = consentSubPlugin.contributions["user.detail.sections"]![0]
+  const contribution =
+    consentSubPlugin.contributions["user.detail.sections"]![0]
 
   it("asks the userConsents intent for the user it was given", async () => {
     // `own.payloads` (see harness.tsx) only records COMMAND payloads, never

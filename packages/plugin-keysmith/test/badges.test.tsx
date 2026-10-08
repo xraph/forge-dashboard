@@ -60,7 +60,7 @@ describe("KeyStateBadge", () => {
     render(
       <KeyStateBadge
         summary={summary({ effectiveState: "expired", expiryPending: true })}
-      />,
+      />
     )
     expect(badge().textContent).toContain("Expired")
     expectVariant("secondary")
@@ -70,11 +70,11 @@ describe("KeyStateBadge", () => {
     render(
       <KeyStateBadge
         summary={summary({ effectiveState: "expired", expiryPending: true })}
-      />,
+      />
     )
     const note = badge().querySelector(".sr-only")
     expect(note?.textContent).toContain(
-      "not yet marked; Keysmith marks expiry when the key is next used",
+      "not yet marked; Keysmith marks expiry when the key is next used"
     )
   })
 
@@ -101,7 +101,7 @@ describe("KeyStateBadge", () => {
     render(
       <KeyStateBadge
         summary={summary({ effectiveState: "suspended", expiresSoon: true })}
-      />,
+      />
     )
     expect(badge().textContent).toBe("Suspended")
   })

@@ -81,9 +81,23 @@ export function AuthDevicesPage() {
   }
 
   const columns: Column<DeviceSummary>[] = [
-    { id: "name", header: "Device", cell: (d) => deviceLabel(d), className: "font-medium" },
-    { id: "userId", header: "User", cell: (d) => d.userId, className: "font-mono text-xs" },
-    { id: "browser", header: "Browser", cell: (d) => d.browser || <NoneCell label="browser" /> },
+    {
+      id: "name",
+      header: "Device",
+      cell: (d) => deviceLabel(d),
+      className: "font-medium",
+    },
+    {
+      id: "userId",
+      header: "User",
+      cell: (d) => d.userId,
+      className: "font-mono text-xs",
+    },
+    {
+      id: "browser",
+      header: "Browser",
+      cell: (d) => d.browser || <NoneCell label="browser" />,
+    },
     { id: "os", header: "OS", cell: (d) => d.os || <NoneCell label="os" /> },
     {
       id: "ipAddress",
@@ -105,12 +119,19 @@ export function AuthDevicesPage() {
         </Badge>
       ),
     },
-    { id: "lastSeenAt", header: "Last seen", cell: (d) => formatTimestamp(d.lastSeenAt) },
+    {
+      id: "lastSeenAt",
+      header: "Last seen",
+      cell: (d) => formatTimestamp(d.lastSeenAt),
+    },
   ]
 
   return (
     <section className="flex flex-col gap-4">
-      <PageHeader title="Devices" description={`Showing the most recent ${LIMIT}.`} />
+      <PageHeader
+        title="Devices"
+        description={`Showing the most recent ${LIMIT}.`}
+      />
       <FilterBar
         search={{
           value: userFilter,
@@ -191,7 +212,10 @@ export function AuthDevicesPage() {
         pending={remove.loading}
         onConfirm={() => void confirmForget()}
       >
-        <CommandAlert error={remove.error} title="Could not forget the device" />
+        <CommandAlert
+          error={remove.error}
+          title="Could not forget the device"
+        />
       </ConfirmDialog>
     </section>
   )

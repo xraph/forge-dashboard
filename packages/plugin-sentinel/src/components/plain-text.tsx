@@ -41,16 +41,26 @@ export function RevealText({
     return (
       <div className="flex flex-col items-start gap-2 rounded-md border border-dashed p-3">
         <p className="text-sm text-muted-foreground">
-          Red-team output stays hidden until you ask for it: it may repeat the system prompt or carry the attack.
+          Red-team output stays hidden until you ask for it: it may repeat the
+          system prompt or carry the attack.
         </p>
-        <IconButton variant="outline" onClick={() => setShown(true)} label={`Show ${label.toLowerCase()} (${formatCount(length)} characters, ${attackType})`} />
+        <IconButton
+          variant="outline"
+          onClick={() => setShown(true)}
+          label={`Show ${label.toLowerCase()} (${formatCount(length)} characters, ${attackType})`}
+        />
       </div>
     )
   }
   return (
     <div className="flex flex-col gap-2">
       <PlainText value={value} label={label} />
-      <IconButton variant="ghost" className="self-start" onClick={() => setShown(false)} label={`Hide ${label.toLowerCase()}`} />
+      <IconButton
+        variant="ghost"
+        className="self-start"
+        onClick={() => setShown(false)}
+        label={`Hide ${label.toLowerCase()}`}
+      />
     </div>
   )
 }

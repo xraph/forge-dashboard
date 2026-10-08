@@ -129,12 +129,14 @@ function mount(client: ScopedClient, props: HostProps = {}) {
         <Host
           policy={props.policy}
           rateLimiterConfigured={
-            "rateLimiterConfigured" in props ? props.rateLimiterConfigured : false
+            "rateLimiterConfigured" in props
+              ? props.rateLimiterConfigured
+              : false
           }
           onClosed={closed}
         />
       </NavigationProvider>
-    </PluginProvider>,
+    </PluginProvider>
   )
   return { ...view, navigate, closed }
 }
@@ -145,7 +147,7 @@ function standard(answers: Record<string, unknown> = {}) {
     {
       "policies.create": { policy: CREATED },
       "policies.update": { policy: STORED },
-    },
+    }
   )
 }
 
@@ -201,18 +203,18 @@ describe("PolicyEditorDialog groups", () => {
     }
     expect(
       within(d).getByText(
-        "Keysmith checks these: the lifetime when a key is created, scopes when they are assigned, and the grace when a key is rotated.",
-      ),
+        "Keysmith checks these: the lifetime when a key is created, scopes when they are assigned, and the grace when a key is rotated."
+      )
     ).toBeTruthy()
     const stored = within(d).getByText(
       (_, el) =>
         el?.tagName === "P" &&
         el.textContent ===
-          "Keysmith does not check these. Your application can read them from ValidationResult.Policy.",
+          "Keysmith does not check these. Your application can read them from ValidationResult.Policy."
     )
     // The Go name is an identifier, so it reads in mono.
     expect(stored.querySelector(".font-mono")?.textContent).toBe(
-      "ValidationResult.Policy",
+      "ValidationResult.Policy"
     )
     // Creating has nothing existing to warn about.
     expect(within(d).queryByText(/Changes apply from now on/)).toBeNull()
@@ -223,8 +225,8 @@ describe("PolicyEditorDialog groups", () => {
     const d = await screen.findByRole("dialog")
     expect(
       within(d).getByText(
-        "This deployment has no rate limiter. These are stored, but not enforced here.",
-      ),
+        "This deployment has no rate limiter. These are stored, but not enforced here."
+      )
     ).toBeTruthy()
     expect(within(d).queryByText(/has a rate limiter/)).toBeNull()
   })
@@ -234,8 +236,8 @@ describe("PolicyEditorDialog groups", () => {
     const d = await screen.findByRole("dialog")
     expect(
       within(d).getByText(
-        "This deployment has a rate limiter, so Keysmith enforces these.",
-      ),
+        "This deployment has a rate limiter, so Keysmith enforces these."
+      )
     ).toBeTruthy()
     expect(within(d).queryByText(/no rate limiter/)).toBeNull()
   })
@@ -245,8 +247,8 @@ describe("PolicyEditorDialog groups", () => {
     const d = await screen.findByRole("dialog")
     expect(
       within(d).getByText(
-        "Whether this deployment enforces these is not known right now.",
-      ),
+        "Whether this deployment enforces these is not known right now."
+      )
     ).toBeTruthy()
     expect(within(d).queryByText(/has a rate limiter/)).toBeNull()
     expect(within(d).queryByText(/no rate limiter/)).toBeNull()
@@ -257,8 +259,8 @@ describe("PolicyEditorDialog groups", () => {
     const d = await screen.findByRole("dialog", { name: "Edit Standard" })
     expect(
       within(d).getByText(
-        "Changes apply from now on. Existing keys keep their expiry and scopes.",
-      ),
+        "Changes apply from now on. Existing keys keep their expiry and scopes."
+      )
     ).toBeTruthy()
   })
 
@@ -266,10 +268,10 @@ describe("PolicyEditorDialog groups", () => {
     mount(standard().client)
     await screen.findByRole("dialog")
     expect(
-      screen.getByLabelText("Max key lifetime").getAttribute("placeholder"),
+      screen.getByLabelText("Max key lifetime").getAttribute("placeholder")
     ).toBe("No maximum")
     expect(
-      screen.getByLabelText("Grace on rotation").getAttribute("placeholder"),
+      screen.getByLabelText("Grace on rotation").getAttribute("placeholder")
     ).toBe("24 hours (default)")
     await screen.findByRole("checkbox", { name: "billing:read" })
     expect(screen.getByText("None ticked: any scope.")).toBeTruthy()
@@ -288,7 +290,7 @@ describe("PolicyEditorDialog groups", () => {
     mount(client)
     const box = await screen.findByRole("checkbox", { name: "billing:write" })
     expect(box.closest("label")?.querySelector(".font-mono")?.textContent).toBe(
-      "billing:write",
+      "billing:write"
     )
     expect(queried).toEqual([{ intent: "scopes.list", params: { limit: 200 } }])
   })
@@ -341,7 +343,9 @@ describe("PolicyEditorDialog create", () => {
       dailyQuota: 1000,
       monthlyQuota: 20000,
     })
-    await waitFor(() => expect(navigate).toHaveBeenCalledWith(policyPath("kpol_new")))
+    await waitFor(() =>
+      expect(navigate).toHaveBeenCalledWith(policyPath("kpol_new"))
+    )
     expect(closed).toHaveBeenCalled()
   })
 
@@ -390,7 +394,7 @@ describe("PolicyEditorDialog create", () => {
       fireEvent.click(submitButton())
       expect(screen.getByRole("alert").textContent).toBe(message)
       expect(screen.getByLabelText(label).getAttribute("aria-invalid")).toBe(
-        "true",
+        "true"
       )
       fill(label, "")
     }
@@ -416,17 +420,17 @@ describe("PolicyEditorDialog create", () => {
     fill("Rate limit", "100")
     fireEvent.click(submitButton())
     expect(screen.getByRole("alert").textContent).toBe(
-      "A rate limit needs a window.",
+      "A rate limit needs a window."
     )
     expect(screen.getByLabelText("Window").getAttribute("aria-invalid")).toBe(
-      "true",
+      "true"
     )
     // The refused field takes the focus, so it is in view beside the message.
     expect(document.activeElement).toBe(screen.getByLabelText("Window"))
     fill("Window", "0")
     fireEvent.click(submitButton())
     expect(screen.getByRole("alert").textContent).toBe(
-      "A rate limit needs a window.",
+      "A rate limit needs a window."
     )
     expect(sent).toHaveLength(0)
   })
@@ -436,7 +440,10 @@ describe("PolicyEditorDialog create", () => {
     const client = {
       ...base.client,
       command: async () => {
-        throw new ContractError("CONFLICT", "a policy with this name already exists")
+        throw new ContractError(
+          "CONFLICT",
+          "a policy with this name already exists"
+        )
       },
     } as ScopedClient
     const { navigate } = mount(client)
@@ -453,12 +460,12 @@ describe("PolicyEditorDialog create", () => {
   })
 
   it("shows a failure from a throwing client inside the dialog", async () => {
-    mount(failingClient(new ContractError("INTERNAL", "an internal error occurred")))
+    mount(
+      failingClient(new ContractError("INTERNAL", "an internal error occurred"))
+    )
     await screen.findByRole("dialog")
     // Scopes could not be read either, and the form says so.
-    expect(
-      await screen.findByText(/Scopes could not be loaded/),
-    ).toBeTruthy()
+    expect(await screen.findByText(/Scopes could not be loaded/)).toBeTruthy()
     fill("Name", "Partner")
     fireEvent.click(submitButton())
     const alert = await screen.findByRole("alert")
@@ -471,7 +478,10 @@ describe("PolicyEditorDialog create", () => {
     const client = {
       ...base.client,
       command: async () => {
-        throw new ContractError("CONFLICT", "a policy with this name already exists")
+        throw new ContractError(
+          "CONFLICT",
+          "a policy with this name already exists"
+        )
       },
     } as ScopedClient
     mount(client)
@@ -481,13 +491,15 @@ describe("PolicyEditorDialog create", () => {
     await screen.findByRole("alert")
 
     fireEvent.click(
-      within(screen.getByRole("dialog")).getByRole("button", { name: "Cancel" }),
+      within(screen.getByRole("dialog")).getByRole("button", { name: "Cancel" })
     )
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull())
     fireEvent.click(screen.getByRole("button", { name: "Open editor" }))
     const d = await screen.findByRole("dialog", { name: "Create policy" })
     expect(within(d).queryByRole("alert")).toBeNull()
-    expect(screen.queryByText("a policy with this name already exists")).toBeNull()
+    expect(
+      screen.queryByText("a policy with this name already exists")
+    ).toBeNull()
     expect(value("Name")).toBe("")
   })
 
@@ -518,7 +530,9 @@ describe("PolicyEditorDialog create", () => {
     expect(screen.getByRole("dialog")).toBeTruthy()
 
     release({ policy: CREATED })
-    await waitFor(() => expect(navigate).toHaveBeenCalledWith(policyPath("kpol_new")))
+    await waitFor(() =>
+      expect(navigate).toHaveBeenCalledWith(policyPath("kpol_new"))
+    )
     expect(base.sent).toHaveLength(1)
   })
 })
@@ -533,7 +547,10 @@ function refusing(code: string, message: string): ScopedClient {
   } as ScopedClient
 }
 
-async function submitRefused(code: string, message: string): Promise<HTMLElement> {
+async function submitRefused(
+  code: string,
+  message: string
+): Promise<HTMLElement> {
   mount(refusing(code, message))
   await screen.findByRole("dialog")
   fill("Name", "Partner")
@@ -549,7 +566,7 @@ describe("PolicyEditorDialog server refusals", () => {
   it("names the field instead of its wire name, and marks and focuses it", async () => {
     const alert = await submitRefused(
       "BAD_REQUEST",
-      "maxKeyLifetimeSeconds is at most 10 years",
+      "maxKeyLifetimeSeconds is at most 10 years"
     )
     expect(alert.textContent).toBe("Max key lifetime is at most 10 years")
     const field = screen.getByLabelText("Max key lifetime")
@@ -562,10 +579,10 @@ describe("PolicyEditorDialog server refusals", () => {
   it("names a list field in an entry refusal, and marks and focuses its textarea", async () => {
     const alert = await submitRefused(
       "BAD_REQUEST",
-      'allowedOrigins: "x" is not an origin like https://example.com',
+      'allowedOrigins: "x" is not an origin like https://example.com'
     )
     expect(alert.textContent).toBe(
-      'Allowed origins: "x" is not an origin like https://example.com',
+      'Allowed origins: "x" is not an origin like https://example.com'
     )
     const field = screen.getByLabelText("Allowed origins")
     expect(field.tagName).toBe("TEXTAREA")
@@ -578,7 +595,7 @@ describe("PolicyEditorDialog server refusals", () => {
   it("matches the whole wire name, so the window is not read as the rate limit", async () => {
     const alert = await submitRefused(
       "BAD_REQUEST",
-      "rateLimitWindowSeconds is at most 31 days",
+      "rateLimitWindowSeconds is at most 31 days"
     )
     expect(alert.textContent).toBe("Window is at most 31 days")
     const field = screen.getByLabelText("Window")
@@ -598,9 +615,11 @@ describe("PolicyEditorDialog server refusals", () => {
   it("marks the allowed methods group for a method refusal", async () => {
     const alert = await submitRefused(
       "BAD_REQUEST",
-      'allowedMethods: "FETCH" is not an HTTP method',
+      'allowedMethods: "FETCH" is not an HTTP method'
     )
-    expect(alert.textContent).toBe('Allowed methods: "FETCH" is not an HTTP method')
+    expect(alert.textContent).toBe(
+      'Allowed methods: "FETCH" is not an HTTP method'
+    )
     const group = screen.getByRole("group", { name: "Allowed methods" })
     expect(group.getAttribute("aria-describedby")).toBe(alert.id)
     expect(invalidIn(screen.getByRole("dialog"))).toEqual([group])
@@ -610,11 +629,14 @@ describe("PolicyEditorDialog server refusals", () => {
     ["CONFLICT", "a policy with this name already exists"],
     ["BAD_REQUEST", "a rate limit needs a window"],
     ["BAD_REQUEST", "rateLimiter is not a field"],
-  ])("shows any other message as it came, marking nothing (%s %s)", async (code, message) => {
-    const alert = await submitRefused(code, message)
-    expect(alert.textContent).toBe(message)
-    expect(invalidIn(screen.getByRole("dialog"))).toEqual([])
-  })
+  ])(
+    "shows any other message as it came, marking nothing (%s %s)",
+    async (code, message) => {
+      const alert = await submitRefused(code, message)
+      expect(alert.textContent).toBe(message)
+      expect(invalidIn(screen.getByRole("dialog"))).toEqual([])
+    }
+  )
 })
 
 describe("PolicyEditorDialog edit", () => {
@@ -718,9 +740,9 @@ describe("PolicyEditorDialog edit", () => {
     expect(gone.getAttribute("aria-checked")).toBe("true")
     fireEvent.click(submitButton())
     await waitFor(() => expect(sent).toHaveLength(1))
-    expect((sent[0].payload as { allowedScopes: string[] }).allowedScopes).toEqual(
-      ["billing:read", "legacy:admin"],
-    )
+    expect(
+      (sent[0].payload as { allowedScopes: string[] }).allowedScopes
+    ).toEqual(["billing:read", "legacy:admin"])
   })
 
   it("drops a scope that no longer exists only when it is unticked", async () => {
@@ -734,14 +756,15 @@ describe("PolicyEditorDialog edit", () => {
     fireEvent.click(gone)
     // Still listed, so it can be ticked again.
     expect(
-      screen.getByRole("checkbox", { name: "legacy:admin (no longer exists)" })
-        .getAttribute("aria-checked"),
+      screen
+        .getByRole("checkbox", { name: "legacy:admin (no longer exists)" })
+        .getAttribute("aria-checked")
     ).toBe("false")
     fireEvent.click(submitButton())
     await waitFor(() => expect(sent).toHaveLength(1))
-    expect((sent[0].payload as { allowedScopes: string[] }).allowedScopes).toEqual(
-      [],
-    )
+    expect(
+      (sent[0].payload as { allowedScopes: string[] }).allowedScopes
+    ).toEqual([])
   })
 
   it("keeps the allowed scopes when the scope list cannot be read", async () => {
@@ -758,7 +781,7 @@ describe("PolicyEditorDialog edit", () => {
     fireEvent.click(submitButton())
     await waitFor(() => expect(base.sent).toHaveLength(1))
     expect(
-      (base.sent[0].payload as { allowedScopes: string[] }).allowedScopes,
+      (base.sent[0].payload as { allowedScopes: string[] }).allowedScopes
     ).toEqual(["billing:read"])
   })
 
@@ -797,7 +820,7 @@ describe("PolicyEditorDialog edit", () => {
     await screen.findByRole("dialog")
     const options = (label: string) =>
       Array.from(
-        (screen.getByLabelText(label) as HTMLSelectElement).options,
+        (screen.getByLabelText(label) as HTMLSelectElement).options
       ).map((o) => o.value)
     expect(options("Max key lifetime unit")).toEqual(["hours", "days"])
     expect(options("Grace on rotation unit")).toEqual(["hours", "days"])
@@ -810,7 +833,10 @@ describe("PolicyEditorDialog edit", () => {
     const client = {
       ...base.client,
       command: async () => {
-        throw new ContractError("CONFLICT", "a policy with this name already exists")
+        throw new ContractError(
+          "CONFLICT",
+          "a policy with this name already exists"
+        )
       },
     } as ScopedClient
     const { closed } = mount(client, { policy: STORED })
@@ -845,10 +871,14 @@ function refetchingScopes(later: () => Promise<ScopesList>) {
 describe("PolicyEditorDialog allowed scopes through a refetch", () => {
   it("keeps a ticked scope when scopes.list refetches and fails", async () => {
     const { client, sent } = refetchingScopes(() =>
-      Promise.reject(new ContractError("INTERNAL", "an internal error occurred")),
+      Promise.reject(
+        new ContractError("INTERNAL", "an internal error occurred")
+      )
     )
     mount(client)
-    fireEvent.click(await screen.findByRole("checkbox", { name: "billing:write" }))
+    fireEvent.click(
+      await screen.findByRole("checkbox", { name: "billing:write" })
+    )
     fill("Name", "Partner")
 
     // The store drops a query's data when its refetch fails.
@@ -858,9 +888,9 @@ describe("PolicyEditorDialog allowed scopes through a refetch", () => {
 
     fireEvent.click(submitButton())
     await waitFor(() => expect(sent).toHaveLength(1))
-    expect((sent[0].payload as { allowedScopes: string[] }).allowedScopes).toEqual(
-      ["billing:write"],
-    )
+    expect(
+      (sent[0].payload as { allowedScopes: string[] }).allowedScopes
+    ).toEqual(["billing:write"])
   })
 
   it("keeps a ticked scope the refetched list no longer has, and labels it", async () => {
@@ -868,10 +898,12 @@ describe("PolicyEditorDialog allowed scopes through a refetch", () => {
       Promise.resolve({
         hasMore: false,
         scopes: SCOPES.scopes.filter((s) => s.name !== "billing:write"),
-      }),
+      })
     )
     mount(client, { policy: STORED })
-    fireEvent.click(await screen.findByRole("checkbox", { name: "billing:write" }))
+    fireEvent.click(
+      await screen.findByRole("checkbox", { name: "billing:write" })
+    )
 
     act(() => queryStore.invalidate("keysmith", ["scopes.list"]))
     const gone = await screen.findByRole("checkbox", {
@@ -882,7 +914,7 @@ describe("PolicyEditorDialog allowed scopes through a refetch", () => {
     fireEvent.click(submitButton())
     await waitFor(() => expect(sent).toHaveLength(1))
     expect(
-      [...(sent[0].payload as { allowedScopes: string[] }).allowedScopes].sort(),
+      [...(sent[0].payload as { allowedScopes: string[] }).allowedScopes].sort()
     ).toEqual(["billing:read", "billing:write"])
   })
 })

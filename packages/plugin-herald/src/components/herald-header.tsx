@@ -32,18 +32,35 @@ export function AppLine({ info }: { info: QueryState<EngineInfoResponse> }) {
   const app = info.data.app
   return (
     <p className="text-sm text-muted-foreground">
-      App: {app.id === "" ? <span>{app.label}</span> : <span className="font-mono text-xs">{app.id}</span>}
+      App:{" "}
+      {app.id === "" ? (
+        <span>{app.label}</span>
+      ) : (
+        <span className="font-mono text-xs">{app.id}</span>
+      )}
     </p>
   )
 }
 
 /** `meta` is a row of facts about the thing the page shows (a slug, a channel, badges), between the title and the app line. */
-export function HeraldHeader({ title, description, actions, meta }: { title: string; description?: string; actions?: ReactNode; meta?: ReactNode }) {
+export function HeraldHeader({
+  title,
+  description,
+  actions,
+  meta,
+}: {
+  title: string
+  description?: string
+  actions?: ReactNode
+  meta?: ReactNode
+}) {
   const info = useEngineInfo()
   return (
     <div className="flex flex-col gap-1">
       <PageHeader title={title} description={description} actions={actions} />
-      {meta && <div className="flex flex-wrap items-center gap-2 text-sm">{meta}</div>}
+      {meta && (
+        <div className="flex flex-wrap items-center gap-2 text-sm">{meta}</div>
+      )}
       <AppLine info={info} />
     </div>
   )

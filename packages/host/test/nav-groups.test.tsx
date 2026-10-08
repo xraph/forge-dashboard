@@ -59,7 +59,14 @@ describe("navGroups", () => {
     const orgs = defineSubPlugin({
       extension: "organization",
       host: "auth",
-      nav: [{ label: "Organizations", to: "/organizations", group: "Identity", priority: 30 }],
+      nav: [
+        {
+          label: "Organizations",
+          to: "/organizations",
+          group: "Identity",
+          priority: 30,
+        },
+      ],
       routes: [{ path: "/organizations", element: Noop }],
     })
     const groups = navGroups(auth, [orgs])
@@ -80,14 +87,20 @@ describe("navGroups", () => {
       routes: [{ path: "/waitlist", element: Noop }],
     })
     const groups = navGroups(auth, [waitlist])
-    expect(groups.map((g) => g.label)).toEqual(["Identity", "Security", "Compliance"])
+    expect(groups.map((g) => g.label)).toEqual([
+      "Identity",
+      "Security",
+      "Compliance",
+    ])
   })
 
   it("prefixes every href with the host plugin's namespace, sub-plugin items included", () => {
     const orgs = defineSubPlugin({
       extension: "organization",
       host: "auth",
-      nav: [{ label: "Organizations", to: "/organizations", group: "Identity" }],
+      nav: [
+        { label: "Organizations", to: "/organizations", group: "Identity" },
+      ],
       routes: [{ path: "/organizations", element: Noop }],
     })
     const groups = navGroups(auth, [orgs])

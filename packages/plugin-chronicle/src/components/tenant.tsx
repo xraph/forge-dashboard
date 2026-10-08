@@ -6,8 +6,17 @@
  * shown as app level, because nothing said so. `appLevel` is the caller's
  * wording, since what an app-level record reaches depends on the record.
  */
-export function TenantValue({ tenantId, appLevel = "App level" }: { tenantId: string | undefined; appLevel?: string }) {
-  if (tenantId === undefined) return <span className="text-muted-foreground">Not reported by this server</span>
+export function TenantValue({
+  tenantId,
+  appLevel = "App level",
+}: {
+  tenantId: string | undefined
+  appLevel?: string
+}) {
+  if (tenantId === undefined)
+    return (
+      <span className="text-muted-foreground">Not reported by this server</span>
+    )
   if (tenantId === "") return <span>{appLevel}</span>
   return <span className="font-mono text-xs">{tenantId}</span>
 }

@@ -1,4 +1,9 @@
-import { PluginLink, PluginSlot, useQuery, useSlotCount } from "@forge-go/dashboard-plugin"
+import {
+  PluginLink,
+  PluginSlot,
+  useQuery,
+  useSlotCount,
+} from "@forge-go/dashboard-plugin"
 import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"

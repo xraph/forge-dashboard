@@ -64,7 +64,10 @@ export function EvaluateBar({
       >
         <span className="self-center text-sm font-medium">Evaluate as</span>
         <div className="flex flex-col gap-1">
-          <Label htmlFor="evaluate-tenant" className="text-xs text-muted-foreground">
+          <Label
+            htmlFor="evaluate-tenant"
+            className="text-xs text-muted-foreground"
+          >
             Tenant id
           </Label>
           <Input
@@ -77,7 +80,10 @@ export function EvaluateBar({
           />
         </div>
         <div className="flex flex-col gap-1">
-          <Label htmlFor="evaluate-user" className="text-xs text-muted-foreground">
+          <Label
+            htmlFor="evaluate-user"
+            className="text-xs text-muted-foreground"
+          >
             User id
           </Label>
           <Input
@@ -93,15 +99,28 @@ export function EvaluateBar({
           <Button
             type="submit"
             disabled={busy || disabledReason !== undefined}
-            aria-describedby={disabledReason === undefined ? undefined : "evaluate-disabled-reason"}
+            aria-describedby={
+              disabledReason === undefined
+                ? undefined
+                : "evaluate-disabled-reason"
+            }
           >
             {busy ? "Evaluating…" : "Evaluate"}
           </Button>
-          <IconButton type="button" variant="outline" disabled={!canClear} onClick={onClear} label="Clear" />
+          <IconButton
+            type="button"
+            variant="outline"
+            disabled={!canClear}
+            onClick={onClear}
+            label="Clear"
+          />
         </div>
       </form>
       {disabledReason === undefined ? null : (
-        <p id="evaluate-disabled-reason" className="text-sm text-muted-foreground">
+        <p
+          id="evaluate-disabled-reason"
+          className="text-sm text-muted-foreground"
+        >
           {disabledReason}
         </p>
       )}
@@ -141,7 +160,8 @@ function reasonSentence(props: EvaluationSummaryProps): string {
 
 /** Who the answer is for, in the words the operator typed. */
 function forWhom(tenantId?: string, userId?: string): string {
-  if (tenantId === undefined && userId === undefined) return "no tenant and no user"
+  if (tenantId === undefined && userId === undefined)
+    return "no tenant and no user"
   return [
     tenantId === undefined ? null : `tenant ${tenantId}`,
     userId === undefined ? null : `user ${userId}`,
@@ -159,7 +179,8 @@ function forWhom(tenantId?: string, userId?: string): string {
  * without having to go and find it.
  */
 export function EvaluationSummary(props: EvaluationSummaryProps) {
-  const { evaluation, type, tenantId, userId, cacheTtlSeconds, mismatch } = props
+  const { evaluation, type, tenantId, userId, cacheTtlSeconds, mismatch } =
+    props
   return (
     <div
       role="status"
@@ -175,8 +196,8 @@ export function EvaluationSummary(props: EvaluationSummaryProps) {
       </p>
       {mismatch ? (
         <p className="text-muted-foreground">
-          The rules shown here are not the ones the engine just checked, so some are left
-          unmarked. Press Evaluate again.
+          The rules shown here are not the ones the engine just checked, so some
+          are left unmarked. Press Evaluate again.
         </p>
       ) : null}
       <p className="text-xs text-muted-foreground">

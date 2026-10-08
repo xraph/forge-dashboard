@@ -83,8 +83,13 @@ function satisfiesRange(range: string, version: string): boolean | undefined {
  * out-of-range extension cannot be trusted to render its own setup screen
  * correctly either.
  */
-export function resolvePluginState(plugin: ForgePlugin, capabilities: Capabilities): PluginState {
-  const contributor = capabilities.contributors.find((c) => c.name === plugin.extension)
+export function resolvePluginState(
+  plugin: ForgePlugin,
+  capabilities: Capabilities
+): PluginState {
+  const contributor = capabilities.contributors.find(
+    (c) => c.name === plugin.extension
+  )
   if (!contributor) return { kind: "hidden" }
 
   // Three separate reasons all mean "skip the version check": the plugin
@@ -93,7 +98,11 @@ export function resolvePluginState(plugin: ForgePlugin, capabilities: Capabiliti
   if (plugin.requires && contributor.version) {
     const satisfies = satisfiesRange(plugin.requires, contributor.version)
     if (satisfies === false) {
-      return { kind: "mismatch", required: plugin.requires, reported: contributor.version }
+      return {
+        kind: "mismatch",
+        required: plugin.requires,
+        reported: contributor.version,
+      }
     }
   }
 

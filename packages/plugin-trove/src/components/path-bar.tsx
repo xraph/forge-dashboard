@@ -9,7 +9,15 @@ import { browserHref, folderOf } from "../browser-location"
  * the rest an input that continues the prefix on Enter. It never draws a
  * tree. The parent keys this by prefix, so the draft resets on navigation.
  */
-export function PathBar({ bucket, store, prefix }: { bucket: string; store: string; prefix: string }) {
+export function PathBar({
+  bucket,
+  store,
+  prefix,
+}: {
+  bucket: string
+  store: string
+  prefix: string
+}) {
   const navigate = useNavigateTo()
   const folder = folderOf(prefix)
   const segments = folder === "" ? [] : folder.slice(0, -1).split("/")
@@ -21,19 +29,37 @@ export function PathBar({ bucket, store, prefix }: { bucket: string; store: stri
   }
 
   return (
-    <form aria-label="Prefix" onSubmit={submit} className="flex flex-wrap items-center gap-1 font-mono text-xs">
-      <PluginLink to={browserHref(bucket, { store })} className="font-medium hover:underline">
+    <form
+      aria-label="Prefix"
+      onSubmit={submit}
+      className="flex flex-wrap items-center gap-1 font-mono text-xs"
+    >
+      <PluginLink
+        to={browserHref(bucket, { store })}
+        className="font-medium hover:underline"
+      >
         {bucket}
       </PluginLink>
-      <span aria-hidden="true" className="text-muted-foreground">/</span>
+      <span aria-hidden="true" className="text-muted-foreground">
+        /
+      </span>
       {segments.map((segment, i) => {
         const to = `${segments.slice(0, i + 1).join("/")}/`
         return (
           <Fragment key={to}>
-            <PluginLink to={browserHref(bucket, { store, prefix: to })} className="hover:underline">
-              {segment === "" ? <span className="text-muted-foreground">(empty)</span> : segment}
+            <PluginLink
+              to={browserHref(bucket, { store, prefix: to })}
+              className="hover:underline"
+            >
+              {segment === "" ? (
+                <span className="text-muted-foreground">(empty)</span>
+              ) : (
+                segment
+              )}
             </PluginLink>
-            <span aria-hidden="true" className="text-muted-foreground">/</span>
+            <span aria-hidden="true" className="text-muted-foreground">
+              /
+            </span>
           </Fragment>
         )
       })}

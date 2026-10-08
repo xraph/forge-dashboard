@@ -126,7 +126,12 @@ export function WardenRoleDetailPage({ params }: PluginPageProps) {
     // roles.detail, or when the tab comes back) would otherwise swap in the
     // skeleton, unmounting an open form with what the operator typed and
     // the Edit button focus returns to after a save.
-    <QueryBoundary title="Role" query={detail} skeletonRows={4} keepPreviousData>
+    <QueryBoundary
+      title="Role"
+      query={detail}
+      skeletonRows={4}
+      keepPreviousData
+    >
       {(role) => (
         <section className="flex flex-col gap-6">
           <PageHeader
@@ -138,7 +143,12 @@ export function WardenRoleDetailPage({ params }: PluginPageProps) {
               !role.isSystem &&
               !edit.editing && (
                 <>
-                  <IconButton variant="outline" ref={edit.triggerRef} onClick={edit.open} label="Edit" />
+                  <IconButton
+                    variant="outline"
+                    ref={edit.triggerRef}
+                    onClick={edit.open}
+                    label="Edit"
+                  />
                   <Button
                     variant="outline"
                     onClick={() => {
@@ -150,7 +160,9 @@ export function WardenRoleDetailPage({ params }: PluginPageProps) {
                   >
                     Replace all
                   </Button>
-                  <Button onClick={() => setAttaching(true)}>Attach permission</Button>
+                  <Button onClick={() => setAttaching(true)}>
+                    Attach permission
+                  </Button>
                 </>
               )
             }
@@ -169,9 +181,14 @@ export function WardenRoleDetailPage({ params }: PluginPageProps) {
                 items={[
                   {
                     term: "Slug",
-                    value: <span className="font-mono text-xs">{role.slug}</span>,
+                    value: (
+                      <span className="font-mono text-xs">{role.slug}</span>
+                    ),
                   },
-                  { term: "Namespace", value: <NamespaceCell path={role.namespacePath} /> },
+                  {
+                    term: "Namespace",
+                    value: <NamespaceCell path={role.namespacePath} />,
+                  },
                   {
                     term: "Description",
                     value: role.description || <NoneCell label="description" />,
@@ -179,31 +196,44 @@ export function WardenRoleDetailPage({ params }: PluginPageProps) {
                   {
                     term: "Inherits from",
                     value: role.parentSlug ? (
-                      <span className="font-mono text-xs">{role.parentSlug}</span>
+                      <span className="font-mono text-xs">
+                        {role.parentSlug}
+                      </span>
                     ) : (
                       <NoneCell label="parent role" />
                     ),
                   },
                   {
                     term: "Member cap",
-                    value: role.maxMembers ? String(role.maxMembers) : "Unlimited",
+                    value: role.maxMembers
+                      ? String(role.maxMembers)
+                      : "Unlimited",
                   },
-                  { term: "Default role", value: role.isDefault ? "Yes" : "No" },
+                  {
+                    term: "Default role",
+                    value: role.isDefault ? "Yes" : "No",
+                  },
                   {
                     term: "Created by",
                     value: role.createdBy ? (
-                      <span className="font-mono text-xs">{role.createdBy}</span>
+                      <span className="font-mono text-xs">
+                        {role.createdBy}
+                      </span>
                     ) : (
                       <NoneCell label="creator" />
                     ),
                   },
                   {
                     term: "Created",
-                    value: <Timestamp value={role.createdAt} label="created at" />,
+                    value: (
+                      <Timestamp value={role.createdAt} label="created at" />
+                    ),
                   },
                   {
                     term: "Updated",
-                    value: <Timestamp value={role.updatedAt} label="updated at" />,
+                    value: (
+                      <Timestamp value={role.updatedAt} label="updated at" />
+                    ),
                   },
                 ]}
               />
@@ -285,7 +315,12 @@ function GrantsTable({
 }) {
   const grants = role.permissions ?? []
   const columns: Column<PermissionSummary>[] = [
-    { id: "name", header: "Permission", cell: (p) => p.name, className: "font-medium" },
+    {
+      id: "name",
+      header: "Permission",
+      cell: (p) => p.name,
+      className: "font-medium",
+    },
     { id: "resource", header: "Resource", cell: (p) => p.resource },
     { id: "action", header: "Action", cell: (p) => p.action },
     {
@@ -310,7 +345,11 @@ function GrantsTable({
             Details
           </PluginLink>
           {!role.isSystem && (
-            <IconButton variant="destructive" onClick={() => onRevoke(p)} label={`Revoke ${p.name}`} />
+            <IconButton
+              variant="destructive"
+              onClick={() => onRevoke(p)}
+              label={`Revoke ${p.name}`}
+            />
           )}
         </>
       )}
@@ -321,8 +360,18 @@ function GrantsTable({
 function ChildrenTable({ role }: { role: RoleDetail }) {
   const children = role.children ?? []
   const columns: Column<RoleSummary>[] = [
-    { id: "name", header: "Role", cell: (r) => r.name, className: "font-medium" },
-    { id: "slug", header: "Slug", cell: (r) => r.slug, className: "font-mono text-xs" },
+    {
+      id: "name",
+      header: "Role",
+      cell: (r) => r.name,
+      className: "font-medium",
+    },
+    {
+      id: "slug",
+      header: "Slug",
+      cell: (r) => r.slug,
+      className: "font-mono text-xs",
+    },
     {
       id: "namespace",
       header: "Namespace",
@@ -334,7 +383,11 @@ function ChildrenTable({ role }: { role: RoleDetail }) {
       // Most children are not system roles, so system is the minority and
       // the thing somebody scanning this column is hunting.
       cell: (r) =>
-        r.isSystem ? <Badge variant="destructive">system</Badge> : <NoneCell label="flags" />,
+        r.isSystem ? (
+          <Badge variant="destructive">system</Badge>
+        ) : (
+          <NoneCell label="flags" />
+        ),
     },
     {
       id: "createdAt",
@@ -350,7 +403,10 @@ function ChildrenTable({ role }: { role: RoleDetail }) {
       caption={`${children.length} ${children.length === 1 ? "child role" : "child roles"}`}
       emptyMessage="Nothing inherits from this role."
       rowActions={(r) => (
-        <PluginLink to={`/roles/${r.id}`} className="text-sm underline underline-offset-4">
+        <PluginLink
+          to={`/roles/${r.id}`}
+          className="text-sm underline underline-offset-4"
+        >
           Details
         </PluginLink>
       )}
@@ -375,12 +431,16 @@ function AttachDialog({
   onClose: () => void
 }) {
   const attach = useCommand<AckResponse>("roles.attachPermission")
-  const list = useQuery<PermissionsList>("permissions.list", { limit: PICKER_LIMIT })
+  const list = useQuery<PermissionsList>("permissions.list", {
+    limit: PICKER_LIMIT,
+  })
   const [chosen, setChosen] = useState("")
 
   const heldKeys = new Set(held.map((p) => joinRef(p.namespacePath, p.name)))
   const loaded = list.data?.items ?? []
-  const options = loaded.filter((p) => !heldKeys.has(joinRef(p.namespacePath, p.name)))
+  const options = loaded.filter(
+    (p) => !heldKeys.has(joinRef(p.namespacePath, p.name))
+  )
   // The read is one page of PICKER_LIMIT, so a tenant with more permissions
   // than that gets a picker that is missing some of them.
   const total = list.data?.total ?? 0
@@ -430,15 +490,22 @@ function AttachDialog({
           No permissions exist yet. Create one on the Permissions page first.
         </span>
       )}
-      {list.data !== undefined && total > 0 && options.length === 0 && !truncated && (
-        <span className="text-sm text-muted-foreground">
-          Every permission is already granted to this role.
-        </span>
-      )}
+      {list.data !== undefined &&
+        total > 0 &&
+        options.length === 0 &&
+        !truncated && (
+          <span className="text-sm text-muted-foreground">
+            Every permission is already granted to this role.
+          </span>
+        )}
       {truncated && (
         <span className="text-sm text-muted-foreground">
-          Showing the first {loaded.length} of {total} permissions, so this list is
-          incomplete{options.length === 0 ? " and every one shown is already granted" : ""}.
+          Showing the first {loaded.length} of {total} permissions, so this list
+          is incomplete
+          {options.length === 0
+            ? " and every one shown is already granted"
+            : ""}
+          .
         </span>
       )}
       <CommandAlert error={attach.error} title="Could not attach" />
@@ -542,7 +609,8 @@ function EditForm({ role, onDone }: { role: RoleDetail; onDone: () => void }) {
           onChange={(e) => setParentSlug(e.target.value)}
         />
         <p id="role-edit-parent-hint" className="text-xs text-muted-foreground">
-          The slug of another role in this namespace. Leave it empty for no parent.
+          The slug of another role in this namespace. Leave it empty for no
+          parent.
         </p>
       </div>
       <div className="flex flex-col gap-1.5">
@@ -559,9 +627,9 @@ function EditForm({ role, onDone }: { role: RoleDetail; onDone: () => void }) {
         <p id="role-edit-cap-hint" className="text-xs text-muted-foreground">
           Leave it empty for no limit. Clearing a cap you had removes it. The
           cap is checked when a subject is assigned here or through
-          warden&apos;s REST API; warden&apos;s bootstrap admin assignment
-          skips it. You can&apos;t lower it below the number of subjects who
-          hold the role now.
+          warden&apos;s REST API; warden&apos;s bootstrap admin assignment skips
+          it. You can&apos;t lower it below the number of subjects who hold the
+          role now.
         </p>
       </div>
       <div className="flex items-center gap-2">
@@ -623,7 +691,9 @@ function ReplaceDialog({
   onSubmit: (permissions: PermissionRef[]) => void
   onClose: () => void
 }) {
-  const list = useQuery<PermissionsList>("permissions.list", { limit: PICKER_LIMIT })
+  const list = useQuery<PermissionsList>("permissions.list", {
+    limit: PICKER_LIMIT,
+  })
   const [chosen, setChosen] = useState<Set<string>>(
     () => new Set(held.map((p) => joinRef(p.namespacePath, p.name)))
   )
@@ -637,9 +707,12 @@ function ReplaceDialog({
   const total = list.data?.total ?? 0
   const truncated = list.data !== undefined && total > loaded.length
 
-  const selected = options.filter((p) => chosen.has(joinRef(p.namespacePath, p.name)))
+  const selected = options.filter((p) =>
+    chosen.has(joinRef(p.namespacePath, p.name))
+  )
   const unchanged =
-    selected.length === held.length && held.every((p) => chosen.has(joinRef(p.namespacePath, p.name)))
+    selected.length === held.length &&
+    held.every((p) => chosen.has(joinRef(p.namespacePath, p.name)))
 
   function toggle(p: PermissionSummary) {
     const key = joinRef(p.namespacePath, p.name)
@@ -662,7 +735,10 @@ function ReplaceDialog({
       confirmDisabled={unchanged}
       onConfirm={() =>
         onSubmit(
-          selected.map((p) => ({ name: p.name, namespacePath: p.namespacePath }))
+          selected.map((p) => ({
+            name: p.name,
+            namespacePath: p.namespacePath,
+          }))
         )
       }
     >

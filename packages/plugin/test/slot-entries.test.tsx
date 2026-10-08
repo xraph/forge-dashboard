@@ -4,7 +4,11 @@ import { SubPluginProvider, useSlotEntries } from "../src/slots"
 import { defineSubPlugin } from "../src/subplugin"
 import type { ScopedClient } from "../src/client"
 
-const client = { extension: "test", query: async () => ({}), command: async () => ({}) } as unknown as ScopedClient
+const client = {
+  extension: "test",
+  query: async () => ({}),
+  command: async () => ({}),
+} as unknown as ScopedClient
 
 function subWithTab(extension: string, label: string) {
   return {
@@ -62,7 +66,7 @@ describe("useSlotEntries", () => {
     render(
       <SubPluginProvider entries={[subWithTab("subscription", "Billing")]}>
         <TabStrip />
-      </SubPluginProvider>,
+      </SubPluginProvider>
     )
 
     const tabs = screen.getAllByRole("tab").map((t) => t.textContent)
@@ -80,7 +84,7 @@ describe("useSlotEntries", () => {
     render(
       <SubPluginProvider entries={[subWithTab("subscription", "Billing")]}>
         <TabStrip />
-      </SubPluginProvider>,
+      </SubPluginProvider>
     )
     expect(screen.getByText(/panel for o1/)).toBeTruthy()
   })
@@ -88,10 +92,13 @@ describe("useSlotEntries", () => {
   it("keys entries per contributing extension, so two contributors both get a tab", () => {
     render(
       <SubPluginProvider
-        entries={[subWithTab("subscription", "Billing"), subWithTab("scim", "Provisioning")]}
+        entries={[
+          subWithTab("subscription", "Billing"),
+          subWithTab("scim", "Provisioning"),
+        ]}
       >
         <TabStrip />
-      </SubPluginProvider>,
+      </SubPluginProvider>
     )
     expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual([
       "Overview",
@@ -102,7 +109,9 @@ describe("useSlotEntries", () => {
 
   it("answers an empty list outside any provider, so a page renders standalone", () => {
     render(<TabStrip />)
-    expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual(["Overview"])
+    expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual([
+      "Overview",
+    ])
     expect(screen.queryByRole("tabpanel")).toBeNull()
   })
 })

@@ -1,6 +1,11 @@
 import { useId } from "react"
 import { useLocation, useNavigate } from "react-router"
-import { useCommand, useQuery, mountPath, urlValueOf } from "@forge-go/dashboard-plugin"
+import {
+  useCommand,
+  useQuery,
+  mountPath,
+  urlValueOf,
+} from "@forge-go/dashboard-plugin"
 import type { ContextDimension, ForgePlugin } from "@forge-go/dashboard-plugin"
 import {
   NativeSelect,
@@ -17,7 +22,9 @@ import { clearQueries } from "./query-sync"
  * for three lines of sorting.
  */
 function firstNavItem(plugin: ForgePlugin) {
-  return [...plugin.nav].sort((a, b) => (a.priority ?? 0) - (b.priority ?? 0))[0]
+  return [...plugin.nav].sort(
+    (a, b) => (a.priority ?? 0) - (b.priority ?? 0)
+  )[0]
 }
 
 function Dimension({

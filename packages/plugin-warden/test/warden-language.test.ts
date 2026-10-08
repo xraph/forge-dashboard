@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest"
-import { wardenLanguage, wardenKeywords } from "../src/components/warden-language"
+import {
+  wardenLanguage,
+  wardenKeywords,
+} from "../src/components/warden-language"
 
 /**
  * A sample from warden's own `dsl/testdata/multi-file/documents/roles.warden`,
@@ -84,7 +87,9 @@ describe("wardenLanguage", () => {
   })
 
   it("keeps a hyphenated name whole, but ends a name at an arrow", () => {
-    expect(classOf("role billing-admin {", "billing-admin")).toBe("variableName")
+    expect(classOf("role billing-admin {", "billing-admin")).toBe(
+      "variableName"
+    )
     expect(classOf("parent->read", "parent")).toBe("variableName")
     expect(classOf("parent->read", "read")).toBe("variableName")
   })
@@ -100,6 +105,7 @@ describe("wardenLanguage", () => {
     expect(wardenKeywords.size).toBe(44)
     expect(wardenKeywords.has("subjects")).toBe(true)
     expect(wardenKeywords.has("true")).toBe(false)
-    for (const kw of wardenKeywords) expect(classOf(`${kw} x`, kw), kw).toBe("keyword")
+    for (const kw of wardenKeywords)
+      expect(classOf(`${kw} x`, kw), kw).toBe("keyword")
   })
 })

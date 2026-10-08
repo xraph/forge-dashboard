@@ -3,7 +3,11 @@ import { useRef } from "react"
 import type { RefObject } from "react"
 import { observeElementRect, useVirtualizer } from "@tanstack/react-virtual"
 import { PluginLink } from "@forge-go/dashboard-plugin"
-import { Alert, AlertDescription, AlertTitle } from "@forge-go/dashboard-kit/components/alert"
+import {
+  Alert,
+  AlertDescription,
+  AlertTitle,
+} from "@forge-go/dashboard-kit/components/alert"
 import { EmptyState } from "@forge-go/dashboard-kit/components/empty-state"
 import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import { CommandAlert } from "@forge-go/dashboard-kit/components/query-boundary"
@@ -46,9 +50,21 @@ export function ObjectListing({
   const scroller = useRef<HTMLDivElement>(null)
   return (
     <div ref={scroller} className="min-h-0 flex-1 overflow-auto">
-      <SettledBoundary title="Could not list this bucket" query={listing.first} skeletonRows={6}>
+      <SettledBoundary
+        title="Could not list this bucket"
+        query={listing.first}
+        skeletonRows={6}
+      >
         {(first) => (
-          <ListingBody listing={listing} routed={first.routed} store={store} bucket={bucket} prefix={prefix} selectedKey={selectedKey} scroller={scroller} />
+          <ListingBody
+            listing={listing}
+            routed={first.routed}
+            store={store}
+            bucket={bucket}
+            prefix={prefix}
+            selectedKey={selectedKey}
+            scroller={scroller}
+          />
         )}
       </SettledBoundary>
     </div>
@@ -89,7 +105,9 @@ function ListingBody({
     // (the scroller fills a panel at least 24rem tall), so keep the starting
     // size in that case.
     observeElementRect: (instance, cb) =>
-      observeElementRect(instance, (rect) => cb(rect.height > 0 ? rect : INITIAL_RECT)),
+      observeElementRect(instance, (rect) =>
+        cb(rect.height > 0 ? rect : INITIAL_RECT)
+      ),
   })
 
   const objects = rows.filter((r) => r.kind === "object").length
@@ -101,7 +119,12 @@ function ListingBody({
       <CommandAlert error={moreError} title="Could not load more" />
       {more ? (
         <div>
-          <IconButton variant="outline" disabled={loadingMore} onClick={loadMore} label={loadingMore ? "Loading…" : "Load more"} />
+          <IconButton
+            variant="outline"
+            disabled={loadingMore}
+            onClick={loadMore}
+            label={loadingMore ? "Loading…" : "Load more"}
+          />
         </div>
       ) : null}
     </div>
@@ -111,17 +134,33 @@ function ListingBody({
     <Alert>
       <AlertTitle>Some keys may live on another backend</AlertTitle>
       <AlertDescription>
-        This store routes some keys to other backends. This listing reads one backend, so it can miss objects even when there is nothing more to load.
+        This store routes some keys to other backends. This listing reads one
+        backend, so it can miss objects even when there is nothing more to load.
       </AlertDescription>
     </Alert>
   ) : null
 
   if (rows.length === 0) {
-    let empty = <EmptyState title="This bucket is empty" description="Drop files here, or use Upload files, to add the first object." />
+    let empty = (
+      <EmptyState
+        title="This bucket is empty"
+        description="Drop files here, or use Upload files, to add the first object."
+      />
+    )
     if (more) {
-      empty = <EmptyState title="Nothing on this page" description="This page held no keys to show, but the driver has more to list." />
+      empty = (
+        <EmptyState
+          title="Nothing on this page"
+          description="This page held no keys to show, but the driver has more to list."
+        />
+      )
     } else if (prefix !== "") {
-      empty = <EmptyState title="Nothing under this prefix" description={`No key in ${bucket} starts with ${prefix}.`} />
+      empty = (
+        <EmptyState
+          title="Nothing under this prefix"
+          description={`No key in ${bucket} starts with ${prefix}.`}
+        />
+      )
     }
     return (
       <div className="flex flex-col gap-3">
@@ -137,7 +176,10 @@ function ListingBody({
     ? items.map((item) => ({ row: rows[item.index], index: item.index }))
     : rows.map((row, index) => ({ row, index }))
   const padTop = items && items.length > 0 ? items[0].start : 0
-  const padBottom = items && items.length > 0 ? virtualizer.getTotalSize() - items[items.length - 1].end : 0
+  const padBottom =
+    items && items.length > 0
+      ? virtualizer.getTotalSize() - items[items.length - 1].end
+      : 0
 
   return (
     <div className="flex flex-col gap-3">
@@ -159,7 +201,10 @@ function ListingBody({
             row.kind === "folder" ? (
               <TableRow key={`f:${row.key}`} data-index={index}>
                 <TableCell className="font-mono text-xs font-medium">
-                  <PluginLink to={browserHref(bucket, { store, prefix: row.key })} className="hover:underline">
+                  <PluginLink
+                    to={browserHref(bucket, { store, prefix: row.key })}
+                    className="hover:underline"
+                  >
                     {displayName(row.key, folder)}
                   </PluginLink>
                 </TableCell>
@@ -178,7 +223,10 @@ function ListingBody({
                 aria-selected={row.key === selectedKey}
               >
                 <TableCell className="font-mono text-xs font-medium">
-                  <PluginLink to={browserHref(bucket, { store, prefix, key: row.key })} className="hover:underline">
+                  <PluginLink
+                    to={browserHref(bucket, { store, prefix, key: row.key })}
+                    className="hover:underline"
+                  >
                     <span className="block max-w-sm truncate" title={row.key}>
                       {displayName(row.key, folder)}
                     </span>
@@ -188,10 +236,13 @@ function ListingBody({
                   <Bytes value={row.object.storedSize} />
                 </TableCell>
                 <TableCell>
-                  <Timestamp value={row.object.lastModified ?? undefined} label="last modified" />
+                  <Timestamp
+                    value={row.object.lastModified ?? undefined}
+                    label="last modified"
+                  />
                 </TableCell>
               </TableRow>
-            ),
+            )
           )}
           {padBottom > 0 ? (
             <tr aria-hidden="true" style={{ height: padBottom }} />

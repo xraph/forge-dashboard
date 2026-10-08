@@ -1,9 +1,20 @@
 import { describe, expect, it } from "vitest"
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react"
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react"
 import { ContractError, PluginProvider } from "@forge-go/dashboard-plugin"
 import type { ScopedClient } from "@forge-go/dashboard-plugin"
 import { ScopesEditor, useScopeEditing } from "../src/components/scopes-editor"
-import type { KeySummary, PoliciesList, PolicySummary, ScopesList } from "../src/types"
+import type {
+  KeySummary,
+  PoliciesList,
+  PolicySummary,
+  ScopesList,
+} from "../src/types"
 import { recordingCommandClient, stubClient } from "./harness"
 
 const KEY: KeySummary = {
@@ -61,12 +72,15 @@ function renderEditor(client: ScopedClient, summary: KeySummary = KEY) {
   return render(
     <PluginProvider client={client}>
       <Editor summary={summary} />
-    </PluginProvider>,
+    </PluginProvider>
   )
 }
 
 /** Reads answer; every command throws the given refusal. */
-function refusingClient(answers: Record<string, unknown>, error: ContractError): ScopedClient {
+function refusingClient(
+  answers: Record<string, unknown>,
+  error: ContractError
+): ScopedClient {
   const inner = stubClient(answers)
   return {
     extension: inner.extension,
@@ -92,10 +106,15 @@ function addButton(): HTMLButtonElement {
 
 describe("ScopesEditor tags", () => {
   it("shows each scope in mono with its own remove button", async () => {
-    renderEditor(stubClient(READS), { ...KEY, scopes: ["billing:read", "users:read"] })
+    renderEditor(stubClient(READS), {
+      ...KEY,
+      scopes: ["billing:read", "users:read"],
+    })
     for (const name of ["billing:read", "users:read"]) {
       expect(screen.getByText(name).className).toContain("font-mono")
-      expect(screen.getByRole("button", { name: `Remove ${name}` })).toBeTruthy()
+      expect(
+        screen.getByRole("button", { name: `Remove ${name}` })
+      ).toBeTruthy()
     }
   })
 
@@ -115,7 +134,10 @@ describe("ScopesEditor tags", () => {
     expect(screen.queryByRole("alertdialog")).toBeNull()
     await waitFor(() => expect(sent).toHaveLength(1))
     expect(sent).toEqual([
-      { intent: "keys.scopes.remove", payload: { id: KEY.id, scopes: ["billing:read"] } },
+      {
+        intent: "keys.scopes.remove",
+        payload: { id: KEY.id, scopes: ["billing:read"] },
+      },
     ])
   })
 
@@ -134,7 +156,11 @@ describe("ScopesEditor tags", () => {
 describe("ScopesEditor add", () => {
   it("offers the tenant's scopes the key does not hold yet", async () => {
     renderEditor(stubClient(READS))
-    expect(await options()).toEqual(["billing:write", "users:read", "users:write"])
+    expect(await options()).toEqual([
+      "billing:write",
+      "users:read",
+      "users:write",
+    ])
   })
 
   it("narrows the choice to the policy's allowed scopes", async () => {
@@ -142,10 +168,12 @@ describe("ScopesEditor add", () => {
       stubClient({
         "scopes.list": SCOPES,
         "policies.list": policies(policy(["billing:read", "billing:write"])),
-      }),
+      })
     )
     expect(await options()).toEqual(["billing:write"])
-    expect(screen.getByText("Only the scopes this key's policy allows are listed.")).toBeTruthy()
+    expect(
+      screen.getByText("Only the scopes this key's policy allows are listed.")
+    ).toBeTruthy()
   })
 
   it("does not narrow for a policy that allows any scope", async () => {
@@ -160,14 +188,16 @@ describe("ScopesEditor add", () => {
         "scopes.list": SCOPES,
         "policies.list": policies(policy(["billing:read"])),
       }),
-      { ...KEY, policyId: undefined },
+      { ...KEY, policyId: undefined }
     )
     expect(await options()).toHaveLength(3)
   })
 
   it("waits for a choice, then sends keys.scopes.assign once with that one name", async () => {
     const { client, sent } = recordingCommandClient(READS, {
-      "keys.scopes.assign": { key: { ...KEY, scopes: ["billing:read", "users:read"] } },
+      "keys.scopes.assign": {
+        key: { ...KEY, scopes: ["billing:read", "users:read"] },
+      },
     })
     renderEditor(client)
     await options()
@@ -178,7 +208,10 @@ describe("ScopesEditor add", () => {
     fireEvent.click(addButton())
     await waitFor(() => expect(sent).toHaveLength(1))
     expect(sent).toEqual([
-      { intent: "keys.scopes.assign", payload: { id: KEY.id, scopes: ["users:read"] } },
+      {
+        intent: "keys.scopes.assign",
+        payload: { id: KEY.id, scopes: ["users:read"] },
+      },
     ])
     await waitFor(() => expect(picker().value).toBe(""))
   })
@@ -188,17 +221,23 @@ describe("ScopesEditor add", () => {
       ...KEY,
       scopes: SCOPES.scopes.map((s) => s.name),
     })
-    expect(await screen.findByText("This key already holds every scope there is to add.")).toBeTruthy()
+    expect(
+      await screen.findByText(
+        "This key already holds every scope there is to add."
+      )
+    ).toBeTruthy()
   })
 
   it("says the scopes could not be loaded, and still lets you remove one", async () => {
     const { client, sent } = recordingCommandClient(
       { "policies.list": policies(policy([])) },
-      { "keys.scopes.remove": { key: { ...KEY, scopes: [] } } },
+      { "keys.scopes.remove": { key: { ...KEY, scopes: [] } } }
     )
     renderEditor(client)
     expect(
-      await screen.findByText("Scopes could not be loaded, so none can be added right now."),
+      await screen.findByText(
+        "Scopes could not be loaded, so none can be added right now."
+      )
     ).toBeTruthy()
     fireEvent.click(screen.getByRole("button", { name: "Remove billing:read" }))
     await waitFor(() => expect(sent).toHaveLength(1))
@@ -225,7 +264,9 @@ describe("ScopesEditor add", () => {
     fireEvent.change(picker(), { target: { value: "users:read" } })
     expect(addButton().disabled).toBe(true)
     expect(picker().disabled).toBe(true)
-    expect(screen.getByRole("option", { name: "Loading the key's policy…" })).toBeTruthy()
+    expect(
+      screen.getByRole("option", { name: "Loading the key's policy…" })
+    ).toBeTruthy()
   })
 
   it("does not wait for policies on a key with no policy", async () => {
@@ -237,12 +278,14 @@ describe("ScopesEditor add", () => {
 
   it("says the list is not narrowed when policies fail, and still lets you add", async () => {
     renderEditor(
-      policiesClient(new ContractError("TRANSPORT", "contract request failed with HTTP 502")),
+      policiesClient(
+        new ContractError("TRANSPORT", "contract request failed with HTTP 502")
+      )
     )
     expect(
       await screen.findByText(
-        "The key's policy could not be loaded, so this list is not narrowed to it. The server refuses a scope the policy does not allow.",
-      ),
+        "The key's policy could not be loaded, so this list is not narrowed to it. The server refuses a scope the policy does not allow."
+      )
     ).toBeTruthy()
     expect(await options()).toHaveLength(3)
     fireEvent.change(picker(), { target: { value: "users:read" } })
@@ -251,8 +294,12 @@ describe("ScopesEditor add", () => {
   })
 
   it("says only the first scopes are listed when there are more", async () => {
-    renderEditor(stubClient({ ...READS, "scopes.list": { ...SCOPES, hasMore: true } }))
-    expect(await screen.findByText("Only the first 200 scopes are listed.")).toBeTruthy()
+    renderEditor(
+      stubClient({ ...READS, "scopes.list": { ...SCOPES, hasMore: true } })
+    )
+    expect(
+      await screen.findByText("Only the first 200 scopes are listed.")
+    ).toBeTruthy()
   })
 })
 
@@ -275,12 +322,15 @@ describe("ScopesEditor refusals", () => {
     renderEditor(
       refusingClient(
         READS,
-        new ContractError("CONFLICT", "a revoked key's scopes cannot be changed"),
-      ),
+        new ContractError(
+          "CONFLICT",
+          "a revoked key's scopes cannot be changed"
+        )
+      )
     )
     fireEvent.click(screen.getByRole("button", { name: "Remove billing:read" }))
     expect((await screen.findByRole("alert")).textContent).toBe(
-      "a revoked key's scopes cannot be changed",
+      "a revoked key's scopes cannot be changed"
     )
     expect(screen.getByText("billing:read")).toBeTruthy()
   })
@@ -292,7 +342,11 @@ describe("ScopesEditor refusals", () => {
       extension: "keysmith",
       query: stubClient(answers).query,
       command: async () => {
-        if (fail) throw new ContractError("TRANSPORT", "contract request failed with HTTP 502")
+        if (fail)
+          throw new ContractError(
+            "TRANSPORT",
+            "contract request failed with HTTP 502"
+          )
         return { key: KEY }
       },
     } as ScopedClient
@@ -320,7 +374,9 @@ describe("ScopesEditor on a revoked key", () => {
     expect(screen.getByText("billing:read").className).toContain("font-mono")
     expect(screen.queryByRole("button")).toBeNull()
     expect(screen.queryByLabelText("Add scope")).toBeNull()
-    expect(screen.getByText("A revoked key's scopes cannot be changed.")).toBeTruthy()
+    expect(
+      screen.getByText("A revoked key's scopes cannot be changed.")
+    ).toBeTruthy()
   })
 
   it("asks for no scopes or policies", () => {
@@ -335,7 +391,7 @@ describe("ScopesEditor on a revoked key", () => {
           return inner.query(intent, params)
         },
       } as ScopedClient,
-      REVOKED,
+      REVOKED
     )
     expect(asked).toEqual([])
   })
@@ -343,8 +399,14 @@ describe("ScopesEditor on a revoked key", () => {
 
 describe("ScopesEditor on an expired key", () => {
   it("still edits: the server only refuses a revoked key", async () => {
-    renderEditor(stubClient(READS), { ...KEY, effectiveState: "expired", expiryPending: true })
-    expect(screen.getByRole("button", { name: "Remove billing:read" })).toBeTruthy()
+    renderEditor(stubClient(READS), {
+      ...KEY,
+      effectiveState: "expired",
+      expiryPending: true,
+    })
+    expect(
+      screen.getByRole("button", { name: "Remove billing:read" })
+    ).toBeTruthy()
     expect(await options()).toHaveLength(3)
     expect(within(document.body).queryByText(/revoked key's scopes/)).toBeNull()
   })

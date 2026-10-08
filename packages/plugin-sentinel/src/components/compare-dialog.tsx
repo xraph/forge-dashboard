@@ -42,10 +42,19 @@ export function CompareDialog({
   )
 }
 
-function CompareForm({ run, onDone }: { run: Pick<Run, "id" | "suiteId" | "createdAt">; onDone: () => void }) {
+function CompareForm({
+  run,
+  onDone,
+}: {
+  run: Pick<Run, "id" | "suiteId" | "createdAt">
+  onDone: () => void
+}) {
   const id = useId()
   const navigate = useNavigateTo()
-  const runs = useQuery<RunsList>("runs.list", { suiteId: run.suiteId, limit: 100 })
+  const runs = useQuery<RunsList>("runs.list", {
+    suiteId: run.suiteId,
+    limit: 100,
+  })
   const others = (runs.data?.items ?? []).filter((r) => r.id !== run.id)
   const [otherId, setOtherId] = useState("")
   const chosen = others.find((r) => r.id === otherId) ?? others[0]
@@ -55,27 +64,42 @@ function CompareForm({ run, onDone }: { run: Pick<Run, "id" | "suiteId" | "creat
     if (!chosen) return
     const thisFirst = run.createdAt <= chosen.createdAt
     onDone()
-    navigate(thisFirst ? comparePath(run.id, chosen.id) : comparePath(chosen.id, run.id))
+    navigate(
+      thisFirst
+        ? comparePath(run.id, chosen.id)
+        : comparePath(chosen.id, run.id)
+    )
   }
 
   return (
     <form onSubmit={submit} className="contents" noValidate>
       <DialogHeader>
         <DialogTitle>Compare with another run</DialogTitle>
-        <DialogDescription>Runs of the same suite. The older run is A and the newer one B.</DialogDescription>
+        <DialogDescription>
+          Runs of the same suite. The older run is A and the newer one B.
+        </DialogDescription>
       </DialogHeader>
       {runs.error ? (
-        <p role="alert" className="text-sm text-destructive">{`The suite's runs could not be read. ${runs.error.message}`}</p>
+        <p
+          role="alert"
+          className="text-sm text-destructive"
+        >{`The suite's runs could not be read. ${runs.error.message}`}</p>
       ) : !runs.data ? (
         <p role="status" className="text-sm text-muted-foreground">
           Reading the suite's runs.
         </p>
       ) : others.length === 0 ? (
-        <p className="text-sm text-muted-foreground">This suite has no other run to compare with.</p>
+        <p className="text-sm text-muted-foreground">
+          This suite has no other run to compare with.
+        </p>
       ) : (
         <div className="flex flex-col gap-1">
           <Label htmlFor={`${id}-run`}>Run</Label>
-          <NativeSelect id={`${id}-run`} value={chosen?.id ?? ""} onChange={(e) => setOtherId(e.target.value)}>
+          <NativeSelect
+            id={`${id}-run`}
+            value={chosen?.id ?? ""}
+            onChange={(e) => setOtherId(e.target.value)}
+          >
             {others.map((r) => (
               <NativeSelectOption key={r.id} value={r.id}>
                 {`${shortRunId(r.id)}, ${r.state}, ${formatDay(r.createdAt)}, pass rate ${formatScore(r.passRate)}`}
@@ -85,7 +109,9 @@ function CompareForm({ run, onDone }: { run: Pick<Run, "id" | "suiteId" | "creat
         </div>
       )}
       <DialogFooter>
-        <DialogClose render={<Button type="button" variant="outline" />}>Cancel</DialogClose>
+        <DialogClose render={<Button type="button" variant="outline" />}>
+          Cancel
+        </DialogClose>
         <Button type="submit" disabled={!chosen}>
           Compare
         </Button>

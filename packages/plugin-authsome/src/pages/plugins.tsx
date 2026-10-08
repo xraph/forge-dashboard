@@ -9,8 +9,18 @@ import {
 import type { FeatureToggle, FeatureTogglesResponse } from "./features"
 
 const columns: Column<FeatureToggle>[] = [
-  { id: "label", header: "Feature", cell: (t) => t.label, className: "font-medium" },
-  { id: "key", header: "Key", cell: (t) => t.key, className: "font-mono text-xs" },
+  {
+    id: "label",
+    header: "Feature",
+    cell: (t) => t.label,
+    className: "font-medium",
+  },
+  {
+    id: "key",
+    header: "Key",
+    cell: (t) => t.key,
+    className: "font-mono text-xs",
+  },
   {
     id: "enabled",
     header: "Status",

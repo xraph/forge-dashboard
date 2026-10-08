@@ -1,17 +1,30 @@
 import { describe, expect, it } from "vitest"
 import { layoutSpans, overlapsByIndex, splitAtByte } from "../src/spans"
 
-const span = (index: number, start: number, end: number) => ({ id: `chk_${index}`, index, start_offset: start, end_offset: end, token_count: Math.floor((end - start) / 4) })
+const span = (index: number, start: number, end: number) => ({
+  id: `chk_${index}`,
+  index,
+  start_offset: start,
+  end_offset: end,
+  token_count: Math.floor((end - start) / 4),
+})
 
 describe("layoutSpans", () => {
   it("scales to the largest end offset and places each chunk as a percentage", () => {
     const layout = layoutSpans([span(0, 0, 100), span(1, 80, 200)])
     expect(layout.scale).toBe(200)
-    expect(layout.segments.map((s) => [s.left, s.width])).toEqual([[0, 50], [40, 60]])
+    expect(layout.segments.map((s) => [s.left, s.width])).toEqual([
+      [0, 50],
+      [40, 60],
+    ])
   })
 
   it("measures each chunk's overlap with the one before it", () => {
-    const layout = layoutSpans([span(0, 0, 100), span(1, 80, 200), span(2, 200, 260)])
+    const layout = layoutSpans([
+      span(0, 0, 100),
+      span(1, 80, 200),
+      span(2, 200, 260),
+    ])
     expect(layout.segments.map((s) => s.overlap)).toEqual([0, 20, 0])
   })
 
@@ -27,7 +40,10 @@ describe("layoutSpans", () => {
 
   it("finds the bytes no chunk covers, including a leading gap", () => {
     const layout = layoutSpans([span(0, 10, 100), span(1, 120, 200)])
-    expect(layout.gaps).toEqual([{ start: 0, end: 10 }, { start: 100, end: 120 }])
+    expect(layout.gaps).toEqual([
+      { start: 0, end: 10 },
+      { start: 100, end: 120 },
+    ])
   })
 
   it("has nothing to draw for no spans", () => {

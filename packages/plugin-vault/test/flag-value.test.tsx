@@ -15,7 +15,7 @@ describe("FlagValue", () => {
     expect(screen.getByText("false")).toBeTruthy()
   })
 
-  it("distinguishes the string \"true\" from the boolean true", () => {
+  it('distinguishes the string "true" from the boolean true', () => {
     const { container: a } = render(<FlagValue value="true" type="string" />)
     const { container: b } = render(<FlagValue value={true} type="bool" />)
     expect(a.textContent).toBe('"true"')

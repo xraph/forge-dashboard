@@ -108,7 +108,7 @@ export function tooltipOrder(item: { dataKey?: unknown }): number {
  */
 export function tooltipTitle(
   payload: readonly { payload?: { start?: unknown } }[] | undefined,
-  period: UsagePeriod,
+  period: UsagePeriod
 ): string | null {
   const start = payload?.[0]?.payload?.start
   return typeof start === "string" ? bucketTitle(start, period) : null
@@ -124,7 +124,10 @@ export function countTicks(max: number): number[] {
   if (max <= 0) return [0, 1]
   const raw = max / 4
   const pow = 10 ** Math.floor(Math.log10(raw))
-  const step = Math.max(1, ([1, 2, 5, 10].find((m) => m * pow >= raw) ?? 10) * pow)
+  const step = Math.max(
+    1,
+    ([1, 2, 5, 10].find((m) => m * pow >= raw) ?? 10) * pow
+  )
   const top = Math.ceil(max / step) * step
   const ticks: number[] = []
   for (let t = 0; t <= top; t += step) ticks.push(t)
@@ -163,7 +166,10 @@ export function UsageChart({
   }))
   const n = buckets.length
   const ticks = countTicks(
-    Math.max(0, ...buckets.map((b) => b.succeeded + b.clientErrors + b.serverErrors)),
+    Math.max(
+      0,
+      ...buckets.map((b) => b.succeeded + b.clientErrors + b.serverErrors)
+    )
   )
   return (
     <ChartContainer
@@ -211,7 +217,9 @@ export function UsageChart({
           content={
             <ChartTooltipContent
               indicator="line"
-              labelFormatter={(_label, payload) => tooltipTitle(payload, period)}
+              labelFormatter={(_label, payload) =>
+                tooltipTitle(payload, period)
+              }
             />
           }
         />

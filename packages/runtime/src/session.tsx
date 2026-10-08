@@ -1,4 +1,11 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react"
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react"
 import type { ReactNode } from "react"
 
 import { useDashboardConfig } from "./config"
@@ -36,9 +43,11 @@ export interface Principal {
  */
 export function injectedPrincipal(): Principal | null | undefined {
   if (typeof window === "undefined") return undefined
-  const injected = (window as unknown as {
-    __FORGE_DASHBOARD__?: { principal?: Principal | null }
-  }).__FORGE_DASHBOARD__
+  const injected = (
+    window as unknown as {
+      __FORGE_DASHBOARD__?: { principal?: Principal | null }
+    }
+  ).__FORGE_DASHBOARD__
   if (!injected || !("principal" in injected)) return undefined
   return injected.principal ?? null
 }
@@ -134,7 +143,10 @@ export function SessionProvider({
   // Bound on purpose. An unbound `fetch` called as a plain function throws
   // "Illegal invocation" in a browser, because it wants `window` as its
   // receiver. Same reasoning as PluginHost's doFetch.
-  const doFetch = useMemo(() => fetchImpl ?? fetch.bind(globalThis), [fetchImpl])
+  const doFetch = useMemo(
+    () => fetchImpl ?? fetch.bind(globalThis),
+    [fetchImpl]
+  )
 
   const refresh = useCallback(() => setNonce((n) => n + 1), [])
 
@@ -148,11 +160,18 @@ export function SessionProvider({
           credentials: "same-origin",
         })
         const body = (await res.json().catch(() => null)) as
-          | (Principal & { code?: string; loginPath?: string; requiredRoles?: string[] })
+          | (Principal & {
+              code?: string
+              loginPath?: string
+              requiredRoles?: string[]
+            })
           | null
 
         if (res.status === 401) {
-          next = { status: "signedOut", loginPath: body?.loginPath ?? loginPath }
+          next = {
+            status: "signedOut",
+            loginPath: body?.loginPath ?? loginPath,
+          }
         } else if (res.status === 403) {
           next = { status: "denied", requiredRoles: body?.requiredRoles ?? [] }
         } else if (!res.ok || body === null) {
@@ -187,10 +206,12 @@ export function SessionProvider({
 
   const value = useMemo<Session>(
     () => ({ state, epoch, resolved, refresh }),
-    [state, epoch, resolved, refresh],
+    [state, epoch, resolved, refresh]
   )
 
-  return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>
+  return (
+    <SessionContext.Provider value={value}>{children}</SessionContext.Provider>
+  )
 }
 
 export function useSession(): Session {
@@ -198,7 +219,7 @@ export function useSession(): Session {
   if (!session) {
     throw new Error(
       "useSession was called outside a SessionProvider. " +
-        "Wrap the dashboard in <SessionProvider>, which ForgeDashboard does for you.",
+        "Wrap the dashboard in <SessionProvider>, which ForgeDashboard does for you."
     )
   }
   return session

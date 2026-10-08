@@ -51,8 +51,12 @@ describe("api key list", () => {
     // A revoked key keeps its row. Hiding it turns "why is this greyed out"
     // into "where did my key go", which is the worse question.
     expect(screen.getByText("Old")).toBeTruthy()
-    expect(screen.getByText("revoked").getAttribute("data-variant")).toBe("destructive")
-    expect(screen.getByText("active").getAttribute("data-variant")).toBe("default")
+    expect(screen.getByText("revoked").getAttribute("data-variant")).toBe(
+      "destructive"
+    )
+    expect(screen.getByText("active").getAttribute("data-variant")).toBe(
+      "default"
+    )
   })
 
   it("offers Revoke on an active key and not on a revoked one", async () => {
@@ -103,7 +107,10 @@ describe("api key list", () => {
   })
 
   it("revokes by the key id", async () => {
-    const own = subStubClient({ "apikeys.list": keys }, { "apikeys.revoke": { ok: true } })
+    const own = subStubClient(
+      { "apikeys.list": keys },
+      { "apikeys.revoke": { ok: true } }
+    )
     renderSubPage(pageAt("/apikeys"), {
       client: own.client,
       hostClient: subStubClient({}).client,
@@ -113,7 +120,10 @@ describe("api key list", () => {
     fireEvent.click(screen.getByRole("button", { name: /revoke ci/i }))
     fireEvent.click(screen.getByRole("button", { name: /^revoke$/i }))
     await waitFor(() => expect(own.payloads).toHaveLength(1))
-    expect(own.payloads[0]).toEqual({ intent: "apikeys.revoke", payload: { id: "k1" } })
+    expect(own.payloads[0]).toEqual({
+      intent: "apikeys.revoke",
+      payload: { id: "k1" },
+    })
   })
 
   it("shows a failed revoke inside the dialog, not on the page body", async () => {
@@ -122,7 +132,7 @@ describe("api key list", () => {
     // returned as if it were a successful result.
     const own = subStubClient(
       { "apikeys.list": keys },
-      { "apikeys.revoke": new ContractError("INTERNAL", "still in use") },
+      { "apikeys.revoke": new ContractError("INTERNAL", "still in use") }
     )
     renderSubPage(pageAt("/apikeys"), {
       client: own.client,
@@ -143,7 +153,7 @@ describe("api key list", () => {
   it("forgets a failed revoke before the next row's dialog opens", async () => {
     const own = subStubClient(
       { "apikeys.list": keys },
-      { "apikeys.revoke": new ContractError("INTERNAL", "nope") },
+      { "apikeys.revoke": new ContractError("INTERNAL", "nope") }
     )
     renderSubPage(pageAt("/apikeys"), {
       client: own.client,
@@ -172,7 +182,9 @@ describe("api key detail", () => {
       allowed: [],
       params: { id: "k9" },
     })
-    await waitFor(() => expect(screen.getByRole("heading", { name: "CI2" })).toBeTruthy())
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: "CI2" })).toBeTruthy()
+    )
     expect(screen.getByText("k9")).toBeTruthy()
     expect(screen.getByText("pk_live_1")).toBeTruthy()
     expect(screen.getByText(/safe to share/i)).toBeTruthy()
@@ -195,18 +207,31 @@ describe("api key create", () => {
   it("shows the secret once, and will not offer to show it again", async () => {
     const own = subStubClient(
       { "apikeys.detail": detail },
-      { "apikeys.create": { ok: true, id: "k9", keyPrefix: "ask_xyz", secret: "ask_xyz_THE_SECRET" } },
+      {
+        "apikeys.create": {
+          ok: true,
+          id: "k9",
+          keyPrefix: "ask_xyz",
+          secret: "ask_xyz_THE_SECRET",
+        },
+      }
     )
     renderSubPage(pageAt("/apikeys/create"), {
       client: own.client,
       hostClient: subStubClient({}).client,
       allowed: [],
     })
-    fireEvent.change(screen.getByLabelText("Name"), { target: { value: "CI2" } })
-    fireEvent.change(screen.getByLabelText("User ID"), { target: { value: "u1" } })
+    fireEvent.change(screen.getByLabelText("Name"), {
+      target: { value: "CI2" },
+    })
+    fireEvent.change(screen.getByLabelText("User ID"), {
+      target: { value: "u1" },
+    })
     fireEvent.click(screen.getByRole("button", { name: /create key/i }))
 
-    await waitFor(() => expect(screen.getByText("ask_xyz_THE_SECRET")).toBeTruthy())
+    await waitFor(() =>
+      expect(screen.getByText("ask_xyz_THE_SECRET")).toBeTruthy()
+    )
     expect(screen.getByText(/only time you will see/i)).toBeTruthy()
     // Bug 1 from the plan: stubClient's return is { client, intents,
     // payloads }, not { client, commands }. payloads records COMMAND
@@ -226,20 +251,33 @@ describe("api key create", () => {
           return detail
         },
       },
-      { "apikeys.create": { ok: true, id: "k9", keyPrefix: "ask_xyz", secret: "ask_xyz_THE_SECRET" } },
+      {
+        "apikeys.create": {
+          ok: true,
+          id: "k9",
+          keyPrefix: "ask_xyz",
+          secret: "ask_xyz_THE_SECRET",
+        },
+      }
     )
     renderSubPage(pageAt("/apikeys/create"), {
       client: own.client,
       hostClient: subStubClient({}).client,
       allowed: [],
     })
-    fireEvent.change(screen.getByLabelText("Name"), { target: { value: "CI2" } })
-    fireEvent.change(screen.getByLabelText("User ID"), { target: { value: "u1" } })
+    fireEvent.change(screen.getByLabelText("Name"), {
+      target: { value: "CI2" },
+    })
+    fireEvent.change(screen.getByLabelText("User ID"), {
+      target: { value: "u1" },
+    })
     fireEvent.click(screen.getByRole("button", { name: /create key/i }))
     // The secret is on screen before the detail read settles. A public key
     // that arrives late must never gate the one value that cannot be
     // refetched.
-    await waitFor(() => expect(screen.getByText("ask_xyz_THE_SECRET")).toBeTruthy())
+    await waitFor(() =>
+      expect(screen.getByText("ask_xyz_THE_SECRET")).toBeTruthy()
+    )
     await waitFor(() => expect(screen.getByText("pk_live_1")).toBeTruthy())
     expect(detailParams).toEqual({ id: "k9" })
   })
@@ -247,17 +285,30 @@ describe("api key create", () => {
   it("confirms before dismissing the panel, and does not lose the secret while asking", async () => {
     const own = subStubClient(
       {},
-      { "apikeys.create": { ok: true, id: "k9", keyPrefix: "ask_xyz", secret: "ask_xyz_THE_SECRET" } },
+      {
+        "apikeys.create": {
+          ok: true,
+          id: "k9",
+          keyPrefix: "ask_xyz",
+          secret: "ask_xyz_THE_SECRET",
+        },
+      }
     )
     renderSubPage(pageAt("/apikeys/create"), {
       client: own.client,
       hostClient: subStubClient({}).client,
       allowed: [],
     })
-    fireEvent.change(screen.getByLabelText("Name"), { target: { value: "CI2" } })
-    fireEvent.change(screen.getByLabelText("User ID"), { target: { value: "u1" } })
+    fireEvent.change(screen.getByLabelText("Name"), {
+      target: { value: "CI2" },
+    })
+    fireEvent.change(screen.getByLabelText("User ID"), {
+      target: { value: "u1" },
+    })
     fireEvent.click(screen.getByRole("button", { name: /create key/i }))
-    await waitFor(() => expect(screen.getByText("ask_xyz_THE_SECRET")).toBeTruthy())
+    await waitFor(() =>
+      expect(screen.getByText("ask_xyz_THE_SECRET")).toBeTruthy()
+    )
 
     fireEvent.click(screen.getByRole("button", { name: /done/i }))
     // Reflex-closing this panel costs a new key. The confirm step is the
@@ -269,34 +320,41 @@ describe("api key create", () => {
   it("refuses to submit without a user id", async () => {
     const own = subStubClient(
       {},
-      { "apikeys.create": { ok: true, id: "k9", keyPrefix: "p", secret: "s" } },
+      { "apikeys.create": { ok: true, id: "k9", keyPrefix: "p", secret: "s" } }
     )
     renderSubPage(pageAt("/apikeys/create"), {
       client: own.client,
       hostClient: subStubClient({}).client,
       allowed: [],
     })
-    fireEvent.change(screen.getByLabelText("Name"), { target: { value: "CI2" } })
+    fireEvent.change(screen.getByLabelText("Name"), {
+      target: { value: "CI2" },
+    })
     // userId is required by the contract. Sending an empty one produces a
     // key attached to nobody, which is worse than a disabled button.
-    expect((screen.getByRole("button", { name: /create key/i }) as HTMLButtonElement).disabled).toBe(
-      true,
-    )
+    expect(
+      (screen.getByRole("button", { name: /create key/i }) as HTMLButtonElement)
+        .disabled
+    ).toBe(true)
     expect(own.payloads).toHaveLength(0)
   })
 
   it("omits scopes from the payload when the field is left blank", async () => {
     const own = subStubClient(
       {},
-      { "apikeys.create": { ok: true, id: "k9", keyPrefix: "p", secret: "s" } },
+      { "apikeys.create": { ok: true, id: "k9", keyPrefix: "p", secret: "s" } }
     )
     renderSubPage(pageAt("/apikeys/create"), {
       client: own.client,
       hostClient: subStubClient({}).client,
       allowed: [],
     })
-    fireEvent.change(screen.getByLabelText("Name"), { target: { value: "CI2" } })
-    fireEvent.change(screen.getByLabelText("User ID"), { target: { value: "u1" } })
+    fireEvent.change(screen.getByLabelText("Name"), {
+      target: { value: "CI2" },
+    })
+    fireEvent.change(screen.getByLabelText("User ID"), {
+      target: { value: "u1" },
+    })
     fireEvent.click(screen.getByRole("button", { name: /create key/i }))
     await waitFor(() => expect(own.payloads).toHaveLength(1))
     const payload = own.payloads[0].payload as Record<string, unknown>

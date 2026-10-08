@@ -8,13 +8,15 @@ import type { JsonEdit } from "../src/components/json-editor"
 function mount(initial: string) {
   const onChange = vi.fn<(edit: JsonEdit) => void>()
   const { container } = render(
-    <JsonEditor label="Value" initial={initial} onChange={onChange} />,
+    <JsonEditor label="Value" initial={initial} onChange={onChange} />
   )
   const dom = container.querySelector(".cm-editor") as HTMLElement
   const view = EditorView.findFromDOM(dom) as EditorView
   function type(text: string) {
     act(() => {
-      view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: text } })
+      view.dispatch({
+        changes: { from: 0, to: view.state.doc.length, insert: text },
+      })
     })
   }
   return { onChange, view, type }

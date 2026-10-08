@@ -1,5 +1,11 @@
 import { useMemo, type ReactNode } from "react"
-import { createColumnHelper, FlexRender, tableFeatures, useTable, type RowData } from "@tanstack/react-table"
+import {
+  createColumnHelper,
+  FlexRender,
+  tableFeatures,
+  useTable,
+  type RowData,
+} from "@tanstack/react-table"
 import { EmptyState } from "@forge-go/dashboard-kit/components/empty-state"
 import {
   Table,
@@ -58,21 +64,29 @@ export function LedgerTable<Row extends RowData>({
           id: c.id,
           header: () => c.header,
           cell: ({ row }) => c.cell(row.original),
-        }),
-      ),
+        })
+      )
     )
   }, [columns])
-  const table = useTable({ features, data: rows, columns: defs, getRowId: (row) => rowKey(row) })
+  const table = useTable({
+    features,
+    data: rows,
+    columns: defs,
+    getRowId: (row) => rowKey(row),
+  })
   const byId = new Map(columns.map((c) => [c.id, c]))
   const classFor = (id: string) => {
     const c = byId.get(id)
     return cn(c?.align === "end" && "text-right", c?.className)
   }
 
-  if (rows.length === 0) return <EmptyState title={emptyMessage} description={caption} />
+  if (rows.length === 0)
+    return <EmptyState title={emptyMessage} description={caption} />
 
   return (
-    <Table containerProps={{ tabIndex: 0, role: "region", "aria-label": caption }}>
+    <Table
+      containerProps={{ tabIndex: 0, role: "region", "aria-label": caption }}
+    >
       <TableCaption>{caption}</TableCaption>
       <TableHeader>
         {table.getHeaderGroups().map((group) => (

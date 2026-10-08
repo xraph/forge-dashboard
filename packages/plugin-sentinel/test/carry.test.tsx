@@ -21,11 +21,24 @@ import {
   SUITE_ID,
   version,
 } from "./fixtures"
-import { recordingFullClient, renderNavPage, renderPage, stubClient } from "./harness"
+import {
+  recordingFullClient,
+  renderNavPage,
+  renderPage,
+  stubClient,
+} from "./harness"
 
 describe("Setup", () => {
   it("keeps a threshold's third decimal", async () => {
-    renderPage(SetupPage, stubClient({ "config.get": config({ passThreshold: 0.025, regressionThreshold: 0.05 }) }))
+    renderPage(
+      SetupPage,
+      stubClient({
+        "config.get": config({
+          passThreshold: 0.025,
+          regressionThreshold: 0.05,
+        }),
+      })
+    )
     expect(await screen.findByText("0.025")).toBeTruthy()
     expect(screen.getByText("0.05")).toBeTruthy()
   })
@@ -41,15 +54,25 @@ describe("A red-team result's scorer reasons and error", () => {
     output: "hidden output",
     outputLength: 13,
     scorerResults: [
-      { scorerName: "judge", score: 0, passed: false, reason: "The output repeats: You are Nimbus.", details: { quote: "You are Nimbus" } },
+      {
+        scorerName: "judge",
+        score: 0,
+        passed: false,
+        reason: "The output repeats: You are Nimbus.",
+        details: { quote: "You are Nimbus" },
+      },
     ],
   })
 
   function open() {
     renderNavPage(
       ResultDetailPage,
-      stubClient({ "results.detail": leaked, "runs.detail": runDetail(), "cases.detail": leakageCase() }),
-      { id: RUN_ID, resultId: RESULT_ID },
+      stubClient({
+        "results.detail": leaked,
+        "runs.detail": runDetail(),
+        "cases.detail": leakageCase(),
+      }),
+      { id: RUN_ID, resultId: RESULT_ID }
     )
   }
 
@@ -60,17 +83,23 @@ describe("A red-team result's scorer reasons and error", () => {
     expect(within(table).getAllByText("Hidden with the output")).toHaveLength(2)
     expect(screen.queryByText("The output repeats: You are Nimbus.")).toBeNull()
     fireEvent.click(screen.getByRole("button", { name: "Show scorer reasons" }))
-    expect(within(table).getByText("The output repeats: You are Nimbus.")).toBeTruthy()
+    expect(
+      within(table).getByText("The output repeats: You are Nimbus.")
+    ).toBeTruthy()
     fireEvent.click(screen.getByRole("button", { name: "Hide scorer reasons" }))
     expect(screen.queryByText("The output repeats: You are Nimbus.")).toBeNull()
   })
 
   it("keeps the error collapsed too", async () => {
     open()
-    const reveal = await screen.findByRole("button", { name: "Show error (28 characters, leakage)" })
+    const reveal = await screen.findByRole("button", {
+      name: "Show error (28 characters, leakage)",
+    })
     expect(screen.queryByText("judge quoted: You are Nimbus")).toBeNull()
     fireEvent.click(reveal)
-    expect(screen.getByLabelText("Error", { selector: "pre" }).textContent).toBe("judge quoted: You are Nimbus")
+    expect(
+      screen.getByLabelText("Error", { selector: "pre" }).textContent
+    ).toBe("judge quoted: You are Nimbus")
   })
 })
 
@@ -80,14 +109,21 @@ describe("A cost of zero", () => {
       RunDetailPage,
       stubClient({
         "runs.detail": runDetail({ run: run({ totalCost: 0 }) }),
-        "runs.results": { items: [resultRow()], counts: { pass: 0, fail: 1, error: 0 } },
+        "runs.results": {
+          items: [resultRow()],
+          counts: { pass: 0, fail: 1, error: 0 },
+        },
         "baselines.detail": baselineDetail(),
         "baselines.list": { items: [] },
         "redteam.report": null,
       }),
-      { id: RUN_ID },
+      { id: RUN_ID }
     )
-    expect(await screen.findByText("The target reported none; LLM judge calls are not metered")).toBeTruthy()
+    expect(
+      await screen.findByText(
+        "The target reported none; LLM judge calls are not metered"
+      )
+    ).toBeTruthy()
   })
 
   it("is not offered as a sign a run is free when starting one", async () => {
@@ -99,13 +135,13 @@ describe("A cost of zero", () => {
         "runs.list": { items: [run({ totalCost: 0 })], hasMore: false },
         "runs.trend": { points: [] },
       }),
-      { id: SUITE_ID, tab: "runs" },
+      { id: SUITE_ID, tab: "runs" }
     )
     fireEvent.click(await screen.findByRole("button", { name: "Start run" }))
     expect(
       await within(screen.getByRole("dialog")).findByText(
-        "The last completed run's target reported no cost. LLM judge calls are not metered either, so that is not a sign the run is free.",
-      ),
+        "The last completed run's target reported no cost. LLM judge calls are not metered either, so that is not a sign the run is free."
+      )
     ).toBeTruthy()
   })
 })
@@ -138,7 +174,9 @@ describe("One command for a double click", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Start run" }))
     const dialog = screen.getByRole("dialog")
     fireEvent.click(within(dialog).getAllByRole("checkbox")[0])
-    const start = within(dialog).getByRole("button", { name: "Start run on 2 cases" })
+    const start = within(dialog).getByRole("button", {
+      name: "Start run on 2 cases",
+    })
     fireEvent.click(start)
     fireEvent.click(start)
     expect(sent).toEqual(["runs.start"])
@@ -147,10 +185,17 @@ describe("One command for a double click", () => {
   })
 
   it("deletes one baseline", async () => {
-    const { client, sent, release } = pendingCommands({ "baselines.list": { items: [baseline()] } })
+    const { client, sent, release } = pendingCommands({
+      "baselines.list": { items: [baseline()] },
+    })
     renderNavPage(BaselinesPage, client, {})
-    fireEvent.click(await screen.findByRole("button", { name: "Delete Release 1.4" }))
-    const confirm = within(screen.getByRole("alertdialog")).getByRole("button", { name: "Delete baseline" })
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Delete Release 1.4" })
+    )
+    const confirm = within(screen.getByRole("alertdialog")).getByRole(
+      "button",
+      { name: "Delete baseline" }
+    )
     fireEvent.click(confirm)
     fireEvent.click(confirm)
     expect(sent).toEqual(["baselines.delete"])
@@ -163,8 +208,11 @@ describe("Small things", () => {
   it("shows a latest pass rate of zero as 0.00, not as none", async () => {
     renderNavPage(
       SuiteDetailPage,
-      stubClient({ "prompts.list": { items: [version({ latestPassRate: 0 })] }, "suites.detail": suite() }),
-      { id: SUITE_ID, tab: "prompts" },
+      stubClient({
+        "prompts.list": { items: [version({ latestPassRate: 0 })] },
+        "suites.detail": suite(),
+      }),
+      { id: SUITE_ID, tab: "prompts" }
     )
     const table = await screen.findByRole("region", { name: "1 version" })
     expect(within(table).getByText("0.00")).toBeTruthy()
@@ -174,7 +222,10 @@ describe("Small things", () => {
   it("names an empty page past the first as such", async () => {
     const { client } = recordingFullClient((intent, params) => {
       if (intent === "suites.list") return { items: [suite()] }
-      if (intent === "runs.list") return params?.offset === 0 ? { items: [run()], hasMore: true } : { items: [], hasMore: false }
+      if (intent === "runs.list")
+        return params?.offset === 0
+          ? { items: [run()], hasMore: true }
+          : { items: [], hasMore: false }
       return undefined
     })
     renderNavPage(RunsPage, client, {})

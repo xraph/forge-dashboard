@@ -1,5 +1,10 @@
 import { useState } from "react"
-import { PluginLink, defineSubPlugin, useCommand, useQuery } from "@forge-go/dashboard-plugin"
+import {
+  PluginLink,
+  defineSubPlugin,
+  useCommand,
+  useQuery,
+} from "@forge-go/dashboard-plugin"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
 import { Badge } from "@forge-go/dashboard-kit/components/badge"
 import { Button } from "@forge-go/dashboard-kit/components/button"
@@ -106,7 +111,10 @@ export function PlansPage() {
   const query = useQuery<PlansListResponse>("plans.list")
   const archive = useCommand<AckResponse>("plans.archive")
   const activate = useCommand<AckResponse>("plans.activate")
-  const [target, setTarget] = useState<{ plan: PlanSummary; action: PlanAction } | null>(null)
+  const [target, setTarget] = useState<{
+    plan: PlanSummary
+    action: PlanAction
+  } | null>(null)
 
   const command = target?.action === "activate" ? activate : archive
 
@@ -131,20 +139,37 @@ export function PlansPage() {
       id: "name",
       header: "Name",
       className: "font-medium",
-      cell: (plan) => <PluginLink to={`/plans/${plan.id}`}>{plan.name}</PluginLink>,
+      cell: (plan) => (
+        <PluginLink to={`/plans/${plan.id}`}>{plan.name}</PluginLink>
+      ),
     },
-    { id: "slug", header: "Slug", className: "font-mono text-xs", cell: (plan) => plan.slug },
+    {
+      id: "slug",
+      header: "Slug",
+      className: "font-mono text-xs",
+      cell: (plan) => plan.slug,
+    },
     {
       id: "currency",
       header: "Currency",
-      cell: (plan) => (plan.currency ? plan.currency.toUpperCase() : <NoneCell label="currency" />),
+      cell: (plan) =>
+        plan.currency ? (
+          plan.currency.toUpperCase()
+        ) : (
+          <NoneCell label="currency" />
+        ),
     },
     {
       id: "trial",
       header: "Trial",
-      cell: (plan) => (plan.trialDays ? `${plan.trialDays}d` : <NoneCell label="trial" />),
+      cell: (plan) =>
+        plan.trialDays ? `${plan.trialDays}d` : <NoneCell label="trial" />,
     },
-    { id: "status", header: "Status", cell: (plan) => <PlanStatusBadge status={plan.status} /> },
+    {
+      id: "status",
+      header: "Status",
+      cell: (plan) => <PlanStatusBadge status={plan.status} />,
+    },
   ]
 
   return (
@@ -239,9 +264,18 @@ function PlanDetailBody({ id }: { id: string }) {
   const query = useQuery<PlanDetail>("plans.detail", { id })
 
   const columns: Column<PlanFeature>[] = [
-    { id: "key", header: "Key", className: "font-mono text-xs", cell: (feature) => feature.key },
+    {
+      id: "key",
+      header: "Key",
+      className: "font-mono text-xs",
+      cell: (feature) => feature.key,
+    },
     { id: "name", header: "Name", cell: (feature) => feature.name },
-    { id: "type", header: "Type", cell: (feature) => <Badge variant="outline">{feature.type}</Badge> },
+    {
+      id: "type",
+      header: "Type",
+      cell: (feature) => <Badge variant="outline">{feature.type}</Badge>,
+    },
     {
       id: "limit",
       header: "Limit",
@@ -263,16 +297,35 @@ function PlanDetailBody({ id }: { id: string }) {
                   form here would have nothing to submit to. */}
               <DescriptionList
                 items={[
-                  { term: "Plan ID", value: <span className="font-mono text-xs">{plan.id}</span> },
-                  { term: "Slug", value: <span className="font-mono text-xs">{plan.slug}</span> },
+                  {
+                    term: "Plan ID",
+                    value: <span className="font-mono text-xs">{plan.id}</span>,
+                  },
+                  {
+                    term: "Slug",
+                    value: (
+                      <span className="font-mono text-xs">{plan.slug}</span>
+                    ),
+                  },
                   {
                     term: "Currency",
-                    value: plan.currency ? plan.currency.toUpperCase() : <NoneCell label="currency" />,
+                    value: plan.currency ? (
+                      plan.currency.toUpperCase()
+                    ) : (
+                      <NoneCell label="currency" />
+                    ),
                   },
-                  { term: "Status", value: <PlanStatusBadge status={plan.status} /> },
+                  {
+                    term: "Status",
+                    value: <PlanStatusBadge status={plan.status} />,
+                  },
                   {
                     term: "Trial days",
-                    value: plan.trialDays ? `${plan.trialDays}d` : <NoneCell label="trial" />,
+                    value: plan.trialDays ? (
+                      `${plan.trialDays}d`
+                    ) : (
+                      <NoneCell label="trial" />
+                    ),
                   },
                   {
                     term: "Description",
@@ -315,7 +368,8 @@ export function PlanDetailPage({ params }: PluginPageProps) {
 /* ---------------------------------------------------------- shared summary */
 
 function SubscriptionStatusBadge({ status }: { status: string }) {
-  if (status === "active" || status === "trialing") return <Badge variant="default">{status}</Badge>
+  if (status === "active" || status === "trialing")
+    return <Badge variant="default">{status}</Badge>
   if (status === "canceled" || status === "cancelled" || status === "expired") {
     return <Badge variant="outline">{status}</Badge>
   }
@@ -329,7 +383,9 @@ function SubscriptionStatusBadge({ status }: { status: string }) {
  * "p1" tells an operator nothing.
  */
 function SubscriptionsForTenant({ tenantId }: { tenantId: string }) {
-  const query = useQuery<SubscriptionsListResponse>("subscriptions.list", { tenantId })
+  const query = useQuery<SubscriptionsListResponse>("subscriptions.list", {
+    tenantId,
+  })
   const plansQuery = useQuery<PlansListResponse>("plans.list")
 
   return (
@@ -337,23 +393,36 @@ function SubscriptionsForTenant({ tenantId }: { tenantId: string }) {
       {(data) => {
         const subscriptions = data.subscriptions ?? []
         if (subscriptions.length === 0) {
-          return <p className="text-sm text-muted-foreground">No active subscription.</p>
+          return (
+            <p className="text-sm text-muted-foreground">
+              No active subscription.
+            </p>
+          )
         }
 
         const planName = (planId: string) =>
-          plansQuery.data?.plans.find((plan) => plan.id === planId)?.name ?? planId
+          plansQuery.data?.plans.find((plan) => plan.id === planId)?.name ??
+          planId
 
         return (
           <div className="flex flex-col gap-3">
             {subscriptions.map((subscription) => (
-              <div key={subscription.id} className="flex flex-col gap-1 rounded-md border p-3 text-sm">
+              <div
+                key={subscription.id}
+                className="flex flex-col gap-1 rounded-md border p-3 text-sm"
+              >
                 <div className="flex items-center gap-2">
-                  <span className="font-medium">{planName(subscription.planId)}</span>
+                  <span className="font-medium">
+                    {planName(subscription.planId)}
+                  </span>
                   <SubscriptionStatusBadge status={subscription.status} />
                 </div>
                 <div className="text-muted-foreground">
                   Period ends{" "}
-                  <Timestamp value={subscription.currentPeriodEnd} label="period end" />
+                  <Timestamp
+                    value={subscription.currentPeriodEnd}
+                    label="period end"
+                  />
                 </div>
               </div>
             ))}

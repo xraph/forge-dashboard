@@ -85,7 +85,10 @@ export const SetupPage: ComponentType<PluginPageProps> = () => {
         {(data) => (
           <div className="flex flex-col gap-6">
             {data.targets.length === 0 && <NoTargetNotice />}
-            <section aria-labelledby="sentinel-setup-config" className="flex flex-col gap-2">
+            <section
+              aria-labelledby="sentinel-setup-config"
+              className="flex flex-col gap-2"
+            >
               <h2 id="sentinel-setup-config" className="text-sm font-medium">
                 Engine configuration
               </h2>
@@ -93,10 +96,17 @@ export const SetupPage: ComponentType<PluginPageProps> = () => {
                 items={[
                   {
                     term: "Default model",
-                    value: <span className="font-mono text-xs">{data.defaultModel}</span>,
+                    value: (
+                      <span className="font-mono text-xs">
+                        {data.defaultModel}
+                      </span>
+                    ),
                   },
                   { term: "Temperature", value: String(data.temperature) },
-                  { term: "Pass threshold", value: formatThreshold(data.passThreshold) },
+                  {
+                    term: "Pass threshold",
+                    value: formatThreshold(data.passThreshold),
+                  },
                   {
                     term: "Regression threshold",
                     value: formatThreshold(data.regressionThreshold),
@@ -109,7 +119,10 @@ export const SetupPage: ComponentType<PluginPageProps> = () => {
                 not change how a finished run was scored.
               </p>
             </section>
-            <section aria-labelledby="sentinel-setup-targets" className="flex flex-col gap-2">
+            <section
+              aria-labelledby="sentinel-setup-targets"
+              className="flex flex-col gap-2"
+            >
               <h2 id="sentinel-setup-targets" className="text-sm font-medium">
                 Targets
               </h2>
@@ -121,7 +134,10 @@ export const SetupPage: ComponentType<PluginPageProps> = () => {
                 emptyMessage="No targets registered."
               />
             </section>
-            <section aria-labelledby="sentinel-setup-scorers" className="flex flex-col gap-2">
+            <section
+              aria-labelledby="sentinel-setup-scorers"
+              className="flex flex-col gap-2"
+            >
               <h2 id="sentinel-setup-scorers" className="text-sm font-medium">
                 Scorers
               </h2>
@@ -147,8 +163,13 @@ export const SetupPage: ComponentType<PluginPageProps> = () => {
 /** Shown when the engine has no target: no run can start until one exists. */
 function NoTargetNotice() {
   return (
-    <div role="note" className="flex flex-col gap-1 rounded-md border px-4 py-3 text-sm">
-      <span className="font-medium">No target is registered, so no run can start.</span>
+    <div
+      role="note"
+      className="flex flex-col gap-1 rounded-md border px-4 py-3 text-sm"
+    >
+      <span className="font-medium">
+        No target is registered, so no run can start.
+      </span>
       <span className="text-muted-foreground">
         A target is what a run sends each case to. Register one in your
         application with the sentinel extension option{" "}

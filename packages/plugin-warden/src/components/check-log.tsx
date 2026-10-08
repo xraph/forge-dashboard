@@ -76,7 +76,12 @@ export const DECISIONS = [
  * are `SUBJECT_KINDS` in `pages/assignments.tsx`; that copy is not exported,
  * and moving it would touch a page this feature does not otherwise change.
  */
-export const CHECK_SUBJECT_KINDS = ["user", "api_key", "service", "service_acct"] as const
+export const CHECK_SUBJECT_KINDS = [
+  "user",
+  "api_key",
+  "service",
+  "service_acct",
+] as const
 
 /**
  * The check log's scan signal is not the decision.
@@ -88,7 +93,9 @@ export const CHECK_SUBJECT_KINDS = ["user", "api_key", "service", "service_acct"
  * accepts that it is weak. Error is the one state whose meaning does not
  * vary with posture, so it is the one that interrupts.
  */
-export function decisionVariant(decision: string): "outline" | "secondary" | "destructive" {
+export function decisionVariant(
+  decision: string
+): "outline" | "secondary" | "destructive" {
   if (decision === "error") return "destructive"
   return decision === "allow" ? "outline" : "secondary"
 }
@@ -136,7 +143,10 @@ export function checkColumns(): Column<CheckSummary>[] {
       id: "createdAt",
       header: "When",
       cell: (c) => (
-        <PluginLink to={`/check-log/${c.id}`} className="underline underline-offset-4">
+        <PluginLink
+          to={`/check-log/${c.id}`}
+          className="underline underline-offset-4"
+        >
           <Timestamp value={c.createdAt} label="checked at" />
         </PluginLink>
       ),
@@ -145,7 +155,11 @@ export function checkColumns(): Column<CheckSummary>[] {
       id: "subject",
       header: "Subject",
       cell: (c) => (
-        <SubjectLink kind={c.subjectKind} id={c.subjectId} className="font-medium" />
+        <SubjectLink
+          kind={c.subjectKind}
+          id={c.subjectId}
+          className="font-medium"
+        />
       ),
       className: "font-medium",
     },
@@ -165,7 +179,9 @@ export function checkColumns(): Column<CheckSummary>[] {
     {
       id: "decision",
       header: "Decision",
-      cell: (c) => <Badge variant={decisionVariant(c.decision)}>{c.decision}</Badge>,
+      cell: (c) => (
+        <Badge variant={decisionVariant(c.decision)}>{c.decision}</Badge>
+      ),
     },
     {
       id: "detail",

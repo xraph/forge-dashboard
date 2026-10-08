@@ -7,8 +7,23 @@ import {
   type Column,
 } from "@forge-go/dashboard-kit/components/resource-table"
 import { RedTeamBadge, ResultStatusBadge, ScorerVerdicts } from "../badges"
-import { fellPast, formatCost, formatCount, formatDelta, formatLatency, formatScore, plural, resultPath } from "../format"
-import type { BaselineDetail, ResultCounts, ResultRow, ResultStatus, RunResults } from "../types"
+import {
+  fellPast,
+  formatCost,
+  formatCount,
+  formatDelta,
+  formatLatency,
+  formatScore,
+  plural,
+  resultPath,
+} from "../format"
+import type {
+  BaselineDetail,
+  ResultCounts,
+  ResultRow,
+  ResultStatus,
+  RunResults,
+} from "../types"
 import { RUN_POLL_MS } from "./runs-list"
 import { SettledBoundary } from "./settled-boundary"
 
@@ -22,9 +37,15 @@ const CHIPS: { status: ResultStatus; label: string }[] = [
  * What the change column knows: nothing yet while the baseline's scores load,
  * or each case's saved score once they have.
  */
-type BaselineScores = { state: "loading" } | { state: "loaded"; scores: Map<string, number> } | { state: "failed" }
+type BaselineScores =
+  | { state: "loading" }
+  | { state: "loaded"; scores: Map<string, number> }
+  | { state: "failed" }
 
-function changeColumn(baseline: BaselineScores, threshold: number | undefined): Column<ResultRow> {
+function changeColumn(
+  baseline: BaselineScores,
+  threshold: number | undefined
+): Column<ResultRow> {
   return {
     id: "change",
     header: "Change vs baseline",
@@ -33,8 +54,10 @@ function changeColumn(baseline: BaselineScores, threshold: number | undefined): 
     cell: (r) => {
       // Until the scores arrive, or if they could not be read, the page does
       // not know whether the baseline scored this case, so it does not say.
-      if (baseline.state === "loading") return <NoneCell label="baseline score loaded yet" />
-      if (baseline.state === "failed") return <NoneCell label="readable baseline score" />
+      if (baseline.state === "loading")
+        return <NoneCell label="baseline score loaded yet" />
+      if (baseline.state === "failed")
+        return <NoneCell label="readable baseline score" />
       const old = baseline.scores.get(r.caseId)
       if (old === undefined) return <NoneCell label="baseline score" />
       const delta = r.score - old
@@ -49,7 +72,11 @@ function changeColumn(baseline: BaselineScores, threshold: number | undefined): 
 }
 
 /** The change column comes only with a baseline the run was compared with. */
-function columns(runId: string, baseline: BaselineScores | null, threshold: number | undefined): Column<ResultRow>[] {
+function columns(
+  runId: string,
+  baseline: BaselineScores | null,
+  threshold: number | undefined
+): Column<ResultRow>[] {
   return [
     {
       id: "case",
@@ -62,18 +89,50 @@ function columns(runId: string, baseline: BaselineScores | null, threshold: numb
         </span>
       ),
     },
-    { id: "status", header: "Status", cell: (r) => <ResultStatusBadge status={r.status} /> },
-    { id: "score", header: "Score", align: "end", className: "tabular-nums", cell: (r) => formatScore(r.score) },
+    {
+      id: "status",
+      header: "Status",
+      cell: (r) => <ResultStatusBadge status={r.status} />,
+    },
+    {
+      id: "score",
+      header: "Score",
+      align: "end",
+      className: "tabular-nums",
+      cell: (r) => formatScore(r.score),
+    },
     ...(baseline ? [changeColumn(baseline, threshold)] : []),
     {
       id: "scorers",
       header: "Scorers",
       cell: (r) =>
-        r.scorers.length === 0 ? <NoneCell label="scorer verdicts" /> : <ScorerVerdicts verdicts={r.scorers} />,
+        r.scorers.length === 0 ? (
+          <NoneCell label="scorer verdicts" />
+        ) : (
+          <ScorerVerdicts verdicts={r.scorers} />
+        ),
     },
-    { id: "latency", header: "Latency", align: "end", className: "tabular-nums", cell: (r) => formatLatency(r.latencyMs) },
-    { id: "tokens", header: "Tokens", align: "end", className: "tabular-nums", cell: (r) => formatCount(r.tokensUsed) },
-    { id: "cost", header: "Cost reported", align: "end", className: "tabular-nums", cell: (r) => formatCost(r.cost) },
+    {
+      id: "latency",
+      header: "Latency",
+      align: "end",
+      className: "tabular-nums",
+      cell: (r) => formatLatency(r.latencyMs),
+    },
+    {
+      id: "tokens",
+      header: "Tokens",
+      align: "end",
+      className: "tabular-nums",
+      cell: (r) => formatCount(r.tokensUsed),
+    },
+    {
+      id: "cost",
+      header: "Cost reported",
+      align: "end",
+      className: "tabular-nums",
+      cell: (r) => formatCost(r.cost),
+    },
   ]
 }
 
@@ -109,13 +168,23 @@ export function ResultsSection({
   baselineId?: string
   threshold?: number
 }) {
-  const results = useQuery<RunResults>("runs.results", { runId, ...(status !== "" && { status }) })
-  const baseline = useQuery<BaselineDetail>("baselines.detail", { baselineId }, { enabled: baselineId !== undefined })
+  const results = useQuery<RunResults>("runs.results", {
+    runId,
+    ...(status !== "" && { status }),
+  })
+  const baseline = useQuery<BaselineDetail>(
+    "baselines.detail",
+    { baselineId },
+    { enabled: baselineId !== undefined }
+  )
   usePoll(() => {
     if (running) results.refetch()
   }, RUN_POLL_MS)
-  const [counts, setCounts] = useState<ResultCounts | null>(results.data?.counts ?? null)
-  if (results.data && results.data.counts !== counts) setCounts(results.data.counts)
+  const [counts, setCounts] = useState<ResultCounts | null>(
+    results.data?.counts ?? null
+  )
+  if (results.data && results.data.counts !== counts)
+    setCounts(results.data.counts)
   const { refetch } = results
   const wasRunning = useRef(running)
   useEffect(() => {
@@ -126,12 +195,20 @@ export function ResultsSection({
     baselineId === undefined
       ? null
       : baseline.data
-        ? { state: "loaded", scores: new Map(baseline.data.results.map((r) => [r.caseId, r.score])) }
+        ? {
+            state: "loaded",
+            scores: new Map(
+              baseline.data.results.map((r) => [r.caseId, r.score])
+            ),
+          }
         : baseline.error
           ? { state: "failed" }
           : { state: "loading" }
   return (
-    <section aria-labelledby="sentinel-run-results" className="flex flex-col gap-3">
+    <section
+      aria-labelledby="sentinel-run-results"
+      className="flex flex-col gap-3"
+    >
       <h2 id="sentinel-run-results" className="text-sm font-medium">
         Results
       </h2>
@@ -141,7 +218,11 @@ export function ResultsSection({
         </p>
       )}
       {counts && (
-        <div role="group" aria-label="Show results by status" className="flex flex-wrap gap-2">
+        <div
+          role="group"
+          aria-label="Show results by status"
+          className="flex flex-wrap gap-2"
+        >
           <Button
             variant={status === "" ? "default" : "outline"}
             size="sm"
@@ -156,7 +237,9 @@ export function ResultsSection({
               variant={status === c.status ? "default" : "outline"}
               size="sm"
               aria-pressed={status === c.status}
-              onClick={() => onStatusChange(status === c.status ? "" : c.status)}
+              onClick={() =>
+                onStatusChange(status === c.status ? "" : c.status)
+              }
             >
               {`${c.label} ${counts[c.status]}`}
             </Button>
@@ -177,7 +260,11 @@ export function ResultsSection({
                     ? plural(total, "result", "results")
                     : `${data.items.length} of ${plural(total, "result", "results")}`
                 }
-                emptyMessage={status === "" ? "No case has been scored yet." : "No results with this status."}
+                emptyMessage={
+                  status === ""
+                    ? "No case has been scored yet."
+                    : "No results with this status."
+                }
               />
             </div>
           )

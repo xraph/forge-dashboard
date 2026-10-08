@@ -2,7 +2,12 @@ import { describe, expect, it } from "vitest"
 import { fireEvent, screen, waitFor, within } from "@testing-library/react"
 import { ContractError } from "@forge-go/dashboard-plugin"
 import { WardenConfigPage } from "../src/pages/config"
-import { failingClient, recordingCommandClient, renderPage, stubClient } from "./harness"
+import {
+  failingClient,
+  recordingCommandClient,
+  renderPage,
+  stubClient,
+} from "./harness"
 
 const CONFIG = {
   maxGraphDepth: 10,
@@ -60,7 +65,10 @@ describe("WardenConfigPage", () => {
     renderPage(
       WardenConfigPage,
       stubClient({
-        "config.detail": { ...CONFIG, plugins: ["auditlog", "warden-cache-invalidator"] },
+        "config.detail": {
+          ...CONFIG,
+          plugins: ["auditlog", "warden-cache-invalidator"],
+        },
       })
     )
     const section = await screen.findByRole("region", { name: "Plugins" })
@@ -72,8 +80,13 @@ describe("WardenConfigPage", () => {
   it("says no plugins are registered when the list is empty", async () => {
     // Templ hid the card when there were none. A missing section reads the
     // same as one that failed to load, so the page says it outright.
-    renderPage(WardenConfigPage, stubClient({ "config.detail": { ...CONFIG, plugins: [] } }))
-    expect(await screen.findByText("No authorization plugins are registered.")).toBeTruthy()
+    renderPage(
+      WardenConfigPage,
+      stubClient({ "config.detail": { ...CONFIG, plugins: [] } })
+    )
+    expect(
+      await screen.findByText("No authorization plugins are registered.")
+    ).toBeTruthy()
   })
 
   it("says nothing about plugins when the server does not report them", async () => {
@@ -133,7 +146,9 @@ describe("WardenConfigPage", () => {
         },
       })
     )
-    expect(await screen.findByText("Off, no entries are purged by age")).toBeTruthy()
+    expect(
+      await screen.findByText("Off, no entries are purged by age")
+    ).toBeTruthy()
     expect(screen.getByText("Off")).toBeTruthy()
     expect(screen.queryByText(/kept forever/i)).toBeNull()
     expect(screen.queryByText(/-\d/)).toBeNull()
@@ -175,7 +190,9 @@ describe("WardenConfigPage", () => {
     )
     renderPage(WardenConfigPage, client)
 
-    fireEvent.click(await screen.findByRole("button", { name: /run maintenance/i }))
+    fireEvent.click(
+      await screen.findByRole("button", { name: /run maintenance/i })
+    )
     fireEvent.click(await screen.findByRole("button", { name: /^run$/i }))
 
     expect(await screen.findByText(/nothing needed purging/i)).toBeTruthy()
@@ -188,7 +205,9 @@ describe("WardenConfigPage", () => {
     )
     renderPage(WardenConfigPage, client)
 
-    fireEvent.click(await screen.findByRole("button", { name: /run maintenance/i }))
+    fireEvent.click(
+      await screen.findByRole("button", { name: /run maintenance/i })
+    )
     fireEvent.click(await screen.findByRole("button", { name: /^run$/i }))
 
     expect(await screen.findByText(/3 expired assignments/i)).toBeTruthy()
@@ -209,9 +228,13 @@ describe("WardenConfigPage", () => {
     )
     renderPage(WardenConfigPage, client)
 
-    fireEvent.click(await screen.findByRole("button", { name: /run maintenance/i }))
+    fireEvent.click(
+      await screen.findByRole("button", { name: /run maintenance/i })
+    )
     const dialog = await screen.findByRole("alertdialog")
-    expect(dialog.textContent).toContain("this tenant's assignments that have already expired")
+    expect(dialog.textContent).toContain(
+      "this tenant's assignments that have already expired"
+    )
     expect(dialog.textContent).toContain(
       "when a check log retention is in effect, this tenant's check log entries older than it"
     )
@@ -220,7 +243,9 @@ describe("WardenConfigPage", () => {
 
     fireEvent.click(await screen.findByRole("button", { name: /^run$/i }))
     expect(
-      await screen.findByText("Maintenance ran for this tenant. Purged 3 expired assignments.")
+      await screen.findByText(
+        "Maintenance ran for this tenant. Purged 3 expired assignments."
+      )
     ).toBeTruthy()
   })
 
@@ -257,7 +282,9 @@ describe("WardenConfigPage", () => {
     fireEvent.click(await screen.findByRole("button", { name: /clear cache/i }))
     fireEvent.click(await screen.findByRole("button", { name: /^clear$/i }))
 
-    expect(await screen.findByText(/cleared the decision cache for this tenant/i)).toBeTruthy()
+    expect(
+      await screen.findByText(/cleared the decision cache for this tenant/i)
+    ).toBeTruthy()
   })
 
   /**
@@ -274,7 +301,9 @@ describe("WardenConfigPage", () => {
       failingClient(new ContractError("INTERNAL", "store unavailable"))
     )
 
-    fireEvent.click(await screen.findByRole("button", { name: /run maintenance/i }))
+    fireEvent.click(
+      await screen.findByRole("button", { name: /run maintenance/i })
+    )
     fireEvent.click(await screen.findByRole("button", { name: /^run$/i }))
 
     const alert = await screen.findByRole("alert")

@@ -65,11 +65,13 @@ export function readEvaluation(
   evaluation: FlagEvaluation,
   rules: FlagRuleSummary[],
   overrides: FlagOverrideSummary[],
-  tenantId: string | undefined,
+  tenantId: string | undefined
 ): LadderMarks {
   const { reason, trace } = evaluation
   const reachedRules = reason === "rule" || reason === "default"
-  const byId = trace.some((step) => step.ruleId !== undefined && step.ruleId !== "")
+  const byId = trace.some(
+    (step) => step.ruleId !== undefined && step.ruleId !== ""
+  )
 
   const walked = byId
     ? readById(evaluation, rules, reachedRules)
@@ -85,7 +87,8 @@ export function readEvaluation(
       : undefined
   // The engine used an override the page cannot find (removed between the two
   // reads), so there is no row to mark. Say so.
-  const overrideMissing = reason === "tenantOverride" && overrideTenant === undefined
+  const overrideMissing =
+    reason === "tenantOverride" && overrideTenant === undefined
 
   return {
     reason,
@@ -114,25 +117,41 @@ function verdictOf(step: FlagTraceStep): RuleVerdict {
 }
 
 /** No rule has a verdict: nothing is claimed about it, decided or not. */
-function withheld(rules: FlagRuleSummary[], notReached: boolean): RuleVerdict[] {
+function withheld(
+  rules: FlagRuleSummary[],
+  notReached: boolean
+): RuleVerdict[] {
   return rules.map(() => ({ decided: false, notReached, note: "" }))
 }
 
 function readById(
   evaluation: FlagEvaluation,
   rules: FlagRuleSummary[],
-  reachedRules: boolean,
+  reachedRules: boolean
 ): Walk {
   const { reason, trace } = evaluation
   if (!reachedRules) {
-    return { verdicts: withheld(rules, true), decidedIndex: -1, mismatch: false }
+    return {
+      verdicts: withheld(rules, true),
+      decidedIndex: -1,
+      mismatch: false,
+    }
   }
-  const lost: Walk = { verdicts: withheld(rules, false), decidedIndex: -1, mismatch: true }
+  const lost: Walk = {
+    verdicts: withheld(rules, false),
+    decidedIndex: -1,
+    mismatch: true,
+  }
 
   if (trace.length !== rules.length) return lost
   const steps = new Map<string, FlagTraceStep>()
   for (const step of trace) {
-    if (step.ruleId === undefined || step.ruleId === "" || steps.has(step.ruleId)) return lost
+    if (
+      step.ruleId === undefined ||
+      step.ruleId === "" ||
+      steps.has(step.ruleId)
+    )
+      return lost
     steps.set(step.ruleId, step)
   }
   const verdicts: RuleVerdict[] = []
@@ -157,12 +176,16 @@ function readById(
 function readByPosition(
   evaluation: FlagEvaluation,
   rules: FlagRuleSummary[],
-  reachedRules: boolean,
+  reachedRules: boolean
 ): Walk {
   const { reason, trace } = evaluation
   let mismatch = false
   const verdicts: RuleVerdict[] = rules.map((rule, i) => {
-    const none: RuleVerdict = { decided: false, notReached: !reachedRules, note: "" }
+    const none: RuleVerdict = {
+      decided: false,
+      notReached: !reachedRules,
+      note: "",
+    }
     if (!reachedRules) return none
     const step = trace[i]
     if (step === undefined || step.priority !== rule.priority) {
@@ -173,7 +196,8 @@ function readByPosition(
   })
   if (reachedRules && trace.length !== rules.length) mismatch = true
 
-  let decidedIndex = reason === "rule" ? verdicts.findIndex((v) => v.decided) : -1
+  let decidedIndex =
+    reason === "rule" ? verdicts.findIndex((v) => v.decided) : -1
   if (reason === "rule") {
     // The trace says which rule matched, the response says which priority did.
     // They have to agree, or the page and the engine are looking at different

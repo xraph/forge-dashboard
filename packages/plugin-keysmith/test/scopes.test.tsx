@@ -49,7 +49,7 @@ function cells(name: string): HTMLElement[] {
 /** Reads from `answers`, every command refused with `error`. */
 function refusingClient(
   answers: Record<string, unknown>,
-  error: ContractError,
+  error: ContractError
 ): ScopedClient {
   return {
     ...stubClient(answers),
@@ -75,9 +75,11 @@ async function openDelete(name: string) {
 describe("ScopesPage list", () => {
   it("says what parents mean, with the scope names in mono", async () => {
     renderPage(ScopesPage, stubClient({ "scopes.list": LIST }))
-    expect(await screen.findByRole("heading", { level: 1, name: "Scopes" })).toBeTruthy()
+    expect(
+      await screen.findByRole("heading", { level: 1, name: "Scopes" })
+    ).toBeTruthy()
     const line = screen.getByText(
-      (_, el) => el?.tagName === "P" && el.textContent === PARENTS_LINE,
+      (_, el) => el?.tagName === "P" && el.textContent === PARENTS_LINE
     )
     const mono = Array.from(line.querySelectorAll(".font-mono"))
     expect(mono.map((el) => el.textContent)).toEqual(["read", "read:users"])
@@ -88,9 +90,9 @@ describe("ScopesPage list", () => {
     const { client, sent } = recordingQueryClient({ "scopes.list": LIST })
     renderPage(ScopesPage, client)
     await screen.findByText("billing", { selector: "td, td *" })
-    expect(sent.filter((s) => s.intent === "scopes.list").map((s) => s.params)).toEqual([
-      { limit: 200 },
-    ])
+    expect(
+      sent.filter((s) => s.intent === "scopes.list").map((s) => s.params)
+    ).toEqual([{ limit: 200 }])
   })
 
   it("shows a scope with a parent, its name and parent in mono", async () => {
@@ -126,7 +128,9 @@ describe("ScopesPage list", () => {
 
   it("says when it is showing only the first 200", async () => {
     renderPage(ScopesPage, stubClient({ "scopes.list": list([READ], true) }))
-    expect(await screen.findByText("Showing the first 200 scopes.")).toBeTruthy()
+    expect(
+      await screen.findByText("Showing the first 200 scopes.")
+    ).toBeTruthy()
   })
 
   it("does not say so when the list is complete", async () => {
@@ -136,21 +140,24 @@ describe("ScopesPage list", () => {
   })
 
   it("says so when there are no scopes, with a way to create one", async () => {
-    renderPage(
-      ScopesPage,
-      stubClient({ "scopes.list": list([]) }),
+    renderPage(ScopesPage, stubClient({ "scopes.list": list([]) }))
+    const empty = (await screen.findByText("No scopes yet.")).closest(
+      "[role=status]"
     )
-    const empty = (await screen.findByText("No scopes yet.")).closest("[role=status]")
     expect(empty).not.toBeNull()
     expect(screen.queryByRole("table")).toBeNull()
-    fireEvent.click(within(empty as HTMLElement).getByRole("button", { name: "Create scope" }))
-    expect(await screen.findByRole("dialog", { name: "Create scope" })).toBeTruthy()
+    fireEvent.click(
+      within(empty as HTMLElement).getByRole("button", { name: "Create scope" })
+    )
+    expect(
+      await screen.findByRole("dialog", { name: "Create scope" })
+    ).toBeTruthy()
   })
 
   it("shows the error state with the message when the list fails", async () => {
     renderPage(
       ScopesPage,
-      failingClient(new ContractError("INTERNAL", "scope store is down")),
+      failingClient(new ContractError("INTERNAL", "scope store is down"))
     )
     expect(await screen.findByText(/scope store is down/)).toBeTruthy()
     expect(screen.queryByRole("table")).toBeNull()
@@ -163,7 +170,9 @@ describe("ScopesPage create", () => {
     renderPage(ScopesPage, stubClient({ "scopes.list": LIST }))
     const d = await openCreate()
     const parent = within(d).getByLabelText("Parent") as HTMLSelectElement
-    expect(Array.from(parent.options).map((o) => [o.value, o.textContent])).toEqual([
+    expect(
+      Array.from(parent.options).map((o) => [o.value, o.textContent])
+    ).toEqual([
       ["", "No parent"],
       ["billing", "billing"],
       ["read", "read"],
@@ -176,19 +185,33 @@ describe("ScopesPage create", () => {
   it("sends the trimmed name and description with the chosen parent, then closes", async () => {
     const { client, sent } = recordingCommandClient(
       { "scopes.list": LIST },
-      { "scopes.create": { scope: { id: "kscp_new", name: "billing:read", parent: "billing" } } },
+      {
+        "scopes.create": {
+          scope: { id: "kscp_new", name: "billing:read", parent: "billing" },
+        },
+      }
     )
     renderPage(ScopesPage, client)
     const d = await openCreate()
-    fireEvent.change(field(d, "Name"), { target: { value: "  billing:read  " } })
-    fireEvent.change(within(d).getByLabelText("Parent"), { target: { value: "billing" } })
-    fireEvent.change(field(d, "Description"), { target: { value: "  Read invoices  " } })
+    fireEvent.change(field(d, "Name"), {
+      target: { value: "  billing:read  " },
+    })
+    fireEvent.change(within(d).getByLabelText("Parent"), {
+      target: { value: "billing" },
+    })
+    fireEvent.change(field(d, "Description"), {
+      target: { value: "  Read invoices  " },
+    })
     fireEvent.click(within(d).getByRole("button", { name: "Create scope" }))
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull())
     expect(sent).toEqual([
       {
         intent: "scopes.create",
-        payload: { name: "billing:read", parent: "billing", description: "Read invoices" },
+        payload: {
+          name: "billing:read",
+          parent: "billing",
+          description: "Read invoices",
+        },
       },
     ])
   })
@@ -196,7 +219,7 @@ describe("ScopesPage create", () => {
   it("sends an empty parent for No parent, which the server reads as none", async () => {
     const { client, sent } = recordingCommandClient(
       { "scopes.list": LIST },
-      { "scopes.create": { scope: { id: "kscp_new", name: "write" } } },
+      { "scopes.create": { scope: { id: "kscp_new", name: "write" } } }
     )
     renderPage(ScopesPage, client)
     const d = await openCreate()
@@ -204,14 +227,17 @@ describe("ScopesPage create", () => {
     fireEvent.click(within(d).getByRole("button", { name: "Create scope" }))
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull())
     expect(sent).toEqual([
-      { intent: "scopes.create", payload: { name: "write", parent: "", description: "" } },
+      {
+        intent: "scopes.create",
+        payload: { name: "write", parent: "", description: "" },
+      },
     ])
   })
 
   it("sends once on a double click", async () => {
     const { client, sent } = recordingCommandClient(
       { "scopes.list": LIST },
-      { "scopes.create": { scope: { id: "kscp_new", name: "write" } } },
+      { "scopes.create": { scope: { id: "kscp_new", name: "write" } } }
     )
     renderPage(ScopesPage, client)
     const d = await openCreate()
@@ -229,7 +255,9 @@ describe("ScopesPage create", () => {
     const d = await openCreate()
     fireEvent.change(field(d, "Name"), { target: { value: "   " } })
     fireEvent.click(within(d).getByRole("button", { name: "Create scope" }))
-    expect((await within(d).findByRole("alert")).textContent).toBe("name is required")
+    expect((await within(d).findByRole("alert")).textContent).toBe(
+      "name is required"
+    )
     expect(field(d, "Name").getAttribute("aria-invalid")).toBe("true")
     expect(sent).toEqual([])
   })
@@ -239,29 +267,41 @@ describe("ScopesPage create", () => {
     ["BAD_REQUEST", "name cannot contain spaces", "Name"],
     ["BAD_REQUEST", "description is too long", "Description"],
     ["BAD_REQUEST", "parent is too long", "Parent"],
-    ["BAD_REQUEST", 'parent scope "gone" does not exist in this tenant', "Parent"],
-  ])("shows a %s refusal, %s, as the server words it and marks the field", async (code, message, label) => {
-    renderPage(
-      ScopesPage,
-      refusingClient({ "scopes.list": LIST }, new ContractError(code, message)),
-    )
-    const d = await openCreate()
-    fireEvent.change(field(d, "Name"), { target: { value: "read" } })
-    fireEvent.click(within(d).getByRole("button", { name: "Create scope" }))
-    expect((await within(d).findByRole("alert")).textContent).toBe(message)
-    expect(within(d).getByLabelText(label).getAttribute("aria-invalid")).toBe("true")
-    // Kept, so a retry is one edit away.
-    expect(field(d, "Name").value).toBe("read")
-    expect(screen.getByRole("dialog", { name: "Create scope" })).toBe(d)
-  })
+    [
+      "BAD_REQUEST",
+      'parent scope "gone" does not exist in this tenant',
+      "Parent",
+    ],
+  ])(
+    "shows a %s refusal, %s, as the server words it and marks the field",
+    async (code, message, label) => {
+      renderPage(
+        ScopesPage,
+        refusingClient(
+          { "scopes.list": LIST },
+          new ContractError(code, message)
+        )
+      )
+      const d = await openCreate()
+      fireEvent.change(field(d, "Name"), { target: { value: "read" } })
+      fireEvent.click(within(d).getByRole("button", { name: "Create scope" }))
+      expect((await within(d).findByRole("alert")).textContent).toBe(message)
+      expect(within(d).getByLabelText(label).getAttribute("aria-invalid")).toBe(
+        "true"
+      )
+      // Kept, so a retry is one edit away.
+      expect(field(d, "Name").value).toBe("read")
+      expect(screen.getByRole("dialog", { name: "Create scope" })).toBe(d)
+    }
+  )
 
   it("forgets the last error and what was typed when it opens again", async () => {
     renderPage(
       ScopesPage,
       refusingClient(
         { "scopes.list": LIST },
-        new ContractError("CONFLICT", "a scope with this name already exists"),
-      ),
+        new ContractError("CONFLICT", "a scope with this name already exists")
+      )
     )
     const d = await openCreate()
     fireEvent.change(field(d, "Name"), { target: { value: "read" } })
@@ -291,7 +331,9 @@ describe("ScopesPage create while scopes cannot be loaded", () => {
     await screen.findByText(/scope store is down/)
     fireEvent.click(screen.getByRole("button", { name: "Create scope" }))
     const d = await screen.findByRole("dialog", { name: "Create scope" })
-    expect(await within(d).findByText("Scopes could not be loaded right now.")).toBeTruthy()
+    expect(
+      await within(d).findByText("Scopes could not be loaded right now.")
+    ).toBeTruthy()
     const parent = within(d).getByLabelText("Parent") as HTMLSelectElement
     expect(Array.from(parent.options).map((o) => o.value)).toEqual([""])
 
@@ -299,7 +341,10 @@ describe("ScopesPage create while scopes cannot be loaded", () => {
     fireEvent.click(within(d).getByRole("button", { name: "Create scope" }))
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull())
     expect(sent).toEqual([
-      { intent: "scopes.create", payload: { name: "write", parent: "", description: "" } },
+      {
+        intent: "scopes.create",
+        payload: { name: "write", parent: "", description: "" },
+      },
     ])
   })
 })
@@ -363,7 +408,9 @@ describe("ScopesPage dialogs while a command is out", () => {
 
     act(() => held.release({ id: READ.id }))
     await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull())
-    expect(held.sent).toEqual([{ intent: "scopes.delete", payload: { id: READ.id } }])
+    expect(held.sent).toEqual([
+      { intent: "scopes.delete", payload: { id: READ.id } },
+    ])
   })
 })
 
@@ -373,20 +420,22 @@ describe("ScopesPage delete", () => {
   it("asks first, naming the scope, then sends scopes.delete with its id and closes", async () => {
     const { client, sent } = recordingCommandClient(
       { "scopes.list": LIST },
-      { "scopes.delete": { id: READ.id } },
+      { "scopes.delete": { id: READ.id } }
     )
     renderPage(ScopesPage, client)
     const d = await openDelete("read")
     expect(within(d).getByText(DESCRIPTION)).toBeTruthy()
     fireEvent.click(within(d).getByRole("button", { name: "Delete" }))
     await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull())
-    expect(sent).toEqual([{ intent: "scopes.delete", payload: { id: READ.id } }])
+    expect(sent).toEqual([
+      { intent: "scopes.delete", payload: { id: READ.id } },
+    ])
   })
 
   it("sends once on a double click", async () => {
     const { client, sent } = recordingCommandClient(
       { "scopes.list": LIST },
-      { "scopes.delete": { id: READ.id } },
+      { "scopes.delete": { id: READ.id } }
     )
     renderPage(ScopesPage, client)
     const d = await openDelete("read")
@@ -394,7 +443,9 @@ describe("ScopesPage delete", () => {
     fireEvent.click(go)
     fireEvent.click(go)
     await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull())
-    expect(sent).toEqual([{ intent: "scopes.delete", payload: { id: READ.id } }])
+    expect(sent).toEqual([
+      { intent: "scopes.delete", payload: { id: READ.id } },
+    ])
   })
 
   it.each([
@@ -402,27 +453,33 @@ describe("ScopesPage delete", () => {
     "3 scopes name this scope as their parent",
     "more than 200 scopes name this scope as their parent",
     "2 policies allow this scope",
-  ])("shows the CONFLICT %s in the dialog's body and stays", async (message) => {
-    renderPage(
-      ScopesPage,
-      refusingClient({ "scopes.list": LIST }, new ContractError("CONFLICT", message)),
-    )
-    const d = await openDelete("read")
-    fireEvent.click(within(d).getByRole("button", { name: "Delete" }))
-    const alert = await within(d).findByRole("alert")
-    expect(alert.textContent).toBe(message)
-    expect(alert.closest("[data-slot=confirm-dialog-body]")).not.toBeNull()
-    expect(within(d).getByText(DESCRIPTION).contains(alert)).toBe(false)
-    expect(screen.getByRole("alertdialog", { name: "Delete read?" })).toBe(d)
-  })
+  ])(
+    "shows the CONFLICT %s in the dialog's body and stays",
+    async (message) => {
+      renderPage(
+        ScopesPage,
+        refusingClient(
+          { "scopes.list": LIST },
+          new ContractError("CONFLICT", message)
+        )
+      )
+      const d = await openDelete("read")
+      fireEvent.click(within(d).getByRole("button", { name: "Delete" }))
+      const alert = await within(d).findByRole("alert")
+      expect(alert.textContent).toBe(message)
+      expect(alert.closest("[data-slot=confirm-dialog-body]")).not.toBeNull()
+      expect(within(d).getByText(DESCRIPTION).contains(alert)).toBe(false)
+      expect(screen.getByRole("alertdialog", { name: "Delete read?" })).toBe(d)
+    }
+  )
 
   it("forgets the last error when it opens again", async () => {
     renderPage(
       ScopesPage,
       refusingClient(
         { "scopes.list": LIST },
-        new ContractError("CONFLICT", "1 policy allows this scope"),
-      ),
+        new ContractError("CONFLICT", "1 policy allows this scope")
+      )
     )
     const d = await openDelete("read")
     fireEvent.click(within(d).getByRole("button", { name: "Delete" }))
@@ -449,7 +506,7 @@ type HostOutcome =
 function hostLikeClient(
   first: ScopesList,
   commands: Record<string, HostOutcome | HostOutcome[]>,
-  options: { refetchError?: ContractError; next?: ScopesList } = {},
+  options: { refetchError?: ContractError; next?: ScopesList } = {}
 ) {
   let current = first
   let reads = 0
@@ -460,7 +517,7 @@ function hostLikeClient(
     query: (intent: string) => {
       if (intent !== "scopes.list") {
         return Promise.reject(
-          new ContractError("NOT_FOUND", `no handler for intent "${intent}"`),
+          new ContractError("NOT_FOUND", `no handler for intent "${intent}"`)
         )
       }
       reads += 1
@@ -468,14 +525,18 @@ function hostLikeClient(
       const answer = options.next ?? current
       const { refetchError } = options
       return new Promise((resolve, reject) =>
-        held.push(() => (refetchError ? reject(refetchError) : resolve(answer))),
+        held.push(() => (refetchError ? reject(refetchError) : resolve(answer)))
       )
     },
     command: async (intent: string, payload?: unknown) => {
       sent.push({ intent, payload })
       const plan = commands[intent]
       const c = Array.isArray(plan) ? plan.shift() : plan
-      if (!c) throw new ContractError("NOT_FOUND", `no handler for command "${intent}"`)
+      if (!c)
+        throw new ContractError(
+          "NOT_FOUND",
+          `no handler for command "${intent}"`
+        )
       if ("error" in c) throw c.error
       current = c.next
       queryStore.invalidate("keysmith", c.invalidates)
@@ -496,8 +557,14 @@ function loading() {
 }
 
 describe("ScopesPage dialogs through a refetch", () => {
-  const CHILDREN = new ContractError("CONFLICT", "1 scope names this scope as its parent")
-  const TAKEN = new ContractError("CONFLICT", "a scope with this name already exists")
+  const CHILDREN = new ContractError(
+    "CONFLICT",
+    "1 scope names this scope as its parent"
+  )
+  const TAKEN = new ContractError(
+    "CONFLICT",
+    "a scope with this name already exists"
+  )
 
   // Nothing on this page refetches scopes.list under an open dialog by itself
   // when a command is refused, so the test invalidates it directly, as any
@@ -507,12 +574,14 @@ describe("ScopesPage dialogs through a refetch", () => {
     const host = hostLikeClient(
       LIST,
       { "scopes.delete": { error: CHILDREN } },
-      { next: list([BILLING]) },
+      { next: list([BILLING]) }
     )
     renderPage(ScopesPage, host.client)
     const d = await openDelete("read")
     fireEvent.click(within(d).getByRole("button", { name: "Delete" }))
-    expect((await within(d).findByRole("alert")).textContent).toBe(CHILDREN.message)
+    expect((await within(d).findByRole("alert")).textContent).toBe(
+      CHILDREN.message
+    )
 
     act(() => queryStore.invalidate("keysmith", ["scopes.list"]))
     await waitFor(() => expect(loading()).not.toBeNull())
@@ -523,11 +592,17 @@ describe("ScopesPage dialogs through a refetch", () => {
     await waitFor(() => expect(loading()).toBeNull())
     const after = screen.getByRole("alertdialog", { name: "Delete read?" })
     expect(within(after).getByRole("alert").textContent).toBe(CHILDREN.message)
-    expect(host.sent).toEqual([{ intent: "scopes.delete", payload: { id: READ.id } }])
+    expect(host.sent).toEqual([
+      { intent: "scopes.delete", payload: { id: READ.id } },
+    ])
   })
 
   it("keeps the create dialog, what was typed and its error through a refetch, then saves", async () => {
-    const WRITE: ScopeSummary = { id: "kscp_write", name: "write", parent: "read" }
+    const WRITE: ScopeSummary = {
+      id: "kscp_write",
+      name: "write",
+      parent: "read",
+    }
     const host = hostLikeClient(LIST, {
       "scopes.create": [
         { error: TAKEN },
@@ -541,15 +616,21 @@ describe("ScopesPage dialogs through a refetch", () => {
     renderPage(ScopesPage, host.client)
     const d = await openCreate()
     fireEvent.change(field(d, "Name"), { target: { value: "write" } })
-    fireEvent.change(within(d).getByLabelText("Parent"), { target: { value: "read" } })
+    fireEvent.change(within(d).getByLabelText("Parent"), {
+      target: { value: "read" },
+    })
     fireEvent.click(within(d).getByRole("button", { name: "Create scope" }))
-    expect((await within(d).findByRole("alert")).textContent).toBe(TAKEN.message)
+    expect((await within(d).findByRole("alert")).textContent).toBe(
+      TAKEN.message
+    )
 
     act(() => queryStore.invalidate("keysmith", ["scopes.list"]))
     await waitFor(() => expect(loading()).not.toBeNull())
     const during = screen.getByRole("dialog", { name: "Create scope" })
     expect(field(during, "Name").value).toBe("write")
-    expect((within(during).getByLabelText("Parent") as HTMLSelectElement).value).toBe("read")
+    expect(
+      (within(during).getByLabelText("Parent") as HTMLSelectElement).value
+    ).toBe("read")
     expect(within(during).getByRole("alert").textContent).toBe(TAKEN.message)
 
     act(() => host.releaseReads())
@@ -558,7 +639,9 @@ describe("ScopesPage dialogs through a refetch", () => {
     fireEvent.click(within(after).getByRole("button", { name: "Create scope" }))
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull())
     act(() => host.releaseReads())
-    expect(await screen.findByText("write", { selector: "td, td *" })).toBeTruthy()
+    expect(
+      await screen.findByText("write", { selector: "td, td *" })
+    ).toBeTruthy()
     expect(host.sent.map((s) => s.payload)).toEqual([
       { name: "write", parent: "read", description: "" },
       { name: "write", parent: "read", description: "" },
@@ -575,12 +658,14 @@ describe("ScopesPage dialogs through a refetch", () => {
           next: LIST,
         },
       },
-      { refetchError: new ContractError("INTERNAL", "scope store is down") },
+      { refetchError: new ContractError("INTERNAL", "scope store is down") }
     )
     renderPage(ScopesPage, host.client)
     const d = await openCreate()
     fireEvent.change(field(d, "Name"), { target: { value: "write" } })
-    fireEvent.change(within(d).getByLabelText("Parent"), { target: { value: "read" } })
+    fireEvent.change(within(d).getByLabelText("Parent"), {
+      target: { value: "read" },
+    })
 
     act(() => queryStore.invalidate("keysmith", ["scopes.list"]))
     await waitFor(() => expect(loading()).not.toBeNull())
@@ -593,7 +678,9 @@ describe("ScopesPage dialogs through a refetch", () => {
     const parent = within(after).getByLabelText("Parent") as HTMLSelectElement
     expect(parent.value).toBe("read")
     expect(Array.from(parent.options).map((o) => o.value)).toEqual(["", "read"])
-    expect(within(after).getByText("Scopes could not be loaded right now.")).toBeTruthy()
+    expect(
+      within(after).getByText("Scopes could not be loaded right now.")
+    ).toBeTruthy()
     fireEvent.click(within(after).getByRole("button", { name: "Create scope" }))
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull())
     expect(host.sent.map((s) => s.payload)).toEqual([

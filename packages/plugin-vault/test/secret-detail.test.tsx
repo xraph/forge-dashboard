@@ -65,7 +65,12 @@ const VERSIONS = {
       createdAt: "2026-09-23T10:00:00Z",
       encryption: "encrypted",
     },
-    { id: "v2", version: 2, createdAt: "2026-09-21T10:00:00Z", encryption: "plaintext" },
+    {
+      id: "v2",
+      version: 2,
+      createdAt: "2026-09-21T10:00:00Z",
+      encryption: "plaintext",
+    },
     {
       id: "v1",
       version: 1,
@@ -128,7 +133,10 @@ function failingCommands(error: ContractError): Harness {
   }
 }
 
-function renderDetail(client: ScopedClient, params: Record<string, string> = { key: KEY }) {
+function renderDetail(
+  client: ScopedClient,
+  params: Record<string, string> = { key: KEY }
+) {
   const navigate = vi.fn()
   render(
     <PluginProvider client={client}>
@@ -156,7 +164,9 @@ async function openReplace() {
 
 const valueInput = () => screen.getByLabelText("Value") as HTMLInputElement
 function submitInDialog(dialog: HTMLElement) {
-  return within(dialog).getByRole("button", { name: "Replace value" }) as HTMLButtonElement
+  return within(dialog).getByRole("button", {
+    name: "Replace value",
+  }) as HTMLButtonElement
 }
 
 function expectValueNotInMarkup() {
@@ -196,7 +206,9 @@ describe("SecretDetailPage reads", () => {
       command: async () => undefined,
     } as unknown as ScopedClient
     renderDetail(client)
-    expect((await screen.findAllByText(/secret not found/)).length).toBeGreaterThan(0)
+    expect(
+      (await screen.findAllByText(/secret not found/)).length
+    ).toBeGreaterThan(0)
   })
 })
 
@@ -212,7 +224,9 @@ describe("SecretDetailPage metadata", () => {
   })
 
   it("labels an absent metadata map", async () => {
-    renderDetail(harness({ ...DETAIL, secret: { ...SECRET, metadata: undefined } }).client)
+    renderDetail(
+      harness({ ...DETAIL, secret: { ...SECRET, metadata: undefined } }).client
+    )
     await screen.findByRole("heading", { name: KEY })
     expect(screen.getByLabelText("no metadata")).toBeTruthy()
   })
@@ -221,8 +235,11 @@ describe("SecretDetailPage metadata", () => {
     // No versions: this is about the secret's own line, and a version row's
     // "Encrypted" would trip the no-claims check below.
     renderDetail(
-      harness({ ...DETAIL, secret: { ...SECRET, encryptionAlg: "" } }, {}, { versions: [] })
-        .client
+      harness(
+        { ...DETAIL, secret: { ...SECRET, encryptionAlg: "" } },
+        {},
+        { versions: [] }
+      ).client
     )
     await screen.findByRole("heading", { name: KEY })
     expect(screen.getByText("Not encrypted")).toBeTruthy()
@@ -244,7 +261,9 @@ describe("SecretDetailPage metadata", () => {
   it("offers no way to view a value or compare versions", async () => {
     renderDetail(harness().client)
     await screen.findByText(/Versions \(3\)/)
-    expect(screen.queryByText(/view value|show value|reveal|diff|compare/i)).toBeNull()
+    expect(
+      screen.queryByText(/view value|show value|reveal|diff|compare/i)
+    ).toBeNull()
   })
 })
 
@@ -254,14 +273,16 @@ describe("SecretDetailPage versions", () => {
     await screen.findByText(/Versions \(3\)/)
     const items = screen.getAllByRole("listitem")
     const versionItems = items.filter((li) => /^v\d/.test(li.textContent ?? ""))
-    expect(versionItems.map((li) => (li.textContent ?? "").slice(0, 2))).toEqual([
-      "v3",
-      "v2",
-      "v1",
-    ])
+    expect(
+      versionItems.map((li) => (li.textContent ?? "").slice(0, 2))
+    ).toEqual(["v3", "v2", "v1"])
     expect(screen.getAllByText("Current")).toHaveLength(1)
-    expect(within(versionItems[0] as HTMLElement).getByText("Current")).toBeTruthy()
-    expect(within(versionItems[1] as HTMLElement).queryByText("Current")).toBeNull()
+    expect(
+      within(versionItems[0] as HTMLElement).getByText("Current")
+    ).toBeTruthy()
+    expect(
+      within(versionItems[1] as HTMLElement).queryByText("Current")
+    ).toBeNull()
   })
 
   it("labels a version with no author", async () => {
@@ -276,7 +297,9 @@ describe("SecretDetailPage versions", () => {
     await screen.findByText(/Versions \(3\)/)
     const dash = screen.getByLabelText("no author")
     const row = dash.closest("li") as HTMLElement
-    const time = within(row).getByText(new Date("2026-09-21T10:00:00Z").toLocaleString())
+    const time = within(row).getByText(
+      new Date("2026-09-21T10:00:00Z").toLocaleString()
+    )
     // Something visible sits between the dash and the date, in document order.
     const between = Array.from(row.querySelectorAll("*")).filter(
       (el) =>
@@ -315,7 +338,9 @@ describe("SecretDetailPage versions", () => {
   })
 
   it("keeps the count live for a single version", async () => {
-    renderDetail(harness(DETAIL, {}, { versions: [VERSIONS.versions[0]] }).client)
+    renderDetail(
+      harness(DETAIL, {}, { versions: [VERSIONS.versions[0]] }).client
+    )
     await screen.findByText(/Versions \(1\)/)
   })
 })
@@ -337,7 +362,9 @@ describe("SecretDetailPage rotation pane", () => {
     expect(screen.queryByLabelText("no next rotation")).toBeNull()
     expect(screen.queryByText("No rotation policy.")).toBeNull()
     expect(screen.queryByText(/will not rotate it/)).toBeNull()
-    const link = screen.getByRole("link", { name: /rotation page|Manage rotation/i })
+    const link = screen.getByRole("link", {
+      name: /rotation page|Manage rotation/i,
+    })
     expect(link.getAttribute("href")).toBe(rotationPath(KEY))
   })
 
@@ -370,7 +397,11 @@ describe("SecretDetailPage rotation pane, untrusted server", () => {
     renderDetail(
       harness({
         ...DETAIL,
-        rotation: { ...POLICY, enabled: false, nextRotationAt: "2026-10-01T04:00:00Z" },
+        rotation: {
+          ...POLICY,
+          enabled: false,
+          nextRotationAt: "2026-10-01T04:00:00Z",
+        },
       }).client
     )
     await screen.findByText("Disabled")
@@ -383,12 +414,18 @@ describe("SecretDetailPage rotation pane, no rotator", () => {
     renderDetail(
       harness({
         ...DETAIL,
-        rotation: { ...POLICY, rotatable: false, nextRotationAt: "2026-10-01T04:00:00Z" },
+        rotation: {
+          ...POLICY,
+          rotatable: false,
+          nextRotationAt: "2026-10-01T04:00:00Z",
+        },
       }).client
     )
     await screen.findByText(/this policy will not rotate it/)
     expect(screen.getByLabelText("no next rotation")).toBeTruthy()
-    expect(screen.queryByText(new Date("2026-10-01T04:00:00Z").toLocaleString())).toBeNull()
+    expect(
+      screen.queryByText(new Date("2026-10-01T04:00:00Z").toLocaleString())
+    ).toBeNull()
   })
 })
 
@@ -398,7 +435,12 @@ describe("SecretDetailPage recent activity", () => {
       harness({
         ...DETAIL,
         recentAudit: [
-          { id: "a1", action: "secret.update", outcome: "success", createdAt: "2026-09-23T10:00:00Z" },
+          {
+            id: "a1",
+            action: "secret.update",
+            outcome: "success",
+            createdAt: "2026-09-23T10:00:00Z",
+          },
         ],
       }).client
     )
@@ -463,7 +505,10 @@ describe("SecretDetailPage replace value", () => {
     await waitFor(() => expect(h.commands).toHaveLength(1))
     expect(h.commands[0]?.intent).toBe("secrets.update")
     expect(h.commands[0]?.payload).toEqual({ key: KEY, value: CANARY })
-    expect(Object.keys(h.commands[0]?.payload as object).sort()).toEqual(["key", "value"])
+    expect(Object.keys(h.commands[0]?.payload as object).sort()).toEqual([
+      "key",
+      "value",
+    ])
   })
 
   it("sends an empty expiresAt to remove the expiry", async () => {
@@ -474,16 +519,24 @@ describe("SecretDetailPage replace value", () => {
     fireEvent.change(valueInput(), { target: { value: CANARY } })
     fireEvent.click(submitInDialog(dialog))
     await waitFor(() => expect(h.commands).toHaveLength(1))
-    expect(h.commands[0]?.payload).toEqual({ key: KEY, value: CANARY, expiresAt: "" })
+    expect(h.commands[0]?.payload).toEqual({
+      key: KEY,
+      value: CANARY,
+      expiresAt: "",
+    })
   })
 
   it("sends the RFC3339 UTC timestamp when a new expiry is set", async () => {
     const h = harness(DETAIL, { "secrets.update": UPDATED })
     renderDetail(h.client)
     const dialog = await openReplace()
-    fireEvent.click(within(dialog).getByRole("radio", { name: /Set a new expiry/ }))
+    fireEvent.click(
+      within(dialog).getByRole("radio", { name: /Set a new expiry/ })
+    )
     const local = "2099-01-02T03:04"
-    fireEvent.change(screen.getByLabelText("New expiry"), { target: { value: local } })
+    fireEvent.change(screen.getByLabelText("New expiry"), {
+      target: { value: local },
+    })
     fireEvent.change(valueInput(), { target: { value: CANARY } })
     fireEvent.click(submitInDialog(dialog))
     await waitFor(() => expect(h.commands).toHaveLength(1))
@@ -497,7 +550,9 @@ describe("SecretDetailPage replace value", () => {
     const h = harness(DETAIL, { "secrets.update": UPDATED })
     renderDetail(h.client)
     const dialog = await openReplace()
-    fireEvent.click(within(dialog).getByRole("radio", { name: /Set a new expiry/ }))
+    fireEvent.click(
+      within(dialog).getByRole("radio", { name: /Set a new expiry/ })
+    )
     fireEvent.change(valueInput(), { target: { value: CANARY } })
     expect(submitInDialog(dialog).disabled).toBe(true)
     fireEvent.change(screen.getByLabelText("New expiry"), {
@@ -519,7 +574,9 @@ describe("SecretDetailPage replace value", () => {
   })
 
   it("shows a failure inside the dialog and keeps the value out of the markup", async () => {
-    const h = failingCommands(new ContractError("INTERNAL", "vault is unavailable"))
+    const h = failingCommands(
+      new ContractError("INTERNAL", "vault is unavailable")
+    )
     renderDetail(h.client)
     const dialog = await openReplace()
     fireEvent.change(valueInput(), { target: { value: CANARY } })
@@ -546,7 +603,9 @@ describe("SecretDetailPage replace value", () => {
   })
 
   it("shows no stale error and an empty value when reopened after a failure", async () => {
-    const h = failingCommands(new ContractError("INTERNAL", "vault is unavailable"))
+    const h = failingCommands(
+      new ContractError("INTERNAL", "vault is unavailable")
+    )
     renderDetail(h.client)
     const dialog = await openReplace()
     fireEvent.change(valueInput(), { target: { value: CANARY } })
@@ -569,7 +628,9 @@ describe("SecretDetailPage replace value", () => {
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull())
     dialog = await openReplace()
     expect(
-      within(dialog).getByRole("radio", { name: /Keep/ }).getAttribute("aria-checked")
+      within(dialog)
+        .getByRole("radio", { name: /Keep/ })
+        .getAttribute("aria-checked")
     ).toBe("true")
   })
 
@@ -584,7 +645,11 @@ describe("SecretDetailPage replace value", () => {
     fireEvent.click(submitInDialog(dialog))
     await waitFor(() =>
       expect(
-        (within(dialog).getByRole("button", { name: /Replacing/ }) as HTMLButtonElement).disabled
+        (
+          within(dialog).getByRole("button", {
+            name: /Replacing/,
+          }) as HTMLButtonElement
+        ).disabled
       ).toBe(true)
     )
   })
@@ -668,7 +733,10 @@ describe("SecretDetailPage delete", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: "Delete" }))
     await waitFor(() => expect(navigate).toHaveBeenCalledWith("/secrets"))
     expect(h.commands).toHaveLength(1)
-    expect(h.commands[0]).toEqual({ intent: "secrets.delete", payload: { key: KEY } })
+    expect(h.commands[0]).toEqual({
+      intent: "secrets.delete",
+      payload: { key: KEY },
+    })
   })
 
   it("shows a failure inside the dialog and does not navigate", async () => {

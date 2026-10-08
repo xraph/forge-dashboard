@@ -50,8 +50,10 @@ export function ScopeTile({
       aria-hidden="true"
       className={cn(
         "grid size-8 shrink-0 place-items-center rounded-md text-sm font-semibold [&>svg]:size-4",
-        active ? "bg-primary text-primary-foreground" : "border bg-sidebar-accent text-muted-foreground",
-        className,
+        active
+          ? "bg-primary text-primary-foreground"
+          : "border bg-sidebar-accent text-muted-foreground",
+        className
       )}
     >
       {icon ?? initial(label)}
@@ -81,15 +83,28 @@ export function ScopeGridSwitcher({
       <SidebarMenuItem>
         <DropdownMenu>
           <DropdownMenuTrigger
-            render={<SidebarMenuButton size="lg" disabled={scopes.length === 0 && !home} />}
+            render={
+              <SidebarMenuButton
+                size="lg"
+                disabled={scopes.length === 0 && !home}
+              />
+            }
           >
-            <ScopeTile icon={active ? active.icon : home?.icon} label={label} active />
+            <ScopeTile
+              icon={active ? active.icon : home?.icon}
+              label={label}
+              active
+            />
             <div className="grid flex-1 text-left leading-tight">
               <span className="truncate font-semibold">{label}</span>
               {active ? (
-                <span className="truncate text-xs text-muted-foreground">@{active.namespace}</span>
+                <span className="truncate text-xs text-muted-foreground">
+                  @{active.namespace}
+                </span>
               ) : home ? (
-                <span className="truncate text-xs text-muted-foreground">Application dashboard</span>
+                <span className="truncate text-xs text-muted-foreground">
+                  Application dashboard
+                </span>
               ) : null}
             </div>
             <ChevronsUpDownIcon className="ml-auto size-4" />
@@ -101,17 +116,28 @@ export function ScopeGridSwitcher({
           >
             {home ? (
               <>
-                <DropdownMenuItem onClick={home.onSelect} aria-current={!active ? "true" : undefined}>
-                  <ScopeTile icon={home.icon} label={home.label} active={!active} />
+                <DropdownMenuItem
+                  onClick={home.onSelect}
+                  aria-current={!active ? "true" : undefined}
+                >
+                  <ScopeTile
+                    icon={home.icon}
+                    label={home.label}
+                    active={!active}
+                  />
                   <span className="flex-1">{home.label}</span>
-                  {!active ? <CheckIcon className="size-4" aria-hidden="true" /> : null}
+                  {!active ? (
+                    <CheckIcon className="size-4" aria-hidden="true" />
+                  ) : null}
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
               </>
             ) : null}
             {/* base-ui's GroupLabel needs a Menu.Group ancestor. */}
             <DropdownMenuGroup>
-              <DropdownMenuLabel className="text-xs text-muted-foreground">Scopes</DropdownMenuLabel>
+              <DropdownMenuLabel className="text-xs text-muted-foreground">
+                Scopes
+              </DropdownMenuLabel>
             </DropdownMenuGroup>
             <div data-slot="scope-grid" className="grid grid-cols-3 gap-1 p-1">
               {scopes.map((scope: ScopeOption) => {
@@ -124,9 +150,17 @@ export function ScopeGridSwitcher({
                     aria-current={isActive ? "true" : undefined}
                     className="relative flex-col items-center gap-1 px-1 py-2 text-center data-active:bg-accent"
                   >
-                    <ScopeTile icon={scope.icon} label={scope.label} active={isActive} />
-                    <span className="w-full truncate text-xs font-medium">{scope.label}</span>
-                    <span className="w-full truncate text-[10px] text-muted-foreground">@{scope.namespace}</span>
+                    <ScopeTile
+                      icon={scope.icon}
+                      label={scope.label}
+                      active={isActive}
+                    />
+                    <span className="w-full truncate text-xs font-medium">
+                      {scope.label}
+                    </span>
+                    <span className="w-full truncate text-[10px] text-muted-foreground">
+                      @{scope.namespace}
+                    </span>
                     {scope.badge ? (
                       <span
                         data-slot="scope-badge"

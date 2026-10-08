@@ -31,7 +31,12 @@ export interface Verdict {
 const t = (text: string): VerdictPart => ({ text })
 const seq = (n: number): VerdictPart => ({ text: formatSeq(n), mono: true })
 
-function rangeParts(prefix: string, from: number, to: number, suffix: string): VerdictPart[] {
+function rangeParts(
+  prefix: string,
+  from: number,
+  to: number,
+  suffix: string
+): VerdictPart[] {
   return [t(`${prefix} sequences `), seq(from), t(" to "), seq(to), t(suffix)]
 }
 
@@ -56,7 +61,10 @@ export interface VerdictContext {
  * covered by signed checkpoints comes back with unkeyed spans on both sides of
  * a signed one, so the verdict works from ranges and never from a boundary.
  */
-function ranges(spans: CoverageSpan[], pick: (s: CoverageSpan) => boolean): [number, number][] {
+function ranges(
+  spans: CoverageSpan[],
+  pick: (s: CoverageSpan) => boolean
+): [number, number][] {
   const out: [number, number][] = []
   for (const s of [...spans].sort((x, y) => x.fromSeq - y.fromSeq)) {
     if (!pick(s)) continue
@@ -81,23 +89,31 @@ function rangeListParts(list: [number, number][]): VerdictPart[] {
   return out
 }
 
-function limitsOf(r: VerifyReport, spans: CoverageSpan[], ctx: VerdictContext): string[] {
+function limitsOf(
+  r: VerifyReport,
+  spans: CoverageSpan[],
+  ctx: VerdictContext
+): string[] {
   const out: string[] = []
   for (const [from, to] of ranges(spans, isUnkeyed)) {
     out.push(
-      `Sequences ${formatSeq(from)} to ${formatSeq(to)} rest on unkeyed digests. Anyone who can write the database can recompute them, so a deliberate rewrite of those events would not be detected.`,
+      `Sequences ${formatSeq(from)} to ${formatSeq(to)} rest on unkeyed digests. Anyone who can write the database can recompute them, so a deliberate rewrite of those events would not be detected.`
     )
   }
   if (ctx.checkpointingConfigured === false) {
-    out.push("This deployment stores no checkpoints, so events removed from the end of the chain cannot be detected.")
+    out.push(
+      "This deployment stores no checkpoints, so events removed from the end of the chain cannot be detected."
+    )
   }
   if (r.partial && r.verified > 0) {
     out.push(
-      `Only sequences ${formatSeq(r.firstEvent)} to ${formatSeq(r.lastEvent)} were examined. The chain's head is at sequence ${formatSeq(r.headSeq)}.`,
+      `Only sequences ${formatSeq(r.firstEvent)} to ${formatSeq(r.lastEvent)} were examined. The chain's head is at sequence ${formatSeq(r.headSeq)}.`
     )
   }
   if (!spans.some((s) => s.level === "anchored")) {
-    out.push("Nothing anchors this chain outside the deployment, so someone who controls both the database and the signing key could rewrite it consistently.")
+    out.push(
+      "Nothing anchors this chain outside the deployment, so someone who controls both the database and the signing key could rewrite it consistently."
+    )
   }
   return out
 }
@@ -111,12 +127,14 @@ function unkeyedQualifiers(spans: CoverageSpan[]): string[] {
   // plain digest, where there is no key to predate.
   const firstDetecting = Math.min(...detecting.map((s) => s.fromSeq))
   const predates =
-    detecting.some((s) => s.level === "keyed") && unkeyed.every(([, to]) => to < firstDetecting)
-  const tail = "no corruption was detected there, and a deliberate rewrite of them would not show."
+    detecting.some((s) => s.level === "keyed") &&
+    unkeyed.every(([, to]) => to < firstDetecting)
+  const tail =
+    "no corruption was detected there, and a deliberate rewrite of them would not show."
   return unkeyed.map(([from, to]) =>
     predates
       ? `Sequences ${formatSeq(from)} to ${formatSeq(to)} predate the key and rest on an unkeyed digest: ${tail}`
-      : `Sequences ${formatSeq(from)} to ${formatSeq(to)} rest on an unkeyed digest: ${tail}`,
+      : `Sequences ${formatSeq(from)} to ${formatSeq(to)} rest on an unkeyed digest: ${tail}`
   )
 }
 
@@ -126,7 +144,9 @@ function retainedQualifiers(r: VerifyReport): string[] {
       rg.fromSeq === rg.toSeq
         ? `Sequence ${formatSeq(rg.fromSeq)} was`
         : `Sequences ${formatSeq(rg.fromSeq)} to ${formatSeq(rg.toSeq)} were`
-    const backfill = rg.backfill ? ` The record was recovered afterwards from the archive ${rg.backfill}.` : ""
+    const backfill = rg.backfill
+      ? ` The record was recovered afterwards from the archive ${rg.backfill}.`
+      : ""
     return `${what} removed by a retention policy, recorded in the chain at sequence ${formatSeq(rg.recordSeq)}. The chain links across them; what they said is gone.${backfill}`
   })
 }
@@ -146,12 +166,19 @@ function tolerantQualifier(r: VerifyReport): string | null {
   return `${plural(n, "event", "events")} recorded no digest scheme, so their scheme was inferred when they were checked.`
 }
 
-export function verdictOf(response: VerifyResponse, ctx: VerdictContext = {}): Verdict {
+export function verdictOf(
+  response: VerifyResponse,
+  ctx: VerdictContext = {}
+): Verdict {
   const r = response.report
   if (response.noChain || !r) {
     return {
       tone: "no-chain",
-      headline: [t("This scope has not recorded any events, so there is no chain to verify.")],
+      headline: [
+        t(
+          "This scope has not recorded any events, so there is no chain to verify."
+        ),
+      ],
       qualifiers: [],
       limits: [],
       limitsLoud: false,
@@ -160,19 +187,28 @@ export function verdictOf(response: VerifyResponse, ctx: VerdictContext = {}): V
 
   const spans = r.coverage ?? []
   const limits = limitsOf(r, spans, ctx)
-  const partial = r.partial ? ["This check does not speak for the rest of the chain."] : []
+  const partial = r.partial
+    ? ["This check does not speak for the rest of the chain."]
+    : []
 
   if (!r.valid) {
     const breaks = breaksOf(r)
-    const count = (k: string) => breaks.filter((b) => b.kind === k).reduce((n, b) => n + (b.toSeq - b.fromSeq + 1), 0)
+    const count = (k: string) =>
+      breaks
+        .filter((b) => b.kind === k)
+        .reduce((n, b) => n + (b.toSeq - b.fromSeq + 1), 0)
     const kinds: string[] = []
     if (count("missing")) kinds.push(`${count("missing")} missing`)
     if (count("altered")) kinds.push(`${count("altered")} altered`)
     if (count("relabelled")) kinds.push(`${count("relabelled")} relabelled`)
     const head: string[] = []
-    if (breaks.some((b) => b.kind === "truncated")) head.push("the head does not match the last event")
-    if (breaks.some((b) => b.kind === "head-contradicted")) head.push("a signed checkpoint says the chain once reached further")
-    const summary = [kinds.join(", "), head.join(", and ")].filter(Boolean).join("; ")
+    if (breaks.some((b) => b.kind === "truncated"))
+      head.push("the head does not match the last event")
+    if (breaks.some((b) => b.kind === "head-contradicted"))
+      head.push("a signed checkpoint says the chain once reached further")
+    const summary = [kinds.join(", "), head.join(", and ")]
+      .filter(Boolean)
+      .join("; ")
     const said = summary || "a checkpoint check failed"
     // With nothing examined there is no range to name, and inventing one
     // ("1 to 0") would be a claim about events nobody looked at.
@@ -180,9 +216,21 @@ export function verdictOf(response: VerifyResponse, ctx: VerdictContext = {}): V
     return {
       tone: "failed",
       headline: examined
-        ? rangeParts("Breaks found in", r.firstEvent || 1, r.lastEvent || r.headSeq, `: ${said}.`)
+        ? rangeParts(
+            "Breaks found in",
+            r.firstEvent || 1,
+            r.lastEvent || r.headSeq,
+            `: ${said}.`
+          )
         : [t(`Breaks found: ${said}.`)],
-      qualifiers: [...(examined ? [] : ["No events were examined in the requested range."]), ...partial, ...[retentionQualifier(r)].filter((q): q is string => q !== null), ...retainedQualifiers(r)],
+      qualifiers: [
+        ...(examined
+          ? []
+          : ["No events were examined in the requested range."]),
+        ...partial,
+        ...[retentionQualifier(r)].filter((q): q is string => q !== null),
+        ...retainedQualifiers(r),
+      ],
       limits,
       limitsLoud: false,
     }
@@ -199,7 +247,10 @@ export function verdictOf(response: VerifyResponse, ctx: VerdictContext = {}): V
     return {
       tone: "nothing-checked",
       headline: [t("No events verified.")],
-      qualifiers: [`An empty range verifies trivially, and that is not a pass. ${why}`, ...retained],
+      qualifiers: [
+        `An empty range verifies trivially, and that is not a pass. ${why}`,
+        ...retained,
+      ],
       limits,
       limitsLoud: false,
     }
@@ -210,24 +261,50 @@ export function verdictOf(response: VerifyResponse, ctx: VerdictContext = {}): V
   const qualifiers: string[] = [...partial]
   let headline: VerdictPart[]
   if (allUnkeyed) {
-    headline = rangeParts("No corruption detected in", r.firstEvent, r.lastEvent, ".")
-    qualifiers.unshift("This chain uses unkeyed digests: they detect accidental corruption, not deliberate alteration.")
+    headline = rangeParts(
+      "No corruption detected in",
+      r.firstEvent,
+      r.lastEvent,
+      "."
+    )
+    qualifiers.unshift(
+      "This chain uses unkeyed digests: they detect accidental corruption, not deliberate alteration."
+    )
   } else if (mixed) {
     // The headline claims only what a detecting digest covers. The unkeyed
     // ranges get their own sentence, so the claim never reaches past its method.
-    headline = [t("No alteration detected in sequences "), ...rangeListParts(ranges(spans, isDetecting)), t(".")]
+    headline = [
+      t("No alteration detected in sequences "),
+      ...rangeListParts(ranges(spans, isDetecting)),
+      t("."),
+    ]
     qualifiers.push(...unkeyedQualifiers(spans))
   } else {
-    headline = rangeParts("No alteration detected in", r.firstEvent, r.lastEvent, ".")
+    headline = rangeParts(
+      "No alteration detected in",
+      r.firstEvent,
+      r.lastEvent,
+      "."
+    )
   }
   const tolerant = tolerantQualifier(r)
   if (tolerant) qualifiers.push(tolerant)
   qualifiers.push(...retainedQualifiers(r))
 
-  return { tone: "pass", headline, qualifiers, limits, limitsLoud: allUnkeyed || mixed }
+  return {
+    tone: "pass",
+    headline,
+    qualifiers,
+    limits,
+    limitsLoud: allUnkeyed || mixed,
+  }
 }
 
 /** The verdict as one string: the page's accessible description, and what tests read. */
 export function verdictText(v: Verdict): string {
-  return [v.headline.map((p) => p.text).join(""), ...v.qualifiers, ...v.limits].join(" ")
+  return [
+    v.headline.map((p) => p.text).join(""),
+    ...v.qualifiers,
+    ...v.limits,
+  ].join(" ")
 }

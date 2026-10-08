@@ -11,7 +11,12 @@ import { renderContribution, renderSubPage, subStubClient } from "./harness"
 const orgs = {
   organizations: [
     { id: "o1", name: "Acme", slug: "acme", createdAt: "2026-01-01T00:00:00Z" },
-    { id: "o2", name: "Globex", slug: "globex", createdAt: "2026-02-01T00:00:00Z" },
+    {
+      id: "o2",
+      name: "Globex",
+      slug: "globex",
+      createdAt: "2026-02-01T00:00:00Z",
+    },
   ],
 }
 const detail = {
@@ -25,8 +30,18 @@ const detail = {
 }
 const members = {
   members: [
-    { id: "m1", userId: "u1", role: "owner", createdAt: "2026-01-02T00:00:00Z" },
-    { id: "m2", userId: "u2", role: "member", createdAt: "2026-01-03T00:00:00Z" },
+    {
+      id: "m1",
+      userId: "u1",
+      role: "owner",
+      createdAt: "2026-01-02T00:00:00Z",
+    },
+    {
+      id: "m2",
+      userId: "u2",
+      role: "member",
+      createdAt: "2026-01-03T00:00:00Z",
+    },
   ],
 }
 
@@ -82,19 +97,24 @@ describe("organization list", () => {
       hostClient: subStubClient({}).client,
       allowed: [],
     })
-    await waitFor(() => expect(screen.getByText(/no organizations/i)).toBeTruthy())
+    await waitFor(() =>
+      expect(screen.getByText(/no organizations/i)).toBeTruthy()
+    )
   })
 })
 
 describe("organization detail", () => {
   it("shows the org, its members, and the two built-in tabs", async () => {
     renderSubPage(pageAt("/organizations/:id"), {
-      client: subStubClient({ "orgs.detail": detail, "orgs.members": members }).client,
+      client: subStubClient({ "orgs.detail": detail, "orgs.members": members })
+        .client,
       hostClient: subStubClient({}).client,
       allowed: [],
       params: { id: "o1" },
     })
-    await waitFor(() => expect(screen.getByRole("heading", { name: "Acme" })).toBeTruthy())
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: "Acme" })).toBeTruthy()
+    )
     expect(screen.getByRole("tab", { name: "Overview" })).toBeTruthy()
     expect(screen.getByRole("tab", { name: "Members" })).toBeTruthy()
     expect(screen.getByText("gold")).toBeTruthy()
@@ -120,7 +140,9 @@ describe("organization detail", () => {
       allowed: [],
       params: { id: "o1" },
     })
-    await waitFor(() => expect(screen.getByRole("heading", { name: "Acme" })).toBeTruthy())
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: "Acme" })).toBeTruthy()
+    )
     // The members panel mounts when its tab is selected, which is what an
     // operator does. It used to mount with the page, through `keepMounted`,
     // and that had to go: Base UI un-hides a panel on activation and does not
@@ -136,7 +158,7 @@ describe("organization detail", () => {
   it("removes a member by the MEMBER id, not the user id", async () => {
     const own = subStubClient(
       { "orgs.detail": detail, "orgs.members": members },
-      { "orgs.removeMember": { ok: true } },
+      { "orgs.removeMember": { ok: true } }
     )
     renderSubPage(pageAt("/organizations/:id"), {
       client: own.client,
@@ -144,9 +166,13 @@ describe("organization detail", () => {
       allowed: [],
       params: { id: "o1" },
     })
-    await waitFor(() => expect(screen.getByRole("heading", { name: "Acme" })).toBeTruthy())
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: "Acme" })).toBeTruthy()
+    )
     fireEvent.click(screen.getByRole("tab", { name: "Members" }))
-    await waitFor(() => expect(screen.getByRole("button", { name: /remove u2/i })).toBeTruthy())
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: /remove u2/i })).toBeTruthy()
+    )
     fireEvent.click(screen.getByRole("button", { name: /remove u2/i }))
     fireEvent.click(screen.getByRole("button", { name: /^remove$/i }))
     await waitFor(() => expect(own.payloads).toHaveLength(1))
@@ -156,22 +182,27 @@ describe("organization detail", () => {
 
   it("says where invitations live rather than showing an empty section", async () => {
     renderSubPage(pageAt("/organizations/:id"), {
-      client: subStubClient({ "orgs.detail": detail, "orgs.members": members }).client,
+      client: subStubClient({ "orgs.detail": detail, "orgs.members": members })
+        .client,
       hostClient: subStubClient({}).client,
       allowed: [],
       params: { id: "o1" },
     })
-    await waitFor(() => expect(screen.getByRole("heading", { name: "Acme" })).toBeTruthy())
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: "Acme" })).toBeTruthy()
+    )
     fireEvent.click(screen.getByRole("tab", { name: "Members" }))
     // The legacy page shows pending invitations. There is no intent for
     // them. An operator who sees nothing concludes there are none.
-    expect(screen.getByText(/invitations are managed in the legacy dashboard/i)).toBeTruthy()
+    expect(
+      screen.getByText(/invitations are managed in the legacy dashboard/i)
+    ).toBeTruthy()
   })
 
   it("sends only the fields the operator changed", async () => {
     const own = subStubClient(
       { "orgs.detail": detail, "orgs.members": members },
-      { "orgs.update": { ok: true } },
+      { "orgs.update": { ok: true } }
     )
     renderSubPage(pageAt("/organizations/:id"), {
       client: own.client,
@@ -179,9 +210,13 @@ describe("organization detail", () => {
       allowed: [],
       params: { id: "o1" },
     })
-    await waitFor(() => expect(screen.getByRole("heading", { name: "Acme" })).toBeTruthy())
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: "Acme" })).toBeTruthy()
+    )
     fireEvent.click(screen.getByRole("button", { name: /edit/i }))
-    fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Acme Inc" } })
+    fireEvent.change(screen.getByLabelText("Name"), {
+      target: { value: "Acme Inc" },
+    })
     fireEvent.click(screen.getByRole("button", { name: /save/i }))
     await waitFor(() => expect(own.payloads).toHaveLength(1))
     const payload = own.payloads[0].payload as Record<string, unknown>
@@ -194,7 +229,7 @@ describe("organization detail", () => {
   it("sends an empty string for a field the operator deliberately cleared", async () => {
     const own = subStubClient(
       { "orgs.detail": detail, "orgs.members": members },
-      { "orgs.update": { ok: true } },
+      { "orgs.update": { ok: true } }
     )
     renderSubPage(pageAt("/organizations/:id"), {
       client: own.client,
@@ -202,9 +237,13 @@ describe("organization detail", () => {
       allowed: [],
       params: { id: "o1" },
     })
-    await waitFor(() => expect(screen.getByRole("heading", { name: "Acme" })).toBeTruthy())
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: "Acme" })).toBeTruthy()
+    )
     fireEvent.click(screen.getByRole("button", { name: /edit/i }))
-    fireEvent.change(screen.getByLabelText("Logo URL"), { target: { value: "" } })
+    fireEvent.change(screen.getByLabelText("Logo URL"), {
+      target: { value: "" },
+    })
     fireEvent.click(screen.getByRole("button", { name: /save/i }))
     await waitFor(() => expect(own.payloads).toHaveLength(1))
     const payload = own.payloads[0].payload as Record<string, unknown>
@@ -219,12 +258,15 @@ describe("organization detail", () => {
     // 0 for every slot this page hosts. The page must still render its own
     // fields and tabs rather than an empty heading or a blank strip.
     renderSubPage(pageAt("/organizations/:id"), {
-      client: subStubClient({ "orgs.detail": detail, "orgs.members": members }).client,
+      client: subStubClient({ "orgs.detail": detail, "orgs.members": members })
+        .client,
       hostClient: subStubClient({}).client,
       allowed: [],
       params: { id: "o1" },
     })
-    await waitFor(() => expect(screen.getByRole("heading", { name: "Acme" })).toBeTruthy())
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: "Acme" })).toBeTruthy()
+    )
     expect(screen.getByRole("tablist")).toBeTruthy()
     expect(screen.getAllByRole("tab")).toHaveLength(2)
   })
@@ -250,18 +292,28 @@ describe("organization delete", () => {
   it("deletes by the org id and leaves for the list", async () => {
     const own = subStubClient(
       { "orgs.detail": detail, "orgs.members": members },
-      { "orgs.delete": { ok: true } },
+      { "orgs.delete": { ok: true } }
     )
     renderSubPage(pageAt("/organizations/:id"), {
-      client: own.client, hostClient: subStubClient({}).client, allowed: [], params: { id: "o1" },
+      client: own.client,
+      hostClient: subStubClient({}).client,
+      allowed: [],
+      params: { id: "o1" },
     })
-    await waitFor(() => expect(screen.getByRole("heading", { name: "Acme" })).toBeTruthy())
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: "Acme" })).toBeTruthy()
+    )
     fireEvent.click(screen.getByRole("button", { name: /delete acme/i }))
     fireEvent.click(screen.getByRole("button", { name: /^delete$/i }))
     await waitFor(() => expect(own.payloads).toHaveLength(1))
-    expect(own.payloads[0]).toEqual({ intent: "orgs.delete", payload: { id: "o1" } })
+    expect(own.payloads[0]).toEqual({
+      intent: "orgs.delete",
+      payload: { id: "o1" },
+    })
     await waitFor(() =>
-      expect(screen.getByText(/this organization has been deleted/i)).toBeTruthy(),
+      expect(
+        screen.getByText(/this organization has been deleted/i)
+      ).toBeTruthy()
     )
     // Nowhere left to stay once its own subject is gone: the header, the
     // tabs and the edit/delete actions must not still be on screen.
@@ -272,12 +324,22 @@ describe("organization delete", () => {
   it("shows a failed delete inside the dialog, not on the page body", async () => {
     const own = subStubClient(
       { "orgs.detail": detail, "orgs.members": members },
-      { "orgs.delete": new ContractError("INTERNAL", "still has active subscriptions") },
+      {
+        "orgs.delete": new ContractError(
+          "INTERNAL",
+          "still has active subscriptions"
+        ),
+      }
     )
     renderSubPage(pageAt("/organizations/:id"), {
-      client: own.client, hostClient: subStubClient({}).client, allowed: [], params: { id: "o1" },
+      client: own.client,
+      hostClient: subStubClient({}).client,
+      allowed: [],
+      params: { id: "o1" },
     })
-    await waitFor(() => expect(screen.getByRole("heading", { name: "Acme" })).toBeTruthy())
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: "Acme" })).toBeTruthy()
+    )
     fireEvent.click(screen.getByRole("button", { name: /delete acme/i }))
     fireEvent.click(screen.getByRole("button", { name: /^delete$/i }))
 
@@ -293,12 +355,17 @@ describe("organization delete", () => {
   it("forgets a failed delete the next time the dialog opens", async () => {
     const own = subStubClient(
       { "orgs.detail": detail, "orgs.members": members },
-      { "orgs.delete": new ContractError("INTERNAL", "nope") },
+      { "orgs.delete": new ContractError("INTERNAL", "nope") }
     )
     renderSubPage(pageAt("/organizations/:id"), {
-      client: own.client, hostClient: subStubClient({}).client, allowed: [], params: { id: "o1" },
+      client: own.client,
+      hostClient: subStubClient({}).client,
+      allowed: [],
+      params: { id: "o1" },
     })
-    await waitFor(() => expect(screen.getByRole("heading", { name: "Acme" })).toBeTruthy())
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: "Acme" })).toBeTruthy()
+    )
     fireEvent.click(screen.getByRole("button", { name: /delete acme/i }))
     fireEvent.click(screen.getByRole("button", { name: /^delete$/i }))
     await waitFor(() => expect(screen.getByRole("alert")).toBeTruthy())
@@ -317,13 +384,23 @@ describe("organization create", () => {
       hostClient: subStubClient({}).client,
       allowed: [],
     })
-    fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Wayne Enterprises" } })
-    expect((screen.getByLabelText("Slug") as HTMLInputElement).value).toBe("wayne-enterprises")
-    fireEvent.change(screen.getByLabelText("Slug"), { target: { value: "wayne" } })
-    fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Wayne Corp" } })
+    fireEvent.change(screen.getByLabelText("Name"), {
+      target: { value: "Wayne Enterprises" },
+    })
+    expect((screen.getByLabelText("Slug") as HTMLInputElement).value).toBe(
+      "wayne-enterprises"
+    )
+    fireEvent.change(screen.getByLabelText("Slug"), {
+      target: { value: "wayne" },
+    })
+    fireEvent.change(screen.getByLabelText("Name"), {
+      target: { value: "Wayne Corp" },
+    })
     // Once touched, the slug is the operator's. Overwriting it here loses the
     // value they just typed and they may not notice before submitting.
-    expect((screen.getByLabelText("Slug") as HTMLInputElement).value).toBe("wayne")
+    expect((screen.getByLabelText("Slug") as HTMLInputElement).value).toBe(
+      "wayne"
+    )
   })
 
   it("omits the logo when it is blank", async () => {
@@ -333,7 +410,9 @@ describe("organization create", () => {
       hostClient: subStubClient({}).client,
       allowed: [],
     })
-    fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Wayne" } })
+    fireEvent.change(screen.getByLabelText("Name"), {
+      target: { value: "Wayne" },
+    })
     fireEvent.click(screen.getByRole("button", { name: /create/i }))
     await waitFor(() => expect(own.payloads).toHaveLength(1))
     const payload = own.payloads[0].payload as Record<string, unknown>
@@ -343,7 +422,8 @@ describe("organization create", () => {
 })
 
 describe("OrgCountWidget", () => {
-  const widgetContribution = organizationSubPlugin.contributions["overview.widgets"]![0]
+  const widgetContribution =
+    organizationSubPlugin.contributions["overview.widgets"]![0]
 
   it("counts the organizations the list intent answered", async () => {
     const own = subStubClient({ "orgs.list": orgs })

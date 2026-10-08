@@ -24,7 +24,7 @@ describe("useQuery enabled option", () => {
     const query = vi.fn(async () => ({ n: 1 }))
     const { result } = renderHook(
       () => useQuery<{ n: number }>("x.y", { a: 1 }, { enabled: false }),
-      { wrapper: wrapperFor(clientWith(query as ScopedClient["query"])) },
+      { wrapper: wrapperFor(clientWith(query as ScopedClient["query"])) }
     )
     await act(async () => {})
     expect(query).not.toHaveBeenCalled()
@@ -39,7 +39,7 @@ describe("useQuery enabled option", () => {
     const client = clientWith(query as ScopedClient["query"])
     const { result, rerender } = renderHook(
       ({ enabled }) => useQuery<{ n: number }>("x.y", undefined, { enabled }),
-      { wrapper: wrapperFor(client), initialProps: { enabled: false } },
+      { wrapper: wrapperFor(client), initialProps: { enabled: false } }
     )
     await act(async () => {})
     expect(query).not.toHaveBeenCalled()
@@ -61,7 +61,7 @@ describe("useQuery enabled option", () => {
 
     const { result } = renderHook(
       () => useQuery<{ n: number }>("x.y", undefined, { enabled: false }),
-      { wrapper: wrapperFor(client) },
+      { wrapper: wrapperFor(client) }
     )
     act(() => queryStore.invalidate("billing", ["x.y"]))
     await act(async () => {})
@@ -76,7 +76,7 @@ describe("useQuery enabled option", () => {
     const query = vi.fn(async () => ({ n: 1 }))
     const { result } = renderHook(
       () => useQuery<{ n: number }>("x.y", undefined, { enabled: false }),
-      { wrapper: wrapperFor(clientWith(query as ScopedClient["query"])) },
+      { wrapper: wrapperFor(clientWith(query as ScopedClient["query"])) }
     )
     act(() => result.current.refetch())
     await act(async () => {})
@@ -89,7 +89,7 @@ describe("useQuery enabled option", () => {
     const client = clientWith(query as ScopedClient["query"])
     const { result, rerender } = renderHook(
       ({ enabled }) => useQuery<{ n: number }>("x.y", undefined, { enabled }),
-      { wrapper: wrapperFor(client), initialProps: { enabled: true } },
+      { wrapper: wrapperFor(client), initialProps: { enabled: true } }
     )
     await waitFor(() => expect(result.current.data).toEqual({ n: 1 }))
     rerender({ enabled: false })
@@ -103,11 +103,16 @@ describe("useQuery enabled option", () => {
   it("keeps today's behaviour when the option is absent or true", async () => {
     const query = vi.fn(async () => ({ n: 1 }))
     const client = clientWith(query as ScopedClient["query"])
-    const a = renderHook(() => useQuery<{ n: number }>("x.y"), { wrapper: wrapperFor(client) })
-    await waitFor(() => expect(a.result.current.data).toEqual({ n: 1 }))
-    const b = renderHook(() => useQuery<{ n: number }>("x.z", undefined, { enabled: true }), {
+    const a = renderHook(() => useQuery<{ n: number }>("x.y"), {
       wrapper: wrapperFor(client),
     })
+    await waitFor(() => expect(a.result.current.data).toEqual({ n: 1 }))
+    const b = renderHook(
+      () => useQuery<{ n: number }>("x.z", undefined, { enabled: true }),
+      {
+        wrapper: wrapperFor(client),
+      }
+    )
     await waitFor(() => expect(b.result.current.data).toEqual({ n: 1 }))
     expect(query).toHaveBeenCalledTimes(2)
   })

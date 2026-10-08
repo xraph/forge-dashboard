@@ -161,7 +161,9 @@ export function conditionNote(
     return null
   }
   const lead =
-    problem === "alwaysTrue" ? "This is always true, so it restricts nothing." : "This is always false."
+    problem === "alwaysTrue"
+      ? "This is always true, so it restricts nothing."
+      : "This is always false."
   const why = reason ? reasonText(reason, field) : null
   return why ? `${lead} ${why}` : lead
 }
@@ -188,8 +190,12 @@ export function windowTime(iso: string): string {
 }
 
 /** "from X until Y", "from X", "until Y", or null with no window. */
-export function windowPhrase(notBefore?: string, notAfter?: string): string | null {
-  if (notBefore && notAfter) return `from ${windowTime(notBefore)} until ${windowTime(notAfter)}`
+export function windowPhrase(
+  notBefore?: string,
+  notAfter?: string
+): string | null {
+  if (notBefore && notAfter)
+    return `from ${windowTime(notBefore)} until ${windowTime(notAfter)}`
   if (notBefore) return `from ${windowTime(notBefore)}`
   if (notAfter) return `until ${windowTime(notAfter)}`
   return null
@@ -205,10 +211,14 @@ export const PRIORITY_HELP =
  * null otherwise. The same tests `policyState` makes, applied to an inactive
  * policy, whose server state says only "inactive".
  */
-export function closedWindow(p: PolicyDetail, now: number): "inverted" | "ended" | null {
+export function closedWindow(
+  p: PolicyDetail,
+  now: number
+): "inverted" | "ended" | null {
   const start = p.notBefore ? Date.parse(p.notBefore) : Number.NaN
   const end = p.notAfter ? Date.parse(p.notAfter) : Number.NaN
-  if (!Number.isNaN(start) && !Number.isNaN(end) && end < start) return "inverted"
+  if (!Number.isNaN(start) && !Number.isNaN(end) && end < start)
+    return "inverted"
   if (!Number.isNaN(end) && end < now) return "ended"
   return null
 }
@@ -351,11 +361,19 @@ export function PolicyRule({
     <section
       aria-label="Rule"
       data-dimmed={dimmed ? "true" : "false"}
-      className={cn("flex flex-col gap-3 rounded-md border p-4", dimmed && "opacity-60")}
+      className={cn(
+        "flex flex-col gap-3 rounded-md border p-4",
+        dimmed && "opacity-60"
+      )}
     >
       {/* Anything but exactly "allow" is a deny to the evaluator, so it reads
           as one here too. */}
-      <h2 className={cn("text-base font-medium", isAllow ? "text-foreground" : "text-destructive")}>
+      <h2
+        className={cn(
+          "text-base font-medium",
+          isAllow ? "text-foreground" : "text-destructive"
+        )}
+      >
         {isAllow ? "Allow" : "Deny"}
       </h2>
       <dl className="grid grid-cols-[6rem_minmax(0,1fr)] items-baseline gap-x-4 gap-y-2 text-sm">
@@ -398,18 +416,26 @@ export function PolicyRule({
           const deciding = policy.decidingCondition === i
           return (
             <Fragment key={c.id || i}>
-              <dt className={cn(LABEL, i > 0 && "text-right")}>{i === 0 ? "when" : "and"}</dt>
+              <dt className={cn(LABEL, i > 0 && "text-right")}>
+                {i === 0 ? "when" : "and"}
+              </dt>
               <dd
                 data-condition={i}
                 data-deciding={deciding ? "true" : undefined}
-                className={cn(deciding && "-ml-2 border-l-2 border-foreground pl-2")}
+                className={cn(
+                  deciding && "-ml-2 border-l-2 border-foreground pl-2"
+                )}
               >
                 <span className="flex flex-wrap items-baseline gap-x-2">
-                  <span className="font-mono text-xs">{fieldText(c.field)}</span>
+                  <span className="font-mono text-xs">
+                    {fieldText(c.field)}
+                  </span>
                   <span>{OPERATOR_WORDS[c.operator] ?? c.operator}</span>
                   {!NO_VALUE.has(c.operator) && <ValueText value={c.value} />}
                   {deciding && (
-                    <span className="text-xs text-muted-foreground">condition {i + 1}</span>
+                    <span className="text-xs text-muted-foreground">
+                      condition {i + 1}
+                    </span>
                   )}
                 </span>
                 {note && <Note>{note}</Note>}
@@ -431,7 +457,11 @@ export function PolicyRule({
             <dd data-row="emits">
               <span className="flex flex-wrap gap-1.5">
                 {obligations.map((o, i) => (
-                  <Badge key={`${i}-${o}`} variant="outline" className="font-mono text-xs">
+                  <Badge
+                    key={`${i}-${o}`}
+                    variant="outline"
+                    className="font-mono text-xs"
+                  >
                     {o}
                   </Badge>
                 ))}

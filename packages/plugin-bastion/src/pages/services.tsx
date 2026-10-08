@@ -4,7 +4,10 @@ import type { PluginPageProps } from "@forge-go/dashboard-plugin"
 import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
-import { ResourceTable, type Column } from "@forge-go/dashboard-kit/components/resource-table"
+import {
+  ResourceTable,
+  type Column,
+} from "@forge-go/dashboard-kit/components/resource-table"
 import { TagList } from "@forge-go/dashboard-kit/components/tag-list"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { HealthBadge } from "../badges"
@@ -12,19 +15,47 @@ import { RefreshDiscovery } from "../components/refresh-discovery"
 import type { ServiceView, ServicesList } from "../types"
 
 const columns: Column<ServiceView>[] = [
-  { id: "name", header: "Name", className: "font-mono text-xs font-medium", cell: (s) => s.name },
+  {
+    id: "name",
+    header: "Name",
+    className: "font-mono text-xs font-medium",
+    cell: (s) => s.name,
+  },
   {
     id: "version",
     header: "Version",
     className: "font-mono text-xs",
     cell: (s) => s.version || <NoneCell label="version" />,
   },
-  { id: "address", header: "Address", className: "font-mono text-xs", cell: (s) => `${s.address}:${s.port}` },
-  { id: "protocols", header: "Protocols", cell: (s) => <TagList values={s.protocols ?? []} label="protocols" /> },
-  { id: "health", header: "Health", cell: (s) => <HealthBadge healthy={s.healthy} /> },
+  {
+    id: "address",
+    header: "Address",
+    className: "font-mono text-xs",
+    cell: (s) => `${s.address}:${s.port}`,
+  },
+  {
+    id: "protocols",
+    header: "Protocols",
+    cell: (s) => <TagList values={s.protocols ?? []} label="protocols" />,
+  },
+  {
+    id: "health",
+    header: "Health",
+    cell: (s) => <HealthBadge healthy={s.healthy} />,
+  },
   { id: "routes", header: "Routes", align: "end", cell: (s) => s.routeCount },
-  { id: "discovered", header: "Discovered", cell: (s) => <Timestamp value={s.discoveredAt ?? undefined} label="discovery time" /> },
-  { id: "metadata", header: "Metadata", cell: (s) => <TagList values={s.metadataKeys ?? []} label="metadata" /> },
+  {
+    id: "discovered",
+    header: "Discovered",
+    cell: (s) => (
+      <Timestamp value={s.discoveredAt ?? undefined} label="discovery time" />
+    ),
+  },
+  {
+    id: "metadata",
+    header: "Metadata",
+    cell: (s) => <TagList values={s.metadataKeys ?? []} label="metadata" />,
+  },
 ]
 
 export const BastionServicesPage: ComponentType<PluginPageProps> = () => {

@@ -18,7 +18,7 @@ describe("renderContribution", () => {
         client: subStubClient({}).client,
         hostClient: subStubClient({}).client,
         params: { orgId: "o1" },
-      },
+      }
     )
 
     await waitFor(() => expect(screen.getByText("o1")).toBeTruthy())
@@ -38,7 +38,7 @@ describe("renderContribution", () => {
         slot: "overview.widgets",
         client: own.client,
         hostClient: host.client,
-      },
+      }
     )
 
     await waitFor(() => expect(screen.getByText("rendered")).toBeTruthy())

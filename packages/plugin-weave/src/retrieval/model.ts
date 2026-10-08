@@ -1,5 +1,11 @@
 import { isReorderingRetriever } from "../score"
-import type { AssembleHit, AssembledContext, CompareResult, Components, Hit } from "../types"
+import type {
+  AssembleHit,
+  AssembledContext,
+  CompareResult,
+  Components,
+  Hit,
+} from "../types"
 
 export type HitState = "hydrated" | "orphaned" | "unidentified"
 
@@ -25,7 +31,8 @@ export function chunkLinkOf(hit: Hit): string {
  */
 export function documentOf(hit: Hit): { id: string; linkable: boolean } {
   if (!hit.chunk) return { id: "", linkable: false }
-  if (hit.hydrated && hit.chunk.document_id !== "") return { id: hit.chunk.document_id, linkable: true }
+  if (hit.hydrated && hit.chunk.document_id !== "")
+    return { id: hit.chunk.document_id, linkable: true }
   return { id: hit.chunk.metadata?.document_id ?? "", linkable: false }
 }
 
@@ -49,7 +56,11 @@ export function movement(hit: Hit): Movement {
  * "" would add an empty [n] and shift every marker after it.
  */
 export function assembleHitsFrom(hits: Hit[]): AssembleHit[] {
-  return hits.map((h) => ({ chunk_id: h.chunk?.id ?? "", content: h.chunk ? h.chunk.content : null, score: h.score }))
+  return hits.map((h) => ({
+    chunk_id: h.chunk?.id ?? "",
+    content: h.chunk ? h.chunk.content : null,
+    score: h.score,
+  }))
 }
 
 export type Emptiness =
@@ -58,11 +69,19 @@ export type Emptiness =
   | { kind: "none-returned"; matches: number }
 
 /** Which kind of empty a run is, or null when it has hits. */
-export function emptiness(result: CompareResult, minScore: number): Emptiness | null {
+export function emptiness(
+  result: CompareResult,
+  minScore: number
+): Emptiness | null {
   if (result.hits.length > 0) return null
   if (result.vector_matches === 0) return { kind: "no-vectors" }
   if (minScore > 0 && result.best_vector_score < minScore) {
-    return { kind: "all-filtered", matches: result.vector_matches, best: result.best_vector_score, minScore }
+    return {
+      kind: "all-filtered",
+      matches: result.vector_matches,
+      best: result.best_vector_score,
+      minScore,
+    }
   }
   return { kind: "none-returned", matches: result.vector_matches }
 }
@@ -84,9 +103,15 @@ export function emptinessCopy(e: Emptiness): string {
  * deployment. If a reordering retriever happened to keep vector order, it is
  * a fact about this query only.
  */
-export function noReorderingCopy(result: CompareResult, components: Components | undefined): string | null {
+export function noReorderingCopy(
+  result: CompareResult,
+  components: Components | undefined
+): string | null {
   if (result.reordered) return null
-  if (result.same_search || (components !== undefined && !isReorderingRetriever(components))) {
+  if (
+    result.same_search ||
+    (components !== undefined && !isReorderingRetriever(components))
+  ) {
     return "No reordering: this deployment returns the vector ranking as it is."
   }
   return "No reordering for this query: it came back in vector order. The next query may not."
@@ -100,7 +125,8 @@ export function noReorderingCopy(result: CompareResult, components: Components |
 export const CONTEXT_HEADER = "Relevant context:\n\n"
 export const CONTEXT_SEPARATOR = "\n\n---\n\n"
 
-export type ContextPart = { kind: "text"; text: string } | { kind: "marker"; n: number }
+export type ContextPart =
+  { kind: "text"; text: string } | { kind: "marker"; n: number }
 
 /**
  * The assembled context as text and markers. A marker is "[n] " at the start

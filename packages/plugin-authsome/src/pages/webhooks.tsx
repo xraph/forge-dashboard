@@ -100,7 +100,11 @@ function EditWebhookPanel({
       <CommandAlert error={update.error} title="Could not save" />
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="webhook-edit-url">URL</Label>
-        <Input id="webhook-edit-url" value={url} onChange={(e) => setUrl(e.target.value)} />
+        <Input
+          id="webhook-edit-url"
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+        />
       </div>
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="webhook-edit-events">Events</Label>
@@ -111,8 +115,8 @@ function EditWebhookPanel({
           placeholder="user.created, user.deleted"
         />
         <span className="text-xs text-muted-foreground">
-          Comma-separated. The server does not enumerate valid events, so anything typed here is
-          sent as-is.
+          Comma-separated. The server does not enumerate valid events, so
+          anything typed here is sent as-is.
         </span>
       </div>
       <div className="flex items-center gap-2">
@@ -125,7 +129,10 @@ function EditWebhookPanel({
         />
       </div>
       <div className="flex gap-2">
-        <Button onClick={() => void submit()} disabled={update.loading || !dirty}>
+        <Button
+          onClick={() => void submit()}
+          disabled={update.loading || !dirty}
+        >
           {update.loading ? "Saving…" : "Save changes"}
         </Button>
         <Button variant="ghost" onClick={onDone} disabled={update.loading}>
@@ -173,7 +180,11 @@ function CreateWebhookPanel({ onDone }: { onDone: () => void }) {
       <CommandAlert error={create.error} title="Could not create the webhook" />
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="webhook-create-url">URL</Label>
-        <Input id="webhook-create-url" value={url} onChange={(e) => setUrl(e.target.value)} />
+        <Input
+          id="webhook-create-url"
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+        />
       </div>
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="webhook-create-events">Events</Label>
@@ -184,14 +195,16 @@ function CreateWebhookPanel({ onDone }: { onDone: () => void }) {
           placeholder="user.created, user.deleted"
         />
         <span className="text-xs text-muted-foreground">
-          Comma-separated. The server does not enumerate valid events, so anything typed here is
-          sent as-is. At least one is required.
+          Comma-separated. The server does not enumerate valid events, so
+          anything typed here is sent as-is. At least one is required.
         </span>
       </div>
       <div className="flex gap-2">
         <Button
           onClick={() => void submit()}
-          disabled={create.loading || url.trim() === "" || parsedEvents.length === 0}
+          disabled={
+            create.loading || url.trim() === "" || parsedEvents.length === 0
+          }
         >
           {create.loading ? "Creating…" : "Create webhook"}
         </Button>
@@ -232,7 +245,8 @@ export function AuthWebhooksPage() {
     {
       id: "events",
       header: "Events",
-      cell: (w) => (w.events.length > 0 ? w.events.join(", ") : <NoneCell label="events" />),
+      cell: (w) =>
+        w.events.length > 0 ? w.events.join(", ") : <NoneCell label="events" />,
     },
     {
       id: "active",
@@ -243,14 +257,22 @@ export function AuthWebhooksPage() {
         </Badge>
       ),
     },
-    { id: "createdAt", header: "Created", cell: (w) => formatTimestamp(w.createdAt) },
+    {
+      id: "createdAt",
+      header: "Created",
+      cell: (w) => formatTimestamp(w.createdAt),
+    },
   ]
 
   return (
     <section className="flex flex-col gap-4">
       <PageHeader
         title="Webhooks"
-        actions={!creating && <Button onClick={() => setCreating(true)}>New webhook</Button>}
+        actions={
+          !creating && (
+            <Button onClick={() => setCreating(true)}>New webhook</Button>
+          )
+        }
       />
 
       {creating && <CreateWebhookPanel onDone={() => setCreating(false)} />}
@@ -315,7 +337,11 @@ export function AuthWebhooksPage() {
       </QueryBoundary>
 
       {editing && (
-        <EditWebhookPanel key={editing.id} webhook={editing} onDone={() => setEditing(null)} />
+        <EditWebhookPanel
+          key={editing.id}
+          webhook={editing}
+          onDone={() => setEditing(null)}
+        />
       )}
 
       {/*

@@ -7,10 +7,31 @@ import { failingClient, renderPage, stubClient } from "./harness"
 function output(over: Record<string, unknown> = {}) {
   return {
     components: {
-      loader: { kind: "text", type: "*loader.TextLoader", configured: true, content_types: ["text/plain", "text/html"] },
-      chunker: { kind: "semantic", params: { offsets: "approximate" }, type: "*chunker.SemanticChunker", configured: true },
-      embedder: { kind: "openai", params: { model: "text-embedding-3-small" }, type: "*embedder.OpenAIEmbedder", configured: true, dimensions: 1536 },
-      vector_store: { kind: "fabriq", score: "vector_similarity", tenant_filter: "unverified", configured: true },
+      loader: {
+        kind: "text",
+        type: "*loader.TextLoader",
+        configured: true,
+        content_types: ["text/plain", "text/html"],
+      },
+      chunker: {
+        kind: "semantic",
+        params: { offsets: "approximate" },
+        type: "*chunker.SemanticChunker",
+        configured: true,
+      },
+      embedder: {
+        kind: "openai",
+        params: { model: "text-embedding-3-small" },
+        type: "*embedder.OpenAIEmbedder",
+        configured: true,
+        dimensions: 1536,
+      },
+      vector_store: {
+        kind: "fabriq",
+        score: "vector_similarity",
+        tenant_filter: "unverified",
+        configured: true,
+      },
       retriever: { kind: "", configured: false },
       score: "vector_similarity",
       tenant_filter: "unverified",
@@ -45,21 +66,35 @@ describe("PipelinePage", () => {
     renderPage(PipelinePage, stubClient({ "system.components": output() }))
     await screen.findByText("Loader")
     const embedder = rowWith("Embedder")
-    expect(within(embedder).getByText("openai").className).toContain("font-mono")
-    expect(within(embedder).getByText("model=text-embedding-3-small")).toBeTruthy()
+    expect(within(embedder).getByText("openai").className).toContain(
+      "font-mono"
+    )
+    expect(
+      within(embedder).getByText("model=text-embedding-3-small")
+    ).toBeTruthy()
     expect(within(embedder).getByText("dimensions=1536")).toBeTruthy()
-    expect(within(rowWith("Chunker")).getByText("offsets=approximate")).toBeTruthy()
+    expect(
+      within(rowWith("Chunker")).getByText("offsets=approximate")
+    ).toBeTruthy()
   })
 
   it("says what an absent retriever means rather than calling it inactive", async () => {
     renderPage(PipelinePage, stubClient({ "system.components": output() }))
     await screen.findByText("Loader")
-    expect(within(rowWith("Retriever")).getByText(/returns the vector search as it is/)).toBeTruthy()
+    expect(
+      within(rowWith("Retriever")).getByText(
+        /returns the vector search as it is/
+      )
+    ).toBeTruthy()
   })
 
   it("says tenant filtering on this store is unverified", async () => {
     renderPage(PipelinePage, stubClient({ "system.components": output() }))
-    expect(await screen.findByText(/can't check tenant filtering on this vector store/)).toBeTruthy()
+    expect(
+      await screen.findByText(
+        /can't check tenant filtering on this vector store/
+      )
+    ).toBeTruthy()
   })
 
   it("lists the content types the loader actually supports", async () => {
@@ -75,8 +110,16 @@ describe("PipelinePage", () => {
 
   it("says the retrieve strategy parameter does nothing and that weave_vectors has no migration", async () => {
     renderPage(PipelinePage, stubClient({ "system.components": output() }))
-    expect(await screen.findByText("The retrieve API's strategy parameter does nothing: Weave runs the one retriever it was configured with.")).toBeTruthy()
-    expect(screen.getByText("Weave ships no migration for the pgvector table, weave_vectors, so a pgvector deployment has to create it itself.")).toBeTruthy()
+    expect(
+      await screen.findByText(
+        "The retrieve API's strategy parameter does nothing: Weave runs the one retriever it was configured with."
+      )
+    ).toBeTruthy()
+    expect(
+      screen.getByText(
+        "Weave ships no migration for the pgvector table, weave_vectors, so a pgvector deployment has to create it itself."
+      )
+    ).toBeTruthy()
   })
 
   it("reads an MMR retriever's score in the vector store's own kind", async () => {
@@ -87,14 +130,23 @@ describe("PipelinePage", () => {
         "system.components": output({
           components: {
             ...base.components,
-            retriever: { kind: "mmr", params: { lambda: "0.70" }, score: "mmr_relevance", configured: true },
+            retriever: {
+              kind: "mmr",
+              params: { lambda: "0.70" },
+              score: "mmr_relevance",
+              configured: true,
+            },
           },
         }),
-      }),
+      })
     )
     await screen.findByText("Loader")
     const retriever = rowWith("Retriever")
-    expect(within(retriever).getByText(/vector store's own similarity score.*The order is MMR/)).toBeTruthy()
+    expect(
+      within(retriever).getByText(
+        /vector store's own similarity score.*The order is MMR/
+      )
+    ).toBeTruthy()
     expect(within(retriever).queryByText(/Cosine/)).toBeNull()
   })
 
@@ -102,11 +154,16 @@ describe("PipelinePage", () => {
     renderPage(PipelinePage, stubClient({ "system.components": output() }))
     expect(await screen.findByText("2 extensions")).toBeTruthy()
     expect(within(rowWith("metrics")).getByLabelText("no hooks")).toBeTruthy()
-    expect(within(rowWith("audit-trail")).getByText("ingest_failed")).toBeTruthy()
+    expect(
+      within(rowWith("audit-trail")).getByText("ingest_failed")
+    ).toBeTruthy()
   })
 
   it("shows an error card when the report cannot be read", async () => {
-    renderPage(PipelinePage, failingClient(new ContractError("INTERNAL", "an internal error occurred")))
+    renderPage(
+      PipelinePage,
+      failingClient(new ContractError("INTERNAL", "an internal error occurred"))
+    )
     expect(await screen.findByText(/an internal error occurred/)).toBeTruthy()
   })
 })

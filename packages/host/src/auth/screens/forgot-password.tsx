@@ -37,7 +37,11 @@ export function ForgotPasswordScreen({ intents }: AuthScreenProps) {
       serverHost={currentServerHost()}
       title="Reset your password"
     >
-      <CommandAlert error={request.error} showCode={false} title="Could not send the link" />
+      <CommandAlert
+        error={request.error}
+        showCode={false}
+        title="Could not send the link"
+      />
       {sent ? (
         // Deliberately the same wording whether or not the address exists.
         // Telling somebody which emails are registered is an account oracle.
@@ -57,7 +61,11 @@ export function ForgotPasswordScreen({ intents }: AuthScreenProps) {
               value={email}
             />
           </div>
-          <button className={buttonVariants({ className: "w-full" })} disabled={request.loading} type="submit">
+          <button
+            className={buttonVariants({ className: "w-full" })}
+            disabled={request.loading}
+            type="submit"
+          >
             {request.loading ? "Sending…" : "Send reset link"}
           </button>
         </form>

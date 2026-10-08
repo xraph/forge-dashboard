@@ -20,13 +20,17 @@ const regressionColumns: Column<RegressionSummary>[] = [
     id: "suite",
     header: "Suite",
     className: "font-medium",
-    cell: (r) => <PluginLink to={suitePath(r.suiteId)}>{r.suiteName}</PluginLink>,
+    cell: (r) => (
+      <PluginLink to={suitePath(r.suiteId)}>{r.suiteName}</PluginLink>
+    ),
   },
   {
     id: "run",
     header: "Run",
     className: "font-mono text-xs",
-    cell: (r) => <PluginLink to={runPath(r.runId)}>{shortRunId(r.runId)}</PluginLink>,
+    cell: (r) => (
+      <PluginLink to={runPath(r.runId)}>{shortRunId(r.runId)}</PluginLink>
+    ),
   },
   { id: "baseline", header: "Against baseline", cell: (r) => r.baseline.name },
   {
@@ -44,7 +48,11 @@ const regressionColumns: Column<RegressionSummary>[] = [
       </span>
     ),
   },
-  { id: "started", header: "Started", cell: (r) => <Timestamp value={r.createdAt} label="start time" /> },
+  {
+    id: "started",
+    header: "Started",
+    cell: (r) => <Timestamp value={r.createdAt} label="start time" />,
+  },
 ]
 
 /**
@@ -60,7 +68,10 @@ export const OverviewPage: ComponentType<PluginPageProps> = () => {
   }, RUN_POLL_MS)
   return (
     <section className="flex flex-col gap-6">
-      <PageHeader title="Overview" description="Evaluation suites, their runs and how those runs compare with each suite's baseline." />
+      <PageHeader
+        title="Overview"
+        description="Evaluation suites, their runs and how those runs compare with each suite's baseline."
+      />
       <SettledBoundary title="Overview" query={overview} skeletonRows={6}>
         {(o) => (
           <div className="flex flex-col gap-8">
@@ -69,7 +80,9 @@ export const OverviewPage: ComponentType<PluginPageProps> = () => {
                 aria-label="No target"
                 className="flex flex-col gap-1 rounded-lg border border-l-4 border-l-foreground/30 px-5 py-4"
               >
-                <p className="text-base font-medium">No target is registered, so no run can start</p>
+                <p className="text-base font-medium">
+                  No target is registered, so no run can start
+                </p>
                 <p className="text-sm text-muted-foreground">
                   {"A target is what a run sends each case to. "}
                   <PluginLink to="/setup">Setup</PluginLink>
@@ -85,8 +98,14 @@ export const OverviewPage: ComponentType<PluginPageProps> = () => {
               ]}
             />
             {o.activeRuns.length > 0 && (
-              <section aria-labelledby="sentinel-overview-active" className="flex flex-col gap-2">
-                <h2 id="sentinel-overview-active" className="text-sm font-medium">
+              <section
+                aria-labelledby="sentinel-overview-active"
+                className="flex flex-col gap-2"
+              >
+                <h2
+                  id="sentinel-overview-active"
+                  className="text-sm font-medium"
+                >
                   Running now
                 </h2>
                 <RunsTable
@@ -97,8 +116,14 @@ export const OverviewPage: ComponentType<PluginPageProps> = () => {
                 />
               </section>
             )}
-            <section aria-labelledby="sentinel-overview-regressions" className="flex flex-col gap-2">
-              <h2 id="sentinel-overview-regressions" className="text-sm font-medium">
+            <section
+              aria-labelledby="sentinel-overview-regressions"
+              className="flex flex-col gap-2"
+            >
+              <h2
+                id="sentinel-overview-regressions"
+                className="text-sm font-medium"
+              >
                 Recent regressions
               </h2>
               <ResourceTable<RegressionSummary>
@@ -109,9 +134,15 @@ export const OverviewPage: ComponentType<PluginPageProps> = () => {
                 emptyMessage="None of the twenty newest completed runs fell past its suite's threshold. Suites without a baseline are not compared."
               />
             </section>
-            <section aria-labelledby="sentinel-overview-recent" className="flex flex-col gap-2">
+            <section
+              aria-labelledby="sentinel-overview-recent"
+              className="flex flex-col gap-2"
+            >
               <div className="flex items-baseline justify-between gap-3">
-                <h2 id="sentinel-overview-recent" className="text-sm font-medium">
+                <h2
+                  id="sentinel-overview-recent"
+                  className="text-sm font-medium"
+                >
                   Recent runs
                 </h2>
                 <PluginLink to="/runs" className="text-sm">

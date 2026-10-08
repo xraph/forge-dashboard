@@ -26,6 +26,6 @@ vi.mock("../src/components/prompt-diff", () => ({
       "div",
       { role: "region", "aria-label": label },
       createElement("pre", { "data-testid": "diff-was" }, was),
-      createElement("pre", { "data-testid": "diff-now" }, now),
+      createElement("pre", { "data-testid": "diff-now" }, now)
     ),
 }))

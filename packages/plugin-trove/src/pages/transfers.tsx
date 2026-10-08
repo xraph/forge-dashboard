@@ -3,7 +3,10 @@ import { usePoll, useQuery } from "@forge-go/dashboard-plugin"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
 import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
-import { ResourceTable, type Column } from "@forge-go/dashboard-kit/components/resource-table"
+import {
+  ResourceTable,
+  type Column,
+} from "@forge-go/dashboard-kit/components/resource-table"
 import { StreamStateBadge } from "../badges"
 import { Bytes } from "../components/bytes"
 import { SettledBoundary } from "../components/settled-boundary"
@@ -21,19 +24,35 @@ const columns: Column<StreamRow>[] = [
     cell: (s) => {
       const target = `${s.bucket}/${s.key}`
       return (
-        <span className="block max-w-sm truncate font-mono text-xs" title={target}>
+        <span
+          className="block max-w-sm truncate font-mono text-xs"
+          title={target}
+        >
           {target}
         </span>
       )
     },
   },
   { id: "direction", header: "Direction", cell: (s) => s.direction },
-  { id: "state", header: "State", cell: (s) => <StreamStateBadge state={s.state} /> },
-  { id: "offset", header: "Transferred", cell: (s) => <Bytes value={s.offset} /> },
+  {
+    id: "state",
+    header: "State",
+    cell: (s) => <StreamStateBadge state={s.state} />,
+  },
+  {
+    id: "offset",
+    header: "Transferred",
+    cell: (s) => <Bytes value={s.offset} />,
+  },
   {
     id: "total",
     header: "Expected size",
-    cell: (s) => (s.totalSize === null ? <NoneCell label="total size" /> : <Bytes value={s.totalSize} />),
+    cell: (s) =>
+      s.totalSize === null ? (
+        <NoneCell label="total size" />
+      ) : (
+        <Bytes value={s.totalSize} />
+      ),
   },
 ]
 

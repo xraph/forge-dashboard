@@ -24,7 +24,14 @@ import {
   useSidebar,
 } from "@forge-go/dashboard-kit/components/sidebar"
 import { useTheme } from "@forge-go/dashboard-kit/components/theme-provider"
-import { EllipsisVerticalIcon, CircleUserRoundIcon, CreditCardIcon, BellIcon, LogOutIcon, SunMoonIcon } from "lucide-react"
+import {
+  EllipsisVerticalIcon,
+  CircleUserRoundIcon,
+  CreditCardIcon,
+  BellIcon,
+  LogOutIcon,
+  SunMoonIcon,
+} from "lucide-react"
 
 /**
  * Initials for the avatar fallback, derived from the name rather than
@@ -132,18 +139,15 @@ export function NavUser({
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
               <DropdownMenuItem>
-                <CircleUserRoundIcon
-                />
+                <CircleUserRoundIcon />
                 Account
               </DropdownMenuItem>
               <DropdownMenuItem>
-                <CreditCardIcon
-                />
+                <CreditCardIcon />
                 Billing
               </DropdownMenuItem>
               <DropdownMenuItem>
-                <BellIcon
-                />
+                <BellIcon />
                 Notifications
               </DropdownMenuItem>
             </DropdownMenuGroup>
@@ -161,9 +165,15 @@ export function NavUser({
                         value={theme ?? "system"}
                         onValueChange={(value) => setTheme(String(value))}
                       >
-                        <DropdownMenuRadioItem value="light">Light</DropdownMenuRadioItem>
-                        <DropdownMenuRadioItem value="dark">Dark</DropdownMenuRadioItem>
-                        <DropdownMenuRadioItem value="system">System</DropdownMenuRadioItem>
+                        <DropdownMenuRadioItem value="light">
+                          Light
+                        </DropdownMenuRadioItem>
+                        <DropdownMenuRadioItem value="dark">
+                          Dark
+                        </DropdownMenuRadioItem>
+                        <DropdownMenuRadioItem value="system">
+                          System
+                        </DropdownMenuRadioItem>
                       </DropdownMenuRadioGroup>
                     </DropdownMenuSubContent>
                   </DropdownMenuSub>
@@ -174,8 +184,7 @@ export function NavUser({
               <>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={onSignOut}>
-                  <LogOutIcon
-                  />
+                  <LogOutIcon />
                   Log out
                 </DropdownMenuItem>
               </>

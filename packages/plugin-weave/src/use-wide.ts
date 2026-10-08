@@ -16,7 +16,10 @@ function subscribe(onChange: () => void): () => void {
 export function useWide(): boolean {
   return useSyncExternalStore(
     subscribe,
-    () => (typeof window.matchMedia === "function" ? window.matchMedia(QUERY).matches : true),
-    () => true,
+    () =>
+      typeof window.matchMedia === "function"
+        ? window.matchMedia(QUERY).matches
+        : true,
+    () => true
   )
 }

@@ -6,12 +6,23 @@ import { Button } from "@forge-go/dashboard-kit/components/button"
 import { ConfirmDialog } from "@forge-go/dashboard-kit/components/confirm-dialog"
 import { Input } from "@forge-go/dashboard-kit/components/input"
 import { Label } from "@forge-go/dashboard-kit/components/label"
-import { CommandAlert, QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
-import { ResourceTable, type Column } from "@forge-go/dashboard-kit/components/resource-table"
+import {
+  CommandAlert,
+  QueryBoundary,
+} from "@forge-go/dashboard-kit/components/query-boundary"
+import {
+  ResourceTable,
+  type Column,
+} from "@forge-go/dashboard-kit/components/resource-table"
 import { HeraldHeader } from "../components/herald-header"
 import { plural, PREF_CHANNELS } from "../format"
 import { useDebounced } from "../use-debounced"
-import type { ChannelPreferenceWire, PrefChannel, PreferencesGetResponse, PreferencesOptOutResponse } from "../wire"
+import type {
+  ChannelPreferenceWire,
+  PrefChannel,
+  PreferencesGetResponse,
+  PreferencesOptOutResponse,
+} from "../wire"
 
 interface TypeRow {
   type: string
@@ -41,7 +52,11 @@ function stateLabel(value: boolean | null | undefined): string {
 export const PreferencesPage: ComponentType<PluginPageProps> = () => {
   const [typed, setTyped] = useState("")
   const userId = useDebounced(typed.trim(), 300)
-  const prefs = useQuery<PreferencesGetResponse>("preferences.get", { userId }, { enabled: userId !== "" })
+  const prefs = useQuery<PreferencesGetResponse>(
+    "preferences.get",
+    { userId },
+    { enabled: userId !== "" }
+  )
   const optOut = useCommand<PreferencesOptOutResponse>("preferences.optOut")
   /*
    * preferences.optOut invalidates preferences.get, and the boundary swaps
@@ -71,14 +86,23 @@ export const PreferencesPage: ComponentType<PluginPageProps> = () => {
 
   async function confirm() {
     if (!target) return
-    const result = await optOut.execute({ userId: target.userId, type: target.type, channel: target.channel })
+    const result = await optOut.execute({
+      userId: target.userId,
+      type: target.type,
+      channel: target.channel,
+    })
     if (result === undefined) return
     setDone(target)
     setConfirming(false)
   }
 
   const columns: Column<TypeRow>[] = [
-    { id: "type", header: "Type", className: "font-mono text-xs font-medium", cell: (r) => r.type },
+    {
+      id: "type",
+      header: "Type",
+      className: "font-mono text-xs font-medium",
+      cell: (r) => r.type,
+    },
     ...PREF_CHANNELS.map((channel) => ({
       id: channel,
       header: channel,
@@ -86,9 +110,18 @@ export const PreferencesPage: ComponentType<PluginPageProps> = () => {
         const value = r.prefs?.[channel]
         return (
           <span className="flex items-center gap-2">
-            <span className={value === false ? "text-muted-foreground" : undefined}>{stateLabel(value)}</span>
+            <span
+              className={value === false ? "text-muted-foreground" : undefined}
+            >
+              {stateLabel(value)}
+            </span>
             {value !== false && (
-              <Button size="xs" variant="ghost" aria-label={`Opt ${userId} out of ${r.type} by ${channel}`} onClick={() => open({ userId, type: r.type, channel })}>
+              <Button
+                size="xs"
+                variant="ghost"
+                aria-label={`Opt ${userId} out of ${r.type} by ${channel}`}
+                onClick={() => open({ userId, type: r.type, channel })}
+              >
                 Opt out
               </Button>
             )}
@@ -100,29 +133,54 @@ export const PreferencesPage: ComponentType<PluginPageProps> = () => {
 
   return (
     <section className="flex flex-col gap-4">
-      <HeraldHeader title="Preferences" description="Which notifications a user has opted out of, per channel." />
+      <HeraldHeader
+        title="Preferences"
+        description="Which notifications a user has opted out of, per channel."
+      />
       <div className="flex max-w-sm flex-col gap-1.5">
         <Label htmlFor="pref-user">User ID</Label>
-        <Input id="pref-user" className="font-mono text-xs" autoComplete="off" spellCheck={false} value={typed} onChange={(e) => setTyped(e.target.value)} />
+        <Input
+          id="pref-user"
+          className="font-mono text-xs"
+          autoComplete="off"
+          spellCheck={false}
+          value={typed}
+          onChange={(e) => setTyped(e.target.value)}
+        />
       </div>
       <p className="text-sm text-muted-foreground">
-        Opt-outs can't be undone here. A user with no record gets every notification, so reversing an opt-out has to come from the user, through your own application.
+        Opt-outs can't be undone here. A user with no record gets every
+        notification, so reversing an opt-out has to come from the user, through
+        your own application.
       </p>
       {/* Always mounted, text set later: a live region announces what changes inside it, not what arrives with it. */}
       <p role="status" className="text-sm empty:sr-only">
-        {done && `${done.userId} is now opted out of ${done.type} by ${done.channel}.`}
+        {done &&
+          `${done.userId} is now opted out of ${done.type} by ${done.channel}.`}
       </p>
       {userId === "" ? (
-        <p className="text-sm text-muted-foreground">Enter a user ID to see their preferences.</p>
+        <p className="text-sm text-muted-foreground">
+          Enter a user ID to see their preferences.
+        </p>
       ) : (
         <QueryBoundary title="Preferences" query={prefs} skeletonRows={4}>
           {(data) => {
             const overrides = data.preference?.overrides ?? {}
-            const types = [...new Set([...data.knownTypes, ...Object.keys(overrides)])].sort()
-            const rows: TypeRow[] = types.map((type) => ({ type, prefs: overrides[type] }))
+            const types = [
+              ...new Set([...data.knownTypes, ...Object.keys(overrides)]),
+            ].sort()
+            const rows: TypeRow[] = types.map((type) => ({
+              type,
+              prefs: overrides[type],
+            }))
             return (
               <div className="flex flex-col gap-3">
-                {data.preference === null && <p className="text-sm">No preferences recorded for {userId}, so they get every notification.</p>}
+                {data.preference === null && (
+                  <p className="text-sm">
+                    No preferences recorded for {userId}, so they get every
+                    notification.
+                  </p>
+                )}
                 <ResourceTable<TypeRow>
                   columns={columns}
                   rows={rows}
@@ -144,7 +202,10 @@ export const PreferencesPage: ComponentType<PluginPageProps> = () => {
         pending={optOut.loading}
         onConfirm={() => void confirm()}
       >
-        <CommandAlert error={optOut.error} title="Could not record the opt-out" />
+        <CommandAlert
+          error={optOut.error}
+          title="Could not record the opt-out"
+        />
       </ConfirmDialog>
     </section>
   )

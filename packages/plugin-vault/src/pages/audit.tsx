@@ -35,7 +35,8 @@ const PAGE_SIZE = 25
 /** How long the key filter waits for the next keystroke before it asks. */
 const DEBOUNCE_MS = 300
 
-const READS_HIDDEN_HINT = "Reads are hidden. Turn on Show reads to include them."
+const READS_HIDDEN_HINT =
+  "Reads are hidden. Turn on Show reads to include them."
 
 const RESOURCE_OPTIONS = [
   { label: "All", value: "" },
@@ -86,7 +87,11 @@ const columns: Column<AuditEntry>[] = [
     id: "resource",
     header: "Resource",
     cell: (e) =>
-      e.resource ? <ResourceBadge resource={e.resource} /> : <NoneCell label="resource" />,
+      e.resource ? (
+        <ResourceBadge resource={e.resource} />
+      ) : (
+        <NoneCell label="resource" />
+      ),
   },
   {
     id: "key",
@@ -127,7 +132,8 @@ const columns: Column<AuditEntry>[] = [
 ]
 
 /** The times the server accepts for `since`: RFC3339 with a zone, and nothing looser. */
-const RFC3339 = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$/
+const RFC3339 =
+  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$/
 
 /** True for a time the server would take as `since`. */
 function isSince(v: string): boolean {
@@ -295,10 +301,15 @@ export const AuditPage: ComponentType<PluginPageProps> = () => {
         <div className="flex flex-wrap gap-1">
           <Badge variant="outline" className="gap-1 pr-0.5 text-xs">
             {`Since ${formatTimestamp(since)}`}
-            <IconButton type="button" variant="ghost" onClick={() => {
+            <IconButton
+              type="button"
+              variant="ghost"
+              onClick={() => {
                 setSince("")
                 setPage(1)
-              }} label="Remove since filter" />
+              }}
+              label="Remove since filter"
+            />
           </Badge>
         </div>
       )}
@@ -317,7 +328,9 @@ export const AuditPage: ComponentType<PluginPageProps> = () => {
               emptyMessage="No audit entries match these filters."
               emptyAction={
                 readsHidden ? (
-                  <p className="text-sm text-muted-foreground">{READS_HIDDEN_HINT}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {READS_HIDDEN_HINT}
+                  </p>
                 ) : undefined
               }
               pagination={{ page, pageSize: PAGE_SIZE, total: data.total }}

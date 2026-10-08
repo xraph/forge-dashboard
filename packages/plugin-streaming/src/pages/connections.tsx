@@ -62,9 +62,7 @@ const columns: Column<ConnectionInfo>[] = [
     // The colour is the scan signal, not the text: an operator scanning a
     // long list reads state from the badge colour at a glance. The text
     // alone is not a substitute for that.
-    cell: (c) => (
-      <Badge variant={statusVariant(c.status)}>{c.status}</Badge>
-    ),
+    cell: (c) => <Badge variant={statusVariant(c.status)}>{c.status}</Badge>,
   },
   {
     id: "rooms",

@@ -42,7 +42,10 @@ export function ScaleBars({
     <div className="flex flex-col gap-1">
       {reference && (
         <p className="text-xs text-muted-foreground">
-          <span aria-hidden className="mr-1.5 inline-block h-3 w-px translate-y-0.5 bg-muted-foreground" />
+          <span
+            aria-hidden
+            className="mr-1.5 inline-block h-3 w-px translate-y-0.5 bg-muted-foreground"
+          />
           {reference.label}
         </p>
       )}
@@ -52,13 +55,19 @@ export function ScaleBars({
             key={row.key}
             className={cn(
               "grid items-center gap-3 py-1 text-sm",
-              valueColumn ? "grid-cols-[minmax(6rem,10rem)_1fr_auto]" : "grid-cols-[minmax(6rem,10rem)_1fr]",
+              valueColumn
+                ? "grid-cols-[minmax(6rem,10rem)_1fr_auto]"
+                : "grid-cols-[minmax(6rem,10rem)_1fr]"
             )}
           >
             <span className="truncate">{row.label}</span>
             <span className={cn("relative h-6", !valueColumn && "mr-14")}>
               {reference && (
-                <span aria-hidden className="absolute inset-y-0 w-px bg-muted-foreground" style={{ left: pct(reference.value) }} />
+                <span
+                  aria-hidden
+                  className="absolute inset-y-0 w-px bg-muted-foreground"
+                  style={{ left: pct(reference.value) }}
+                />
               )}
               <span
                 aria-hidden
@@ -74,7 +83,11 @@ export function ScaleBars({
                 </span>
               )}
             </span>
-            {valueColumn && <span className="font-mono text-xs tabular-nums">{row.valueLabel}</span>}
+            {valueColumn && (
+              <span className="font-mono text-xs tabular-nums">
+                {row.valueLabel}
+              </span>
+            )}
           </li>
         ))}
       </ul>
@@ -96,18 +109,36 @@ export interface DeltaRow {
  * regressed bar also wears the destructive colour, an icon and the word, never
  * the colour alone.
  */
-export function DeltaBars({ rows, threshold, label }: { rows: DeltaRow[]; threshold: number; label: string }) {
-  const extent = Math.min(1, Math.max(0.1, threshold * 2, ...rows.map((r) => Math.abs(r.value))))
-  const half = (v: number) => `${(Math.min(Math.abs(v), extent) / extent) * 50}%`
+export function DeltaBars({
+  rows,
+  threshold,
+  label,
+}: {
+  rows: DeltaRow[]
+  threshold: number
+  label: string
+}) {
+  const extent = Math.min(
+    1,
+    Math.max(0.1, threshold * 2, ...rows.map((r) => Math.abs(r.value)))
+  )
+  const half = (v: number) =>
+    `${(Math.min(Math.abs(v), extent) / extent) * 50}%`
   return (
     <div className="flex flex-col gap-1">
       <p className="text-xs text-muted-foreground">
-        <span aria-hidden className="mr-1.5 inline-block h-3 w-3 translate-y-0.5 rounded-sm bg-destructive/15" />
+        <span
+          aria-hidden
+          className="mr-1.5 inline-block h-3 w-3 translate-y-0.5 rounded-sm bg-destructive/15"
+        />
         {`Shaded: more than ${formatThreshold(threshold)} below the baseline`}
       </p>
       <ul aria-label={label} className="flex flex-col">
         {rows.map((row) => (
-          <li key={row.key} className="grid grid-cols-[minmax(6rem,12rem)_1fr] items-center gap-3 py-1 text-sm">
+          <li
+            key={row.key}
+            className="grid grid-cols-[minmax(6rem,12rem)_1fr] items-center gap-3 py-1 text-sm"
+          >
             <span className="flex min-w-0 items-center gap-1.5">
               <span className="truncate">{row.label}</span>
               {row.regressed && (
@@ -123,16 +154,21 @@ export function DeltaBars({ rows, threshold, label }: { rows: DeltaRow[]; thresh
                 className="absolute inset-y-0 left-0 bg-destructive/15"
                 style={{ right: `calc(50% + ${half(threshold)})` }}
               />
-              <span aria-hidden className="absolute inset-y-0 left-1/2 w-px bg-border" />
+              <span
+                aria-hidden
+                className="absolute inset-y-0 left-1/2 w-px bg-border"
+              />
               <span
                 aria-hidden
                 className={cn(
                   "absolute top-1 h-4",
                   row.value < 0 ? "rounded-l-[4px]" : "rounded-r-[4px]",
-                  row.regressed ? "bg-destructive" : "bg-foreground",
+                  row.regressed ? "bg-destructive" : "bg-foreground"
                 )}
                 style={
-                  row.value < 0 ? { right: "50%", width: half(row.value) } : { left: "50%", width: half(row.value) }
+                  row.value < 0
+                    ? { right: "50%", width: half(row.value) }
+                    : { left: "50%", width: half(row.value) }
                 }
               />
               <span

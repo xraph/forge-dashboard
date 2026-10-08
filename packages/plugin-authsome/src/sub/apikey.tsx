@@ -152,7 +152,7 @@ function CopyableValue({ value, label }: { value: string; label: string }) {
 
   return (
     <span className="flex flex-wrap items-center gap-2">
-      <span className="select-all font-mono text-xs break-all">{value}</span>
+      <span className="font-mono text-xs break-all select-all">{value}</span>
       <Button
         variant="outline"
         size="xs"
@@ -183,7 +183,9 @@ export function APIKeyListPage() {
       id: "name",
       header: "Name",
       className: "font-medium",
-      cell: (key) => <PluginLink to={detailPath(key.id)}>{key.name}</PluginLink>,
+      cell: (key) => (
+        <PluginLink to={detailPath(key.id)}>{key.name}</PluginLink>
+      ),
     },
     {
       id: "keyPrefix",
@@ -218,7 +220,10 @@ export function APIKeyListPage() {
       <PageHeader
         title="API Keys"
         actions={
-          <PluginLink to="/apikeys/create" className="text-sm underline underline-offset-4">
+          <PluginLink
+            to="/apikeys/create"
+            className="text-sm underline underline-offset-4"
+          >
             New API key
           </PluginLink>
         }
@@ -268,9 +273,9 @@ export function APIKeyListPage() {
         title={`Revoke ${revoking?.name ?? ""}?`}
         description={
           <>
-            {revoking?.name} immediately loses the ability to authenticate
-            with this key. There is no delete and no undo: a replacement
-            means minting a new one.
+            {revoking?.name} immediately loses the ability to authenticate with
+            this key. There is no delete and no undo: a replacement means
+            minting a new one.
           </>
         }
         confirmLabel="Revoke"
@@ -306,7 +311,11 @@ function APIKeyDetailBody({ id }: { id: string }) {
                 },
                 {
                   term: "Prefix",
-                  value: <span className="font-mono text-xs">{key.keyPrefix}...</span>,
+                  value: (
+                    <span className="font-mono text-xs">
+                      {key.keyPrefix}...
+                    </span>
+                  ),
                 },
                 {
                   term: "Public key",
@@ -349,12 +358,18 @@ function APIKeyDetailBody({ id }: { id: string }) {
                   term: "Scopes",
                   value: <TagList values={key.scopes ?? []} label="scopes" />,
                 },
-                { term: "Status", value: <StatusBadge revoked={key.revoked} /> },
+                {
+                  term: "Status",
+                  value: <StatusBadge revoked={key.revoked} />,
+                },
                 {
                   term: "Expires",
                   value: <Timestamp value={key.expiresAt} label="expiry" />,
                 },
-                { term: "Last used", value: <LastUsedCell value={key.lastUsedAt} /> },
+                {
+                  term: "Last used",
+                  value: <LastUsedCell value={key.lastUsedAt} />,
+                },
                 { term: "Created", value: formatTimestamp(key.createdAt) },
                 { term: "Updated", value: formatTimestamp(key.updatedAt) },
               ]}
@@ -393,7 +408,13 @@ export function APIKeyDetailPage({ params }: PluginPageProps) {
  * in flight, rather than a skeleton eating a fixed part of the panel or, worse,
  * the secret waiting on it.
  */
-function RevealedKey({ created, onDismissed }: { created: CreatedKey; onDismissed: () => void }) {
+function RevealedKey({
+  created,
+  onDismissed,
+}: {
+  created: CreatedKey
+  onDismissed: () => void
+}) {
   const detail = useQuery<APIKeyDetail>("apikeys.detail", { id: created.id })
   const [confirmingDismiss, setConfirmingDismiss] = useState(false)
 
@@ -408,7 +429,9 @@ function RevealedKey({ created, onDismissed }: { created: CreatedKey; onDismisse
 
       {detail.data?.publicKey && (
         <div className="flex flex-col gap-1">
-          <span className="text-xs text-muted-foreground">Public key (safe to share)</span>
+          <span className="text-xs text-muted-foreground">
+            Public key (safe to share)
+          </span>
           <CopyableValue value={detail.data.publicKey} label="public key" />
         </div>
       )}
@@ -448,7 +471,12 @@ export function APIKeyCreatePage() {
       name,
       userId,
       ...(scopes.trim()
-        ? { scopes: scopes.split(",").map((s) => s.trim()).filter(Boolean) }
+        ? {
+            scopes: scopes
+              .split(",")
+              .map((s) => s.trim())
+              .filter(Boolean),
+          }
         : {}),
     })
     if (result === undefined) return

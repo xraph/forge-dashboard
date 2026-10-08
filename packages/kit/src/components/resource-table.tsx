@@ -137,7 +137,7 @@ export function ResourceTable<Row>({
                 }
                 className={cn(
                   column.align === "end" && "text-right",
-                  column.className,
+                  column.className
                 )}
               >
                 {column.sortable && onSortChange ? (
@@ -158,7 +158,9 @@ export function ResourceTable<Row>({
                 )}
               </TableHead>
             ))}
-            {rowActions && <TableHead className="text-right">Actions</TableHead>}
+            {rowActions && (
+              <TableHead className="text-right">Actions</TableHead>
+            )}
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -169,7 +171,7 @@ export function ResourceTable<Row>({
                   key={column.id}
                   className={cn(
                     column.align === "end" && "text-right",
-                    column.className,
+                    column.className
                   )}
                 >
                   {column.cell(row)}

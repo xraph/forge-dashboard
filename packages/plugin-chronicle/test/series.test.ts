@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest"
-import { breakdown, bucketRuns, bucketSeries, emptyBuckets, formatBucket } from "../src/charts/series"
+import {
+  breakdown,
+  bucketRuns,
+  bucketSeries,
+  emptyBuckets,
+  formatBucket,
+} from "../src/charts/series"
 
 describe("bucketSeries", () => {
   it("lists every hour in the range and keeps an empty hour empty, not zero", () => {
@@ -10,7 +16,7 @@ describe("bucketSeries", () => {
       ],
       new Date("2026-09-28T02:00:00Z"),
       new Date("2026-09-28T04:59:59Z"),
-      "hour",
+      "hour"
     )
     expect(s).toEqual([
       { bucket: "2026-09-28T02:00:00Z", count: 4 },
@@ -21,7 +27,12 @@ describe("bucketSeries", () => {
   })
 
   it("buckets days in UTC with the server's format", () => {
-    const s = bucketSeries([{ bucket: "2026-09-27", count: 9 }], new Date("2026-09-27T00:00:00Z"), new Date("2026-09-28T23:00:00Z"), "day")
+    const s = bucketSeries(
+      [{ bucket: "2026-09-27", count: 9 }],
+      new Date("2026-09-27T00:00:00Z"),
+      new Date("2026-09-28T23:00:00Z"),
+      "day"
+    )
     expect(s.map((x) => x.bucket)).toEqual(["2026-09-27", "2026-09-28"])
     expect(s[1].count).toBeNull()
   })
@@ -34,7 +45,7 @@ describe("bucketSeries", () => {
       ],
       new Date("2026-09-28T00:00:00Z"),
       new Date("2026-09-28T01:00:00Z"),
-      "hour",
+      "hour"
     )
     expect(s.map((x) => x.count)).toEqual([5, 1])
   })
@@ -49,8 +60,8 @@ describe("breakdown", () => {
           { category: "data", count: 9 },
           { count: 1 },
         ],
-        "category",
-      ),
+        "category"
+      )
     ).toEqual([
       { label: "data", count: 9 },
       { label: "auth", count: 3 },
@@ -71,7 +82,8 @@ describe("formatBucket", () => {
 })
 
 describe("bucketRuns", () => {
-  const hours = (h: number[]) => h.map((x) => `2026-09-28T${String(x).padStart(2, "0")}:00:00Z`)
+  const hours = (h: number[]) =>
+    h.map((x) => `2026-09-28T${String(x).padStart(2, "0")}:00:00Z`)
 
   it("joins consecutive empty buckets into one span and leaves a lone one alone", () => {
     expect(bucketRuns(hours([3, 6, 7, 8, 12]), "hour")).toEqual([
@@ -82,6 +94,8 @@ describe("bucketRuns", () => {
   })
 
   it("joins consecutive days across a month end", () => {
-    expect(bucketRuns(["2026-09-29", "2026-09-30", "2026-10-01"], "day")).toEqual([{ from: "2026-09-29", to: "2026-10-01" }])
+    expect(
+      bucketRuns(["2026-09-29", "2026-09-30", "2026-10-01"], "day")
+    ).toEqual([{ from: "2026-09-29", to: "2026-10-01" }])
   })
 })

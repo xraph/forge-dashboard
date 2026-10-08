@@ -61,7 +61,9 @@ afterEach(() => {
 describe("OneTimeKey anatomy", () => {
   it("renders no heading when showHeading is false", () => {
     const { rerender } = renderKey()
-    expect(screen.getByRole("heading", { name: "Save your new key" })).toBeTruthy()
+    expect(
+      screen.getByRole("heading", { name: "Save your new key" })
+    ).toBeTruthy()
     rerender(
       <OneTimeKey
         rawKey={STANDARD}
@@ -287,7 +289,9 @@ describe("OneTimeKey copy fallback", () => {
     await clickCopy()
     expect(part(container, "key")?.textContent).toBe(STANDARD)
     expect(
-      screen.getByRole("button", { name: "Hide key" }).getAttribute("aria-pressed")
+      screen
+        .getByRole("button", { name: "Hide key" })
+        .getAttribute("aria-pressed")
     ).toBe("false")
     expect(window.getSelection()?.toString()).toBe(STANDARD)
   })

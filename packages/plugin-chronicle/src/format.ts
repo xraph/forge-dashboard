@@ -11,7 +11,12 @@ export function countOf(n: number, one: string, many: string): string {
 }
 
 /** A page of a counted list, the noun agreeing with the total: "1 of 1 event", "2 of 60 events". */
-export function pageOf(shown: number, total: number, one: string, many: string): string {
+export function pageOf(
+  shown: number,
+  total: number,
+  one: string,
+  many: string
+): string {
   return `${formatSeq(shown)} of ${countOf(total, one, many)}`
 }
 

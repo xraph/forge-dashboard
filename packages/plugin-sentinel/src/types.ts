@@ -282,7 +282,8 @@ export interface CaseName {
   caseName: string
 }
 
-export type RegressionReason = "runFailed" | "runCancelled" | "otherSuite" | "unknownState"
+export type RegressionReason =
+  "runFailed" | "runCancelled" | "otherSuite" | "unknownState"
 
 /**
  * The regression answer, an explicit state machine. Every state carries the

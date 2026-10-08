@@ -43,13 +43,23 @@ interface Target {
  * dialog and its button say the override is removed instead.
  */
 export function useRevertOverride(): {
-  request: (key: string, tenantId: string, sentence: ReactNode, leftover?: boolean) => void
+  request: (
+    key: string,
+    tenantId: string,
+    sentence: ReactNode,
+    leftover?: boolean
+  ) => void
   dialog: ReactNode
 } {
   const remove = useCommand<DeleteOverrideResponse>("overrides.delete")
   const [target, setTarget] = useState<Target | null>(null)
 
-  function request(key: string, tenantId: string, sentence: ReactNode, leftover = false) {
+  function request(
+    key: string,
+    tenantId: string,
+    sentence: ReactNode,
+    leftover = false
+  ) {
     remove.reset()
     setTarget({ key, tenantId, sentence, leftover, open: true })
   }
@@ -60,7 +70,10 @@ export function useRevertOverride(): {
 
   async function confirm() {
     if (target === null || !target.open) return
-    const result = await remove.execute({ key: target.key, tenantId: target.tenantId })
+    const result = await remove.execute({
+      key: target.key,
+      tenantId: target.tenantId,
+    })
     // execute() resolves undefined only when the client throws.
     if (result === undefined) return
     close()
@@ -76,7 +89,11 @@ export function useRevertOverride(): {
           : `Revert ${target?.tenantId ?? ""} to the app default?`
       }
       description={target?.sentence}
-      confirmLabel={target?.leftover === true ? "Remove leftover override" : "Revert to app default"}
+      confirmLabel={
+        target?.leftover === true
+          ? "Remove leftover override"
+          : "Revert to app default"
+      }
       pending={remove.loading}
       onConfirm={() => void confirm()}
     >

@@ -40,6 +40,8 @@ import type {
 import { cn } from "@forge-go/dashboard-kit/lib/utils"
 import { Spinner } from "@forge-go/dashboard-kit/components/spinner"
 
+const emptyVirtualItems: VirtualItem[] = []
+
 type DataGridTableVirtualScrollElements = {
   containerElement: HTMLDivElement | null
   scrollElement: HTMLElement | null
@@ -365,7 +367,7 @@ function DataGridTableVirtualPinnedPlaceholderCell<TData extends object>({
         props.tableLayout?.cellBorder && "border-e",
         props.tableLayout?.columnsPinnable &&
           column.getCanPin() &&
-          "data-pinned:bg-background data-pinned:isolate [&[data-pinned=end][data-last-col=end]]:shadow-[inset_1px_0_0_0_var(--border)] [&[data-pinned=start][data-last-col=start]]:shadow-[inset_-1px_0_0_0_var(--border)]"
+          "data-pinned:isolate data-pinned:bg-background [&[data-pinned=end][data-last-col=end]]:shadow-[inset_1px_0_0_0_var(--border)] [&[data-pinned=start][data-last-col=start]]:shadow-[inset_-1px_0_0_0_var(--border)]"
       )}
     />
   )
@@ -457,7 +459,7 @@ function DataGridTableVirtualStatusRow<TData extends object>({
     <DataGridTableVirtualUtilityRow
       table={table}
       centerCellClassName={cn(
-        "text-muted-foreground py-4 text-center text-sm",
+        "py-4 text-center text-sm text-muted-foreground",
         className
       )}
     >
@@ -759,6 +761,8 @@ function DataGridTableVirtual<TData extends object>({
     [centerRows, customEstimateSize, estimateSize]
   )
 
+  // TanStack virtualizers expose mutable state and must remain outside compiler memoization.
+  // eslint-disable-next-line react-hooks/incompatible-library
   const virtualizer = useVirtualizer({
     count: centerRows.length,
     getScrollElement: resolveScrollElement,
@@ -804,17 +808,12 @@ function DataGridTableVirtual<TData extends object>({
   // virtualizer's cached sizes by hand.
   useEffect(() => {
     if (columnVirtualizationActive) columnVirtualizer.measure()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     columnVirtualizationActive,
     columnVirtualizer,
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     table.state.columnSizing,
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     table.state.columnVisibility,
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     table.state.columnOrder,
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     table.state.columnPinning,
   ])
 
@@ -834,7 +833,7 @@ function DataGridTableVirtual<TData extends object>({
 
   const virtualItems = isVirtualizationEnabled
     ? virtualizer.getVirtualItems()
-    : []
+    : emptyVirtualItems
   const totalSize = isVirtualizationEnabled ? virtualizer.getTotalSize() : 0
   const measureRowRef =
     isVirtualizationEnabled && customMeasureElement
@@ -1049,7 +1048,6 @@ function DataGridTableVirtual<TData extends object>({
   // wrapper (any table state change recreates it), the layout props, and
   // the column window. A scroll frame changes none of them, so the whole
   // sortable-header subtree is reused instead of rebuilt per frame.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   const headerNode = useMemo(
     () =>
       renderHeader && (

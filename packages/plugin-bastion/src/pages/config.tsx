@@ -11,8 +11,14 @@ import type { ConfigDetail, ConfigSection } from "../types"
 function Section({ s }: { s: ConfigSection }) {
   const headingId = `config-${s.id}`
   return (
-    <section aria-labelledby={headingId} className="flex flex-col gap-2 rounded-lg border p-4">
-      <h2 id={headingId} className="flex items-center gap-2 text-sm font-medium">
+    <section
+      aria-labelledby={headingId}
+      className="flex flex-col gap-2 rounded-lg border p-4"
+    >
+      <h2
+        id={headingId}
+        className="flex items-center gap-2 text-sm font-medium"
+      >
         {s.title}
         {s.enabled === null ? null : <EnabledBadge enabled={s.enabled} />}
       </h2>
@@ -25,7 +31,14 @@ function Section({ s }: { s: ConfigSection }) {
         <NoneCell label="settings" />
       ) : (
         <DescriptionList
-          items={s.settings.map((x) => ({ term: x.key, value: x.value === "" ? <NoneCell label="value" /> : <span className="font-mono text-xs">{x.value}</span>,
+          items={s.settings.map((x) => ({
+            term: x.key,
+            value:
+              x.value === "" ? (
+                <NoneCell label="value" />
+              ) : (
+                <span className="font-mono text-xs">{x.value}</span>
+              ),
           }))}
         />
       )}

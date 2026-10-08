@@ -6,7 +6,11 @@ import weavePlugin, { weavePlugin as named } from "../src/index"
 function capabilities(...names: string[]): Capabilities {
   return {
     shellEnvelopes: ["v1"],
-    contributors: names.map((name) => ({ name, envelopes: ["v1"], configured: true })),
+    contributors: names.map((name) => ({
+      name,
+      envelopes: ["v1"],
+      configured: true,
+    })),
   }
 }
 
@@ -19,11 +23,15 @@ describe("weavePlugin", () => {
   // compared to itself: weave/extension/contract/manifest.yaml registers the
   // contributor as "weave".
   it("resolves to ready against a host reporting weave's contributor", () => {
-    expect(resolvePluginState(weavePlugin, capabilities("weave"))).toEqual({ kind: "ready" })
+    expect(resolvePluginState(weavePlugin, capabilities("weave"))).toEqual({
+      kind: "ready",
+    })
   })
 
   it("is hidden when the host does not report weave", () => {
-    expect(resolvePluginState(weavePlugin, capabilities("trove")).kind).toBe("hidden")
+    expect(resolvePluginState(weavePlugin, capabilities("trove")).kind).toBe(
+      "hidden"
+    )
   })
 
   it("carries the extension's name as its namespace and label", () => {
@@ -64,7 +72,9 @@ describe("weavePlugin", () => {
   })
 
   it("routes ingest under its collection", () => {
-    expect(weavePlugin.routes.map((r) => r.path)).toContain("/collections/:id/ingest")
+    expect(weavePlugin.routes.map((r) => r.path)).toContain(
+      "/collections/:id/ingest"
+    )
   })
 
   it("puts Documents fourth in the RAG group and routes a document's page", () => {
@@ -98,7 +108,16 @@ describe("weavePlugin", () => {
   })
 
   it("lists the nav in the spec's order", () => {
-    const order = [...(weavePlugin.nav ?? [])].sort((a, b) => (a.priority ?? 0) - (b.priority ?? 0)).map((n) => n.label)
-    expect(order).toEqual(["Overview", "Retrieval", "Collections", "Documents", "Chunks", "Pipeline"])
+    const order = [...(weavePlugin.nav ?? [])]
+      .sort((a, b) => (a.priority ?? 0) - (b.priority ?? 0))
+      .map((n) => n.label)
+    expect(order).toEqual([
+      "Overview",
+      "Retrieval",
+      "Collections",
+      "Documents",
+      "Chunks",
+      "Pipeline",
+    ])
   })
 })

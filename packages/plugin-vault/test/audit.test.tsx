@@ -59,7 +59,9 @@ const ROWS = {
 const EMPTY = { entries: [], total: 0 }
 
 const listParams = (sent: { intent: string; params?: unknown }[]) =>
-  sent.filter((i) => i.intent === "audit.list").map((i) => i.params as Record<string, unknown>)
+  sent
+    .filter((i) => i.intent === "audit.list")
+    .map((i) => i.params as Record<string, unknown>)
 
 const lastParams = (sent: { intent: string; params?: unknown }[]) => {
   const all = listParams(sent)
@@ -69,7 +71,8 @@ const lastParams = (sent: { intent: string; params?: unknown }[]) => {
 const row = (name: string) =>
   screen.getAllByRole("row").find((r) => within(r).queryByText(name))!
 
-const select = (label: string) => screen.getByLabelText(label) as HTMLSelectElement
+const select = (label: string) =>
+  screen.getByLabelText(label) as HTMLSelectElement
 
 afterEach(() => {
   window.history.replaceState(null, "", "/")
@@ -80,14 +83,26 @@ describe("AuditPage", () => {
     const { client, sent } = recordingQueryClient({ "audit.list": ROWS })
     renderPage(AuditPage, client)
     await screen.findByText("api/token")
-    expect(listParams(sent)[0]).toEqual({ includeReads: false, limit: 25, offset: 0 })
+    expect(listParams(sent)[0]).toEqual({
+      includeReads: false,
+      limit: 25,
+      offset: 0,
+    })
   })
 
   it("renders every column", async () => {
     const { client } = recordingQueryClient({ "audit.list": ROWS })
     renderPage(AuditPage, client)
     await screen.findByText("api/token")
-    for (const h of ["Time", "Action", "Resource", "Key", "Tenant", "User", "Outcome"]) {
+    for (const h of [
+      "Time",
+      "Action",
+      "Resource",
+      "Key",
+      "Tenant",
+      "User",
+      "Outcome",
+    ]) {
       expect(screen.getByRole("columnheader", { name: h })).toBeTruthy()
     }
   })
@@ -132,7 +147,9 @@ describe("AuditPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Next page" }))
     await waitFor(() => expect(lastParams(sent).offset).toBe(25))
     fireEvent.click(screen.getByRole("checkbox", { name: "Show reads" }))
-    await waitFor(() => expect(lastParams(sent)).toMatchObject({ includeReads: true, offset: 0 }))
+    await waitFor(() =>
+      expect(lastParams(sent)).toMatchObject({ includeReads: true, offset: 0 })
+    )
   })
 
   describe.each([
@@ -149,7 +166,9 @@ describe("AuditPage", () => {
       fireEvent.click(screen.getByRole("button", { name: "Next page" }))
       await waitFor(() => expect(lastParams(sent).offset).toBe(25))
       fireEvent.change(select(label), { target: { value } })
-      await waitFor(() => expect(lastParams(sent)).toMatchObject({ ...expected, offset: 0 }))
+      await waitFor(() =>
+        expect(lastParams(sent)).toMatchObject({ ...expected, offset: 0 })
+      )
       await screen.findByText(/Page 1 of 3/)
     })
 
@@ -161,7 +180,9 @@ describe("AuditPage", () => {
       await waitFor(() => expect(lastParams(sent)).toMatchObject(expected))
       fireEvent.change(select(label), { target: { value: "" } })
       await waitFor(() =>
-        expect(Object.keys(lastParams(sent))).not.toContain(Object.keys(expected)[0]),
+        expect(Object.keys(lastParams(sent))).not.toContain(
+          Object.keys(expected)[0]
+        )
       )
     })
   })
@@ -181,18 +202,30 @@ describe("AuditPage", () => {
     // The box shows what you typed at once; the server has not been asked yet.
     expect(box.value).toBe(" api/token ")
     expect(listParams(sent)).toHaveLength(before)
-    await waitFor(() => expect(lastParams(sent)).toMatchObject({ key: "api/token", offset: 0 }))
+    await waitFor(() =>
+      expect(lastParams(sent)).toMatchObject({ key: "api/token", offset: 0 })
+    )
     // One request for the pair of keystrokes, not one each.
     expect(listParams(sent)).toHaveLength(before + 1)
   })
 
   it("seeds the filters from the URL, so the first request is already filtered", async () => {
-    window.history.replaceState(null, "", "/audit?action=secret.rotated&outcome=failure")
+    window.history.replaceState(
+      null,
+      "",
+      "/audit?action=secret.rotated&outcome=failure"
+    )
     const { client, sent } = recordingQueryClient({ "audit.list": ROWS })
     renderPage(AuditPage, client)
     await screen.findByText("api/token")
     expect(listParams(sent)).toEqual([
-      { action: "secret.rotated", outcome: "failure", includeReads: false, limit: 25, offset: 0 },
+      {
+        action: "secret.rotated",
+        outcome: "failure",
+        includeReads: false,
+        limit: 25,
+        offset: 0,
+      },
     ])
     expect(select("Action").value).toBe("secret.rotated")
     expect(select("Outcome").value).toBe("failure")
@@ -216,12 +249,18 @@ describe("AuditPage", () => {
       offset: 0,
     })
     expect(
-      screen.getByText(`Since ${new Date("2026-09-29T10:00:00.000Z").toLocaleString()}`)
+      screen.getByText(
+        `Since ${new Date("2026-09-29T10:00:00.000Z").toLocaleString()}`
+      )
     ).toBeTruthy()
   })
 
   it("removing the since chip drops since and goes back to page one", async () => {
-    window.history.replaceState(null, "", "/audit?since=2026-09-29T10%3A00%3A00Z")
+    window.history.replaceState(
+      null,
+      "",
+      "/audit?since=2026-09-29T10%3A00%3A00Z"
+    )
     const { client, sent } = recordingQueryClient({
       "audit.list": { entries: ROWS.entries, total: 60 },
     })
@@ -245,7 +284,11 @@ describe("AuditPage", () => {
   })
 
   it("seeds resource and key from the URL too, and ignores a value it does not offer", async () => {
-    window.history.replaceState(null, "", "/audit?resource=flag&key=checkout%2Fnew-flow&outcome=bogus")
+    window.history.replaceState(
+      null,
+      "",
+      "/audit?resource=flag&key=checkout%2Fnew-flow&outcome=bogus"
+    )
     const { client, sent } = recordingQueryClient({ "audit.list": ROWS })
     renderPage(AuditPage, client)
     await screen.findByText("api/token")
@@ -256,7 +299,9 @@ describe("AuditPage", () => {
       limit: 25,
       offset: 0,
     })
-    expect((screen.getByLabelText("Key") as HTMLInputElement).value).toBe("checkout/new-flow")
+    expect((screen.getByLabelText("Key") as HTMLInputElement).value).toBe(
+      "checkout/new-flow"
+    )
     expect(select("Outcome").value).toBe("")
   })
 
@@ -275,7 +320,9 @@ describe("AuditPage", () => {
     await screen.findByText("api/token")
     const failed = row("api/token")
     expect(within(failed).getByText("failure")).toBeTruthy()
-    expect(within(failed).getByText("rotator refused the new value")).toBeTruthy()
+    expect(
+      within(failed).getByText("rotator refused the new value")
+    ).toBeTruthy()
     expect(within(row("db/primary.password")).queryByText(/refused/)).toBeNull()
   })
 
@@ -296,18 +343,30 @@ describe("AuditPage", () => {
     const { client } = recordingQueryClient({ "audit.list": ROWS })
     renderPage(AuditPage, client)
     await screen.findByText("api/token")
-    const href = (name: string) => screen.getByText(name).closest("a")?.getAttribute("href")
-    expect(href("db/primary.password")).toContain(secretPath("db/primary.password"))
+    const href = (name: string) =>
+      screen.getByText(name).closest("a")?.getAttribute("href")
+    expect(href("db/primary.password")).toContain(
+      secretPath("db/primary.password")
+    )
     expect(href("checkout/new-flow")).toContain(flagPath("checkout/new-flow"))
     expect(screen.getByText("old/secret").closest("a")).toBeNull()
     expect(screen.getByText("app/greeting").closest("a")).toBeNull()
   })
 
   it("treats every delete action as not linkable", () => {
-    for (const a of ["secret.delete", "flag.deleted", "config.deleted", "override.deleted"]) {
+    for (const a of [
+      "secret.delete",
+      "flag.deleted",
+      "config.deleted",
+      "override.deleted",
+    ]) {
       expect(isDeleteAction(a)).toBe(true)
     }
-    for (const a of ["secret.set", "flag.override_deleted", "config.rolled_back"]) {
+    for (const a of [
+      "secret.set",
+      "flag.override_deleted",
+      "config.rolled_back",
+    ]) {
       expect(isDeleteAction(a)).toBe(false)
     }
   })
@@ -322,7 +381,9 @@ describe("AuditPage", () => {
   })
 
   it("uses the total, not the page length, in the caption", async () => {
-    const { client } = recordingQueryClient({ "audit.list": { entries: ROWS.entries, total: 60 } })
+    const { client } = recordingQueryClient({
+      "audit.list": { entries: ROWS.entries, total: 60 },
+    })
     renderPage(AuditPage, client)
     await screen.findByText("api/token")
     expect(screen.getByText("60 entries")).toBeTruthy()
@@ -334,7 +395,7 @@ describe("AuditPage", () => {
     await screen.findByText("No audit entries match these filters.")
     expect(screen.getByText("0 entries")).toBeTruthy()
     expect(
-      screen.getByText("Reads are hidden. Turn on Show reads to include them."),
+      screen.getByText("Reads are hidden. Turn on Show reads to include them.")
     ).toBeTruthy()
   })
 
@@ -345,7 +406,9 @@ describe("AuditPage", () => {
     const hint = "Reads are hidden. Turn on Show reads to include them."
     fireEvent.click(screen.getByRole("checkbox", { name: "Show reads" }))
     await waitFor(() => expect(screen.queryByText(hint)).toBeNull())
-    expect(screen.getByText("No audit entries match these filters.")).toBeTruthy()
+    expect(
+      screen.getByText("No audit entries match these filters.")
+    ).toBeTruthy()
     fireEvent.click(screen.getByRole("checkbox", { name: "Show reads" }))
     await screen.findByText(hint)
     // An explicit action is always honoured, reads or not, so the hint would be wrong.

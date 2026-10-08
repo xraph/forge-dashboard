@@ -1,13 +1,12 @@
 import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { useState } from "react"
 import type { ComponentType, FormEvent } from "react"
-import {
-  PluginLink,
-  useCommand,
-  useQuery,
-} from "@forge-go/dashboard-plugin"
+import { PluginLink, useCommand, useQuery } from "@forge-go/dashboard-plugin"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
-import { Button, buttonVariants } from "@forge-go/dashboard-kit/components/button"
+import {
+  Button,
+  buttonVariants,
+} from "@forge-go/dashboard-kit/components/button"
 import { Checkbox } from "@forge-go/dashboard-kit/components/checkbox"
 import { ConfirmDialog } from "@forge-go/dashboard-kit/components/confirm-dialog"
 import { DescriptionList } from "@forge-go/dashboard-kit/components/detail-layout"
@@ -128,7 +127,9 @@ const recordColumns: Column<RotationRecord>[] = [
  * running: a hook cannot be skipped, and a query with no key would ask the
  * server about a secret called "".
  */
-export const RotationDetailPage: ComponentType<PluginPageProps> = ({ params }) => {
+export const RotationDetailPage: ComponentType<PluginPageProps> = ({
+  params,
+}) => {
   const key = params.key
   if (!key) {
     return (
@@ -183,7 +184,11 @@ function RotationDetailBody({ secretKey }: { secretKey: string }) {
 
   async function savePolicy(intervalSeconds: number, enabled: boolean) {
     setNotice(null)
-    const result = await save.execute({ key: secretKey, intervalSeconds, enabled })
+    const result = await save.execute({
+      key: secretKey,
+      intervalSeconds,
+      enabled,
+    })
     if (result === undefined) return
     setNotice("Policy saved.")
   }
@@ -217,11 +222,16 @@ function RotationDetailBody({ secretKey }: { secretKey: string }) {
             <section className="flex flex-col gap-3">
               <h2 className="text-sm font-medium">Policy</h2>
               {policy !== null && <PolicySummary policy={policy} />}
-              <CommandAlert error={save.error} title="Could not save the policy" />
+              <CommandAlert
+                error={save.error}
+                title="Could not save the policy"
+              />
               <PolicyForm
                 // Remounts when the stored policy changes, so the fields show
                 // what was saved and not what was typed before the refetch.
-                key={policy === null ? "new" : `${policy.id}:${policy.updatedAt}`}
+                key={
+                  policy === null ? "new" : `${policy.id}:${policy.updatedAt}`
+                }
                 policy={policy}
                 rotatable={data.rotatable}
                 saving={save.loading}
@@ -229,7 +239,11 @@ function RotationDetailBody({ secretKey }: { secretKey: string }) {
               />
               {policy !== null && (
                 <div>
-                  <IconButton variant="destructive" onClick={openDelete} label="Delete policy" />
+                  <IconButton
+                    variant="destructive"
+                    onClick={openDelete}
+                    label="Delete policy"
+                  />
                 </div>
               )}
             </section>
@@ -237,12 +251,23 @@ function RotationDetailBody({ secretKey }: { secretKey: string }) {
             <section className="flex flex-col gap-2">
               <h2 className="text-sm font-medium">Rotate now</h2>
               <div className="flex flex-wrap items-center gap-3">
-                <IconButton disabled={!data.rotatable} aria-describedby={data.rotatable ? undefined : "rotate-unavailable"} onClick={openRotate} label="Rotate now" />
+                <IconButton
+                  disabled={!data.rotatable}
+                  aria-describedby={
+                    data.rotatable ? undefined : "rotate-unavailable"
+                  }
+                  onClick={openRotate}
+                  label="Rotate now"
+                />
                 {!data.rotatable && (
-                  <p id="rotate-unavailable" className="text-sm text-muted-foreground">
-                    No rotator is registered for this secret. Rotators are registered in
-                    application code, so this secret cannot be rotated from here and a policy
-                    will not rotate it on schedule.
+                  <p
+                    id="rotate-unavailable"
+                    className="text-sm text-muted-foreground"
+                  >
+                    No rotator is registered for this secret. Rotators are
+                    registered in application code, so this secret cannot be
+                    rotated from here and a policy will not rotate it on
+                    schedule.
                   </p>
                 )}
               </div>
@@ -263,7 +288,9 @@ function RotationDetailBody({ secretKey }: { secretKey: string }) {
               open={rotating}
               // Escape and the X go through here too. Closing mid-rotation
               // would unmount the dialog and hide a failure that arrives later.
-              onOpenChange={(open) => !open && !rotate.loading && setRotating(false)}
+              onOpenChange={(open) =>
+                !open && !rotate.loading && setRotating(false)
+              }
               title={`Rotate ${secretKey} now?`}
               description="This creates a new version of the secret. Applications must pick up the new value."
               confirmLabel="Rotate now"
@@ -275,14 +302,19 @@ function RotationDetailBody({ secretKey }: { secretKey: string }) {
             </ConfirmDialog>
             <ConfirmDialog
               open={deleting}
-              onOpenChange={(open) => !open && !remove.loading && setDeleting(false)}
+              onOpenChange={(open) =>
+                !open && !remove.loading && setDeleting(false)
+              }
               title={`Delete the rotation policy for ${secretKey}?`}
               description="The secret and its versions are kept. It will no longer rotate on schedule."
               confirmLabel="Delete policy"
               pending={remove.loading}
               onConfirm={() => void confirmDelete()}
             >
-              <CommandAlert error={remove.error} title="Could not delete the policy" />
+              <CommandAlert
+                error={remove.error}
+                title="Could not delete the policy"
+              />
             </ConfirmDialog>
           </section>
         )
@@ -295,9 +327,18 @@ function PolicySummary({ policy }: { policy: RotationPolicy }) {
   return (
     <DescriptionList
       items={[
-        { term: "Interval", value: `Every ${formatInterval(policy.intervalSeconds)}` },
-        { term: "Status", value: <PolicyStatusBadge enabled={policy.enabled} /> },
-        { term: "Rotator", value: <RotatorBadge rotatable={policy.rotatable} /> },
+        {
+          term: "Interval",
+          value: `Every ${formatInterval(policy.intervalSeconds)}`,
+        },
+        {
+          term: "Status",
+          value: <PolicyStatusBadge enabled={policy.enabled} />,
+        },
+        {
+          term: "Rotator",
+          value: <RotatorBadge rotatable={policy.rotatable} />,
+        },
         {
           term: "Next rotation",
           // Only a policy that will really rotate shows a time: enabled, with
@@ -305,12 +346,21 @@ function PolicySummary({ policy }: { policy: RotationPolicy }) {
           // carries rather than a time that will not happen.
           value: (
             <Timestamp
-              value={policy.enabled && policy.rotatable ? policy.nextRotationAt : undefined}
+              value={
+                policy.enabled && policy.rotatable
+                  ? policy.nextRotationAt
+                  : undefined
+              }
               label="next rotation"
             />
           ),
         },
-        { term: "Last rotated", value: <Timestamp value={policy.lastRotatedAt} label="last rotation" /> },
+        {
+          term: "Last rotated",
+          value: (
+            <Timestamp value={policy.lastRotatedAt} label="last rotation" />
+          ),
+        },
       ]}
     />
   )
@@ -331,7 +381,9 @@ function PolicyForm({
   saving: boolean
   onSave: (intervalSeconds: number, enabled: boolean) => Promise<void>
 }) {
-  const seed = policy ? seedInterval(policy.intervalSeconds) : { amount: "1", unit: "days" as Unit }
+  const seed = policy
+    ? seedInterval(policy.intervalSeconds)
+    : { amount: "1", unit: "days" as Unit }
   const [amount, setAmount] = useState(seed.amount)
   const [unit, setUnit] = useState<Unit>(seed.unit)
   const [enabled, setEnabled] = useState(policy ? policy.enabled : true)
@@ -358,7 +410,11 @@ function PolicyForm({
   }
 
   return (
-    <form onSubmit={submit} className="flex flex-col gap-3" aria-label="Rotation policy">
+    <form
+      onSubmit={submit}
+      className="flex flex-col gap-3"
+      aria-label="Rotation policy"
+    >
       <div className="flex flex-wrap items-end gap-2">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="rotation-interval">Rotate every</Label>
@@ -391,8 +447,9 @@ function PolicyForm({
       </div>
       {tooShort && (
         <p role="alert" className="text-sm text-destructive">
-          The interval must be at least {MIN_INTERVAL_SECONDS} seconds. Due policies are checked
-          once a minute, so a shorter interval cannot be honoured.
+          The interval must be at least {MIN_INTERVAL_SECONDS} seconds. Due
+          policies are checked once a minute, so a shorter interval cannot be
+          honoured.
         </p>
       )}
       <div className="flex items-center gap-2">
@@ -410,13 +467,15 @@ function PolicyForm({
         <p className="text-sm text-muted-foreground">
           {resets ? (
             <>
-              This secret will rotate every {formatInterval(seconds)}, next at about{" "}
+              This secret will rotate every {formatInterval(seconds)}, next at
+              about{" "}
               {formatTimestamp(new Date(now + seconds * 1000).toISOString())}.
             </>
           ) : (
             <>
-              Saving keeps the next rotation at {formatTimestamp(policy?.nextRotationAt)}. This
-              secret rotates every {formatInterval(seconds)}.
+              Saving keeps the next rotation at{" "}
+              {formatTimestamp(policy?.nextRotationAt)}. This secret rotates
+              every {formatInterval(seconds)}.
             </>
           )}{" "}
           Applications must pick up each new value.

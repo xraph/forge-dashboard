@@ -62,17 +62,20 @@ function swapOrder(fields: FormField[], a: number, b: number): FormField[] {
 
 function EditorBody({ fields: initialFields }: { fields: FormField[] }) {
   const [fields, setFields] = useState<FormField[]>(
-    [...initialFields].sort((a, b) => a.order - b.order),
+    [...initialFields].sort((a, b) => a.order - b.order)
   )
   const save = useCommand<AckResponse>("formConfigs.saveSignup")
 
   function updateField(index: number, patch: Partial<FormField>) {
-    setFields((prev) => prev.map((f, i) => (i === index ? { ...f, ...patch } : f)))
+    setFields((prev) =>
+      prev.map((f, i) => (i === index ? { ...f, ...patch } : f))
+    )
   }
 
   function addField() {
     setFields((prev) => {
-      const nextOrder = prev.length > 0 ? Math.max(...prev.map((f) => f.order)) + 1 : 1
+      const nextOrder =
+        prev.length > 0 ? Math.max(...prev.map((f) => f.order)) + 1 : 1
       return [...prev, emptyField(nextOrder)]
     })
   }
@@ -84,7 +87,7 @@ function EditorBody({ fields: initialFields }: { fields: FormField[] }) {
         // Removing a field must leave the rest contiguous: it is the ORDER
         // VALUES that close over the gap, not only the array positions,
         // since `order` is what the server persists and sorts by.
-        .map((f, i) => ({ ...f, order: i + 1 })),
+        .map((f, i) => ({ ...f, order: i + 1 }))
     )
   }
 
@@ -145,12 +148,28 @@ function EditorBody({ fields: initialFields }: { fields: FormField[] }) {
                   onChange={(e) => updateField(i, { type: e.target.value })}
                 />
               </div>
-              <span className="text-xs text-muted-foreground">Order {field.order}</span>
+              <span className="text-xs text-muted-foreground">
+                Order {field.order}
+              </span>
             </div>
             <div className="flex gap-2">
-              <IconButton variant="outline" onClick={() => moveUp(i)} disabled={i === 0} label={`Move ${field.label || field.key || "field " + (i + 1)} up`} />
-              <IconButton variant="outline" onClick={() => moveDown(i)} disabled={i === fields.length - 1} label={`Move ${field.label || field.key || "field " + (i + 1)} down`} />
-              <IconButton variant="destructive" onClick={() => removeField(i)} label={`Remove ${field.label || field.key || "field " + (i + 1)}`} />
+              <IconButton
+                variant="outline"
+                onClick={() => moveUp(i)}
+                disabled={i === 0}
+                label={`Move ${field.label || field.key || "field " + (i + 1)} up`}
+              />
+              <IconButton
+                variant="outline"
+                onClick={() => moveDown(i)}
+                disabled={i === fields.length - 1}
+                label={`Move ${field.label || field.key || "field " + (i + 1)} down`}
+              />
+              <IconButton
+                variant="destructive"
+                onClick={() => removeField(i)}
+                label={`Remove ${field.label || field.key || "field " + (i + 1)}`}
+              />
             </div>
           </div>
         ))}
@@ -214,7 +233,11 @@ export function AuthSignupFormEditorPage() {
       <PageHeader
         title="Edit signup form"
         actions={
-          <IconButton variant="destructive" onClick={() => setDeleting(true)} label="Delete signup form" />
+          <IconButton
+            variant="destructive"
+            onClick={() => setDeleting(true)}
+            label="Delete signup form"
+          />
         }
       />
       <QueryBoundary title="Signup form" query={query} skeletonRows={3}>

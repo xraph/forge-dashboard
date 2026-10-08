@@ -27,7 +27,10 @@ import { NamespaceCell } from "../components/namespace-filter"
  * `rebac` has a word and no link: a relation match records no rule id, and
  * there is no page for one relation tuple.
  */
-const SOURCES: Record<string, { word: string; href?: (ruleId: string) => string }> = {
+const SOURCES: Record<
+  string,
+  { word: string; href?: (ruleId: string) => string }
+> = {
   rbac: { word: "role", href: (id) => `/roles/${id}` },
   abac: { word: "policy", href: (id) => `/policies/${id}` },
   rebac: { word: "relation" },
@@ -56,7 +59,9 @@ function Match({ match }: { match: CheckMatch }) {
   return (
     <li className="grid grid-cols-[4.5rem_minmax(0,1fr)] items-baseline gap-x-3 text-sm">
       {known ? (
-        <span className="text-muted-foreground">{SOURCES[match.source].word}</span>
+        <span className="text-muted-foreground">
+          {SOURCES[match.source].word}
+        </span>
       ) : (
         <span className="font-mono text-xs">{match.source}</span>
       )}
@@ -84,7 +89,11 @@ function Row({ term, children }: { term: string; children: ReactNode }) {
 }
 
 function mono(value: string | undefined, label: string) {
-  return value ? <span className="font-mono text-xs">{value}</span> : <NoneCell label={label} />
+  return value ? (
+    <span className="font-mono text-xs">{value}</span>
+  ) : (
+    <NoneCell label={label} />
+  )
 }
 
 export function WardenCheckLogDetailPage({ params }: PluginPageProps) {
@@ -113,7 +122,10 @@ export function WardenCheckLogDetailPage({ params }: PluginPageProps) {
                 On every check, an error included: replaying one that failed is
                 how an operator sees whether the failure persists.
               */}
-              <PluginLink to={`/playground/check/${check.id}`} className="text-sm underline underline-offset-4">
+              <PluginLink
+                to={`/playground/check/${check.id}`}
+                className="text-sm underline underline-offset-4"
+              >
                 Open in playground
               </PluginLink>
             </div>
@@ -124,9 +136,13 @@ export function WardenCheckLogDetailPage({ params }: PluginPageProps) {
                   <Row term="decision">
                     <span className="flex flex-col gap-1">
                       <span className="flex flex-wrap items-center gap-2">
-                        <Badge variant={decisionVariant(check.decision)}>{check.decision}</Badge>
+                        <Badge variant={decisionVariant(check.decision)}>
+                          {check.decision}
+                        </Badge>
                         {!failed && check.reason && (
-                          <span className="text-muted-foreground">{check.reason}</span>
+                          <span className="text-muted-foreground">
+                            {check.reason}
+                          </span>
                         )}
                         {failed && (
                           <span className="text-destructive">
@@ -136,7 +152,8 @@ export function WardenCheckLogDetailPage({ params }: PluginPageProps) {
                       </span>
                       {failed && (
                         <span className="text-muted-foreground">
-                          The check failed with this error, so no decision was returned.
+                          The check failed with this error, so no decision was
+                          returned.
                         </span>
                       )}
                     </span>
@@ -144,8 +161,8 @@ export function WardenCheckLogDetailPage({ params }: PluginPageProps) {
 
                   {!failed && check.cached && (
                     <p className="text-sm text-muted-foreground">
-                      Served from the result cache. The engine reused a decision made earlier and
-                      evaluated no rule for this check.
+                      Served from the result cache. The engine reused a decision
+                      made earlier and evaluated no rule for this check.
                     </p>
                   )}
 
@@ -154,14 +171,17 @@ export function WardenCheckLogDetailPage({ params }: PluginPageProps) {
                       <Row term="decided by">
                         <ul className="flex flex-col gap-1">
                           {matches.map((m, i) => (
-                            <Match key={`${i}-${m.source}-${m.ruleId ?? ""}`} match={m} />
+                            <Match
+                              key={`${i}-${m.source}-${m.ruleId ?? ""}`}
+                              match={m}
+                            />
                           ))}
                         </ul>
                       </Row>
                       {linked && (
                         <p className="text-xs text-muted-foreground">
-                          Each link opens the rule as it is now, which may have changed or been
-                          deleted since this check ran.
+                          Each link opens the rule as it is now, which may have
+                          changed or been deleted since this check ran.
                         </p>
                       )}
                     </div>
@@ -176,7 +196,11 @@ export function WardenCheckLogDetailPage({ params }: PluginPageProps) {
                     <Row term="emits">
                       <span className="flex flex-wrap gap-1.5">
                         {obligations.map((o, i) => (
-                          <Badge key={`${i}-${o}`} variant="outline" className="font-mono text-xs">
+                          <Badge
+                            key={`${i}-${o}`}
+                            variant="outline"
+                            className="font-mono text-xs"
+                          >
                             {o}
                           </Badge>
                         ))}
@@ -185,8 +209,12 @@ export function WardenCheckLogDetailPage({ params }: PluginPageProps) {
                   )}
 
                   {!failed && (
-                    <Row term={check.cached ? "lookup time" : "evaluation time"}>
-                      <span className="tabular-nums">{formatEvalTime(check.evalTimeNs)}</span>
+                    <Row
+                      term={check.cached ? "lookup time" : "evaluation time"}
+                    >
+                      <span className="tabular-nums">
+                        {formatEvalTime(check.evalTimeNs)}
+                      </span>
                     </Row>
                   )}
                 </>
@@ -195,12 +223,29 @@ export function WardenCheckLogDetailPage({ params }: PluginPageProps) {
                 <DescriptionList
                   items={[
                     { term: "Check id", value: mono(check.id, "check id") },
-                    { term: "Namespace", value: <NamespaceCell path={check.namespacePath} /> },
+                    {
+                      term: "Namespace",
+                      value: <NamespaceCell path={check.namespacePath} />,
+                    },
                     { term: "App id", value: mono(check.appId, "app id") },
-                    { term: "Request IP", value: mono(check.requestIp, "request ip") },
-                    { term: "Request id", value: mono(check.requestId, "request id") },
-                    { term: "Trace id", value: mono(check.traceId, "trace id") },
-                    { term: "When", value: <Timestamp value={check.createdAt} label="checked at" /> },
+                    {
+                      term: "Request IP",
+                      value: mono(check.requestIp, "request ip"),
+                    },
+                    {
+                      term: "Request id",
+                      value: mono(check.requestId, "request id"),
+                    },
+                    {
+                      term: "Trace id",
+                      value: mono(check.traceId, "trace id"),
+                    },
+                    {
+                      term: "When",
+                      value: (
+                        <Timestamp value={check.createdAt} label="checked at" />
+                      ),
+                    },
                   ]}
                 />
               }

@@ -23,7 +23,12 @@ export interface PreviousKeyRowProps {
  * the window still runs but nothing is accepted, and the row says only when
  * it ends.
  */
-export function PreviousKeyRow({ masked, graceEnds, state, onEnd }: PreviousKeyRowProps) {
+export function PreviousKeyRow({
+  masked,
+  graceEnds,
+  state,
+  onEnd,
+}: PreviousKeyRowProps) {
   return (
     <li className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md border px-3 py-2 text-sm">
       <span className="font-mono text-xs">{masked}</span>
@@ -31,7 +36,12 @@ export function PreviousKeyRow({ masked, graceEnds, state, onEnd }: PreviousKeyR
         {state === "active" ? "keeps working until" : "window ends"}
       </span>
       <Timestamp value={graceEnds} label="cutoff" />
-      <IconButton variant="outline" className="ml-auto" onClick={onEnd} label="End now" />
+      <IconButton
+        variant="outline"
+        className="ml-auto"
+        onClick={onEnd}
+        label="End now"
+      />
     </li>
   )
 }

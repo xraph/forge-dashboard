@@ -11,7 +11,7 @@ describe("ConfirmDialog", () => {
         onOpenChange={() => {}}
         title="Ban ada@example.com?"
         onConfirm={() => {}}
-      />,
+      />
     )
     expect(screen.queryByText("Ban ada@example.com?")).toBeNull()
   })
@@ -24,10 +24,12 @@ describe("ConfirmDialog", () => {
         title="Ban ada@example.com?"
         description="They will be signed out of every session."
         onConfirm={() => {}}
-      />,
+      />
     )
     expect(screen.getByText("Ban ada@example.com?")).toBeTruthy()
-    expect(screen.getByText("They will be signed out of every session.")).toBeTruthy()
+    expect(
+      screen.getByText("They will be signed out of every session.")
+    ).toBeTruthy()
   })
 
   it("renders children outside the description, so a block alert is valid markup", () => {
@@ -45,15 +47,19 @@ describe("ConfirmDialog", () => {
             error={{ code: "conflict", message: "The bucket is not empty." }}
             title="Could not delete the bucket"
           />
-        </ConfirmDialog>,
+        </ConfirmDialog>
       )
       const alert = screen.getByRole("alert")
       expect(alert.textContent).toContain("The bucket is not empty.")
       // A <div> inside the description's <p> is what React complained about.
       expect(alert.closest("p")).toBeNull()
-      expect(screen.getByText("The bucket and its objects are removed.").contains(alert)).toBe(false)
+      expect(
+        screen
+          .getByText("The bucket and its objects are removed.")
+          .contains(alert)
+      ).toBe(false)
       const nesting = consoleError.mock.calls.filter((args) =>
-        args.map(String).join(" ").includes("cannot be a descendant of"),
+        args.map(String).join(" ").includes("cannot be a descendant of")
       )
       expect(nesting).toEqual([])
     } finally {
@@ -70,7 +76,7 @@ describe("ConfirmDialog", () => {
         title="Ban ada@example.com?"
         confirmLabel="Ban"
         onConfirm={onConfirm}
-      />,
+      />
     )
     fireEvent.click(screen.getByRole("button", { name: "Ban" }))
     expect(onConfirm).toHaveBeenCalledOnce()
@@ -85,7 +91,7 @@ describe("ConfirmDialog", () => {
         confirmLabel="Ban"
         pending
         onConfirm={() => {}}
-      />,
+      />
     )
     const confirm = screen.getByRole("button", { name: "Working…" })
     expect((confirm as HTMLButtonElement).disabled).toBe(true)
@@ -100,7 +106,7 @@ describe("ConfirmDialog", () => {
         confirmLabel="Kick"
         confirmDisabled
         onConfirm={() => {}}
-      />,
+      />
     )
     // Label unchanged: this is "not yet", not "working on it", and swapping
     // the label would tell the operator something false about what is
@@ -109,6 +115,9 @@ describe("ConfirmDialog", () => {
     expect((confirm as HTMLButtonElement).disabled).toBe(true)
     // Cancel stays available. Somebody who cannot confirm must still be able
     // to back out.
-    expect((screen.getByRole("button", { name: "Cancel" }) as HTMLButtonElement).disabled).toBe(false)
+    expect(
+      (screen.getByRole("button", { name: "Cancel" }) as HTMLButtonElement)
+        .disabled
+    ).toBe(false)
   })
 })

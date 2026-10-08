@@ -1,13 +1,23 @@
 import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { useEffect, useRef, useState } from "react"
 import type { ComponentType } from "react"
-import { PluginLink, useCommand, useNavigateTo, useQuery } from "@forge-go/dashboard-plugin"
+import {
+  PluginLink,
+  useCommand,
+  useNavigateTo,
+  useQuery,
+} from "@forge-go/dashboard-plugin"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
 import { ConfirmDialog } from "@forge-go/dashboard-kit/components/confirm-dialog"
 import { DescriptionList } from "@forge-go/dashboard-kit/components/detail-layout"
 import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@forge-go/dashboard-kit/components/tabs"
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@forge-go/dashboard-kit/components/tabs"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { BaselinesList } from "../components/baselines-list"
 import { CasesTab } from "../components/cases-tab"
@@ -17,7 +27,14 @@ import { RunsTab } from "../components/runs-tab"
 import { SettledBoundary } from "../components/settled-boundary"
 import { StaleNotice } from "../components/stale-notice"
 import { SuiteFormDialog } from "../components/suite-form-dialog"
-import { baselinePath, formatScore, plural, suiteTabPath, temperatureLabel, versionPath } from "../format"
+import {
+  baselinePath,
+  formatScore,
+  plural,
+  suiteTabPath,
+  temperatureLabel,
+  versionPath,
+} from "../format"
 import type { Suite } from "../types"
 import { useSettled } from "../use-settled"
 
@@ -35,8 +52,15 @@ function isTab(value: string | undefined): value is SuiteTab {
  */
 export const SuiteDetailPage: ComponentType<PluginPageProps> = ({ params }) => {
   const id = params.id
-  if (!id) return <p className="text-sm text-muted-foreground">No suite selected.</p>
-  return <SuiteDetailBody key={id} suiteId={id} tab={isTab(params.tab) ? params.tab : "cases"} />
+  if (!id)
+    return <p className="text-sm text-muted-foreground">No suite selected.</p>
+  return (
+    <SuiteDetailBody
+      key={id}
+      suiteId={id}
+      tab={isTab(params.tab) ? params.tab : "cases"}
+    />
+  )
 }
 
 function SuiteDetailBody({ suiteId, tab }: { suiteId: string; tab: SuiteTab }) {
@@ -54,7 +78,13 @@ function SuiteDetailBody({ suiteId, tab }: { suiteId: string; tab: SuiteTab }) {
   const [target, setTarget] = useState<Suite | null>(null)
   return (
     <section className="flex flex-col gap-6">
-      {suite.stale && <StaleNotice what="this suite" error={suite.error} onRetry={suite.refetch} />}
+      {suite.stale && (
+        <StaleNotice
+          what="this suite"
+          error={suite.error}
+          onRetry={suite.refetch}
+        />
+      )}
       <SettledBoundary title="Suite" query={suite} skeletonRows={4}>
         {(s) => (
           <div className="flex flex-col gap-4">
@@ -63,14 +93,22 @@ function SuiteDetailBody({ suiteId, tab }: { suiteId: string; tab: SuiteTab }) {
               description={s.description || undefined}
               actions={
                 <>
-                  <IconButton variant="outline" onClick={() => {
+                  <IconButton
+                    variant="outline"
+                    onClick={() => {
                       setTarget(s)
                       setEditing(true)
-                    }} label="Edit" />
-                  <IconButton variant="outline" onClick={() => {
+                    }}
+                    label="Edit"
+                  />
+                  <IconButton
+                    variant="outline"
+                    onClick={() => {
                       setTarget(s)
                       setDeleting(true)
-                    }} label="Delete" />
+                    }}
+                    label="Delete"
+                  />
                 </>
               }
             />
@@ -83,7 +121,8 @@ function SuiteDetailBody({ suiteId, tab }: { suiteId: string; tab: SuiteTab }) {
         <Tabs
           value={tab}
           onValueChange={(value) => {
-            if (isTab(String(value))) navigate(suiteTabPath(suiteId, String(value) as SuiteTab))
+            if (isTab(String(value)))
+              navigate(suiteTabPath(suiteId, String(value) as SuiteTab))
           }}
         >
           <TabsList variant="line">
@@ -112,8 +151,16 @@ function SuiteDetailBody({ suiteId, tab }: { suiteId: string; tab: SuiteTab }) {
       )}
       {target && (
         <>
-          <SuiteFormDialog open={editing} onOpenChange={setEditing} suite={target} />
-          <DeleteSuiteDialog open={deleting} onOpenChange={setDeleting} suite={target} />
+          <SuiteFormDialog
+            open={editing}
+            onOpenChange={setEditing}
+            suite={target}
+          />
+          <DeleteSuiteDialog
+            open={deleting}
+            onOpenChange={setDeleting}
+            suite={target}
+          />
         </>
       )}
     </section>
@@ -144,7 +191,9 @@ function SuiteFacts({ suite }: { suite: Suite }) {
         {
           term: "Prompt",
           value: suite.currentPromptVersion ? (
-            <PluginLink to={versionPath(suite.id, suite.currentPromptVersion.id)}>
+            <PluginLink
+              to={versionPath(suite.id, suite.currentPromptVersion.id)}
+            >
               {`Version ${suite.currentPromptVersion.version}`}
             </PluginLink>
           ) : (
@@ -155,7 +204,9 @@ function SuiteFacts({ suite }: { suite: Suite }) {
           term: "Current baseline",
           value: suite.currentBaseline ? (
             <>
-              <PluginLink to={baselinePath(suite.currentBaseline.id)}>{suite.currentBaseline.name}</PluginLink>
+              <PluginLink to={baselinePath(suite.currentBaseline.id)}>
+                {suite.currentBaseline.name}
+              </PluginLink>
               {`, pass rate ${formatScore(suite.currentBaseline.passRate)}`}
             </>
           ) : (
@@ -163,8 +214,14 @@ function SuiteFacts({ suite }: { suite: Suite }) {
           ),
         },
         { term: "Cases", value: plural(suite.caseCount, "case", "cases") },
-        { term: "Created", value: <Timestamp value={suite.createdAt} label="creation time" /> },
-        { term: "Updated", value: <Timestamp value={suite.updatedAt} label="update" /> },
+        {
+          term: "Created",
+          value: <Timestamp value={suite.createdAt} label="creation time" />,
+        },
+        {
+          term: "Updated",
+          value: <Timestamp value={suite.updatedAt} label="update" />,
+        },
       ]}
     />
   )

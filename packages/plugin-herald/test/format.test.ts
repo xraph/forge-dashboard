@@ -1,6 +1,16 @@
 import { describe, expect, it } from "vitest"
-import { credentialSummary, plural, statusLabel, STATUS_ORDER } from "../src/format"
-import { messagePath, providerPath, providerSendTestPath, templatePath } from "../src/keys"
+import {
+  credentialSummary,
+  plural,
+  statusLabel,
+  STATUS_ORDER,
+} from "../src/format"
+import {
+  messagePath,
+  providerPath,
+  providerSendTestPath,
+  templatePath,
+} from "../src/keys"
 
 describe("plural", () => {
   it("uses the singular for one and the plural otherwise, zero included", () => {
@@ -16,9 +26,23 @@ describe("credentialSummary", () => {
   })
 
   it("counts plaintext before encrypted, and never says encrypted without evidence", () => {
-    expect(credentialSummary([{ key: "a", protection: "aes-256-gcm", keyId: "k1" }, { key: "b", protection: "aes-256-gcm", keyId: "k1" }, { key: "c", protection: "aes-256-gcm", keyId: "k1" }])).toBe("3 encrypted")
-    expect(credentialSummary([{ key: "a", protection: "plaintext" }, { key: "b", protection: "plaintext" }, { key: "c", protection: "aes-256-gcm", keyId: "k1" }])).toBe("2 plaintext, 1 encrypted")
-    expect(credentialSummary([{ key: "a", protection: "plaintext" }])).toBe("1 plaintext")
+    expect(
+      credentialSummary([
+        { key: "a", protection: "aes-256-gcm", keyId: "k1" },
+        { key: "b", protection: "aes-256-gcm", keyId: "k1" },
+        { key: "c", protection: "aes-256-gcm", keyId: "k1" },
+      ])
+    ).toBe("3 encrypted")
+    expect(
+      credentialSummary([
+        { key: "a", protection: "plaintext" },
+        { key: "b", protection: "plaintext" },
+        { key: "c", protection: "aes-256-gcm", keyId: "k1" },
+      ])
+    ).toBe("2 plaintext, 1 encrypted")
+    expect(credentialSummary([{ key: "a", protection: "plaintext" }])).toBe(
+      "1 plaintext"
+    )
   })
 })
 
@@ -26,7 +50,8 @@ describe("statusLabel", () => {
   it("never calls sent delivered", () => {
     expect(statusLabel("sent")).toBe("Accepted by provider")
     for (const status of STATUS_ORDER) {
-      if (status !== "delivered") expect(statusLabel(status).toLowerCase()).not.toContain("delivered")
+      if (status !== "delivered")
+        expect(statusLabel(status).toLowerCase()).not.toContain("delivered")
     }
   })
 })

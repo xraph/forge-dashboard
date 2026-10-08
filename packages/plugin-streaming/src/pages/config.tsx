@@ -27,9 +27,15 @@ export interface ConfigSummary {
  * would drop the new one silently, which is precisely the failure a
  * configuration page exists to prevent.
  */
-function OpenMap({ title, values }: { title: string; values: Record<string, unknown> }) {
+function OpenMap({
+  title,
+  values,
+}: {
+  title: string
+  values: Record<string, unknown>
+}) {
   const entries = Object.entries(values ?? {}).sort(([a], [b]) =>
-    a < b ? -1 : a > b ? 1 : 0,
+    a < b ? -1 : a > b ? 1 : 0
   )
 
   return (
@@ -39,17 +45,15 @@ function OpenMap({ title, values }: { title: string; values: Record<string, unkn
         <EmptyState title={`No ${title.toLowerCase()} configured.`} />
       ) : (
         <DescriptionList
-          items={entries.map(
-            ([key, value]): DescriptionItem => ({
-              term: key,
-              // Objects and arrays print as JSON rather than "[object Object]",
-              // which tells an operator nothing about what the server sent.
-              value:
-                typeof value === "object" && value !== null
-                  ? JSON.stringify(value)
-                  : String(value),
-            }),
-          )}
+          items={entries.map(([key, value]): DescriptionItem => ({
+            term: key,
+            // Objects and arrays print as JSON rather than "[object Object]",
+            // which tells an operator nothing about what the server sent.
+            value:
+              typeof value === "object" && value !== null
+                ? JSON.stringify(value)
+                : String(value),
+          }))}
         />
       )}
     </section>
@@ -61,7 +65,10 @@ export function StreamingConfigPage() {
 
   return (
     <section className="flex flex-col gap-6">
-      <PageHeader title="Configuration" description="How this streaming node is set up." />
+      <PageHeader
+        title="Configuration"
+        description="How this streaming node is set up."
+      />
       <QueryBoundary title="Configuration" query={query} skeletonRows={3}>
         {(config) => (
           <>
@@ -69,9 +76,14 @@ export function StreamingConfigPage() {
               items={[
                 {
                   term: "Backend",
-                  value: config.backendType || <NoneCell label="backend type" />,
+                  value: config.backendType || (
+                    <NoneCell label="backend type" />
+                  ),
                 },
-                { term: "Distributed", value: config.distributed ? "yes" : "no" },
+                {
+                  term: "Distributed",
+                  value: config.distributed ? "yes" : "no",
+                },
                 {
                   term: "Node",
                   value: config.nodeID ? (

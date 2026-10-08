@@ -27,11 +27,15 @@ describe("defineSubPlugin", () => {
   // sub-plugin and "Organizations" here both named something else.
   it("refuses a label that is a different name", () => {
     expect(() =>
-      defineSubPlugin({ ...valid(), extension: "subscription", label: "Billing" }),
+      defineSubPlugin({
+        ...valid(),
+        extension: "subscription",
+        label: "Billing",
+      })
     ).toThrow(/"subscription" is labelled "Billing".*use "Subscription"/)
-    expect(() => defineSubPlugin({ ...valid(), label: "Organizations" })).toThrow(
-      /use "Organization"/,
-    )
+    expect(() =>
+      defineSubPlugin({ ...valid(), label: "Organizations" })
+    ).toThrow(/use "Organization"/)
   })
 
   // Left out, the host used to fall back to the first nav item's label,
@@ -40,11 +44,15 @@ describe("defineSubPlugin", () => {
     const unlabelled: SubPluginInput = valid()
     delete unlabelled.label
     expect(defineSubPlugin(unlabelled).label).toBe("Organization")
-    expect(defineSubPlugin({ ...unlabelled, extension: "audit-hook" }).label).toBe("Audit hook")
+    expect(
+      defineSubPlugin({ ...unlabelled, extension: "audit-hook" }).label
+    ).toBe("Audit hook")
   })
 
   it("requires an extension naming its own Go contributor", () => {
-    expect(() => defineSubPlugin({ ...valid(), extension: "" })).toThrow(/extension/)
+    expect(() => defineSubPlugin({ ...valid(), extension: "" })).toThrow(
+      /extension/
+    )
   })
 
   it("requires a host naming the plugin it mounts inside", () => {
@@ -52,7 +60,9 @@ describe("defineSubPlugin", () => {
   })
 
   it("refuses a sub-plugin that hosts itself, which would recurse forever", () => {
-    expect(() => defineSubPlugin({ ...valid(), host: "organization" })).toThrow(/itself/)
+    expect(() => defineSubPlugin({ ...valid(), host: "organization" })).toThrow(
+      /itself/
+    )
   })
 
   it("requires nav paths to be scope-relative", () => {
@@ -60,13 +70,16 @@ describe("defineSubPlugin", () => {
       defineSubPlugin({
         ...valid(),
         nav: [{ label: "Orgs", to: "organizations" }],
-      }),
+      })
     ).toThrow(/must start with/)
   })
 
   it("requires route paths to be scope-relative", () => {
     expect(() =>
-      defineSubPlugin({ ...valid(), routes: [{ path: "organizations", element: Noop }] }),
+      defineSubPlugin({
+        ...valid(),
+        routes: [{ path: "organizations", element: Noop }],
+      })
     ).toThrow(/must start with/)
   })
 
@@ -76,7 +89,7 @@ describe("defineSubPlugin", () => {
         ...valid(),
         // A typo here is otherwise invisible: PluginSlot would just never find it.
         contributions: { "user.details.sections": [{ id: "x", render: Noop }] },
-      } as never),
+      } as never)
     ).toThrow(/unknown slot/)
   })
 
@@ -90,7 +103,7 @@ describe("defineSubPlugin", () => {
             { id: "count", render: Noop },
           ],
         },
-      }),
+      })
     ).toThrow(/both use the id/)
   })
 
@@ -110,7 +123,10 @@ describe("defineSubPlugin", () => {
   })
 
   it("keeps a declared hostIntents allowlist", () => {
-    const sub = defineSubPlugin({ ...valid(), hostIntents: ["settings.namespace"] })
+    const sub = defineSubPlugin({
+      ...valid(),
+      hostIntents: ["settings.namespace"],
+    })
     expect(sub.hostIntents).toEqual(["settings.namespace"])
   })
 
@@ -122,7 +138,7 @@ describe("defineSubPlugin", () => {
           { label: "Organizations", to: "/organizations" },
           { label: "Orgs", to: "/organizations" },
         ],
-      }),
+      })
     ).toThrow(/both point at/)
   })
 
@@ -131,10 +147,18 @@ describe("defineSubPlugin", () => {
       defineSubPlugin({
         ...valid(),
         nav: [
-          { label: "A", to: "/a", children: [{ label: "List", to: "/a/list" }] },
-          { label: "B", to: "/b", children: [{ label: "List", to: "/a/list" }] },
+          {
+            label: "A",
+            to: "/a",
+            children: [{ label: "List", to: "/a/list" }],
+          },
+          {
+            label: "B",
+            to: "/b",
+            children: [{ label: "List", to: "/a/list" }],
+          },
         ],
-      }),
+      })
     ).not.toThrow()
   })
 })

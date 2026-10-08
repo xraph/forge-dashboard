@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest"
-import { aroundSeq, clampToHead, defaultWindow, exceedsCap, parseRangeParams, verifyInput, wholeChain } from "../../src/verification/window"
+import {
+  aroundSeq,
+  clampToHead,
+  defaultWindow,
+  exceedsCap,
+  parseRangeParams,
+  verifyInput,
+  wholeChain,
+} from "../../src/verification/window"
 
 describe("window", () => {
   it("defaults to the most recent 10,000 sequences", () => {
@@ -13,8 +21,14 @@ describe("window", () => {
   })
   it("still checks a chain at head zero, from genesis to head with no range named", () => {
     expect(wholeChain(0)).toEqual({ fromSeq: 0, toSeq: 0 })
-    expect(verifyInput("stream_acme", wholeChain(0))).toEqual({ streamId: "stream_acme" })
-    expect(verifyInput("stream_acme", wholeChain(3000))).toEqual({ streamId: "stream_acme", fromSeq: 1, toSeq: 3000 })
+    expect(verifyInput("stream_acme", wholeChain(0))).toEqual({
+      streamId: "stream_acme",
+    })
+    expect(verifyInput("stream_acme", wholeChain(3000))).toEqual({
+      streamId: "stream_acme",
+      fromSeq: 1,
+      toSeq: 3000,
+    })
   })
   it("knows when a whole-chain check is over the server's cap", () => {
     expect(exceedsCap({ fromSeq: 1, toSeq: 100_000 })).toBe(false)
@@ -26,15 +40,24 @@ describe("window", () => {
     expect(aroundSeq(4990, 5000)).toEqual({ fromSeq: 4940, toSeq: 5000 })
   })
   it("reads range route params and refuses nonsense", () => {
-    expect(parseRangeParams("2730", "2830")).toEqual({ fromSeq: 2730, toSeq: 2830 })
+    expect(parseRangeParams("2730", "2830")).toEqual({
+      fromSeq: 2730,
+      toSeq: 2830,
+    })
     expect(parseRangeParams(undefined, undefined)).toBeNull()
     expect(parseRangeParams("x", "10")).toBeNull()
     expect(parseRangeParams("0", "10")).toBeNull()
     expect(parseRangeParams("20", "10")).toBeNull()
   })
   it("holds a range to the head and refuses one that starts past it", () => {
-    expect(clampToHead({ fromSeq: 100, toSeq: 200 }, 5000)).toEqual({ fromSeq: 100, toSeq: 200 })
-    expect(clampToHead({ fromSeq: 4900, toSeq: 9000 }, 5000)).toEqual({ fromSeq: 4900, toSeq: 5000 })
+    expect(clampToHead({ fromSeq: 100, toSeq: 200 }, 5000)).toEqual({
+      fromSeq: 100,
+      toSeq: 200,
+    })
+    expect(clampToHead({ fromSeq: 4900, toSeq: 9000 }, 5000)).toEqual({
+      fromSeq: 4900,
+      toSeq: 5000,
+    })
     expect(clampToHead({ fromSeq: 5001, toSeq: 9000 }, 5000)).toBeNull()
   })
 })

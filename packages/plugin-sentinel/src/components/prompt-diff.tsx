@@ -64,5 +64,7 @@ export default function PromptDiff({ was, now, label }: PromptDiffProps) {
     })
     return () => view.destroy()
   }, [was, now, label])
-  return <div ref={host} className="max-h-[32rem] overflow-auto rounded-md border" />
+  return (
+    <div ref={host} className="max-h-[32rem] overflow-auto rounded-md border" />
+  )
 }

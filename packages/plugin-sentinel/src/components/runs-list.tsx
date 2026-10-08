@@ -42,7 +42,9 @@ export function RunsList({
   const [state, setState] = useState<"" | RunState>("")
   const [chosenSuite, setChosenSuite] = useState("")
   const [offset, setOffset] = useState(0)
-  const suites = useQuery<SuitesList>("suites.list", undefined, { enabled: suiteId === undefined })
+  const suites = useQuery<SuitesList>("suites.list", undefined, {
+    enabled: suiteId === undefined,
+  })
   const scope = suiteId ?? chosenSuite
   // Empty filters are left out rather than sent as "".
   const params = {
@@ -116,14 +118,28 @@ export function RunsList({
                       : `Runs ${first} to ${last}, newest first`
                 }
                 emptyMessage={
-                  offset > 0 ? "No runs on this page." : filtered ? "No runs match these filters." : "No runs yet."
+                  offset > 0
+                    ? "No runs on this page."
+                    : filtered
+                      ? "No runs match these filters."
+                      : "No runs yet."
                 }
                 emptyAction={filtered || offset > 0 ? undefined : emptyAction}
               />
               {(offset > 0 || data.hasMore) && (
                 <nav aria-label="Pages of runs" className="flex gap-2">
-                  <IconButton variant="outline" disabled={offset === 0} onClick={() => setOffset(Math.max(0, offset - RUNS_PAGE))} label="Newer runs" />
-                  <IconButton variant="outline" disabled={!data.hasMore} onClick={() => setOffset(offset + RUNS_PAGE)} label="Older runs" />
+                  <IconButton
+                    variant="outline"
+                    disabled={offset === 0}
+                    onClick={() => setOffset(Math.max(0, offset - RUNS_PAGE))}
+                    label="Newer runs"
+                  />
+                  <IconButton
+                    variant="outline"
+                    disabled={!data.hasMore}
+                    onClick={() => setOffset(offset + RUNS_PAGE)}
+                    label="Older runs"
+                  />
                 </nav>
               )}
             </div>

@@ -41,7 +41,9 @@ const columns: Column<RotationPolicy>[] = [
     id: "secret",
     header: "Secret",
     className: "font-mono text-xs font-medium",
-    cell: (p) => <PluginLink to={rotationPath(p.secretKey)}>{p.secretKey}</PluginLink>,
+    cell: (p) => (
+      <PluginLink to={rotationPath(p.secretKey)}>{p.secretKey}</PluginLink>
+    ),
   },
   {
     id: "interval",

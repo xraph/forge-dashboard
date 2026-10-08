@@ -24,7 +24,7 @@ export function DescriptionList({ items, className }: DescriptionListProps) {
     <dl
       className={cn(
         "grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm",
-        className,
+        className
       )}
     >
       {items.map((item) => (
@@ -56,7 +56,7 @@ export function DetailLayout({ main, aside, className }: DetailLayoutProps) {
     <div
       className={cn(
         "grid grid-cols-1 gap-4 @3xl/main:grid-cols-[2fr_1fr]",
-        className,
+        className
       )}
     >
       <div className="flex flex-col gap-4">{main}</div>

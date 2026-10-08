@@ -6,11 +6,11 @@ import { broken, mixed } from "./verification/fixtures"
 describe("Ribbon", () => {
   it("draws one band per coverage span, labelled with its level", () => {
     render(<Ribbon report={mixed} fromSeq={1} toSeq={61004} />)
-    expect(screen.getAllByTestId("ribbon-band").map((b) => b.getAttribute("data-level"))).toEqual([
-      "unkeyed",
-      "signed",
-      "keyed",
-    ])
+    expect(
+      screen
+        .getAllByTestId("ribbon-band")
+        .map((b) => b.getAttribute("data-level"))
+    ).toEqual(["unkeyed", "signed", "keyed"])
   })
 
   it("puts each break at its sequence as a focusable control named for it", () => {
@@ -36,9 +36,11 @@ describe("Ribbon", () => {
             </tr>
           </tbody>
         </table>
-      </>,
+      </>
     )
-    fireEvent.click(screen.getByRole("button", { name: "Sequence 2,780 altered" }))
+    fireEvent.click(
+      screen.getByRole("button", { name: "Sequence 2,780 altered" })
+    )
     expect(document.activeElement?.id).toBe("break-altered-2780")
   })
 
@@ -50,6 +52,8 @@ describe("Ribbon", () => {
 
   it("does not animate when the operator prefers reduced motion", () => {
     render(<Ribbon report={broken} fromSeq={1} toSeq={5000} />)
-    expect(screen.getByTestId("ribbon-track").className).toContain("motion-reduce:transition-none")
+    expect(screen.getByTestId("ribbon-track").className).toContain(
+      "motion-reduce:transition-none"
+    )
   })
 })

@@ -15,14 +15,25 @@ import { TenantValue } from "./tenant"
  * `showUser` is off on a page that is already about one user, where the column
  * would repeat that user on every row.
  */
-export function eventColumns({ showUser }: { showUser: boolean }): Column<EventSummary>[] {
+export function eventColumns({
+  showUser,
+}: {
+  showUser: boolean
+}): Column<EventSummary>[] {
   const cols: Column<EventSummary>[] = [
-    { id: "time", header: "Time", cell: (e) => <Timestamp value={e.timestamp} label="time" /> },
+    {
+      id: "time",
+      header: "Time",
+      cell: (e) => <Timestamp value={e.timestamp} label="time" />,
+    },
     {
       id: "action",
       header: "Action",
       cell: (e) => (
-        <PluginLink to={`/events/${encodeURIComponent(e.id)}`} className="font-medium">
+        <PluginLink
+          to={`/events/${encodeURIComponent(e.id)}`}
+          className="font-medium"
+        >
           {e.action}
         </PluginLink>
       ),
@@ -33,13 +44,25 @@ export function eventColumns({ showUser }: { showUser: boolean }): Column<EventS
       cell: (e) => (
         <span>
           {e.resource}
-          {e.resourceId ? <span className="ml-1 font-mono text-xs text-muted-foreground">{e.resourceId}</span> : null}
+          {e.resourceId ? (
+            <span className="ml-1 font-mono text-xs text-muted-foreground">
+              {e.resourceId}
+            </span>
+          ) : null}
         </span>
       ),
     },
     { id: "category", header: "Category", cell: (e) => e.category },
-    { id: "outcome", header: "Outcome", cell: (e) => <OutcomeBadge outcome={e.outcome} /> },
-    { id: "severity", header: "Severity", cell: (e) => <SeverityBadge severity={e.severity} /> },
+    {
+      id: "outcome",
+      header: "Outcome",
+      cell: (e) => <OutcomeBadge outcome={e.outcome} />,
+    },
+    {
+      id: "severity",
+      header: "Severity",
+      cell: (e) => <SeverityBadge severity={e.severity} />,
+    },
   ]
   if (showUser) {
     cols.push({
@@ -47,7 +70,10 @@ export function eventColumns({ showUser }: { showUser: boolean }): Column<EventS
       header: "User",
       cell: (e) =>
         e.userId ? (
-          <PluginLink to={`/users/${encodeURIComponent(e.userId)}`} className="font-mono text-xs">
+          <PluginLink
+            to={`/users/${encodeURIComponent(e.userId)}`}
+            className="font-mono text-xs"
+          >
             {e.userId}
           </PluginLink>
         ) : (
@@ -58,9 +84,24 @@ export function eventColumns({ showUser }: { showUser: boolean }): Column<EventS
   cols.push(
     // Always shown: an app-wide viewer reads every tenant's events, and the
     // column must not come and go with whatever rows are on the page.
-    { id: "tenant", header: "Tenant", cell: (e) => <TenantValue tenantId={e.tenantId} /> },
-    { id: "seq", header: "Sequence", align: "end", cell: (e) => <span className="font-mono text-xs">{formatSeq(e.sequence)}</span> },
-    { id: "erased", header: "", cell: (e) => (e.erased ? <ErasedBadge /> : null) },
+    {
+      id: "tenant",
+      header: "Tenant",
+      cell: (e) => <TenantValue tenantId={e.tenantId} />,
+    },
+    {
+      id: "seq",
+      header: "Sequence",
+      align: "end",
+      cell: (e) => (
+        <span className="font-mono text-xs">{formatSeq(e.sequence)}</span>
+      ),
+    },
+    {
+      id: "erased",
+      header: "",
+      cell: (e) => (e.erased ? <ErasedBadge /> : null),
+    }
   )
   return cols
 }

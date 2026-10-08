@@ -9,7 +9,7 @@ describe("QueryBoundary", () => {
     render(
       <QueryBoundary title="Users" query={{ loading: true, refetch: () => {} }}>
         {() => <p>never</p>}
-      </QueryBoundary>,
+      </QueryBoundary>
     )
     expect(screen.getByRole("status", { name: "Loading Users" })).toBeTruthy()
     expect(screen.queryByText("never")).toBeNull()
@@ -20,10 +20,14 @@ describe("QueryBoundary", () => {
     render(
       <QueryBoundary
         title="Users"
-        query={{ loading: false, refetch, error: { code: "PERMISSION_DENIED", message: "nope" } }}
+        query={{
+          loading: false,
+          refetch,
+          error: { code: "PERMISSION_DENIED", message: "nope" },
+        }}
       >
         {() => <p>never</p>}
-      </QueryBoundary>,
+      </QueryBoundary>
     )
     expect(screen.getByRole("alert").textContent).toContain("PERMISSION_DENIED")
     expect(screen.getByRole("alert").textContent).toContain("nope")
@@ -35,25 +39,30 @@ describe("QueryBoundary", () => {
     render(
       <QueryBoundary title="Users" query={settled}>
         {() => <p>never</p>}
-      </QueryBoundary>,
+      </QueryBoundary>
     )
-    expect(screen.getByRole("status").textContent).toContain("Users returned no data.")
+    expect(screen.getByRole("status").textContent).toContain(
+      "Users returned no data."
+    )
   })
 
   it("renders children with the data once it arrives", () => {
     render(
       <QueryBoundary title="Users" query={{ ...settled, data: { total: 2 } }}>
         {(data) => <p>{data.total} users</p>}
-      </QueryBoundary>,
+      </QueryBoundary>
     )
     expect(screen.getByText("2 users")).toBeTruthy()
   })
 
   it("swaps in the skeleton on a refetch by default, even with data in hand", () => {
     render(
-      <QueryBoundary title="Users" query={{ loading: true, refetch: () => {}, data: { total: 2 } }}>
+      <QueryBoundary
+        title="Users"
+        query={{ loading: true, refetch: () => {}, data: { total: 2 } }}
+      >
         {(data) => <p>{data.total} users</p>}
-      </QueryBoundary>,
+      </QueryBoundary>
     )
     expect(screen.getByRole("status", { name: "Loading Users" })).toBeTruthy()
     expect(screen.queryByText("2 users")).toBeNull()
@@ -67,18 +76,24 @@ describe("QueryBoundary", () => {
         query={{ loading: true, refetch: () => {}, data: { total: 2 } }}
       >
         {(data) => <p>{data.total} users</p>}
-      </QueryBoundary>,
+      </QueryBoundary>
     )
     expect(screen.getByText("2 users")).toBeTruthy()
     expect(screen.queryByRole("status", { name: "Loading Users" })).toBeNull()
-    expect(screen.getByText("2 users").parentElement?.getAttribute("aria-busy")).toBe("true")
+    expect(
+      screen.getByText("2 users").parentElement?.getAttribute("aria-busy")
+    ).toBe("true")
   })
 
   it("still shows the skeleton on a first load with keepPreviousData", () => {
     render(
-      <QueryBoundary keepPreviousData title="Users" query={{ loading: true, refetch: () => {} }}>
+      <QueryBoundary
+        keepPreviousData
+        title="Users"
+        query={{ loading: true, refetch: () => {} }}
+      >
         {() => <p>never</p>}
-      </QueryBoundary>,
+      </QueryBoundary>
     )
     expect(screen.getByRole("status", { name: "Loading Users" })).toBeTruthy()
     expect(screen.queryByText("never")).toBeNull()
@@ -120,7 +135,7 @@ describe("QueryBoundary", () => {
         }}
       >
         {(data) => <p>{data.total} users</p>}
-      </QueryBoundary>,
+      </QueryBoundary>
     )
     expect(screen.getByRole("alert").textContent).toContain("TRANSPORT")
     expect(screen.queryByText("2 users")).toBeNull()
@@ -138,7 +153,7 @@ describe("CommandAlert", () => {
       <CommandAlert
         title="Ban failed"
         error={{ code: "BAD_REQUEST", message: "user is already banned" }}
-      />,
+      />
     )
     const alert = screen.getByRole("alert")
     expect(alert.textContent).toContain("user is already banned")
@@ -151,7 +166,7 @@ describe("CommandAlert", () => {
         title="Ban failed"
         error={{ code: "BAD_REQUEST", message: "user is already banned" }}
         showCode={true}
-      />,
+      />
     )
     expect(screen.getByRole("alert").textContent).toContain("BAD_REQUEST")
   })
@@ -160,9 +175,12 @@ describe("CommandAlert", () => {
     render(
       <CommandAlert
         title="Sign in failed"
-        error={{ code: "UNAUTHENTICATED", message: "Incorrect email or password" }}
+        error={{
+          code: "UNAUTHENTICATED",
+          message: "Incorrect email or password",
+        }}
         showCode={false}
-      />,
+      />
     )
     const alert = screen.getByRole("alert")
     expect(alert.textContent).toContain("Incorrect email or password")

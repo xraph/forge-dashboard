@@ -69,7 +69,11 @@ function EditEnvironment({ env }: { env: EnvDetail }) {
       <CommandAlert error={update.error} title="Could not save" />
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="env-name">Name</Label>
-        <Input id="env-name" value={name} onChange={(e) => setName(e.target.value)} />
+        <Input
+          id="env-name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+        />
       </div>
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="env-description">Description</Label>
@@ -81,7 +85,11 @@ function EditEnvironment({ env }: { env: EnvDetail }) {
       </div>
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="env-color">Color</Label>
-        <Input id="env-color" value={color} onChange={(e) => setColor(e.target.value)} />
+        <Input
+          id="env-color"
+          value={color}
+          onChange={(e) => setColor(e.target.value)}
+        />
       </div>
       <Button
         onClick={() => void update.execute(changed)}
@@ -118,12 +126,19 @@ function EnvironmentDetailBody({ envId }: { envId: string }) {
               main={
                 <DescriptionList
                   items={[
-                    { term: "Slug", value: <span className="font-mono text-xs">{env.slug}</span> },
+                    {
+                      term: "Slug",
+                      value: (
+                        <span className="font-mono text-xs">{env.slug}</span>
+                      ),
+                    },
                     { term: "Type", value: env.type },
                     {
                       term: "Default",
                       value: (
-                        <Badge variant={env.isDefault ? "outline" : "secondary"}>
+                        <Badge
+                          variant={env.isDefault ? "outline" : "secondary"}
+                        >
                           {env.isDefault ? "default" : "not default"}
                         </Badge>
                       ),
@@ -136,12 +151,22 @@ function EnvironmentDetailBody({ envId }: { envId: string }) {
                         <NoneCell label="app" />
                       ),
                     },
-                    { term: "Description", value: env.description || <NoneCell label="description" /> },
-                    { term: "Color", value: env.color || <NoneCell label="color" /> },
+                    {
+                      term: "Description",
+                      value: env.description || (
+                        <NoneCell label="description" />
+                      ),
+                    },
+                    {
+                      term: "Color",
+                      value: env.color || <NoneCell label="color" />,
+                    },
                     {
                       term: "Cloned from",
                       value: env.clonedFrom ? (
-                        <span className="font-mono text-xs">{env.clonedFrom}</span>
+                        <span className="font-mono text-xs">
+                          {env.clonedFrom}
+                        </span>
                       ) : (
                         <NoneCell label="clone source" />
                       ),

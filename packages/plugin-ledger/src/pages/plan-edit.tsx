@@ -37,7 +37,10 @@ function PlanEditBody({ id }: { id: string }) {
 
   const form = (p: Plan) => (
     <section className="flex flex-col gap-4">
-      <PageHeader title={`Edit ${p.name}`} description="Price and feature changes apply from the next invoice. Existing invoices are not recalculated." />
+      <PageHeader
+        title={`Edit ${p.name}`}
+        description="Price and feature changes apply from the next invoice. Existing invoices are not recalculated."
+      />
       <PlanForm
         key={`${p.id}:${p.updated_at}`}
         mode="edit"
@@ -56,7 +59,15 @@ function PlanEditBody({ id }: { id: string }) {
   // Data already on screen stays up while a refetch runs: QueryBoundary would
   // swap the form for a skeleton and lose what the operator typed.
   if (detail.data !== undefined) return form(detail.data)
-  if (isNotFound(detail.error, "plan")) return <NotFoundState noun="plan" id={id} backTo="/plans" backLabel="Back to plans" />
+  if (isNotFound(detail.error, "plan"))
+    return (
+      <NotFoundState
+        noun="plan"
+        id={id}
+        backTo="/plans"
+        backLabel="Back to plans"
+      />
+    )
   return (
     <QueryBoundary title="Plan" query={detail} skeletonRows={6}>
       {form}

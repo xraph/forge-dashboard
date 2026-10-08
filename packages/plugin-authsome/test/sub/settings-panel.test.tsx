@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest"
 import { fireEvent, screen, waitFor } from "@testing-library/react"
-import { SETTINGS_INTENTS, settingsPanelFor } from "@forge-go/dashboard-plugin-authsome/sub/settings-panel"
+import {
+  SETTINGS_INTENTS,
+  settingsPanelFor,
+} from "@forge-go/dashboard-plugin-authsome/sub/settings-panel"
 import { renderSubPage, subStubClient } from "./harness"
 
 const namespaceAnswer = {
@@ -12,9 +15,14 @@ const namespaceAnswer = {
       name: "Enforcement",
       settings: [
         {
-          key: "require_mfa", displayName: "Require MFA", type: "bool",
-          effectiveValue: false, isOverridden: false, isEnforced: false,
-          canOverride: true, order: 1,
+          key: "require_mfa",
+          displayName: "Require MFA",
+          type: "bool",
+          effectiveValue: false,
+          isOverridden: false,
+          isEnforced: false,
+          canOverride: true,
+          order: 1,
         },
       ],
     },
@@ -22,9 +30,15 @@ const namespaceAnswer = {
       name: "Codes",
       settings: [
         {
-          key: "code_length", displayName: "Code length", type: "int",
-          effectiveValue: 6, default: 6, isOverridden: false,
-          isEnforced: false, canOverride: true, order: 2,
+          key: "code_length",
+          displayName: "Code length",
+          type: "int",
+          effectiveValue: 6,
+          default: 6,
+          isOverridden: false,
+          isEnforced: false,
+          canOverride: true,
+          order: 2,
         },
       ],
     },
@@ -46,7 +60,11 @@ describe("settingsPanelFor", () => {
     const own = subStubClient({})
     const Panel = settingsPanelFor("mfa")
 
-    renderSubPage(Panel, { client: own.client, hostClient: host.client, allowed: [...SETTINGS_INTENTS] })
+    renderSubPage(Panel, {
+      client: own.client,
+      hostClient: host.client,
+      allowed: [...SETTINGS_INTENTS],
+    })
 
     await waitFor(() => expect(screen.getByText("Require MFA")).toBeTruthy())
     // The whole point of hostIntents: the read went to auth, not to mfa.
@@ -58,7 +76,11 @@ describe("settingsPanelFor", () => {
   it("shows fields from every category, grouped by category name", async () => {
     const host = subStubClient({ "settings.namespace": namespaceAnswer })
     const Panel = settingsPanelFor("mfa")
-    renderSubPage(Panel, { client: subStubClient({}).client, hostClient: host.client, allowed: [...SETTINGS_INTENTS] })
+    renderSubPage(Panel, {
+      client: subStubClient({}).client,
+      hostClient: host.client,
+      allowed: [...SETTINGS_INTENTS],
+    })
 
     await waitFor(() => expect(screen.getByText("Require MFA")).toBeTruthy())
     // A namespace whose second category is dropped renders a panel that looks
@@ -72,13 +94,19 @@ describe("settingsPanelFor", () => {
   it("sends one settings.update per changed key, through the host", async () => {
     const host = subStubClient(
       { "settings.namespace": namespaceAnswer },
-      { "settings.update": { ok: true } },
+      { "settings.update": { ok: true } }
     )
     const Panel = settingsPanelFor("mfa")
-    renderSubPage(Panel, { client: subStubClient({}).client, hostClient: host.client, allowed: [...SETTINGS_INTENTS] })
+    renderSubPage(Panel, {
+      client: subStubClient({}).client,
+      hostClient: host.client,
+      allowed: [...SETTINGS_INTENTS],
+    })
 
     await waitFor(() => expect(screen.getByText("Code length")).toBeTruthy())
-    fireEvent.change(screen.getByLabelText("Code length"), { target: { value: "8" } })
+    fireEvent.change(screen.getByLabelText("Code length"), {
+      target: { value: "8" },
+    })
     fireEvent.click(screen.getByRole("button", { name: /save/i }))
 
     await waitFor(() => expect(host.payloads).toHaveLength(1))
@@ -99,14 +127,18 @@ describe("settingsPanelFor", () => {
         hostClient: subStubClient({}).client,
         allowed: ["settings.update"],
         catchErrors: true,
-      }),
+      })
     ).toThrow(/settings\.namespace/)
   })
 
   it("offers no reset-to-default control", async () => {
     const host = subStubClient({ "settings.namespace": namespaceAnswer })
     const Panel = settingsPanelFor("mfa")
-    renderSubPage(Panel, { client: subStubClient({}).client, hostClient: host.client, allowed: [...SETTINGS_INTENTS] })
+    renderSubPage(Panel, {
+      client: subStubClient({}).client,
+      hostClient: host.client,
+      allowed: [...SETTINGS_INTENTS],
+    })
 
     await waitFor(() => expect(screen.getByText("Code length")).toBeTruthy())
     // settings.update passes its value straight to Manager.Set, so a reset
@@ -118,7 +150,9 @@ describe("settingsPanelFor", () => {
     // panel that clears an override, which is the property this test is
     // actually guarding, so it targets that server-facing verb by name rather
     // than the word "reset".
-    expect(screen.queryByRole("button", { name: /reset to default/i })).toBeNull()
+    expect(
+      screen.queryByRole("button", { name: /reset to default/i })
+    ).toBeNull()
     expect(screen.queryByRole("button", { name: /clear override/i })).toBeNull()
   })
 })

@@ -1,6 +1,9 @@
 import { Input } from "@forge-go/dashboard-kit/components/input"
 import { Label } from "@forge-go/dashboard-kit/components/label"
-import { NativeSelect, NativeSelectOption } from "@forge-go/dashboard-kit/components/native-select"
+import {
+  NativeSelect,
+  NativeSelectOption,
+} from "@forge-go/dashboard-kit/components/native-select"
 import { durationProblem } from "../policy"
 import type { DurationUnit } from "../policy"
 
@@ -31,7 +34,13 @@ export function DurationField({
           aria-invalid={problem !== null}
           onChange={(e) => onChange(e.target.value, unit)}
         />
-        <NativeSelect aria-label="Duration unit" value={unit} onChange={(e) => onChange(amount, e.target.value === "days" ? "days" : "hours")}>
+        <NativeSelect
+          aria-label="Duration unit"
+          value={unit}
+          onChange={(e) =>
+            onChange(amount, e.target.value === "days" ? "days" : "hours")
+          }
+        >
           <NativeSelectOption value="hours">Hours</NativeSelectOption>
           <NativeSelectOption value="days">Days</NativeSelectOption>
         </NativeSelect>

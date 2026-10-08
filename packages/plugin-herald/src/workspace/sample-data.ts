@@ -35,7 +35,8 @@ export function sampleTextFor(vars: VariableWire[]): string {
   return JSON.stringify(sampleDataFor(vars), null, 2)
 }
 
-export type SampleParse = { ok: true; data: Record<string, unknown> } | { ok: false; message: string }
+export type SampleParse =
+  { ok: true; data: Record<string, unknown> } | { ok: false; message: string }
 
 export function parseSample(text: string): SampleParse {
   if (text.trim() === "") return { ok: true, data: {} }
@@ -43,10 +44,16 @@ export function parseSample(text: string): SampleParse {
   try {
     value = JSON.parse(text)
   } catch (err) {
-    return { ok: false, message: `Not valid JSON: ${err instanceof Error ? err.message : String(err)}` }
+    return {
+      ok: false,
+      message: `Not valid JSON: ${err instanceof Error ? err.message : String(err)}`,
+    }
   }
   if (value === null || typeof value !== "object" || Array.isArray(value)) {
-    return { ok: false, message: 'Sample data must be a JSON object, like {"name": "Ada"}.' }
+    return {
+      ok: false,
+      message: 'Sample data must be a JSON object, like {"name": "Ada"}.',
+    }
   }
   return { ok: true, data: value as Record<string, unknown> }
 }

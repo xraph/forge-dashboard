@@ -10,7 +10,14 @@ import { documentColumns } from "../components/document-columns"
 import { formatAge, formatCount, plural } from "../format"
 import type { Components, DocumentRow, Overview } from "../types"
 
-const STAGES: { key: keyof Pick<Components, "loader" | "chunker" | "embedder" | "vector_store" | "retriever">; label: string; none: string }[] = [
+const STAGES: {
+  key: keyof Pick<
+    Components,
+    "loader" | "chunker" | "embedder" | "vector_store" | "retriever"
+  >
+  label: string
+  none: string
+}[] = [
   { key: "loader", label: "Loader", none: "loader" },
   { key: "chunker", label: "Chunker", none: "chunker" },
   { key: "embedder", label: "Embedder", none: "embedder" },
@@ -27,7 +34,11 @@ export function ComponentsStrip({ components }: { components: Components }) {
         return (
           <span key={s.key} className="inline-flex items-center gap-2">
             <span className="text-muted-foreground">{s.label}</span>
-            {c.configured && c.kind !== "" ? <span className="font-mono text-xs">{c.kind}</span> : <NoneCell label={s.none} />}
+            {c.configured && c.kind !== "" ? (
+              <span className="font-mono text-xs">{c.kind}</span>
+            ) : (
+              <NoneCell label={s.none} />
+            )}
           </span>
         )
       })}
@@ -57,13 +68,23 @@ export const OverviewPage: ComponentType<PluginPageProps> = () => {
                 { label: "Collections", value: formatCount(data.collections) },
                 { label: "Documents", value: formatCount(data.documents) },
                 { label: "Chunks", value: formatCount(data.chunks) },
-                { label: "Ready", value: formatCount(data.documents_by_state.ready) },
-                { label: "Pending", value: formatCount(data.documents_by_state.pending) },
-                { label: "Processing", value: formatCount(data.documents_by_state.processing) },
+                {
+                  label: "Ready",
+                  value: formatCount(data.documents_by_state.ready),
+                },
+                {
+                  label: "Pending",
+                  value: formatCount(data.documents_by_state.pending),
+                },
+                {
+                  label: "Processing",
+                  value: formatCount(data.documents_by_state.processing),
+                },
                 {
                   label: "Failed",
                   value: formatCount(data.documents_by_state.failed),
-                  tone: data.documents_by_state.failed > 0 ? "danger" : "default",
+                  tone:
+                    data.documents_by_state.failed > 0 ? "danger" : "default",
                 },
                 {
                   label: "Looks stalled",
@@ -83,10 +104,17 @@ export const OverviewPage: ComponentType<PluginPageProps> = () => {
                 columns={columns}
                 rows={data.newest_documents}
                 rowKey={(d) => d.id}
-                caption={plural(data.newest_documents.length, "newest document", "newest documents")}
+                caption={plural(
+                  data.newest_documents.length,
+                  "newest document",
+                  "newest documents"
+                )}
                 emptyMessage="No documents yet. Open a collection and ingest one."
                 emptyAction={
-                  <PluginLink to="/collections" className="underline-offset-4 hover:underline">
+                  <PluginLink
+                    to="/collections"
+                    className="underline-offset-4 hover:underline"
+                  >
                     Open collections
                   </PluginLink>
                 }

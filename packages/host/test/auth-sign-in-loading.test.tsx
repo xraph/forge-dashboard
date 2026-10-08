@@ -10,11 +10,16 @@ import type { AuthIntents } from "@forge-go/dashboard-plugin"
 // without disturbing what every other test asserts.
 vi.mock("@forge-go/dashboard-plugin", async () => {
   const actual = await vi.importActual<Record<string, unknown>>(
-    "@forge-go/dashboard-plugin",
+    "@forge-go/dashboard-plugin"
   )
   return {
     ...actual,
-    useQuery: () => ({ data: undefined, loading: true, error: undefined, refetch: vi.fn() }),
+    useQuery: () => ({
+      data: undefined,
+      loading: true,
+      error: undefined,
+      refetch: vi.fn(),
+    }),
     useCommand: () => ({ execute: vi.fn(), loading: false, error: undefined }),
   }
 })
@@ -31,8 +36,13 @@ describe("sign-in while auth.config is still loading", () => {
     const SignIn = defaultAuthScreens.signIn
     const { container } = render(
       <MemoryRouter initialEntries={["/login"]}>
-        <SignIn basename="/forge" intents={intents} next="/forge" onAuthenticated={vi.fn()} />
-      </MemoryRouter>,
+        <SignIn
+          basename="/forge"
+          intents={intents}
+          next="/forge"
+          onAuthenticated={vi.fn()}
+        />
+      </MemoryRouter>
     )
 
     expect(container.querySelector('[data-slot="spinner"]')).toBeTruthy()

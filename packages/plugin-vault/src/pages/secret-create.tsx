@@ -119,7 +119,10 @@ export const SecretCreatePage: ComponentType<PluginPageProps> = () => {
           </PluginLink>
         </p>
       ) : null}
-      <form onSubmit={(e) => void submit(e)} className="flex max-w-lg flex-col gap-4">
+      <form
+        onSubmit={(e) => void submit(e)}
+        className="flex max-w-lg flex-col gap-4"
+      >
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="secret-key">Key</Label>
           <Input
@@ -167,7 +170,7 @@ export const SecretCreatePage: ComponentType<PluginPageProps> = () => {
           <Button type="submit" disabled={!canSubmit}>
             {create.loading ? "Creating…" : "Create secret"}
           </Button>
-          <PluginLink to="/secrets" className="text-sm underline self-center">
+          <PluginLink to="/secrets" className="self-center text-sm underline">
             Cancel
           </PluginLink>
         </div>

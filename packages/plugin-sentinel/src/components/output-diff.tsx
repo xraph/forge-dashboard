@@ -14,14 +14,35 @@ const PromptDiff = lazy(() => import("./prompt-diff"))
  * red-team case stays collapsed until asked for, as everywhere else, and the
  * reveal belongs to this case alone.
  */
-export function OutputDiff({ pair, aRunId, bRunId }: { pair: CasePair; aRunId: string; bRunId: string }) {
-  const a = useQuery<ResultDetail>("results.detail", { runId: aRunId, resultId: pair.a?.id }, { enabled: pair.a !== undefined })
-  const b = useQuery<ResultDetail>("results.detail", { runId: bRunId, resultId: pair.b?.id }, { enabled: pair.b !== undefined })
+export function OutputDiff({
+  pair,
+  aRunId,
+  bRunId,
+}: {
+  pair: CasePair
+  aRunId: string
+  bRunId: string
+}) {
+  const a = useQuery<ResultDetail>(
+    "results.detail",
+    { runId: aRunId, resultId: pair.a?.id },
+    { enabled: pair.a !== undefined }
+  )
+  const b = useQuery<ResultDetail>(
+    "results.detail",
+    { runId: bRunId, resultId: pair.b?.id },
+    { enabled: pair.b !== undefined }
+  )
   const attack = pair.a?.redTeam?.attackType ?? pair.b?.redTeam?.attackType
   const [shown, setShown] = useState(false)
   const error = a.error ?? b.error
   if (error) {
-    return <p role="alert" className="text-sm text-destructive">{`The outputs could not be read. ${error.message}`}</p>
+    return (
+      <p
+        role="alert"
+        className="text-sm text-destructive"
+      >{`The outputs could not be read. ${error.message}`}</p>
+    )
   }
   if ((pair.a && !a.data) || (pair.b && !b.data)) {
     return (
@@ -34,9 +55,14 @@ export function OutputDiff({ pair, aRunId, bRunId }: { pair: CasePair; aRunId: s
     return (
       <div className="flex flex-col items-start gap-2 rounded-md border border-dashed p-3">
         <p className="text-sm text-muted-foreground">
-          Red-team output stays hidden until you ask for it: it may repeat the system prompt or carry the attack.
+          Red-team output stays hidden until you ask for it: it may repeat the
+          system prompt or carry the attack.
         </p>
-        <IconButton variant="outline" onClick={() => setShown(true)} label={`Show outputs (${attack})`} />
+        <IconButton
+          variant="outline"
+          onClick={() => setShown(true)}
+          label={`Show outputs (${attack})`}
+        />
       </div>
     )
   }
@@ -45,16 +71,22 @@ export function OutputDiff({ pair, aRunId, bRunId }: { pair: CasePair; aRunId: s
     return (
       <div className="flex flex-col gap-2">
         <p className="text-sm text-muted-foreground">
-          {a.data ? "Only run A scored this case." : "Only run B scored this case."}
+          {a.data
+            ? "Only run A scored this case."
+            : "Only run B scored this case."}
         </p>
-        {only && <PlainText value={only.output} label={`Output of ${pair.caseName}`} />}
+        {only && (
+          <PlainText value={only.output} label={`Output of ${pair.caseName}`} />
+        )}
       </div>
     )
   }
   if (a.data.output === b.data.output) {
     return (
       <div className="flex flex-col gap-2">
-        <p className="text-sm text-muted-foreground">Both runs gave the same output.</p>
+        <p className="text-sm text-muted-foreground">
+          Both runs gave the same output.
+        </p>
         <PlainText value={b.data.output} label={`Output of ${pair.caseName}`} />
       </div>
     )
@@ -67,7 +99,11 @@ export function OutputDiff({ pair, aRunId, bRunId }: { pair: CasePair; aRunId: s
         </p>
       }
     >
-      <PromptDiff was={a.data.output} now={b.data.output} label={`Output of ${pair.caseName}, A against B`} />
+      <PromptDiff
+        was={a.data.output}
+        now={b.data.output}
+        label={`Output of ${pair.caseName}, A against B`}
+      />
     </Suspense>
   )
 }

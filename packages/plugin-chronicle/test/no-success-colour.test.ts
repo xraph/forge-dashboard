@@ -6,14 +6,20 @@ import { describe, expect, it } from "vitest"
  * `tsc`. `ImportMeta` is widened locally for the same reason.
  */
 interface GlobbingImportMeta {
-  glob: (pattern: string, options: { query?: string; import?: string; eager?: boolean }) => Record<string, string>
+  glob: (
+    pattern: string,
+    options: { query?: string; import?: string; eager?: boolean }
+  ) => Record<string, string>
 }
 
-const sources = (import.meta as unknown as GlobbingImportMeta).glob("../src/**/*.{ts,tsx}", {
-  query: "?raw",
-  import: "default",
-  eager: true,
-})
+const sources = (import.meta as unknown as GlobbingImportMeta).glob(
+  "../src/**/*.{ts,tsx}",
+  {
+    query: "?raw",
+    import: "default",
+    eager: true,
+  }
+)
 
 describe("colour", () => {
   it("found the sources", () => {
@@ -22,7 +28,11 @@ describe("colour", () => {
 
   it("uses no success colour anywhere: saturated colour means failure", () => {
     const offenders = Object.entries(sources)
-      .filter(([, text]) => /\b(?:text|bg|border|fill|stroke|ring)-(?:green|emerald|lime|teal)-/.test(text))
+      .filter(([, text]) =>
+        /\b(?:text|bg|border|fill|stroke|ring)-(?:green|emerald|lime|teal)-/.test(
+          text
+        )
+      )
       .map(([path]) => path)
     expect(offenders).toEqual([])
   })

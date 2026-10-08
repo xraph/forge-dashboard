@@ -23,7 +23,9 @@ export interface ConfigValueProps {
 export function ConfigValue({ value, valueType, className }: ConfigValueProps) {
   if (valueType === "duration" && typeof value === "string" && value !== "") {
     return (
-      <span className={cn("font-mono text-xs break-all", className)}>{value}</span>
+      <span className={cn("font-mono text-xs break-all", className)}>
+        {value}
+      </span>
     )
   }
   return <FlagValue value={value} type={valueType} className={className} />

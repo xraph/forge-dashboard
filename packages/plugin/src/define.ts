@@ -28,27 +28,27 @@ const SIGIL_PREFIX = `/${SCOPE_SIGIL}`
 function validateNav(
   items: PluginNavItem[],
   extension: string,
-  isRoot: boolean,
+  isRoot: boolean
 ): void {
   const labels = new Map<string, string>()
 
   for (const item of items) {
     if (!item.to.startsWith("/")) {
       throw new Error(
-        `definePlugin: nav item "to" value "${item.to}" must start with "/" (plugin "${extension}")`,
+        `definePlugin: nav item "to" value "${item.to}" must start with "/" (plugin "${extension}")`
       )
     }
 
     if (isRoot && item.to.startsWith(SIGIL_PREFIX)) {
       throw new Error(
-        `definePlugin: root plugin "${extension}" cannot claim a nav item under the sigil ("${item.to}"). A root plugin's paths mount as written, with no namespace of its own, so a path starting with "${SIGIL_PREFIX}" would collide with whichever scoped plugin already owns it (plugin "${extension}")`,
+        `definePlugin: root plugin "${extension}" cannot claim a nav item under the sigil ("${item.to}"). A root plugin's paths mount as written, with no namespace of its own, so a path starting with "${SIGIL_PREFIX}" would collide with whichever scoped plugin already owns it (plugin "${extension}")`
       )
     }
 
     const claimed = labels.get(item.to)
     if (claimed !== undefined) {
       throw new Error(
-        `definePlugin: nav items "${claimed}" and "${item.label}" both point at "${item.to}", so the sidebar cannot tell them apart. Give one of them a different "to" (plugin "${extension}")`,
+        `definePlugin: nav items "${claimed}" and "${item.label}" both point at "${item.to}", so the sidebar cannot tell them apart. Give one of them a different "to" (plugin "${extension}")`
       )
     }
     labels.set(item.to, item.label)
@@ -69,13 +69,13 @@ function validateNav(
 export function definePlugin(input: PluginInput): ForgePlugin {
   if (!input.extension) {
     throw new Error(
-      "definePlugin requires an `extension` name matching the Go contributor it belongs to",
+      "definePlugin requires an `extension` name matching the Go contributor it belongs to"
     )
   }
 
   if (input.root && input.namespace !== undefined) {
     throw new Error(
-      `definePlugin: plugin "${input.extension}" sets both \`root\` and \`namespace\`, so it cannot say where it mounts. A root plugin serves at "/" and takes no namespace.`,
+      `definePlugin: plugin "${input.extension}" sets both \`root\` and \`namespace\`, so it cannot say where it mounts. A root plugin serves at "/" and takes no namespace.`
     )
   }
 
@@ -84,7 +84,7 @@ export function definePlugin(input: PluginInput): ForgePlugin {
     !/^[a-z0-9][a-z0-9-]*$/i.test(input.namespace)
   ) {
     throw new Error(
-      `definePlugin: namespace "${input.namespace}" must be a single URL segment of letters, digits and dashes (plugin "${input.extension}")`,
+      `definePlugin: namespace "${input.namespace}" must be a single URL segment of letters, digits and dashes (plugin "${input.extension}")`
     )
   }
 
@@ -94,12 +94,15 @@ export function definePlugin(input: PluginInput): ForgePlugin {
   if (!input.root) {
     if (input.namespace !== undefined && input.namespace !== input.extension) {
       throw new Error(
-        `definePlugin: plugin "${input.extension}" mounts under namespace "${input.namespace}". The URL segment is the extension's own name, so make it "${input.extension}" or leave \`namespace\` out.`,
+        `definePlugin: plugin "${input.extension}" mounts under namespace "${input.namespace}". The URL segment is the extension's own name, so make it "${input.extension}" or leave \`namespace\` out.`
       )
     }
-    if (input.label !== undefined && !labelNamesExtension(input.label, input.extension)) {
+    if (
+      input.label !== undefined &&
+      !labelNamesExtension(input.label, input.extension)
+    ) {
       throw new Error(
-        `definePlugin: plugin "${input.extension}" is labelled "${input.label}", which is a different name. The label spells the extension's name so an operator can tell which extension a page belongs to: use "${defaultLabel(input.extension)}".`,
+        `definePlugin: plugin "${input.extension}" is labelled "${input.label}", which is a different name. The label spells the extension's name so an operator can tell which extension a page belongs to: use "${defaultLabel(input.extension)}".`
       )
     }
   }
@@ -107,7 +110,7 @@ export function definePlugin(input: PluginInput): ForgePlugin {
   for (const route of input.routes) {
     if (!route.path.startsWith("/")) {
       throw new Error(
-        `definePlugin: route path "${route.path}" must start with "/" (plugin "${input.extension}")`,
+        `definePlugin: route path "${route.path}" must start with "/" (plugin "${input.extension}")`
       )
     }
 
@@ -116,7 +119,7 @@ export function definePlugin(input: PluginInput): ForgePlugin {
     // with whichever scoped plugin already owns it.
     if (input.root && route.path.startsWith(SIGIL_PREFIX)) {
       throw new Error(
-        `definePlugin: root plugin "${input.extension}" cannot claim a route under the sigil ("${route.path}"). A root plugin's paths mount as written, with no namespace of its own, so a path starting with "${SIGIL_PREFIX}" would collide with whichever scoped plugin already owns it (plugin "${input.extension}")`,
+        `definePlugin: root plugin "${input.extension}" cannot claim a route under the sigil ("${route.path}"). A root plugin's paths mount as written, with no namespace of its own, so a path starting with "${SIGIL_PREFIX}" would collide with whichever scoped plugin already owns it (plugin "${input.extension}")`
       )
     }
   }
@@ -129,18 +132,18 @@ export function definePlugin(input: PluginInput): ForgePlugin {
   for (const dimension of input.context ?? []) {
     if (!dimension.query || !dimension.switchCommand) {
       throw new Error(
-        `definePlugin: context dimension "${dimension.id}" needs both a \`query\` to read it and a \`switchCommand\` to change it (plugin "${input.extension}")`,
+        `definePlugin: context dimension "${dimension.id}" needs both a \`query\` to read it and a \`switchCommand\` to change it (plugin "${input.extension}")`
       )
     }
     if (typeof dimension.payload !== "function") {
       throw new Error(
-        `definePlugin: context dimension "${dimension.id}" needs a \`payload\` building the switch command's input, because intents do not agree on a field name (apps.switch takes appId, environments.switch takes envId) (plugin "${input.extension}")`,
+        `definePlugin: context dimension "${dimension.id}" needs a \`payload\` building the switch command's input, because intents do not agree on a field name (apps.switch takes appId, environments.switch takes envId) (plugin "${input.extension}")`
       )
     }
     const claimed = seenDimensions.get(dimension.id)
     if (claimed !== undefined) {
       throw new Error(
-        `definePlugin: context dimensions "${claimed}" and "${dimension.label}" both use the id "${dimension.id}" (plugin "${input.extension}")`,
+        `definePlugin: context dimensions "${claimed}" and "${dimension.label}" both use the id "${dimension.id}" (plugin "${input.extension}")`
       )
     }
     seenDimensions.set(dimension.id, dimension.label)

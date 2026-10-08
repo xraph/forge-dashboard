@@ -49,24 +49,48 @@ function SessionDetailBody({ sessionId }: { sessionId: string }) {
                 // driving. It sits high, not buried among timestamps.
                 {
                   term: "Impersonated by",
-                  value: session.impersonatedBy || <NoneCell label="impersonation" />,
+                  value: session.impersonatedBy || (
+                    <NoneCell label="impersonation" />
+                  ),
                 },
-                { term: "IP", value: session.ipAddress || <NoneCell label="ip address" /> },
-                { term: "Agent", value: session.userAgent || <NoneCell label="user agent" /> },
-                { term: "App", value: session.appId || <NoneCell label="app" /> },
-                { term: "Environment", value: session.envId || <NoneCell label="environment" /> },
+                {
+                  term: "IP",
+                  value: session.ipAddress || <NoneCell label="ip address" />,
+                },
+                {
+                  term: "Agent",
+                  value: session.userAgent || <NoneCell label="user agent" />,
+                },
+                {
+                  term: "App",
+                  value: session.appId || <NoneCell label="app" />,
+                },
+                {
+                  term: "Environment",
+                  value: session.envId || <NoneCell label="environment" />,
+                },
                 {
                   term: "Organisation",
                   value: session.orgId || <NoneCell label="organisation" />,
                 },
-                { term: "Device", value: session.deviceId || <NoneCell label="device" /> },
+                {
+                  term: "Device",
+                  value: session.deviceId || <NoneCell label="device" />,
+                },
                 {
                   term: "Principal kind",
-                  value: session.principalKind || <NoneCell label="principal kind" />,
+                  value: session.principalKind || (
+                    <NoneCell label="principal kind" />
+                  ),
                 },
                 {
                   term: "Last activity",
-                  value: <Timestamp value={session.lastActivityAt} label="last activity" />,
+                  value: (
+                    <Timestamp
+                      value={session.lastActivityAt}
+                      label="last activity"
+                    />
+                  ),
                 },
                 { term: "Expires", value: formatTimestamp(session.expiresAt) },
                 {
@@ -81,7 +105,9 @@ function SessionDetailBody({ sessionId }: { sessionId: string }) {
                 { term: "Created", value: formatTimestamp(session.createdAt) },
                 {
                   term: "Updated",
-                  value: <Timestamp value={session.updatedAt} label="last update" />,
+                  value: (
+                    <Timestamp value={session.updatedAt} label="last update" />
+                  ),
                 },
               ]}
             />

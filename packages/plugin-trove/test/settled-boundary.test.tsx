@@ -12,7 +12,7 @@ function renderBoundary(q: QueryState<string>) {
   return render(
     <SettledBoundary title="Things" query={q} skeletonRows={2}>
       {(data) => <p>{`data: ${data}`}</p>}
-    </SettledBoundary>,
+    </SettledBoundary>
   )
 }
 
@@ -25,9 +25,13 @@ describe("SettledBoundary", () => {
   })
 
   it("shows the error card when the read failed and there is no data", () => {
-    renderBoundary(query({ error: new ContractError("TRANSPORT", "network down") }))
+    renderBoundary(
+      query({ error: new ContractError("TRANSPORT", "network down") })
+    )
     expect(screen.getByText("Things unavailable")).toBeTruthy()
-    expect(screen.getByRole("alert").textContent).toContain("TRANSPORT: network down")
+    expect(screen.getByRole("alert").textContent).toContain(
+      "TRANSPORT: network down"
+    )
     expect(screen.queryByText(/^data:/)).toBeNull()
   })
 

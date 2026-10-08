@@ -5,7 +5,14 @@ import { renderContribution, renderSubPage, subStubClient } from "./harness"
 
 const plans = {
   plans: [
-    { id: "p1", name: "Pro", slug: "pro", status: "active", currency: "usd", trialDays: 14 },
+    {
+      id: "p1",
+      name: "Pro",
+      slug: "pro",
+      status: "active",
+      currency: "usd",
+      trialDays: 14,
+    },
     { id: "p2", name: "Legacy", slug: "legacy", status: "archived" },
     { id: "p3", name: "Draft", slug: "draft", status: "draft" },
   ],
@@ -22,13 +29,19 @@ describe("plans", () => {
       allowed: [],
     })
     await waitFor(() => expect(screen.getByText("Pro")).toBeTruthy())
-    expect(screen.getByText("active").getAttribute("data-variant")).toBe("default")
+    expect(screen.getByText("active").getAttribute("data-variant")).toBe(
+      "default"
+    )
     // The "Draft" plan's slug is also "draft", so its slug cell and its
     // status badge are two separate elements with the identical text - the
     // badge is the one carrying `data-variant`.
-    const draftBadge = screen.getAllByText("draft").find((el) => el.hasAttribute("data-variant"))
+    const draftBadge = screen
+      .getAllByText("draft")
+      .find((el) => el.hasAttribute("data-variant"))
     expect(draftBadge?.getAttribute("data-variant")).toBe("secondary")
-    expect(screen.getByText("archived").getAttribute("data-variant")).toBe("outline")
+    expect(screen.getByText("archived").getAttribute("data-variant")).toBe(
+      "outline"
+    )
   })
 
   it("offers archive on active plans and activate on draft ones, and neither on archived", async () => {
@@ -41,7 +54,9 @@ describe("plans", () => {
     expect(screen.getByRole("button", { name: /archive pro/i })).toBeTruthy()
     expect(screen.getByRole("button", { name: /activate draft/i })).toBeTruthy()
     expect(screen.queryByRole("button", { name: /archive legacy/i })).toBeNull()
-    expect(screen.queryByRole("button", { name: /activate legacy/i })).toBeNull()
+    expect(
+      screen.queryByRole("button", { name: /activate legacy/i })
+    ).toBeNull()
   })
 
   it("offers no create, and no editing of any kind", async () => {
@@ -66,19 +81,37 @@ describe("plans", () => {
     await waitFor(() => expect(screen.getByText("Pro")).toBeTruthy())
     // An operator who finds Plans here and concludes billing has moved will
     // go looking for invoices and find nothing.
-    expect(screen.getByText(/invoices, coupons and subscription changes/i)).toBeTruthy()
+    expect(
+      screen.getByText(/invoices, coupons and subscription changes/i)
+    ).toBeTruthy()
   })
 
   it("shows a plan's features read-only", async () => {
     const detail = {
-      id: "p1", name: "Pro", slug: "pro", status: "active", currency: "usd",
-      features: [{ key: "seats", name: "Seats", type: "seat", limit: 10, period: "monthly" }],
+      id: "p1",
+      name: "Pro",
+      slug: "pro",
+      status: "active",
+      currency: "usd",
+      features: [
+        {
+          key: "seats",
+          name: "Seats",
+          type: "seat",
+          limit: 10,
+          period: "monthly",
+        },
+      ],
     }
     renderSubPage(pageAt("/plans/:id"), {
       client: subStubClient({ "plans.detail": detail }).client,
-      hostClient: subStubClient({}).client, allowed: [], params: { id: "p1" },
+      hostClient: subStubClient({}).client,
+      allowed: [],
+      params: { id: "p1" },
     })
-    await waitFor(() => expect(screen.getByRole("heading", { name: "Pro" })).toBeTruthy())
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: "Pro" })).toBeTruthy()
+    )
     expect(screen.getByText("seats")).toBeTruthy()
     expect(screen.getByText("10")).toBeTruthy()
   })
@@ -95,7 +128,8 @@ describe("SubscriptionOrgTab", () => {
   // itself; that happened to reproduce the right prop shape, but it skipped
   // the real `SubPluginProvider`/`PluginSlot`/error-boundary wiring every
   // other contribution in this package is tested through.
-  const contribution = subscriptionSubPlugin.contributions["org.detail.tabs"]![0]
+  const contribution =
+    subscriptionSubPlugin.contributions["org.detail.tabs"]![0]
 
   it("sends the org id it was handed as the tenant", async () => {
     // subscriptions.list is a QUERY, not a command, so `own.payloads` (which
@@ -107,7 +141,17 @@ describe("SubscriptionOrgTab", () => {
     const own = subStubClient({
       "subscriptions.list": (params: unknown) => {
         subscriptionsParams = params
-        return { subscriptions: [{ id: "s1", tenantId: "o1", planId: "p1", status: "active", currentPeriodEnd: "2026-04-01T00:00:00Z" }] }
+        return {
+          subscriptions: [
+            {
+              id: "s1",
+              tenantId: "o1",
+              planId: "p1",
+              status: "active",
+              currentPeriodEnd: "2026-04-01T00:00:00Z",
+            },
+          ],
+        }
       },
       "plans.list": plans,
     })
@@ -140,7 +184,11 @@ describe("SubscriptionOrgTab", () => {
 
   it("names the plan rather than showing its id", async () => {
     const own = subStubClient({
-      "subscriptions.list": { subscriptions: [{ id: "s1", tenantId: "o1", planId: "p1", status: "active" }] },
+      "subscriptions.list": {
+        subscriptions: [
+          { id: "s1", tenantId: "o1", planId: "p1", status: "active" },
+        ],
+      },
       "plans.list": plans,
     })
     renderContribution(contribution, {
@@ -159,14 +207,19 @@ describe("SubscriptionUserSection", () => {
   // Same shape as SubscriptionOrgTab above, keyed to a `user.detail.sections`
   // contribution instead of `org.detail.tabs`. This component had no test
   // coverage at all before this pass.
-  const contribution = subscriptionSubPlugin.contributions["user.detail.sections"]![0]
+  const contribution =
+    subscriptionSubPlugin.contributions["user.detail.sections"]![0]
 
   it("sends the user id it was handed as the tenant", async () => {
     let subscriptionsParams: unknown
     const own = subStubClient({
       "subscriptions.list": (params: unknown) => {
         subscriptionsParams = params
-        return { subscriptions: [{ id: "s1", tenantId: "u1", planId: "p1", status: "trialing" }] }
+        return {
+          subscriptions: [
+            { id: "s1", tenantId: "u1", planId: "p1", status: "trialing" },
+          ],
+        }
       },
       "plans.list": plans,
     })

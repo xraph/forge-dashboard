@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest"
 import { resolvePluginState } from "@forge-go/dashboard-plugin"
 import type { Capabilities } from "@forge-go/dashboard-plugin"
-import vaultPlugin, { OverviewPage, SecretsPage, vaultPlugin as named } from "../src/index"
+import vaultPlugin, {
+  OverviewPage,
+  SecretsPage,
+  vaultPlugin as named,
+} from "../src/index"
 
 function capabilities(
   ...contributors: { name: string; configured?: boolean }[]
@@ -99,7 +103,9 @@ describe("vaultPlugin", () => {
     // other test would catch, because nav and routes are independent lists.
     const paths = new Set(vaultPlugin.routes.map((r) => r.path))
     for (const item of vaultPlugin.nav ?? []) {
-      expect(paths, `nav "${item.label}" points at ${item.to}`).toContain(item.to)
+      expect(paths, `nav "${item.label}" points at ${item.to}`).toContain(
+        item.to
+      )
     }
   })
 })

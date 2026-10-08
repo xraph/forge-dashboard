@@ -21,7 +21,11 @@ import {
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { WrongTypeBadge } from "../badges"
 import { isConfigType } from "../config-types"
-import type { ConfigEntrySummary, ConfigType, OverrideSummary } from "../config-types"
+import type {
+  ConfigEntrySummary,
+  ConfigType,
+  OverrideSummary,
+} from "../config-types"
 import { sameJson } from "../json-text"
 import { ConfigValue } from "./config-value"
 import { useRevertOverride } from "./revert-override"
@@ -128,17 +132,24 @@ export function OverridesSection({
             >
               Change
             </Button>
-            <IconButton variant="outline" onClick={() =>
+            <IconButton
+              variant="outline"
+              onClick={() =>
                 revert.request(
                   entry.key,
                   o.tenantId,
                   <>
                     {`Tenant ${o.tenantId} goes back to the app default, `}
-                    <ConfigValue value={entry.value} valueType={entry.valueType} />
+                    <ConfigValue
+                      value={entry.value}
+                      valueType={entry.valueType}
+                    />
                     {"."}
-                  </>,
+                  </>
                 )
-              } label={`Revert to app default for ${o.tenantId}`} />
+              }
+              label={`Revert to app default for ${o.tenantId}`}
+            />
           </>
         )}
       />
@@ -180,7 +191,9 @@ function OverrideDialog({
   // A stored override that is not a value of the type is not offered back as if
   // it were one: the field starts empty and save waits for a real value.
   const [value, setValue] = useState<unknown>(
-    existing !== undefined && existing.valueMatchesType ? existing.value : undefined,
+    existing !== undefined && existing.valueMatchesType
+      ? existing.value
+      : undefined
   )
   const tenant = tenantId.trim()
 
@@ -194,7 +207,11 @@ function OverrideDialog({
     event.preventDefault()
     // Enter in a field submits even when the button is disabled.
     if (!canSubmit || set.loading) return
-    const result = await set.execute({ key: entry.key, tenantId: tenant, value })
+    const result = await set.execute({
+      key: entry.key,
+      tenantId: tenant,
+      value,
+    })
     // undefined means the client threw. Everything stays put for a retry.
     if (result === undefined) return
     onClose()
@@ -241,18 +258,25 @@ function OverrideDialog({
               value={value}
               // Nothing is reported for a stored value that is not valid: it
               // must not be rewritten to "" behind the operator's back.
-              reportEmptyOnMount={existing === undefined || existing.valueMatchesType}
+              reportEmptyOnMount={
+                existing === undefined || existing.valueMatchesType
+              }
               onChange={setValue}
             />
             {type === "string" ? (
               <p className="text-xs text-muted-foreground">
-                An empty value is still an override: the tenant gets the empty string. To remove
-                the override, use the button on its row.
+                An empty value is still an override: the tenant gets the empty
+                string. To remove the override, use the button on its row.
               </p>
             ) : null}
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" disabled={set.loading} onClick={onClose}>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={set.loading}
+              onClick={onClose}
+            >
               Cancel
             </Button>
             <Button type="submit" disabled={!canSubmit || set.loading}>

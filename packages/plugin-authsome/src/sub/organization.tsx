@@ -156,8 +156,17 @@ export function OrgListPage() {
         </PluginLink>
       ),
     },
-    { id: "slug", header: "Slug", className: "font-mono text-xs", cell: (org) => org.slug },
-    { id: "createdAt", header: "Created", cell: (org) => formatTimestamp(org.createdAt) },
+    {
+      id: "slug",
+      header: "Slug",
+      className: "font-mono text-xs",
+      cell: (org) => org.slug,
+    },
+    {
+      id: "createdAt",
+      header: "Created",
+      cell: (org) => formatTimestamp(org.createdAt),
+    },
   ]
 
   return (
@@ -228,14 +237,25 @@ function EditOrgForm({ org, onDone }: { org: OrgDetail; onDone: () => void }) {
       <CommandAlert error={update.error} title="Could not save" />
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="org-edit-name">Name</Label>
-        <Input id="org-edit-name" value={name} onChange={(e) => setName(e.target.value)} />
+        <Input
+          id="org-edit-name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+        />
       </div>
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="org-edit-logo">Logo URL</Label>
-        <Input id="org-edit-logo" value={logo} onChange={(e) => setLogo(e.target.value)} />
+        <Input
+          id="org-edit-logo"
+          value={logo}
+          onChange={(e) => setLogo(e.target.value)}
+        />
       </div>
       <div className="flex gap-2">
-        <Button onClick={() => void submit()} disabled={update.loading || !dirty}>
+        <Button
+          onClick={() => void submit()}
+          disabled={update.loading || !dirty}
+        >
           {update.loading ? "Saving…" : "Save"}
         </Button>
         <Button variant="ghost" onClick={onDone} disabled={update.loading}>
@@ -266,8 +286,16 @@ function OrgMembers({ orgId }: { orgId: string }) {
       className: "font-mono text-xs",
       cell: (member) => member.userId,
     },
-    { id: "role", header: "Role", cell: (member) => <RoleBadge role={member.role} /> },
-    { id: "createdAt", header: "Joined", cell: (member) => formatTimestamp(member.createdAt) },
+    {
+      id: "role",
+      header: "Role",
+      cell: (member) => <RoleBadge role={member.role} />,
+    },
+    {
+      id: "createdAt",
+      header: "Joined",
+      cell: (member) => formatTimestamp(member.createdAt),
+    },
   ]
 
   return (
@@ -390,7 +418,10 @@ function OrgTabs({ org, orgId }: { org: OrgDetail; orgId: string }) {
                 term: "Organization ID",
                 value: <span className="font-mono text-xs">{org.id}</span>,
               },
-              { term: "Slug", value: <span className="font-mono text-xs">{org.slug}</span> },
+              {
+                term: "Slug",
+                value: <span className="font-mono text-xs">{org.slug}</span>,
+              },
               { term: "Created", value: formatTimestamp(org.createdAt) },
               { term: "Updated", value: formatTimestamp(org.updatedAt) },
               ...(org.metadata && Object.keys(org.metadata).length > 0
@@ -479,7 +510,9 @@ function OrgDetailBody({ orgId }: { orgId: string }) {
                 )
               }
             />
-            {editing && <EditOrgForm org={org} onDone={() => setEditing(false)} />}
+            {editing && (
+              <EditOrgForm org={org} onDone={() => setEditing(false)} />
+            )}
             <OrgTabs org={org} orgId={orgId} />
 
             <ConfirmDialog
@@ -561,7 +594,10 @@ export function OrgCreatePage() {
   return (
     <section className="flex max-w-xl flex-col gap-4">
       <PageHeader title="New organization" />
-      <CommandAlert error={create.error} title="Could not create the organization" />
+      <CommandAlert
+        error={create.error}
+        title="Could not create the organization"
+      />
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="org-create-name">Name</Label>
         <Input
@@ -584,7 +620,11 @@ export function OrgCreatePage() {
       </div>
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="org-create-logo">Logo URL</Label>
-        <Input id="org-create-logo" value={logo} onChange={(e) => setLogo(e.target.value)} />
+        <Input
+          id="org-create-logo"
+          value={logo}
+          onChange={(e) => setLogo(e.target.value)}
+        />
       </div>
       {createFieldsCount > 0 && <PluginSlot name="org.create.fields" />}
       <Button
@@ -618,7 +658,9 @@ export function OrgCountWidget() {
     <QueryBoundary title="Organizations" query={query}>
       {(data) => (
         <StatGrid
-          items={[{ label: "Organizations", value: data.organizations?.length ?? 0 }]}
+          items={[
+            { label: "Organizations", value: data.organizations?.length ?? 0 },
+          ]}
         />
       )}
     </QueryBoundary>
@@ -631,7 +673,14 @@ export const organizationSubPlugin = defineSubPlugin({
   extension: "organization",
   host: "authsome",
   label: "Organization",
-  nav: [{ label: "Organizations", to: "/organizations", group: "Identity", priority: 2 }],
+  nav: [
+    {
+      label: "Organizations",
+      to: "/organizations",
+      group: "Identity",
+      priority: 2,
+    },
+  ],
   routes: [
     { path: "/organizations", element: OrgListPage },
     { path: "/organizations/create", element: OrgCreatePage },
@@ -640,6 +689,8 @@ export const organizationSubPlugin = defineSubPlugin({
   // Reads nothing of its host's. Every intent it uses is its own.
   hostIntents: [],
   contributions: {
-    "overview.widgets": [{ id: "organization-count", priority: 10, render: OrgCountWidget }],
+    "overview.widgets": [
+      { id: "organization-count", priority: 10, render: OrgCountWidget },
+    ],
   },
 })

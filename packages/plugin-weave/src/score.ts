@@ -10,9 +10,12 @@ const HEADERS: Record<ScoreKind, string> = {
 }
 
 const MEANINGS: Record<ScoreKind, string> = {
-  cosine: "Cosine similarity: higher is closer. What counts as high depends on the embedding model.",
-  vector_similarity: "The vector store's own similarity score. Weave can't say what scale it uses.",
-  mmr_relevance: "Cosine relevance. The order is MMR, which trades some relevance for variety.",
+  cosine:
+    "Cosine similarity: higher is closer. What counts as high depends on the embedding model.",
+  vector_similarity:
+    "The vector store's own similarity score. Weave can't say what scale it uses.",
+  mmr_relevance:
+    "Cosine relevance. The order is MMR, which trades some relevance for variety.",
   rrf: "A reciprocal rank fusion sum. It is not comparable to cosine.",
   rerank: "The reranker's score. The vector score is not kept.",
   unknown: "Weave can't tell what this score means.",
@@ -25,9 +28,13 @@ const MMR_ORDER = " The order is MMR, which trades some relevance for variety."
  * passes the vector store's own score through, so its header follows
  * `vectorScore` (the store's score kind) rather than assuming cosine.
  */
-export function scoreHeader(kind: ScoreKind | undefined, vectorScore?: ScoreKind): string {
+export function scoreHeader(
+  kind: ScoreKind | undefined,
+  vectorScore?: ScoreKind
+): string {
   if (kind === "mmr_relevance") {
-    if (vectorScore === undefined || vectorScore === "cosine") return HEADERS.cosine
+    if (vectorScore === undefined || vectorScore === "cosine")
+      return HEADERS.cosine
     if (vectorScore === "vector_similarity") return HEADERS.vector_similarity
     return HEADERS.unknown
   }
@@ -35,7 +42,10 @@ export function scoreHeader(kind: ScoreKind | undefined, vectorScore?: ScoreKind
 }
 
 /** What a score means. For MMR, the meaning of the store's score, then the order. */
-export function scoreMeaning(kind: ScoreKind | undefined, vectorScore?: ScoreKind): string {
+export function scoreMeaning(
+  kind: ScoreKind | undefined,
+  vectorScore?: ScoreKind
+): string {
   if (kind === "mmr_relevance") {
     return (MEANINGS[vectorScore ?? "cosine"] ?? MEANINGS.unknown) + MMR_ORDER
   }
@@ -50,7 +60,9 @@ function storeScorePhrase(score: ScoreKind | undefined): string {
 }
 
 function mmrPhrase(c: Components): string {
-  return c.vector_store.score === "cosine" ? "cosine relevance" : storeScorePhrase(c.vector_store.score)
+  return c.vector_store.score === "cosine"
+    ? "cosine relevance"
+    : storeScorePhrase(c.vector_store.score)
 }
 
 /** One sentence naming the configured retriever and what its scores are. */
@@ -81,5 +93,9 @@ export function retrieverSentence(c: Components): string {
  * the deployment; otherwise it is a fact about one query.
  */
 export function isReorderingRetriever(c: Components): boolean {
-  return c.retriever.configured && c.retriever.kind !== "" && c.retriever.kind !== "similarity"
+  return (
+    c.retriever.configured &&
+    c.retriever.kind !== "" &&
+    c.retriever.kind !== "similarity"
+  )
 }

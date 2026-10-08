@@ -24,10 +24,18 @@ export function LedgerInvoicesPage() {
   const [tenant, setTenant] = useState("")
   const [status, setStatus] = useState("")
   const tenantId = tenant.trim()
-  const list = useQuery<Page<Invoice>>("invoices.list", { ...pageParams(page), tenant_id: tenantId || undefined, status: status || undefined })
-  const statusLabel = INVOICE_STATUS_OPTIONS.find((s) => s.value === status)?.label.toLowerCase()
+  const list = useQuery<Page<Invoice>>("invoices.list", {
+    ...pageParams(page),
+    tenant_id: tenantId || undefined,
+    status: status || undefined,
+  })
+  const statusLabel = INVOICE_STATUS_OPTIONS.find(
+    (s) => s.value === status
+  )?.label.toLowerCase()
   const emptyMessage =
-    page === 1 && tenantId ? `No ${statusLabel ? `${statusLabel} ` : ""}invoices for ${tenantId}.` : listEmptyMessage("invoices", page, statusLabel)
+    page === 1 && tenantId
+      ? `No ${statusLabel ? `${statusLabel} ` : ""}invoices for ${tenantId}.`
+      : listEmptyMessage("invoices", page, statusLabel)
 
   return (
     <section className="flex flex-col gap-4">
@@ -75,11 +83,25 @@ export function LedgerInvoicesPage() {
                 columns={columns}
                 rows={rows}
                 rowKey={(i) => i.id}
-                caption={pageCaption({ page, shown: rows.length, hasMore: data.has_more, singular: "invoice", plural: "invoices" })}
+                caption={pageCaption({
+                  page,
+                  shown: rows.length,
+                  hasMore: data.has_more,
+                  singular: "invoice",
+                  plural: "invoices",
+                })}
                 emptyMessage={emptyMessage}
-                emptyAction={page > 1 ? <BackToFirstPage onClick={() => setPage(1)} /> : undefined}
+                emptyAction={
+                  page > 1 ? (
+                    <BackToFirstPage onClick={() => setPage(1)} />
+                  ) : undefined
+                }
               />
-              <OffsetPager page={page} hasMore={data.has_more} onPageChange={setPage} />
+              <OffsetPager
+                page={page}
+                hasMore={data.has_more}
+                onPageChange={setPage}
+              />
             </div>
           )
         }}

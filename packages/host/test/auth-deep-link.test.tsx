@@ -44,12 +44,16 @@ function contractStub() {
       // with authenticated: false resolves to "anonymous" instead, which
       // PluginHost renders as the ordinary dashboard shell rather than
       // AuthRoutes, and the reset screen never mounts.
-      return Promise.resolve(Response.json({ authenticated: false }, { status: 401 }))
+      return Promise.resolve(
+        Response.json({ authenticated: false }, { status: 401 })
+      )
     }
     if (url.endsWith("/capabilities")) {
       return Promise.resolve(Response.json({ contributors: [] }))
     }
-    return Promise.resolve(Response.json({ ok: true, data: { passwordEnabled: true } }))
+    return Promise.resolve(
+      Response.json({ ok: true, data: { passwordEnabled: true } })
+    )
   }) as unknown as typeof fetch
 }
 
@@ -60,14 +64,20 @@ describe("a cold password-reset deep link", () => {
     render(
       <ForgeDashboard
         basename="/forge"
-        config={{ basePath: "/api/forge", shellBase: "/forge", authEnabled: true }}
+        config={{
+          basePath: "/api/forge",
+          shellBase: "/forge",
+          authEnabled: true,
+        }}
         fetchImpl={contractStub()}
         plugins={[authPlugin]}
-      />,
+      />
     )
 
     await waitFor(() =>
-      expect(screen.getByRole("heading", { name: /choose a new password/i })).toBeDefined(),
+      expect(
+        screen.getByRole("heading", { name: /choose a new password/i })
+      ).toBeDefined()
     )
     // Not bounced to sign-in, which is what the old gate did with this URL.
     expect(screen.queryByRole("heading", { name: /^sign in$/i })).toBeNull()

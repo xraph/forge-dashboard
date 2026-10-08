@@ -16,18 +16,37 @@ window.matchMedia ??= ((query: string) => ({
   dispatchEvent: () => false,
 })) as unknown as typeof window.matchMedia
 
-const renderLink = (node: { label: string; href: string; icon?: React.ReactNode }, href: string) => (
+const renderLink = (
+  node: { label: string; href: string; icon?: React.ReactNode },
+  href: string
+) => (
   <a href={href}>
     {node.icon}
     <span>{node.label}</span>
   </a>
 )
 
-const users: RailItem = { id: "/@auth/users", label: "Users", href: "/@auth/users" }
-const sessions: RailItem = { id: "/@auth/sessions", label: "Sessions", href: "/@auth/sessions" }
+const users: RailItem = {
+  id: "/@auth/users",
+  label: "Users",
+  href: "/@auth/users",
+}
+const sessions: RailItem = {
+  id: "/@auth/sessions",
+  label: "Sessions",
+  href: "/@auth/sessions",
+}
 const overview: RailItem = { id: "/@auth", label: "Overview", href: "/@auth" }
-const apikeys: RailItem = { id: "apikey", label: "API Keys", href: "/@auth/p/apikeys" }
-const billing: RailItem = { id: "subscription", label: "Billing", href: "/@auth/p/plans" }
+const apikeys: RailItem = {
+  id: "apikey",
+  label: "API Keys",
+  href: "/@auth/p/apikeys",
+}
+const billing: RailItem = {
+  id: "subscription",
+  label: "Billing",
+  href: "/@auth/p/plans",
+}
 
 const groups: RailGroup[] = [
   { label: "Identity", items: [users, sessions] },
@@ -53,7 +72,7 @@ function renderRail(props: Partial<React.ComponentProps<typeof NavRail>> = {}) {
         onToggle={onToggle}
         {...props}
       />
-    </SidebarProvider>,
+    </SidebarProvider>
   )
   return { ...view, onToggle }
 }
@@ -63,7 +82,10 @@ const originalWidth = window.innerWidth
 
 describe("NavRail", () => {
   afterEach(() => {
-    Object.defineProperty(window, "innerWidth", { value: originalWidth, configurable: true })
+    Object.defineProperty(window, "innerWidth", {
+      value: originalWidth,
+      configurable: true,
+    })
   })
 
   it("puts switcher, context and search above the entries and the account at the foot", () => {
@@ -72,10 +94,18 @@ describe("NavRail", () => {
       .getAllByRole("button")
       .map((b) => b.textContent)
       .filter((t) => t && !/navigation/.test(t))
-    expect(order).toEqual(["Switch scope", "Platform / Production", "Search pages", "Account menu"])
+    expect(order).toEqual([
+      "Switch scope",
+      "Platform / Production",
+      "Search pages",
+      "Account menu",
+    ])
     const account = within(rail()).getByRole("button", { name: "Account menu" })
     const lastLink = within(rail()).getAllByRole("link").at(-1)!
-    expect(lastLink.compareDocumentPosition(account) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(
+      lastLink.compareDocumentPosition(account) &
+        Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy()
   })
 
   it("links every entry with the query string and marks the active one", () => {
@@ -88,7 +118,11 @@ describe("NavRail", () => {
       "/@auth/p/apikeys?env=staging",
       "/@auth/p/plans?env=staging",
     ])
-    expect(within(rail()).getByRole("link", { name: "Billing" }).getAttribute("aria-current")).toBe("page")
+    expect(
+      within(rail())
+        .getByRole("link", { name: "Billing" })
+        .getAttribute("aria-current")
+    ).toBe("page")
   })
 
   it("heads the plugin entries with Plugins when wide, and not when narrow", () => {
@@ -130,39 +164,65 @@ describe("NavRail", () => {
   it("makes the entry list its own containing block so sr-only labels cannot stretch the page", () => {
     renderRail()
     // jsdom cannot measure layout, so the class is the only thing a unit test can pin.
-    const scroller = Array.from(rail().querySelectorAll("div")).find((el) => el.className.includes("overflow-y-auto"))
+    const scroller = Array.from(rail().querySelectorAll("div")).find((el) =>
+      el.className.includes("overflow-y-auto")
+    )
     expect(scroller).toBeTruthy()
     expect(scroller!.classList.contains("relative")).toBe(true)
   })
 
   it("has an edge toggle named for the way it moves", () => {
     const { onToggle } = renderRail()
-    const toggle = within(rail()).getByRole("button", { name: "Expand navigation" })
+    const toggle = within(rail()).getByRole("button", {
+      name: "Expand navigation",
+    })
     expect(toggle.getAttribute("aria-expanded")).toBe("false")
     fireEvent.click(toggle)
     expect(onToggle).toHaveBeenCalledTimes(1)
   })
 
   it("renders nothing below the mobile breakpoint", () => {
-    Object.defineProperty(window, "innerWidth", { value: 500, configurable: true })
+    Object.defineProperty(window, "innerWidth", {
+      value: 500,
+      configurable: true,
+    })
     renderRail()
-    expect(screen.queryByRole("navigation", { name: "Scope navigation" })).toBeNull()
+    expect(
+      screen.queryByRole("navigation", { name: "Scope navigation" })
+    ).toBeNull()
   })
 
-  it.each([false, true])("labels the plugin list and each core list (expanded=%s)", (expanded) => {
-    renderRail({ expanded })
-    const nav = within(rail())
-    expect(within(nav.getByRole("list", { name: "Plugins" })).getByRole("link", { name: "Billing" })).toBeTruthy()
-    expect(within(nav.getByRole("list", { name: "Identity" })).getByRole("link", { name: "Users" })).toBeTruthy()
-    expect(within(nav.getByRole("list", { name: "System" })).getByRole("link", { name: "Overview" })).toBeTruthy()
-  })
+  it.each([false, true])(
+    "labels the plugin list and each core list (expanded=%s)",
+    (expanded) => {
+      renderRail({ expanded })
+      const nav = within(rail())
+      expect(
+        within(nav.getByRole("list", { name: "Plugins" })).getByRole("link", {
+          name: "Billing",
+        })
+      ).toBeTruthy()
+      expect(
+        within(nav.getByRole("list", { name: "Identity" })).getByRole("link", {
+          name: "Users",
+        })
+      ).toBeTruthy()
+      expect(
+        within(nav.getByRole("list", { name: "System" })).getByRole("link", {
+          name: "Overview",
+        })
+      ).toBeTruthy()
+    }
+  )
 })
 
 describe("NavRail search slot", () => {
   it("fits the search trigger to the rail: no indent, no shadow, full width only when wide", () => {
     const narrow = renderRail()
     const slot = (name: string) =>
-      within(rail()).getByRole("button", { name }).closest('[data-slot="rail-slot"]') as HTMLElement
+      within(rail())
+        .getByRole("button", { name })
+        .closest('[data-slot="rail-slot"]') as HTMLElement
     expect(slot("Search pages").className).toContain("[&>button]:mx-0")
     expect(slot("Search pages").className).toContain("[&>button]:shadow-none")
     expect(slot("Search pages").className).not.toContain("[&>button]:w-full")

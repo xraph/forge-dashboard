@@ -124,7 +124,10 @@ export const FlagsPage: ComponentType<PluginPageProps> = () => {
 
       {/* Outside the boundary, so choosing a type never takes the control away. */}
       <div className="flex items-center gap-1.5">
-        <Label htmlFor="flag-type-filter" className="text-xs text-muted-foreground">
+        <Label
+          htmlFor="flag-type-filter"
+          className="text-xs text-muted-foreground"
+        >
           Type
         </Label>
         <NativeSelect

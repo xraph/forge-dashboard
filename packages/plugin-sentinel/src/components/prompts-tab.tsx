@@ -22,7 +22,9 @@ const columns: Column<PromptVersion>[] = [
     className: "font-medium",
     cell: (v) => (
       <span className="flex items-center gap-2">
-        <PluginLink to={versionPath(v.suiteId, v.id)}>{`Version ${v.version}`}</PluginLink>
+        <PluginLink
+          to={versionPath(v.suiteId, v.id)}
+        >{`Version ${v.version}`}</PluginLink>
         {v.isCurrent && <CurrentBadge />}
       </span>
     ),
@@ -32,16 +34,30 @@ const columns: Column<PromptVersion>[] = [
     header: "Changelog",
     cell: (v) => v.changelog || <NoneCell label="changelog" />,
   },
-  { id: "runs", header: "Runs", align: "end", className: "tabular-nums", cell: (v) => v.runCount },
+  {
+    id: "runs",
+    header: "Runs",
+    align: "end",
+    className: "tabular-nums",
+    cell: (v) => v.runCount,
+  },
   {
     id: "passRate",
     header: "Latest pass rate",
     align: "end",
     className: "tabular-nums",
     cell: (v) =>
-      v.latestPassRate === undefined ? <NoneCell label="completed run" /> : formatScore(v.latestPassRate),
+      v.latestPassRate === undefined ? (
+        <NoneCell label="completed run" />
+      ) : (
+        formatScore(v.latestPassRate)
+      ),
   },
-  { id: "created", header: "Created", cell: (v) => <Timestamp value={v.createdAt} label="creation time" /> },
+  {
+    id: "created",
+    header: "Created",
+    cell: (v) => <Timestamp value={v.createdAt} label="creation time" />,
+  },
 ]
 
 /**
@@ -72,7 +88,11 @@ export function PromptsTab({ suiteId }: { suiteId: string }) {
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center gap-2">{create}</div>
-      <SettledBoundary title="Prompt versions" query={versions} skeletonRows={3}>
+      <SettledBoundary
+        title="Prompt versions"
+        query={versions}
+        skeletonRows={3}
+      >
         {(data) => (
           <div className="flex flex-col gap-1.5">
             <ResourceTable<PromptVersion>
@@ -84,10 +104,14 @@ export function PromptsTab({ suiteId }: { suiteId: string }) {
               emptyAction={create}
               rowActions={(v) =>
                 v.isCurrent ? null : (
-                  <IconButton variant="outline" onClick={() => {
+                  <IconButton
+                    variant="outline"
+                    onClick={() => {
                       setTarget(v)
                       setMaking(true)
-                    }} label={`Make version ${v.version} current`} />
+                    }}
+                    label={`Make version ${v.version} current`}
+                  />
                 )
               }
             />
@@ -105,7 +129,13 @@ export function PromptsTab({ suiteId }: { suiteId: string }) {
         suiteId={suiteId}
         initialPrompt={initialPrompt}
       />
-      {target && <SetCurrentDialog open={making} onOpenChange={setMaking} version={target} />}
+      {target && (
+        <SetCurrentDialog
+          open={making}
+          onOpenChange={setMaking}
+          version={target}
+        />
+      )}
     </div>
   )
 }

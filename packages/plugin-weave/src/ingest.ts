@@ -44,7 +44,7 @@ export function requestBytes(payload: unknown): number {
       context: {},
       csrf: "x".repeat(75),
       idempotencyKey: "00000000-0000-0000-0000-000000000000",
-    }),
+    })
   )
 }
 
@@ -55,10 +55,16 @@ export interface SizeProblem {
 }
 
 /** Why this content can't be sent, or might not be, naming the limit it hit; null when it fits. */
-export function sizeProblem(content: string, payload: unknown): SizeProblem | null {
+export function sizeProblem(
+  content: string,
+  payload: unknown
+): SizeProblem | null {
   const size = utf8Length(content)
   if (size > CONTENT_CAP) {
-    return { kind: "content", message: `Weave ingests up to 1 MiB of text (${formatBytes(CONTENT_CAP)}). This is ${formatBytes(size)}.` }
+    return {
+      kind: "content",
+      message: `Weave ingests up to 1 MiB of text (${formatBytes(CONTENT_CAP)}). This is ${formatBytes(size)}.`,
+    }
   }
   const request = requestBytes(payload)
   if (request + ENVELOPE_HEADROOM > ENVELOPE_CAP) {
@@ -71,8 +77,13 @@ export function sizeProblem(content: string, payload: unknown): SizeProblem | nu
 }
 
 /** Said under a command error when the transport's body limit refused the request. */
-export function isBodyLimitError(error: { code: string; message: string } | null | undefined): boolean {
-  return error?.code === "BAD_REQUEST" && error.message.startsWith("request body exceeds")
+export function isBodyLimitError(
+  error: { code: string; message: string } | null | undefined
+): boolean {
+  return (
+    error?.code === "BAD_REQUEST" &&
+    error.message.startsWith("request body exceeds")
+  )
 }
 
 /** A picked file's text. Blob.text where the browser has it, FileReader where it doesn't. */

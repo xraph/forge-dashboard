@@ -21,7 +21,10 @@ export function useRailExpanded(): { expanded: boolean; toggle: () => void } {
     setExpanded((value) => {
       const next = !value
       try {
-        window.localStorage.setItem(RAIL_STORAGE_KEY, next ? "expanded" : "collapsed")
+        window.localStorage.setItem(
+          RAIL_STORAGE_KEY,
+          next ? "expanded" : "collapsed"
+        )
       } catch {
         // Nothing to do: the state still flips, it just will not survive a reload.
       }

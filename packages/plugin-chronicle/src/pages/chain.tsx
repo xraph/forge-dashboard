@@ -2,22 +2,48 @@ import { useState, type ComponentType } from "react"
 import { Button } from "@forge-go/dashboard-kit/components/button"
 import { Input } from "@forge-go/dashboard-kit/components/input"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
-import { CommandAlert, QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
+import {
+  CommandAlert,
+  QueryBoundary,
+} from "@forge-go/dashboard-kit/components/query-boundary"
 import { DescriptionList } from "@forge-go/dashboard-kit/components/detail-layout"
 import { useQuery } from "@forge-go/dashboard-plugin"
 import type { PluginPageProps, QueryState } from "@forge-go/dashboard-plugin"
-import type { MineResponse, StreamListResponse, StreamSummary, VerifyResponse } from "../types"
+import type {
+  MineResponse,
+  StreamListResponse,
+  StreamSummary,
+  VerifyResponse,
+} from "../types"
 import { LIMITS } from "../types"
 import { CoverageBadge } from "../badges"
 import { formatSeq, shortHash } from "../format"
-import { ChainPicker, chainLabel, listTruncated } from "../components/chain-picker"
+import {
+  ChainPicker,
+  chainLabel,
+  listTruncated,
+} from "../components/chain-picker"
 import { Certificate } from "../verification/certificate"
-import { clampToHead, defaultWindow, exceedsCap, parseRangeParams, verifyInput, wholeChain, DEFAULT_WINDOW, type SeqRange } from "../verification/window"
+import {
+  clampToHead,
+  defaultWindow,
+  exceedsCap,
+  parseRangeParams,
+  verifyInput,
+  wholeChain,
+  DEFAULT_WINDOW,
+  type SeqRange,
+} from "../verification/window"
 
 export const ChainPage: ComponentType<PluginPageProps> = ({ params }) => {
   const streamId = params.streamId
-  const mine = useQuery<MineResponse>("streams.mine", streamId ? { streamId } : {})
-  const list = useQuery<StreamListResponse>("streams.list", { limit: LIMITS.pageMaxStreamsCheckpoints })
+  const mine = useQuery<MineResponse>(
+    "streams.mine",
+    streamId ? { streamId } : {}
+  )
+  const list = useQuery<StreamListResponse>("streams.list", {
+    limit: LIMITS.pageMaxStreamsCheckpoints,
+  })
   const streams = list.data?.streams ?? []
 
   return (
@@ -28,7 +54,12 @@ export const ChainPage: ComponentType<PluginPageProps> = ({ params }) => {
         // With no chain of its own the page body offers the picker, so the header does not offer a second one.
         actions={
           mine.data?.stream && list.data && streams.length > 1 ? (
-            <ChainPicker streams={streams} selectedId={mine.data.stream.id} basePath="/chain" truncated={listTruncated(list.data)} />
+            <ChainPicker
+              streams={streams}
+              selectedId={mine.data.stream.id}
+              basePath="/chain"
+              truncated={listTruncated(list.data)}
+            />
           ) : undefined
         }
       />
@@ -55,11 +86,21 @@ function NoOwnChain({ list }: { list: QueryState<StreamListResponse> }) {
     <QueryBoundary title="chains" query={list} skeletonRows={2}>
       {(l) =>
         l.streams.length === 0 ? (
-          <p className="text-sm">This scope has not recorded any events yet, so there is no chain to show.</p>
+          <p className="text-sm">
+            This scope has not recorded any events yet, so there is no chain to
+            show.
+          </p>
         ) : (
           <div className="flex flex-col gap-3 text-sm">
-            <p>This app has no app-level chain: its events are recorded under its tenants. Choose a tenant's chain to verify.</p>
-            <ChainPicker streams={l.streams} basePath="/chain" truncated={listTruncated(l)} />
+            <p>
+              This app has no app-level chain: its events are recorded under its
+              tenants. Choose a tenant's chain to verify.
+            </p>
+            <ChainPicker
+              streams={l.streams}
+              basePath="/chain"
+              truncated={listTruncated(l)}
+            />
           </div>
         )
       }
@@ -67,7 +108,13 @@ function NoOwnChain({ list }: { list: QueryState<StreamListResponse> }) {
   )
 }
 
-function ChainBody({ stream, deepLink }: { stream: StreamSummary; deepLink: SeqRange | null }) {
+function ChainBody({
+  stream,
+  deepLink,
+}: {
+  stream: StreamSummary
+  deepLink: SeqRange | null
+}) {
   const head = stream.headSeq
   // The verifier reports a head mismatch on an intact chain when asked for a
   // range that ends past the head, so a deep link is held to the head before
@@ -82,7 +129,7 @@ function ChainBody({ stream, deepLink }: { stream: StreamSummary; deepLink: SeqR
   const verify = useQuery<VerifyResponse>(
     "verify.run",
     requested ? verifyInput(stream.id, requested) : {},
-    { enabled: requested !== null },
+    { enabled: requested !== null }
   )
 
   const whole = wholeChain(head)
@@ -97,7 +144,12 @@ function ChainBody({ stream, deepLink }: { stream: StreamSummary; deepLink: SeqR
   // already on screen would issue no read at all, and after a failure the
   // button would look dead. Asking again means asking the server again.
   const request = (r: SeqRange) => {
-    if (requested && requested.fromSeq === r.fromSeq && requested.toSeq === r.toSeq) verify.refetch()
+    if (
+      requested &&
+      requested.fromSeq === r.fromSeq &&
+      requested.toSeq === r.toSeq
+    )
+      verify.refetch()
     else setRequested(r)
   }
 
@@ -117,7 +169,13 @@ function ChainBody({ stream, deepLink }: { stream: StreamSummary; deepLink: SeqR
       >
         <label className="flex flex-col gap-1 text-sm">
           <span>From sequence</span>
-          <Input aria-label="From sequence" className="w-36 font-mono text-xs" inputMode="numeric" value={from} onChange={(e) => setFrom(e.target.value)} />
+          <Input
+            aria-label="From sequence"
+            className="w-36 font-mono text-xs"
+            inputMode="numeric"
+            value={from}
+            onChange={(e) => setFrom(e.target.value)}
+          />
         </label>
         <label className="flex flex-col gap-1 text-sm">
           <span>To sequence</span>
@@ -134,7 +192,12 @@ function ChainBody({ stream, deepLink }: { stream: StreamSummary; deepLink: SeqR
         <Button type="submit" disabled={!runnable}>
           Check this range
         </Button>
-        <Button type="button" variant="outline" disabled={wholeTooBig} onClick={() => request(whole)}>
+        <Button
+          type="button"
+          variant="outline"
+          disabled={wholeTooBig}
+          onClick={() => request(whole)}
+        >
           Check the whole chain
         </Button>
         {pastHead && (
@@ -153,18 +216,33 @@ function ChainBody({ stream, deepLink }: { stream: StreamSummary; deepLink: SeqR
         checked before would paint its old result as if it were this one. A
         verification is only ever shown once the read that produced it settled.
       */}
-      {requested && verify.loading && <p className="text-sm text-muted-foreground">Checking the chain...</p>}
+      {requested && verify.loading && (
+        <p className="text-sm text-muted-foreground">Checking the chain...</p>
+      )}
       {requested && !verify.loading && verify.error && (
         <div className="flex flex-col gap-2">
-          <CommandAlert title="The chain could not be checked" error={verify.error} />
+          <CommandAlert
+            title="The chain could not be checked"
+            error={verify.error}
+          />
           {verify.error.code === "BAD_REQUEST" && recent && (
-            <Button type="button" variant="outline" className="self-start" onClick={() => request(recent)}>
+            <Button
+              type="button"
+              variant="outline"
+              className="self-start"
+              onClick={() => request(recent)}
+            >
               {`Check the most recent ${formatSeq(DEFAULT_WINDOW)} instead`}
             </Button>
           )}
         </div>
       )}
-      {requested && !verify.loading && verify.data && <Certificate response={verify.data} checkpointingConfigured={stream.checkpointingConfigured} />}
+      {requested && !verify.loading && verify.data && (
+        <Certificate
+          response={verify.data}
+          checkpointingConfigured={stream.checkpointingConfigured}
+        />
+      )}
     </div>
   )
 }
@@ -177,9 +255,33 @@ function Posture({ stream }: { stream: StreamSummary }) {
   return (
     <DescriptionList
       items={[
-        { term: "Chain", value: <span>{chainLabel(stream)} <span className="font-mono text-xs text-muted-foreground">{stream.id}</span></span> },
-        { term: "Head", value: <span className="font-mono text-xs">{formatSeq(stream.headSeq)}</span> },
-        { term: "Head hash", value: <span className="font-mono text-xs" title={stream.headHash}>{shortHash(stream.headHash)}</span> },
+        {
+          term: "Chain",
+          value: (
+            <span>
+              {chainLabel(stream)}{" "}
+              <span className="font-mono text-xs text-muted-foreground">
+                {stream.id}
+              </span>
+            </span>
+          ),
+        },
+        {
+          term: "Head",
+          value: (
+            <span className="font-mono text-xs">
+              {formatSeq(stream.headSeq)}
+            </span>
+          ),
+        },
+        {
+          term: "Head hash",
+          value: (
+            <span className="font-mono text-xs" title={stream.headHash}>
+              {shortHash(stream.headHash)}
+            </span>
+          ),
+        },
         {
           term: "Digest scheme",
           value: (
@@ -188,7 +290,9 @@ function Posture({ stream }: { stream: StreamSummary }) {
               {stream.schemeSince > 1 ? (
                 <>
                   {" from sequence "}
-                  <span className="font-mono text-xs">{formatSeq(stream.schemeSince)}</span>
+                  <span className="font-mono text-xs">
+                    {formatSeq(stream.schemeSince)}
+                  </span>
                 </>
               ) : null}
             </span>
@@ -197,7 +301,9 @@ function Posture({ stream }: { stream: StreamSummary }) {
         {
           term: "Latest checkpoint",
           value: !stream.checkpointingConfigured ? (
-            <span className="text-muted-foreground">This deployment takes no checkpoints</span>
+            <span className="text-muted-foreground">
+              This deployment takes no checkpoints
+            </span>
           ) : cp ? (
             <span>
               <span className="font-mono text-xs">{formatSeq(cp.toSeq)}</span>

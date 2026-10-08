@@ -27,11 +27,13 @@ window.matchMedia ??= ((query: string) => ({
 
 const user = { name: "Ada Lovelace", email: "ada@example.com" }
 
-function renderNavUser(overrides: Partial<React.ComponentProps<typeof NavUser>> = {}) {
+function renderNavUser(
+  overrides: Partial<React.ComponentProps<typeof NavUser>> = {}
+) {
   return render(
     <SidebarProvider>
       <NavUser user={user} {...overrides} />
-    </SidebarProvider>,
+    </SidebarProvider>
   )
 }
 
@@ -78,13 +80,19 @@ describe("NavUser theme submenu", () => {
         <SidebarProvider>
           <NavUser user={user} />
         </SidebarProvider>
-      </ThemeProvider>,
+      </ThemeProvider>
     )
     fireEvent.click(screen.getByRole("button", { name: /Ada Lovelace/ }))
     fireEvent.click(await screen.findByRole("menuitem", { name: /Theme/ }))
-    expect(await screen.findByRole("menuitemradio", { name: "Light" })).toBeTruthy()
+    expect(
+      await screen.findByRole("menuitemradio", { name: "Light" })
+    ).toBeTruthy()
     expect(screen.getByRole("menuitemradio", { name: "Dark" })).toBeTruthy()
-    expect(screen.getByRole("menuitemradio", { name: "System" }).getAttribute("aria-checked")).toBe("true")
+    expect(
+      screen
+        .getByRole("menuitemradio", { name: "System" })
+        .getAttribute("aria-checked")
+    ).toBe("true")
   })
 
   it("shows no Theme item without a theme provider", async () => {

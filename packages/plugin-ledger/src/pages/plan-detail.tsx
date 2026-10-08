@@ -1,8 +1,16 @@
 import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { useState } from "react"
-import { PluginLink, useCommand, useNavigateTo, useQuery } from "@forge-go/dashboard-plugin"
+import {
+  PluginLink,
+  useCommand,
+  useNavigateTo,
+  useQuery,
+} from "@forge-go/dashboard-plugin"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
-import { DescriptionList, DetailLayout } from "@forge-go/dashboard-kit/components/detail-layout"
+import {
+  DescriptionList,
+  DetailLayout,
+} from "@forge-go/dashboard-kit/components/detail-layout"
 import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
@@ -20,12 +28,36 @@ import type { Ack, Plan, PlanFeature, PriceTier } from "../types"
 const number = new Intl.NumberFormat()
 
 const featureColumns: LedgerColumn<PlanFeature>[] = [
-  { id: "name", header: "Feature", className: "font-medium", cell: (f) => f.name },
-  { id: "key", header: "Key", className: "font-mono text-xs", cell: (f) => f.key },
+  {
+    id: "name",
+    header: "Feature",
+    className: "font-medium",
+    cell: (f) => f.name,
+  },
+  {
+    id: "key",
+    header: "Key",
+    className: "font-mono text-xs",
+    cell: (f) => f.key,
+  },
   { id: "type", header: "Type", cell: (f) => TYPE_LABEL[f.type] ?? f.type },
-  { id: "limit", header: "Limit", align: "end", className: "tabular-nums", cell: (f) => limitText(f.type, f.limit) },
-  { id: "resets", header: "Resets", cell: (f) => periodLabel(f.period) ?? <NoneCell label="reset period" /> },
-  { id: "soft", header: "Over the limit", cell: (f) => (f.soft_limit ? "Soft" : <NoneCell label="soft limit" />) },
+  {
+    id: "limit",
+    header: "Limit",
+    align: "end",
+    className: "tabular-nums",
+    cell: (f) => limitText(f.type, f.limit),
+  },
+  {
+    id: "resets",
+    header: "Resets",
+    cell: (f) => periodLabel(f.period) ?? <NoneCell label="reset period" />,
+  },
+  {
+    id: "soft",
+    header: "Over the limit",
+    cell: (f) => (f.soft_limit ? "Soft" : <NoneCell label="soft limit" />),
+  },
 ]
 
 interface TierRow extends PriceTier {
@@ -33,11 +65,37 @@ interface TierRow extends PriceTier {
 }
 
 const tierColumns: LedgerColumn<TierRow>[] = [
-  { id: "type", header: "Type", cell: (t) => t.type.charAt(0).toUpperCase() + t.type.slice(1) },
-  { id: "from", header: "From", align: "end", className: "tabular-nums", cell: (t) => number.format(t.from) },
-  { id: "to", header: "Up to", align: "end", className: "tabular-nums", cell: (t) => (isUnbounded(t.up_to) ? "No limit" : number.format(t.up_to)) },
-  { id: "unit", header: "Unit price", align: "end", cell: (t) => <MoneyText value={t.unit_amount} /> },
-  { id: "flat", header: "Flat fee", align: "end", cell: (t) => <MoneyText value={t.flat_amount} /> },
+  {
+    id: "type",
+    header: "Type",
+    cell: (t) => t.type.charAt(0).toUpperCase() + t.type.slice(1),
+  },
+  {
+    id: "from",
+    header: "From",
+    align: "end",
+    className: "tabular-nums",
+    cell: (t) => number.format(t.from),
+  },
+  {
+    id: "to",
+    header: "Up to",
+    align: "end",
+    className: "tabular-nums",
+    cell: (t) => (isUnbounded(t.up_to) ? "No limit" : number.format(t.up_to)),
+  },
+  {
+    id: "unit",
+    header: "Unit price",
+    align: "end",
+    cell: (t) => <MoneyText value={t.unit_amount} />,
+  },
+  {
+    id: "flat",
+    header: "Flat fee",
+    align: "end",
+    cell: (t) => <MoneyText value={t.flat_amount} />,
+  },
 ]
 
 /** The engine's isUnbounded (invoice/pricing.go): zero, -1 and anything else non-positive have no ceiling. */
@@ -60,9 +118,12 @@ function sortTiers(tiers: PriceTier[]): PriceTier[] {
 }
 
 /** Tiers grouped by feature in the order the engine prices them, each knowing where it starts. */
-function tierGroups(plan: Plan): { key: string; name: string; tiers: TierRow[] }[] {
+function tierGroups(
+  plan: Plan
+): { key: string; name: string; tiers: TierRow[] }[] {
   const groups = new Map<string, PriceTier[]>()
-  for (const t of plan.pricing?.tiers ?? []) groups.set(t.feature_key, [...(groups.get(t.feature_key) ?? []), t])
+  for (const t of plan.pricing?.tiers ?? [])
+    groups.set(t.feature_key, [...(groups.get(t.feature_key) ?? []), t])
   return [...groups.entries()].map(([key, tiers]) => {
     let from = 1
     const rows = sortTiers(tiers).map((t) => {
@@ -70,7 +131,11 @@ function tierGroups(plan: Plan): { key: string; name: string; tiers: TierRow[] }
       from = isUnbounded(t.up_to) ? from : t.up_to + 1
       return row
     })
-    return { key, name: (plan.features ?? []).find((f) => f.key === key)?.name ?? key, tiers: rows }
+    return {
+      key,
+      name: (plan.features ?? []).find((f) => f.key === key)?.name ?? key,
+      tiers: rows,
+    }
   })
 }
 
@@ -92,7 +157,15 @@ function PlanDetailBody({ id }: { id: string }) {
   // invalidates plans.detail, and QueryBoundary would otherwise swap the page
   // for a skeleton and take any open dialog with it.
   if (detail.data !== undefined) return <PlanDetailView plan={detail.data} />
-  if (isNotFound(detail.error, "plan")) return <NotFoundState noun="plan" id={id} backTo="/plans" backLabel="Back to plans" />
+  if (isNotFound(detail.error, "plan"))
+    return (
+      <NotFoundState
+        noun="plan"
+        id={id}
+        backTo="/plans"
+        backLabel="Back to plans"
+      />
+    )
   return (
     <QueryBoundary title="Plan" query={detail} skeletonRows={6}>
       {(p) => <PlanDetailView plan={p} />}
@@ -110,7 +183,8 @@ function PlanDetailView({ plan }: { plan: Plan }) {
   const [pending, setPending] = useState<Pending>(null)
   const features = plan.features ?? []
   const groups = tierGroups(plan)
-  const period = plan.pricing?.billing_period === "yearly" ? "per year" : "per month"
+  const period =
+    plan.pricing?.billing_period === "yearly" ? "per year" : "per month"
 
   function openDialog(which: Exclude<Pending, null>) {
     // Reset at open, so an earlier refusal is not shown against this attempt.
@@ -125,13 +199,30 @@ function PlanDetailView({ plan }: { plan: Plan }) {
         description={plan.description || undefined}
         actions={
           <>
-            <IconButton label="Edit" nativeButton={false} role="link" render={<PluginLink to={planEditPath(plan.id)} />} />
+            <IconButton
+              label="Edit"
+              nativeButton={false}
+              role="link"
+              render={<PluginLink to={planEditPath(plan.id)} />}
+            />
             {plan.status === "active" ? (
-              <IconButton variant="outline" onClick={() => openDialog("archive")} label="Archive" />
+              <IconButton
+                variant="outline"
+                onClick={() => openDialog("archive")}
+                label="Archive"
+              />
             ) : (
-              <IconButton variant="outline" onClick={() => openDialog("activate")} label="Activate" />
+              <IconButton
+                variant="outline"
+                onClick={() => openDialog("activate")}
+                label="Activate"
+              />
             )}
-            <IconButton variant="destructive" onClick={() => openDialog("delete")} label="Delete" />
+            <IconButton
+              variant="destructive"
+              onClick={() => openDialog("delete")}
+              label="Delete"
+            />
           </>
         }
       />
@@ -152,12 +243,17 @@ function PlanDetailView({ plan }: { plan: Plan }) {
             <section className="flex flex-col gap-4">
               <h2 className="text-base font-medium">Usage pricing</h2>
               {groups.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No usage pricing: this plan charges its base price only.</p>
+                <p className="text-sm text-muted-foreground">
+                  No usage pricing: this plan charges its base price only.
+                </p>
               ) : (
                 groups.map((g) => (
                   <div key={g.key} className="flex flex-col gap-2">
                     <h3 className="text-sm font-medium">
-                      {g.name} <span className="font-mono text-xs text-muted-foreground">{g.key}</span>
+                      {g.name}{" "}
+                      <span className="font-mono text-xs text-muted-foreground">
+                        {g.key}
+                      </span>
                     </h3>
                     <LedgerTable<TierRow>
                       columns={tierColumns}
@@ -178,24 +274,65 @@ function PlanDetailView({ plan }: { plan: Plan }) {
               <h2 className="text-sm font-medium">Price</h2>
               {plan.pricing ? (
                 <p className="flex items-baseline gap-2">
-                  <MoneyText value={plan.pricing.base_amount} className="text-2xl font-medium" />
-                  <span className="text-sm text-muted-foreground">{period}</span>
+                  <MoneyText
+                    value={plan.pricing.base_amount}
+                    className="text-2xl font-medium"
+                  />
+                  <span className="text-sm text-muted-foreground">
+                    {period}
+                  </span>
                 </p>
               ) : (
                 <NoneCell label="price" />
               )}
               <DescriptionList
                 items={[
-                  { term: "Status", value: <PlanStatusBadge status={plan.status} /> },
-                  { term: "Slug", value: <span className="font-mono text-xs">{plan.slug}</span> },
-                  { term: "Currency", value: <span className="font-mono text-xs">{plan.currency.toUpperCase()}</span> },
-                  { term: "Trial", value: plan.trial_days > 0 ? `${plan.trial_days} days` : <NoneCell label="trial" /> },
-                  { term: "Created", value: <Timestamp value={plan.created_at} label="creation" /> },
-                  { term: "Updated", value: <Timestamp value={plan.updated_at} label="update" /> },
+                  {
+                    term: "Status",
+                    value: <PlanStatusBadge status={plan.status} />,
+                  },
+                  {
+                    term: "Slug",
+                    value: (
+                      <span className="font-mono text-xs">{plan.slug}</span>
+                    ),
+                  },
+                  {
+                    term: "Currency",
+                    value: (
+                      <span className="font-mono text-xs">
+                        {plan.currency.toUpperCase()}
+                      </span>
+                    ),
+                  },
+                  {
+                    term: "Trial",
+                    value:
+                      plan.trial_days > 0 ? (
+                        `${plan.trial_days} days`
+                      ) : (
+                        <NoneCell label="trial" />
+                      ),
+                  },
+                  {
+                    term: "Created",
+                    value: (
+                      <Timestamp value={plan.created_at} label="creation" />
+                    ),
+                  },
+                  {
+                    term: "Updated",
+                    value: <Timestamp value={plan.updated_at} label="update" />,
+                  },
                 ]}
               />
             </section>
-            <SyncPanel intent="plans.syncToProvider" id={plan.id} providerName={plan.provider_name} providerId={plan.provider_id} />
+            <SyncPanel
+              intent="plans.syncToProvider"
+              id={plan.id}
+              providerName={plan.provider_name}
+              providerId={plan.provider_id}
+            />
           </>
         }
       />

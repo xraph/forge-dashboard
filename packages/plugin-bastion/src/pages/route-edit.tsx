@@ -7,7 +7,9 @@ import { RouteForm, valuesFromDetail } from "../components/route-form"
 import { routePath } from "../keys"
 import type { RouteDetail, RouteFields, RouteIdResponse } from "../types"
 
-export const BastionRouteEditPage: ComponentType<PluginPageProps> = ({ params }) => {
+export const BastionRouteEditPage: ComponentType<PluginPageProps> = ({
+  params,
+}) => {
   const id = params.id
   if (!id) {
     return (
@@ -36,11 +38,19 @@ function RouteEditBody({ id }: { id: string }) {
         {(d) =>
           !d.editable ? (
             <p role="status" className="text-sm text-muted-foreground">
-              Discovery manages this route. Its next update replaces any change, so it cannot be edited here.
+              Discovery manages this route. Its next update replaces any change,
+              so it cannot be edited here.
             </p>
           ) : (
             <>
-              <PageHeader title={`Edit ${d.path}`} description={d.config ? "This route comes from the gateway's config file. A change made here lasts until the gateway restarts." : "Headers, transforms and traffic policy are kept as they are; this form does not change them."} />
+              <PageHeader
+                title={`Edit ${d.path}`}
+                description={
+                  d.config
+                    ? "This route comes from the gateway's config file. A change made here lasts until the gateway restarts."
+                    : "Headers, transforms and traffic policy are kept as they are; this form does not change them."
+                }
+              />
               <RouteForm
                 initial={valuesFromDetail(d)}
                 submitLabel="Save changes"

@@ -29,7 +29,10 @@ export function SetCurrentDialog({
     sending.current = true
     let result: PromptVersion | undefined
     try {
-      result = await command.execute({ suiteId: version.suiteId, versionId: version.id })
+      result = await command.execute({
+        suiteId: version.suiteId,
+        versionId: version.id,
+      })
     } finally {
       sending.current = false
     }

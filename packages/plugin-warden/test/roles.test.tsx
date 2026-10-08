@@ -90,21 +90,33 @@ describe("WardenRolesPage", () => {
       client({
         "roles.list": {
           ...ROLES,
-          items: [{ ...ROLES.items[0], createdAt: created, updatedAt: "2026-09-23T10:00:00Z" }],
+          items: [
+            {
+              ...ROLES.items[0],
+              createdAt: created,
+              updatedAt: "2026-09-23T10:00:00Z",
+            },
+          ],
           total: 1,
         },
       })
     )
     const row = (await screen.findByText("Reader")).closest("tr") as HTMLElement
     expect(cellUnder(row, "Created").textContent).toBe(formatTimestamp(created))
-    expect(cellUnder(row, "Updated").textContent).toBe(formatTimestamp("2026-09-23T10:00:00Z"))
+    expect(cellUnder(row, "Updated").textContent).toBe(
+      formatTimestamp("2026-09-23T10:00:00Z")
+    )
   })
 
   it("marks a missing created time with the empty mark, never undefined", async () => {
     renderPage(
       WardenRolesPage,
       client({
-        "roles.list": { ...ROLES, items: [{ ...ROLES.items[0], createdAt: undefined }], total: 1 },
+        "roles.list": {
+          ...ROLES,
+          items: [{ ...ROLES.items[0], createdAt: undefined }],
+          total: 1,
+        },
       })
     )
     const row = (await screen.findByText("Reader")).closest("tr") as HTMLElement
@@ -149,7 +161,9 @@ describe("WardenRolesPage", () => {
     expect(list).toBeTruthy()
     // "All namespaces" must send no namespacePath at all. Sending "" would
     // silently scope the list to the tenant root.
-    expect((list?.params as Record<string, unknown>)?.namespacePath).toBeUndefined()
+    expect(
+      (list?.params as Record<string, unknown>)?.namespacePath
+    ).toBeUndefined()
   })
 
   it("keeps what the operator typed when a create fails", async () => {
@@ -161,8 +175,12 @@ describe("WardenRolesPage", () => {
     await screen.findByText("Reader")
 
     fireEvent.click(screen.getByRole("button", { name: /new role/i }))
-    fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Auditor" } })
-    fireEvent.change(screen.getByLabelText("Slug"), { target: { value: "auditor" } })
+    fireEvent.change(screen.getByLabelText("Name"), {
+      target: { value: "Auditor" },
+    })
+    fireEvent.change(screen.getByLabelText("Slug"), {
+      target: { value: "auditor" },
+    })
 
     // roles.create is absent from the command map, so the harness throws a
     // ContractError, which is the only thing that makes execute() resolve
@@ -181,7 +199,9 @@ describe("WardenRolesPage", () => {
   it("surfaces a list failure instead of rendering an empty table", async () => {
     renderPage(
       WardenRolesPage,
-      failingClient(new ContractError("PERMISSION_DENIED", "no tenant in scope"))
+      failingClient(
+        new ContractError("PERMISSION_DENIED", "no tenant in scope")
+      )
     )
     expect(await screen.findAllByText(/no tenant in scope/i)).toBeTruthy()
     expect(screen.queryByText("Reader")).toBeNull()
@@ -212,7 +232,9 @@ describe("WardenRolesPage", () => {
     })
     renderPage(WardenRolesPage, c)
     await screen.findByText(/No roles yet/i)
-    fireEvent.change(screen.getByLabelText("Search roles"), { target: { value: "zzz" } })
+    fireEvent.change(screen.getByLabelText("Search roles"), {
+      target: { value: "zzz" },
+    })
     expect(await screen.findByText(/No roles match .zzz./)).toBeTruthy()
     expect(screen.queryByText(/No roles yet/i)).toBeNull()
   })
@@ -223,9 +245,13 @@ describe("WardenRolesPage", () => {
       client({ "roles.list": { items: [], total: 0, limit: 25, offset: 0 } })
     )
     await screen.findByText(/No roles yet/i)
-    fireEvent.change(screen.getByLabelText("Namespace"), { target: { value: "eng/platform" } })
+    fireEvent.change(screen.getByLabelText("Namespace"), {
+      target: { value: "eng/platform" },
+    })
     expect(await screen.findByText("No roles in eng/platform.")).toBeTruthy()
-    fireEvent.change(screen.getByLabelText("Namespace"), { target: { value: "" } })
+    fireEvent.change(screen.getByLabelText("Namespace"), {
+      target: { value: "" },
+    })
     expect(await screen.findByText("No roles in the tenant root.")).toBeTruthy()
   })
 
@@ -242,19 +268,34 @@ describe("WardenRolesPage", () => {
     fireEvent.click(screen.getByRole("button", { name: /next page/i }))
     await waitFor(() =>
       expect(
-        sent.some((q) => q.intent === "roles.list" && (q.params as { offset?: number }).offset === 25)
+        sent.some(
+          (q) =>
+            q.intent === "roles.list" &&
+            (q.params as { offset?: number }).offset === 25
+        )
       ).toBe(true)
     )
 
-    fireEvent.change(screen.getByLabelText("Namespace"), { target: { value: "eng/platform" } })
+    fireEvent.change(screen.getByLabelText("Namespace"), {
+      target: { value: "eng/platform" },
+    })
     await waitFor(() => {
       const last = sent.filter((q) => q.intent === "roles.list").at(-1)
-      expect(last?.params).toMatchObject({ namespacePath: "eng/platform", offset: 0 })
+      expect(last?.params).toMatchObject({
+        namespacePath: "eng/platform",
+        offset: 0,
+      })
     })
   })
 
   it("steps back a page when a delete empties the last one", async () => {
-    const onlyRow = { ...ROLES, items: [ROLES.items[0]], total: 26, limit: 25, offset: 25 }
+    const onlyRow = {
+      ...ROLES,
+      items: [ROLES.items[0]],
+      total: 26,
+      limit: 25,
+      offset: 25,
+    }
     const { client: c, sent } = recordingQueryClient({
       "roles.list": onlyRow,
       "namespaces.list": NAMESPACES,
@@ -269,7 +310,11 @@ describe("WardenRolesPage", () => {
     fireEvent.click(screen.getByRole("button", { name: /next page/i }))
     await waitFor(() =>
       expect(
-        sent.some((q) => q.intent === "roles.list" && (q.params as { offset?: number }).offset === 25)
+        sent.some(
+          (q) =>
+            q.intent === "roles.list" &&
+            (q.params as { offset?: number }).offset === 25
+        )
       ).toBe(true)
     )
 
@@ -289,12 +334,20 @@ describe("WardenRolesPage", () => {
     renderPage(WardenRolesPage, c)
     await screen.findByText("Reader")
     fireEvent.click(screen.getByRole("button", { name: /new role/i }))
-    fireEvent.change(screen.getByLabelText("Name"), { target: { value: "  Auditor " } })
-    fireEvent.change(screen.getByLabelText("Slug"), { target: { value: " auditor  " } })
+    fireEvent.change(screen.getByLabelText("Name"), {
+      target: { value: "  Auditor " },
+    })
+    fireEvent.change(screen.getByLabelText("Slug"), {
+      target: { value: " auditor  " },
+    })
     fireEvent.click(screen.getByRole("button", { name: /^create role$/i }))
     await waitFor(() => expect(sent).toHaveLength(1))
     expect(sent[0]?.intent).toBe("roles.create")
-    expect(sent[0]?.payload).toEqual({ name: "Auditor", slug: "auditor", namespacePath: "" })
+    expect(sent[0]?.payload).toEqual({
+      name: "Auditor",
+      slug: "auditor",
+      namespacePath: "",
+    })
   })
 
   it("sends the role id, and only the id, when deleting a role", async () => {

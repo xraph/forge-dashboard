@@ -178,8 +178,16 @@ export function RelayDLQPage() {
         description="Deliveries Relay gave up on. Replaying one sends the webhook again."
         actions={
           <>
-            <IconButton variant="outline" onClick={() => setBulkOpen(true)} label="Replay a time window" />
-            <IconButton variant="outline" onClick={() => setPurgeOpen(true)} label="Delete old entries" />
+            <IconButton
+              variant="outline"
+              onClick={() => setBulkOpen(true)}
+              label="Replay a time window"
+            />
+            <IconButton
+              variant="outline"
+              onClick={() => setPurgeOpen(true)}
+              label="Delete old entries"
+            />
           </>
         }
       />
@@ -226,7 +234,11 @@ export function RelayDLQPage() {
                 }
                 rowActions={(r) =>
                   r.replayedAt ? null : (
-                    <IconButton variant="outline" onClick={() => openReplay(r)} label={`Replay ${r.eventType} to ${r.url}`} />
+                    <IconButton
+                      variant="outline"
+                      onClick={() => openReplay(r)}
+                      label={`Replay ${r.eventType} to ${r.url}`}
+                    />
                   )
                 }
               />

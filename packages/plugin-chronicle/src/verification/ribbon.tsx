@@ -23,7 +23,15 @@ const BAND: Record<string, string> = {
   anchored: "bg-foreground",
 }
 
-export function Ribbon({ report, fromSeq, toSeq }: { report: VerifyReport; fromSeq: number; toSeq: number }) {
+export function Ribbon({
+  report,
+  fromSeq,
+  toSeq,
+}: {
+  report: VerifyReport
+  fromSeq: number
+  toSeq: number
+}) {
   const [drawn, setDrawn] = useState(false)
   useEffect(() => {
     const id = requestAnimationFrame(() => setDrawn(true))
@@ -31,9 +39,13 @@ export function Ribbon({ report, fromSeq, toSeq }: { report: VerifyReport; fromS
   }, [])
 
   const width = Math.max(1, toSeq - fromSeq + 1)
-  const pct = (seq: number) => `${(((seq - fromSeq) / width) * 100).toFixed(2)}%`
-  const pctWidth = (from: number, to: number) => `${(((to - from + 1) / width) * 100).toFixed(2)}%`
-  const breaks = breaksOf(report).filter((b) => b.kind !== "truncated" && b.kind !== "head-contradicted")
+  const pct = (seq: number) =>
+    `${(((seq - fromSeq) / width) * 100).toFixed(2)}%`
+  const pctWidth = (from: number, to: number) =>
+    `${(((to - from + 1) / width) * 100).toFixed(2)}%`
+  const breaks = breaksOf(report).filter(
+    (b) => b.kind !== "truncated" && b.kind !== "head-contradicted"
+  )
 
   const focusRow = (anchor: string) => {
     const el = document.getElementById(anchor)
@@ -42,7 +54,11 @@ export function Ribbon({ report, fromSeq, toSeq }: { report: VerifyReport; fromS
   }
 
   return (
-    <div className="relative h-10 w-full" aria-label={`Chain from sequence ${formatSeq(fromSeq)} to ${formatSeq(toSeq)}`} role="group">
+    <div
+      className="relative h-10 w-full"
+      aria-label={`Chain from sequence ${formatSeq(fromSeq)} to ${formatSeq(toSeq)}`}
+      role="group"
+    >
       <div
         data-testid="ribbon-track"
         className="absolute inset-x-0 top-3 h-4 origin-left overflow-hidden rounded-sm border motion-safe:transition-transform motion-safe:duration-700 motion-reduce:transition-none"
@@ -55,7 +71,10 @@ export function Ribbon({ report, fromSeq, toSeq }: { report: VerifyReport; fromS
             data-level={s.level}
             title={`${s.level}: sequences ${formatSeq(s.fromSeq)} to ${formatSeq(s.toSeq)}`}
             className={`absolute inset-y-0 ${BAND[s.level] ?? "bg-muted"}`}
-            style={{ left: pct(s.fromSeq), width: pctWidth(s.fromSeq, s.toSeq) }}
+            style={{
+              left: pct(s.fromSeq),
+              width: pctWidth(s.fromSeq, s.toSeq),
+            }}
           />
         ))}
         {(report.retained ?? []).map((r) => (
@@ -63,8 +82,11 @@ export function Ribbon({ report, fromSeq, toSeq }: { report: VerifyReport; fromS
             key={`retained-${r.fromSeq}`}
             data-testid="ribbon-retained"
             title={`Removed by retention: sequences ${formatSeq(r.fromSeq)} to ${formatSeq(r.toSeq)}`}
-            className="absolute inset-y-0 bg-[repeating-linear-gradient(45deg,transparent,transparent_3px,var(--border)_3px,var(--border)_5px)] bg-background"
-            style={{ left: pct(r.fromSeq), width: pctWidth(r.fromSeq, r.toSeq) }}
+            className="absolute inset-y-0 bg-background bg-[repeating-linear-gradient(45deg,transparent,transparent_3px,var(--border)_3px,var(--border)_5px)]"
+            style={{
+              left: pct(r.fromSeq),
+              width: pctWidth(r.fromSeq, r.toSeq),
+            }}
           />
         ))}
         {(report.checkpoints ?? []).map((c) => (

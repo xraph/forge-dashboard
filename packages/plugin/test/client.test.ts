@@ -21,7 +21,12 @@ describe("createScopedClient", () => {
   })
 
   it("sends the contributor it was scoped to, not one the caller supplies", async () => {
-    const fetchMock = mockFetch({ ok: true, envelope: "v1", kind: "query", data: { n: 1 } })
+    const fetchMock = mockFetch({
+      ok: true,
+      envelope: "v1",
+      kind: "query",
+      data: { n: 1 },
+    })
     const client = createScopedClient(BASE, "billing", fetchMock)
 
     await client.query("invoices.list", { page: 1 })
@@ -37,7 +42,12 @@ describe("createScopedClient", () => {
   })
 
   it("returns the envelope's data, not the envelope", async () => {
-    const fetchMock = mockFetch({ ok: true, envelope: "v1", kind: "query", data: { n: 7 } })
+    const fetchMock = mockFetch({
+      ok: true,
+      envelope: "v1",
+      kind: "query",
+      data: { n: 7 },
+    })
     const client = createScopedClient(BASE, "billing", fetchMock)
 
     await expect(client.query("x.y")).resolves.toEqual({ n: 7 })
@@ -52,7 +62,9 @@ describe("createScopedClient", () => {
     const client = createScopedClient(BASE, "billing", fetchMock)
 
     await expect(client.query("x.y")).rejects.toThrow(ContractError)
-    await expect(client.query("x.y")).rejects.toMatchObject({ code: "NOT_FOUND" })
+    await expect(client.query("x.y")).rejects.toMatchObject({
+      code: "NOT_FOUND",
+    })
   })
 
   // What this pins is narrow and worth stating exactly: the default fetchImpl
@@ -89,7 +101,9 @@ describe("createScopedClient", () => {
     const fetchMock = mockFetch({}, 500)
     const client = createScopedClient(BASE, "billing", fetchMock)
 
-    await expect(client.query("x.y")).rejects.toMatchObject({ code: "TRANSPORT" })
+    await expect(client.query("x.y")).rejects.toMatchObject({
+      code: "TRANSPORT",
+    })
   })
 
   // The defect this file was fixed for: the Go transport answers a
@@ -99,12 +113,18 @@ describe("createScopedClient", () => {
   // real code and message.
   it("throws with the server's code and message when a non-ok response carries an error envelope", async () => {
     const fetchMock = mockFetch(
-      { ok: false, envelope: "v1", error: { code: "NOT_FOUND", message: "no such room" } },
-      500,
+      {
+        ok: false,
+        envelope: "v1",
+        error: { code: "NOT_FOUND", message: "no such room" },
+      },
+      500
     )
     const client = createScopedClient(BASE, "billing", fetchMock)
 
-    await expect(client.query("rooms.delete", { id: "nope" })).rejects.toMatchObject({
+    await expect(
+      client.query("rooms.delete", { id: "nope" })
+    ).rejects.toMatchObject({
       code: "NOT_FOUND",
       message: "no such room",
     })
@@ -119,9 +139,13 @@ describe("createScopedClient", () => {
       {
         ok: false,
         envelope: "v1",
-        error: { code: "BAD_REQUEST", message: "tenant_id is required", details: { field: "tenant_id" } },
+        error: {
+          code: "BAD_REQUEST",
+          message: "tenant_id is required",
+          details: { field: "tenant_id" },
+        },
       },
-      400,
+      400
     )
     const client = createScopedClient(BASE, "relay", fetchMock)
 
@@ -134,7 +158,11 @@ describe("createScopedClient", () => {
     const fetchMock = mockFetch({
       ok: false,
       envelope: "v1",
-      error: { code: "BAD_REQUEST", message: "tenant_id is required", details: { field: "tenant_id" } },
+      error: {
+        code: "BAD_REQUEST",
+        message: "tenant_id is required",
+        details: { field: "tenant_id" },
+      },
     })
     const client = createScopedClient(BASE, "relay", fetchMock)
 
@@ -146,12 +174,24 @@ describe("createScopedClient", () => {
   // Absent means undefined on both branches, not `{}`. A page checking
   // `err.details?.field` should not have to tell "no details" from "empty".
   it("leaves details undefined when the server sends none", async () => {
-    const envelope = { ok: false, envelope: "v1", error: { code: "NOT_FOUND", message: "nope" } }
+    const envelope = {
+      ok: false,
+      envelope: "v1",
+      error: { code: "NOT_FOUND", message: "nope" },
+    }
 
-    const viaStatus = await createScopedClient(BASE, "relay", mockFetch(envelope, 404))
+    const viaStatus = await createScopedClient(
+      BASE,
+      "relay",
+      mockFetch(envelope, 404)
+    )
       .query("x.y")
       .catch((e: unknown) => e)
-    const viaEnvelope = await createScopedClient(BASE, "relay", mockFetch(envelope))
+    const viaEnvelope = await createScopedClient(
+      BASE,
+      "relay",
+      mockFetch(envelope)
+    )
       .query("x.y")
       .catch((e: unknown) => e)
 
@@ -176,27 +216,49 @@ describe("createScopedClient", () => {
       },
     }
 
-    const viaStatus = await createScopedClient(BASE, "keysmith", mockFetch(envelope, 500))
+    const viaStatus = await createScopedClient(
+      BASE,
+      "keysmith",
+      mockFetch(envelope, 500)
+    )
       .query("keys.create")
       .catch((e: unknown) => e)
-    const viaEnvelope = await createScopedClient(BASE, "keysmith", mockFetch(envelope))
+    const viaEnvelope = await createScopedClient(
+      BASE,
+      "keysmith",
+      mockFetch(envelope)
+    )
       .query("keys.create")
       .catch((e: unknown) => e)
 
     for (const err of [viaStatus, viaEnvelope]) {
       expect(err).toBeInstanceOf(ContractError)
       expect((err as ContractError).retryable).toBe(true)
-      expect((err as ContractError).details).toEqual({ reason: "idempotency.still_running" })
+      expect((err as ContractError).details).toEqual({
+        reason: "idempotency.still_running",
+      })
     }
   })
 
   it("leaves retryable undefined when the server does not send it", async () => {
-    const envelope = { ok: false, envelope: "v1", error: { code: "NOT_FOUND", message: "nope" } }
+    const envelope = {
+      ok: false,
+      envelope: "v1",
+      error: { code: "NOT_FOUND", message: "nope" },
+    }
 
-    const viaStatus = await createScopedClient(BASE, "relay", mockFetch(envelope, 404))
+    const viaStatus = await createScopedClient(
+      BASE,
+      "relay",
+      mockFetch(envelope, 404)
+    )
       .query("x.y")
       .catch((e: unknown) => e)
-    const viaEnvelope = await createScopedClient(BASE, "relay", mockFetch(envelope))
+    const viaEnvelope = await createScopedClient(
+      BASE,
+      "relay",
+      mockFetch(envelope)
+    )
       .query("x.y")
       .catch((e: unknown) => e)
 
@@ -219,7 +281,9 @@ describe("createScopedClient", () => {
     })
     const client = createScopedClient(BASE, "billing", fetchMock)
 
-    await expect(client.query("x.y")).rejects.toMatchObject({ code: "TRANSPORT" })
+    await expect(client.query("x.y")).rejects.toMatchObject({
+      code: "TRANSPORT",
+    })
   })
 
   // A proxy's 502 with an HTML body must not turn into an exception about
@@ -235,7 +299,9 @@ describe("createScopedClient", () => {
     })
     const client = createScopedClient(BASE, "billing", fetchMock)
 
-    await expect(client.query("x.y")).rejects.toMatchObject({ code: "TRANSPORT" })
+    await expect(client.query("x.y")).rejects.toMatchObject({
+      code: "TRANSPORT",
+    })
   })
 
   // The same hazard on the other branch of the same `if`. A reverse proxy or
@@ -248,7 +314,9 @@ describe("createScopedClient", () => {
       ok: true,
       status: 200,
       json: async () => {
-        throw new SyntaxError("Unexpected token '<', \"<html>\"... is not valid JSON")
+        throw new SyntaxError(
+          "Unexpected token '<', \"<html>\"... is not valid JSON"
+        )
       },
     })
     const client = createScopedClient(BASE, "billing", fetchMock)
@@ -292,7 +360,12 @@ interface StubResponse {
   body?: unknown
 }
 
-const OK_BODY = { ok: true, envelope: "v1", kind: "command", data: { done: true } }
+const OK_BODY = {
+  ok: true,
+  envelope: "v1",
+  kind: "command",
+  data: { done: true },
+}
 
 function rejection(code: string, message = code) {
   return { ok: false, envelope: "v1", error: { code, message } }
@@ -310,7 +383,11 @@ function stub({ status = 200, body = {} }: StubResponse) {
  * keeping the *same* idempotency key.
  */
 function harness(
-  options: { tokens?: string[]; contract?: StubResponse[]; csrf?: StubResponse[] } = {},
+  options: {
+    tokens?: string[]
+    contract?: StubResponse[]
+    csrf?: StubResponse[]
+  } = {}
 ) {
   const tokens = options.tokens ?? ["tok-1", "tok-2", "tok-3"]
   const contract = options.contract ?? [{ body: OK_BODY }]
@@ -336,7 +413,8 @@ function harness(
       // happens when it is down or answers without a token. Left unset, it
       // just mints the next token in `tokens`.
       if (options.csrf) {
-        const scripted = options.csrf[Math.min(csrfIndex, options.csrf.length - 1)]
+        const scripted =
+          options.csrf[Math.min(csrfIndex, options.csrf.length - 1)]
         csrfIndex += 1
         return stub(scripted)
       }
@@ -345,7 +423,9 @@ function harness(
       return stub({ body: { token, expiresAt: "2026-09-06T12:00:00Z" } })
     }
     if (sent.length >= budget) {
-      throw new Error(`fetch budget of ${budget} contract calls exhausted: the client is looping`)
+      throw new Error(
+        `fetch budget of ${budget} contract calls exhausted: the client is looping`
+      )
     }
     sent.push(JSON.parse(String(init?.body)) as SentEnvelope)
     const next = contract[Math.min(contractIndex, contract.length - 1)]
@@ -372,7 +452,9 @@ describe("ScopedClient.command", () => {
     const h = harness()
     const client = createScopedClient(BASE, "billing", h.fetchImpl)
 
-    await expect(client.command("session.login", { user: "rex" })).resolves.toEqual({
+    await expect(
+      client.command("session.login", { user: "rex" })
+    ).resolves.toEqual({
       done: true,
     })
 
@@ -419,11 +501,16 @@ describe("ScopedClient.command", () => {
   // the server apply the same command twice.
   it("carries the identical idempotency key, and a refreshed token, into the retry", async () => {
     const h = harness({
-      contract: [{ status: 401, body: rejection("UNAUTHENTICATED", "stale") }, { body: OK_BODY }],
+      contract: [
+        { status: 401, body: rejection("UNAUTHENTICATED", "stale") },
+        { body: OK_BODY },
+      ],
     })
     const client = createScopedClient(BASE, "billing", h.fetchImpl)
 
-    await expect(client.command("session.login", { user: "rex" })).resolves.toEqual({
+    await expect(
+      client.command("session.login", { user: "rex" })
+    ).resolves.toEqual({
       done: true,
     })
 
@@ -435,23 +522,37 @@ describe("ScopedClient.command", () => {
   })
 
   it("retries exactly once: a second rejection is a real failure, not a loop", async () => {
-    const h = harness({ contract: [{ status: 401, body: rejection("UNAUTHENTICATED") }] })
+    const h = harness({
+      contract: [{ status: 401, body: rejection("UNAUTHENTICATED") }],
+    })
     const client = createScopedClient(BASE, "billing", h.fetchImpl)
 
-    await expect(client.command("session.login")).rejects.toBeInstanceOf(ContractError)
+    await expect(client.command("session.login")).rejects.toBeInstanceOf(
+      ContractError
+    )
     expect(h.sent).toHaveLength(2)
     expect(h.sent[1].idempotencyKey).toBe(h.sent[0].idempotencyKey)
   })
 
   it("uses a caller-supplied idempotency key, and keeps it across the retry", async () => {
     const h = harness({
-      contract: [{ status: 401, body: rejection("UNAUTHENTICATED") }, { body: OK_BODY }],
+      contract: [
+        { status: 401, body: rejection("UNAUTHENTICATED") },
+        { body: OK_BODY },
+      ],
     })
     const client = createScopedClient(BASE, "billing", h.fetchImpl)
 
-    await client.command("session.login", { user: "rex" }, { idempotencyKey: "caller-key" })
+    await client.command(
+      "session.login",
+      { user: "rex" },
+      { idempotencyKey: "caller-key" }
+    )
 
-    expect(h.sent.map((e) => e.idempotencyKey)).toEqual(["caller-key", "caller-key"])
+    expect(h.sent.map((e) => e.idempotencyKey)).toEqual([
+      "caller-key",
+      "caller-key",
+    ])
   })
 
   // The response a stale token actually gets from this server. The Go
@@ -462,13 +563,18 @@ describe("ScopedClient.command", () => {
   it("retries the 403 UNAUTHENTICATED that a stale token really gets", async () => {
     const h = harness({
       contract: [
-        { status: 403, body: rejection("UNAUTHENTICATED", "csrf token invalid") },
+        {
+          status: 403,
+          body: rejection("UNAUTHENTICATED", "csrf token invalid"),
+        },
         { body: OK_BODY },
       ],
     })
     const client = createScopedClient(BASE, "billing", h.fetchImpl)
 
-    await expect(client.command("session.login")).resolves.toEqual({ done: true })
+    await expect(client.command("session.login")).resolves.toEqual({
+      done: true,
+    })
     expect(h.sent).toHaveLength(2)
     expect(h.sent[1].idempotencyKey).toBe(h.sent[0].idempotencyKey)
     expect(h.sent[1].csrf).toBe("tok-2")
@@ -482,11 +588,16 @@ describe("ScopedClient.command", () => {
   it("still mints a usable key where crypto.randomUUID does not exist", async () => {
     vi.stubGlobal("crypto", {})
     const h = harness({
-      contract: [{ status: 401, body: rejection("UNAUTHENTICATED") }, { body: OK_BODY }],
+      contract: [
+        { status: 401, body: rejection("UNAUTHENTICATED") },
+        { body: OK_BODY },
+      ],
     })
     const client = createScopedClient(BASE, "billing", h.fetchImpl)
 
-    await expect(client.command("session.login")).resolves.toEqual({ done: true })
+    await expect(client.command("session.login")).resolves.toEqual({
+      done: true,
+    })
 
     const key = h.sent[0].idempotencyKey
     expect(typeof key).toBe("string")
@@ -500,7 +611,11 @@ describe("ScopedClient.command", () => {
     const h = harness()
     const client = createScopedClient(BASE, "billing", h.fetchImpl)
 
-    await Promise.all([client.command("a"), client.command("b"), client.command("c")])
+    await Promise.all([
+      client.command("a"),
+      client.command("b"),
+      client.command("c"),
+    ])
 
     const keys = h.sent.map((e) => e.idempotencyKey)
     expect(new Set(keys).size).toBe(3)
@@ -513,7 +628,13 @@ describe("ScopedClient.command", () => {
     const h = harness({
       csrf: [{ status: 503, body: {} }, { body: { token: "tok-late" } }],
       contract: [
-        { status: 400, body: rejection("BAD_REQUEST", "command requires csrf and idempotencyKey") },
+        {
+          status: 400,
+          body: rejection(
+            "BAD_REQUEST",
+            "command requires csrf and idempotencyKey"
+          ),
+        },
         { body: OK_BODY },
       ],
     })
@@ -532,22 +653,34 @@ describe("ScopedClient.command", () => {
 
     // Not permanent: the null token means the next command tries the fetch
     // again rather than the client staying tokenless for its whole life.
-    await expect(client.command("session.retry")).resolves.toEqual({ done: true })
+    await expect(client.command("session.retry")).resolves.toEqual({
+      done: true,
+    })
     expect(h.csrfURLs).toHaveLength(2)
     expect(h.sent[1].csrf).toBe("tok-late")
   })
 
   it("treats a 200 from /csrf carrying no token as no token at all", async () => {
     const h = harness({
-      csrf: [{ body: { expiresAt: "2026-09-06T12:00:00Z" } }, { body: { token: "tok-late" } }],
-      contract: [{ status: 400, body: rejection("BAD_REQUEST") }, { body: OK_BODY }],
+      csrf: [
+        { body: { expiresAt: "2026-09-06T12:00:00Z" } },
+        { body: { token: "tok-late" } },
+      ],
+      contract: [
+        { status: 400, body: rejection("BAD_REQUEST") },
+        { body: OK_BODY },
+      ],
     })
     const client = createScopedClient(BASE, "billing", h.fetchImpl)
 
-    await expect(client.command("session.login")).rejects.toMatchObject({ code: "BAD_REQUEST" })
+    await expect(client.command("session.login")).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+    })
     expect(h.sent[0]).not.toHaveProperty("csrf")
 
-    await expect(client.command("session.retry")).resolves.toEqual({ done: true })
+    await expect(client.command("session.retry")).resolves.toEqual({
+      done: true,
+    })
     expect(h.sent[1].csrf).toBe("tok-late")
   })
 
@@ -555,10 +688,14 @@ describe("ScopedClient.command", () => {
   // twice just as hard, and re-sending the command is a second audit-logged
   // attempt at something the caller is not allowed to do.
   it("does not retry a 403 that denies permission rather than the token", async () => {
-    const h = harness({ contract: [{ status: 403, body: rejection("PERMISSION_DENIED") }] })
+    const h = harness({
+      contract: [{ status: 403, body: rejection("PERMISSION_DENIED") }],
+    })
     const client = createScopedClient(BASE, "billing", h.fetchImpl)
 
-    await expect(client.command("session.login")).rejects.toBeInstanceOf(ContractError)
+    await expect(client.command("session.login")).rejects.toBeInstanceOf(
+      ContractError
+    )
     expect(h.sent).toHaveLength(1)
     expect(h.csrfURLs).toHaveLength(1)
   })
@@ -580,9 +717,14 @@ describe("createScopedClient meta reporting", () => {
         ok: true,
         data: { users: [] },
         meta: { cacheControl: { staleTime: "30s" } },
-      }),
+      })
     )
-    const client = createScopedClient("/dashboard/contract", "auth", fetchImpl, onMeta)
+    const client = createScopedClient(
+      "/dashboard/contract",
+      "auth",
+      fetchImpl,
+      onMeta
+    )
 
     await client.query("users.list")
 
@@ -605,9 +747,14 @@ describe("createScopedClient meta reporting", () => {
           ok: true,
           data: { ok: true },
           meta: { invalidates: ["users.list", "users.detail"] },
-        }),
+        })
       )
-    const client = createScopedClient("/dashboard/contract", "auth", fetchImpl, onMeta)
+    const client = createScopedClient(
+      "/dashboard/contract",
+      "auth",
+      fetchImpl,
+      onMeta
+    )
 
     await client.command("users.ban", { id: "u1" })
 
@@ -622,7 +769,9 @@ describe("createScopedClient meta reporting", () => {
   it("still resolves with data and no listener attached", async () => {
     const fetchImpl = vi
       .fn()
-      .mockResolvedValue(okResponse({ ok: true, data: { users: [] }, meta: {} }))
+      .mockResolvedValue(
+        okResponse({ ok: true, data: { users: [] }, meta: {} })
+      )
     const client = createScopedClient("/dashboard/contract", "auth", fetchImpl)
     await expect(client.query("users.list")).resolves.toEqual({ users: [] })
   })
@@ -632,9 +781,17 @@ describe("createScopedClient meta reporting", () => {
     const fetchImpl = vi.fn().mockResolvedValue({
       ok: false,
       status: 403,
-      json: () => Promise.resolve({ error: { code: "PERMISSION_DENIED", message: "no" } }),
+      json: () =>
+        Promise.resolve({
+          error: { code: "PERMISSION_DENIED", message: "no" },
+        }),
     } as unknown as Response)
-    const client = createScopedClient("/dashboard/contract", "auth", fetchImpl, onMeta)
+    const client = createScopedClient(
+      "/dashboard/contract",
+      "auth",
+      fetchImpl,
+      onMeta
+    )
 
     await expect(client.query("users.list")).rejects.toThrow()
     expect(onMeta).not.toHaveBeenCalled()
@@ -642,8 +799,15 @@ describe("createScopedClient meta reporting", () => {
 
   it("survives a response that carries no meta at all", async () => {
     const onMeta = vi.fn()
-    const fetchImpl = vi.fn().mockResolvedValue(okResponse({ ok: true, data: { users: [] } }))
-    const client = createScopedClient("/dashboard/contract", "auth", fetchImpl, onMeta)
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValue(okResponse({ ok: true, data: { users: [] } }))
+    const client = createScopedClient(
+      "/dashboard/contract",
+      "auth",
+      fetchImpl,
+      onMeta
+    )
 
     await expect(client.query("users.list")).resolves.toEqual({ users: [] })
     expect(onMeta).toHaveBeenCalledWith({
@@ -689,7 +853,7 @@ describe("onUnauthenticated", () => {
       "auth",
       rejecting(401, "UNAUTHENTICATED"),
       undefined,
-      notified,
+      notified
     )
     await expect(client.query("users.list")).rejects.toThrow()
     // A query carries no CSRF token, so there is nothing stale to blame and
@@ -704,7 +868,7 @@ describe("onUnauthenticated", () => {
       "auth",
       rejecting(403, "UNAUTHENTICATED"),
       undefined,
-      notified,
+      notified
     )
     await expect(client.command("users.ban", { id: "u1" })).rejects.toThrow()
     // Both attempts were rejected, so this is a real identity failure and not
@@ -720,7 +884,10 @@ describe("onUnauthenticated", () => {
         return {
           ok: true,
           status: 200,
-          json: async () => ({ token: "fresh", expiresAt: "2999-01-01T00:00:00Z" }),
+          json: async () => ({
+            token: "fresh",
+            expiresAt: "2999-01-01T00:00:00Z",
+          }),
         } as Response
       }
       commandAttempts += 1
@@ -728,14 +895,28 @@ describe("onUnauthenticated", () => {
         return {
           ok: false,
           status: 403,
-          json: async () => ({ error: { code: "UNAUTHENTICATED", message: "stale csrf" } }),
+          json: async () => ({
+            error: { code: "UNAUTHENTICATED", message: "stale csrf" },
+          }),
         } as Response
       }
-      return { ok: true, status: 200, json: async () => ({ ok: true, data: { ok: true } }) } as Response
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ ok: true, data: { ok: true } }),
+      } as Response
     }) as unknown as typeof fetch
 
-    const client = createScopedClient("/c", "auth", fetchImpl, undefined, notified)
-    await expect(client.command("users.ban", { id: "u1" })).resolves.toEqual({ ok: true })
+    const client = createScopedClient(
+      "/c",
+      "auth",
+      fetchImpl,
+      undefined,
+      notified
+    )
+    await expect(client.command("users.ban", { id: "u1" })).resolves.toEqual({
+      ok: true,
+    })
     // This is the whole point of the retry-exhaustion rule. Firing here would
     // sign the user out every time a cached CSRF token aged past its window,
     // in the middle of whatever they were saving.
@@ -750,14 +931,18 @@ describe("onUnauthenticated", () => {
       "auth",
       rejecting(404, "NOT_FOUND"),
       undefined,
-      notified,
+      notified
     )
     await expect(client.query("users.list")).rejects.toThrow()
     expect(notified).not.toHaveBeenCalled()
   })
 
   it("works with no callback supplied", async () => {
-    const client = createScopedClient("/c", "auth", rejecting(401, "UNAUTHENTICATED"))
+    const client = createScopedClient(
+      "/c",
+      "auth",
+      rejecting(401, "UNAUTHENTICATED")
+    )
     await expect(client.query("users.list")).rejects.toThrow()
   })
 })

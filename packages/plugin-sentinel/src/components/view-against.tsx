@@ -43,7 +43,9 @@ export function ViewAgainst({
   const id = useId()
   const baselines = useQuery<BaselinesList>("baselines.list", { suiteId })
   const [baselineId, setBaselineId] = useState(choice?.baselineId ?? "")
-  const [threshold, setThreshold] = useState(choice?.threshold === undefined ? "" : String(choice.threshold))
+  const [threshold, setThreshold] = useState(
+    choice?.threshold === undefined ? "" : String(choice.threshold)
+  )
   const [problem, setProblem] = useState<string | null>(null)
   const message = problem ?? error
 
@@ -51,10 +53,17 @@ export function ViewAgainst({
     event.preventDefault()
     const t = threshold.trim()
     const value = t === "" ? undefined : Number(t)
-    if (value !== undefined && (!Number.isFinite(value) || value < 0 || value > 1)) return setProblem(THRESHOLD_RANGE)
+    if (
+      value !== undefined &&
+      (!Number.isFinite(value) || value < 0 || value > 1)
+    )
+      return setProblem(THRESHOLD_RANGE)
     setProblem(null)
     if (baselineId === "" && value === undefined) return onChange(null)
-    onChange({ ...(baselineId !== "" && { baselineId }), ...(value !== undefined && { threshold: value }) })
+    onChange({
+      ...(baselineId !== "" && { baselineId }),
+      ...(value !== undefined && { threshold: value }),
+    })
   }
 
   function reset() {
@@ -65,12 +74,23 @@ export function ViewAgainst({
   }
 
   return (
-    <form onSubmit={apply} noValidate aria-label="View against" className="flex flex-col gap-2">
+    <form
+      onSubmit={apply}
+      noValidate
+      aria-label="View against"
+      className="flex flex-col gap-2"
+    >
       <div className="flex flex-wrap items-end gap-3">
         <div className="flex flex-col gap-1">
           <Label htmlFor={`${id}-baseline`}>Baseline</Label>
-          <NativeSelect id={`${id}-baseline`} value={baselineId} onChange={(e) => setBaselineId(e.target.value)}>
-            <NativeSelectOption value="">The current baseline</NativeSelectOption>
+          <NativeSelect
+            id={`${id}-baseline`}
+            value={baselineId}
+            onChange={(e) => setBaselineId(e.target.value)}
+          >
+            <NativeSelectOption value="">
+              The current baseline
+            </NativeSelectOption>
             {(baselines.data?.items ?? []).map((b) => (
               <NativeSelectOption key={b.id} value={b.id}>
                 {b.isCurrent ? `${b.name} (current)` : b.name}
@@ -85,7 +105,11 @@ export function ViewAgainst({
             inputMode="decimal"
             autoComplete="off"
             className="w-28"
-            placeholder={recordedThreshold === undefined ? "" : formatThreshold(recordedThreshold)}
+            placeholder={
+              recordedThreshold === undefined
+                ? ""
+                : formatThreshold(recordedThreshold)
+            }
             value={threshold}
             aria-invalid={message ? true : undefined}
             aria-describedby={message ? `${id}-error` : `${id}-about`}
@@ -96,7 +120,12 @@ export function ViewAgainst({
           Compare
         </Button>
         {choice && (
-          <IconButton type="button" variant="ghost" onClick={reset} label="Back to the run's own answer" />
+          <IconButton
+            type="button"
+            variant="ghost"
+            onClick={reset}
+            label="Back to the run's own answer"
+          />
         )}
       </div>
       {message ? (
@@ -105,7 +134,8 @@ export function ViewAgainst({
         </p>
       ) : (
         <p id={`${id}-about`} className="text-sm text-muted-foreground">
-          For this view only. The run keeps its recorded threshold and the suite its current baseline.
+          For this view only. The run keeps its recorded threshold and the suite
+          its current baseline.
         </p>
       )}
     </form>

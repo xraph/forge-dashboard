@@ -44,7 +44,7 @@ describe("AuthFeaturesPage", () => {
     renderPage(AuthFeaturesPage, client)
 
     await waitFor(() =>
-      expect(screen.getByRole("switch", { name: "Passwordless" })).toBeTruthy(),
+      expect(screen.getByRole("switch", { name: "Passwordless" })).toBeTruthy()
     )
 
     // The unavailable row is present - never hidden - and its reason is on
@@ -53,10 +53,12 @@ describe("AuthFeaturesPage", () => {
     expect(mfaSwitch.getAttribute("aria-disabled")).toBe("true")
     expect(mfaSwitch.getAttribute("aria-checked")).toBe("false")
     expect(
-      screen.getByText(/Requires the mfa plugin, which is not installed\./),
+      screen.getByText(/Requires the mfa plugin, which is not installed\./)
     ).toBeTruthy()
 
-    const passwordlessSwitch = screen.getByRole("switch", { name: "Passwordless" })
+    const passwordlessSwitch = screen.getByRole("switch", {
+      name: "Passwordless",
+    })
     expect(passwordlessSwitch.getAttribute("aria-disabled")).toBeNull()
     expect(passwordlessSwitch.getAttribute("aria-checked")).toBe("true")
   })
@@ -67,7 +69,7 @@ describe("AuthFeaturesPage", () => {
     })
     renderPage(AuthFeaturesPage, client)
     await waitFor(() =>
-      expect(screen.getByRole("switch", { name: "Passwordless" })).toBeTruthy(),
+      expect(screen.getByRole("switch", { name: "Passwordless" })).toBeTruthy()
     )
 
     fireEvent.click(screen.getByRole("switch", { name: "Passwordless" }))
@@ -81,14 +83,19 @@ describe("AuthFeaturesPage", () => {
 
   it("leaves the switch showing the server's value when the toggle fails", async () => {
     const { client } = recordingCommandClient(toggles, {
-      "auth.toggleFeature": new ContractError("INTERNAL", "could not reach the auth service"),
+      "auth.toggleFeature": new ContractError(
+        "INTERNAL",
+        "could not reach the auth service"
+      ),
     })
     renderPage(AuthFeaturesPage, client)
     await waitFor(() =>
-      expect(screen.getByRole("switch", { name: "Passwordless" })).toBeTruthy(),
+      expect(screen.getByRole("switch", { name: "Passwordless" })).toBeTruthy()
     )
 
-    const passwordlessSwitch = screen.getByRole("switch", { name: "Passwordless" })
+    const passwordlessSwitch = screen.getByRole("switch", {
+      name: "Passwordless",
+    })
     expect(passwordlessSwitch.getAttribute("aria-checked")).toBe("true")
 
     fireEvent.click(passwordlessSwitch)
@@ -100,7 +107,9 @@ describe("AuthFeaturesPage", () => {
     // The switch is bound to the query's value, not to local state, so a
     // command that never invalidates leaves it exactly where it was.
     expect(
-      screen.getByRole("switch", { name: "Passwordless" }).getAttribute("aria-checked"),
+      screen
+        .getByRole("switch", { name: "Passwordless" })
+        .getAttribute("aria-checked")
     ).toBe("true")
   })
 })
@@ -113,7 +122,7 @@ describe("AuthPluginsPage", () => {
     const note = await screen.findByRole("status")
     expect(note.textContent).toContain("not the full list of installed plugins")
     expect(note.textContent).toContain(
-      "The contract has no intent that enumerates installed plugins",
+      "The contract has no intent that enumerates installed plugins"
     )
   })
 

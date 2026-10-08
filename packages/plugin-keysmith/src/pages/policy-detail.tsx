@@ -72,7 +72,9 @@ const keyColumns: Column<KeySummary>[] = [
  * body's hooks run, and the body is keyed by the id, so moving to another
  * policy starts with no dialog open and no earlier policy's refusal on screen.
  */
-export const PolicyDetailPage: ComponentType<PluginPageProps> = ({ params }) => {
+export const PolicyDetailPage: ComponentType<PluginPageProps> = ({
+  params,
+}) => {
   const id = params.id
   if (!id) {
     return (
@@ -97,7 +99,7 @@ function PolicyDetailBody({ id }: { id: string }) {
     "keys.list",
     { policyId: id, limit: PAGE_SIZE, offset: (page - 1) * PAGE_SIZE },
     id,
-    page,
+    page
   )
   // Keys revoked or moved elsewhere can leave the page past the end. Step back
   // to the last page that exists, as the keys list does. From the page's own
@@ -187,7 +189,7 @@ function PolicyDetailBody({ id }: { id: string }) {
  */
 function useLatestDetail(
   data: PolicyDetailResponse | undefined,
-  id: string,
+  id: string
 ): PolicyDetailResponse | undefined {
   const [latest, setLatest] = useState(data)
   if (data !== undefined && data !== latest) setLatest(data)
@@ -196,7 +198,7 @@ function useLatestDetail(
 }
 
 function isNoSuchPolicy(
-  error: { code: string; message: string } | undefined | null,
+  error: { code: string; message: string } | undefined | null
 ): boolean {
   if (!error) return false
   if (error.code === "NOT_FOUND") return /policy not found/i.test(error.message)
@@ -206,13 +208,7 @@ function isNoSuchPolicy(
   return false
 }
 
-function Section({
-  title,
-  children,
-}: {
-  title: string
-  children: ReactNode
-}) {
+function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="flex flex-col gap-2">
       <h2 className="text-sm font-medium">{title}</h2>
@@ -252,7 +248,12 @@ function PolicyDetailView({
           actions={
             <>
               <IconButton variant="outline" onClick={onEdit} label="Edit" />
-              <IconButton variant="destructive" disabled={blocked} onClick={onDelete} label="Delete" />
+              <IconButton
+                variant="destructive"
+                disabled={blocked}
+                onClick={onDelete}
+                label="Delete"
+              />
             </>
           }
         />
@@ -320,7 +321,12 @@ function PolicyDetailView({
 
       <Section title="Keys using this policy">
         <Line>{keysLine(data.keysUsing, data.keysBlockingDelete)}</Line>
-        <QueryBoundary title="Keys" query={keys} skeletonRows={3} keepPreviousData>
+        <QueryBoundary
+          title="Keys"
+          query={keys}
+          skeletonRows={3}
+          keepPreviousData
+        >
           {(list) => (
             <ResourceTable<KeySummary>
               columns={keyColumns}
@@ -354,7 +360,7 @@ function keysmithItems(p: PolicyDetail): DescriptionItem[] {
       term: "Max key lifetime",
       value: durationOr(
         p.maxKeyLifetimeSeconds,
-        <NoneCell label="maximum lifetime" />,
+        <NoneCell label="maximum lifetime" />
       ),
     },
     {
@@ -362,7 +368,7 @@ function keysmithItems(p: PolicyDetail): DescriptionItem[] {
       // No grace set is not "none": rotation then uses 24 hours.
       value: durationOr(
         p.graceSeconds,
-        <span className="text-muted-foreground">24 hours (default)</span>,
+        <span className="text-muted-foreground">24 hours (default)</span>
       ),
     },
     {
@@ -385,7 +391,7 @@ function storedItems(p: PolicyDetail): DescriptionItem[] {
       term: "Rotation period",
       value: durationOr(
         p.rotationPeriodSeconds,
-        <NoneCell label="rotation period" />,
+        <NoneCell label="rotation period" />
       ),
     },
     { term: "Daily quota", value: countOr(p.dailyQuota, "daily quota") },

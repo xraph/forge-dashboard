@@ -39,7 +39,12 @@ export function StreamingPresencePage() {
   const setPresence = useCommand<CommandResult>("presence.set")
 
   const columns: Column<PresenceInfo>[] = [
-    { id: "userID", header: "User", cell: (p) => p.userID, className: "font-mono text-xs" },
+    {
+      id: "userID",
+      header: "User",
+      cell: (p) => p.userID,
+      className: "font-mono text-xs",
+    },
     {
       id: "status",
       header: "Status",
@@ -56,7 +61,10 @@ export function StreamingPresencePage() {
           value={p.status}
           disabled={setPresence.loading}
           onChange={(event) =>
-            void setPresence.execute({ userID: p.userID, status: event.target.value })
+            void setPresence.execute({
+              userID: p.userID,
+              status: event.target.value,
+            })
           }
         >
           {/*
@@ -64,13 +72,14 @@ export function StreamingPresencePage() {
             hold. Render it anyway, or the select would silently show a
             different status from the one the user actually has.
           */}
-          {(STATUSES.includes(p.status) ? STATUSES : [p.status, ...STATUSES]).map(
-            (status) => (
-              <NativeSelectOption key={status} value={status}>
-                {status}
-              </NativeSelectOption>
-            ),
-          )}
+          {(STATUSES.includes(p.status)
+            ? STATUSES
+            : [p.status, ...STATUSES]
+          ).map((status) => (
+            <NativeSelectOption key={status} value={status}>
+              {status}
+            </NativeSelectOption>
+          ))}
         </NativeSelect>
       ),
     },
@@ -79,8 +88,17 @@ export function StreamingPresencePage() {
       header: "Custom",
       cell: (p) => p.customStatus || <NoneCell label="custom status" />,
     },
-    { id: "rooms", header: "Rooms", cell: (p) => (p.rooms ?? []).length, align: "end" },
-    { id: "lastSeen", header: "Last seen", cell: (p) => formatTimestamp(p.lastSeen) },
+    {
+      id: "rooms",
+      header: "Rooms",
+      cell: (p) => (p.rooms ?? []).length,
+      align: "end",
+    },
+    {
+      id: "lastSeen",
+      header: "Last seen",
+      cell: (p) => formatTimestamp(p.lastSeen),
+    },
   ]
 
   return (
@@ -89,7 +107,10 @@ export function StreamingPresencePage() {
         title="Presence"
         description="Who is online, and an override for when the client gets it wrong."
       />
-      <CommandAlert error={setPresence.error} title="Could not set the status" />
+      <CommandAlert
+        error={setPresence.error}
+        title="Could not set the status"
+      />
       <QueryBoundary title="Presence" query={query} skeletonRows={4}>
         {(data) => {
           const presence = data.presence ?? []

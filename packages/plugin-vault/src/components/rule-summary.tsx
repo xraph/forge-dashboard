@@ -61,8 +61,8 @@ export function RuleSummary({ rule }: { rule: FlagRuleSummary }) {
       return (
         <span className="flex flex-col gap-0.5">
           <span>
-            Rollout to <span className="tabular-nums">{rule.percentage}%</span> of
-            tenants
+            Rollout to <span className="tabular-nums">{rule.percentage}%</span>{" "}
+            of tenants
           </span>
           <span className="text-xs text-muted-foreground">
             Tenants are bucketed by id, never by user.

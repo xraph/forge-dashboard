@@ -1,6 +1,12 @@
 import { lazy } from "react"
 import { definePlugin } from "@forge-go/dashboard-plugin"
-import { ArrowLeftRightIcon, DatabaseIcon, FingerprintIcon, HouseIcon, LayersIcon } from "@forge-go/dashboard-kit/icons"
+import {
+  ArrowLeftRightIcon,
+  DatabaseIcon,
+  FingerprintIcon,
+  HouseIcon,
+  LayersIcon,
+} from "@forge-go/dashboard-kit/icons"
 import { BucketsPage } from "./pages/buckets"
 import { CasPage } from "./pages/cas"
 import { MiddlewarePage } from "./pages/middleware"
@@ -33,11 +39,41 @@ export const trovePlugin = definePlugin({
   namespace: "trove",
   label: "Trove",
   nav: [
-    { label: "Overview", to: "/", priority: -10, icon: <HouseIcon />, group: "Storage" },
-    { label: "Buckets", to: "/buckets", priority: 0, icon: <DatabaseIcon />, group: "Storage" },
-    { label: "Middleware", to: "/middleware", priority: 10, icon: <LayersIcon />, group: "Storage" },
-    { label: "CAS", to: "/cas", priority: 20, icon: <FingerprintIcon />, group: "Storage" },
-    { label: "Transfers", to: "/transfers", priority: 30, icon: <ArrowLeftRightIcon />, group: "Storage" },
+    {
+      label: "Overview",
+      to: "/",
+      priority: -10,
+      icon: <HouseIcon />,
+      group: "Storage",
+    },
+    {
+      label: "Buckets",
+      to: "/buckets",
+      priority: 0,
+      icon: <DatabaseIcon />,
+      group: "Storage",
+    },
+    {
+      label: "Middleware",
+      to: "/middleware",
+      priority: 10,
+      icon: <LayersIcon />,
+      group: "Storage",
+    },
+    {
+      label: "CAS",
+      to: "/cas",
+      priority: 20,
+      icon: <FingerprintIcon />,
+      group: "Storage",
+    },
+    {
+      label: "Transfers",
+      to: "/transfers",
+      priority: 30,
+      icon: <ArrowLeftRightIcon />,
+      group: "Storage",
+    },
   ],
   routes: [
     { path: "/", element: OverviewPage },

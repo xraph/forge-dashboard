@@ -35,7 +35,8 @@ const INPUT_REQUIRED = "a case needs an input"
 const SUBSTRING_REQUIRED = "a not_contains scorer needs a non-empty substring"
 const CONTEXT_NOT_JSON = "The context is not valid JSON."
 const CONTEXT_NOT_OBJECT = "The context must be a JSON object."
-const CONTEXT_ATTACK_TYPE = "attack_type comes from red-team generation or an import, and is never saved from this form."
+const CONTEXT_ATTACK_TYPE =
+  "attack_type comes from red-team generation or an import, and is never saved from this form."
 
 type Problem = "name" | "input" | "scenario" | "scorers" | "context"
 
@@ -48,9 +49,19 @@ function fieldFor(message: string | undefined): Problem | null {
   // The fixture says "invalid payload: context ..."; Go's binder names the
   // field as "<input>.context of type ...". The form refuses both shapes
   // itself, so this is only a backstop.
-  if ([CONTEXT_NOT_JSON, CONTEXT_NOT_OBJECT, CONTEXT_ATTACK_TYPE].includes(message)) return "context"
-  if (/^invalid payload: (context\b|.*\.context of type)/.test(message)) return "context"
-  if (message.startsWith('scorer "') || message.startsWith("Scorer ") || message === SUBSTRING_REQUIRED) {
+  if (
+    [CONTEXT_NOT_JSON, CONTEXT_NOT_OBJECT, CONTEXT_ATTACK_TYPE].includes(
+      message
+    )
+  )
+    return "context"
+  if (/^invalid payload: (context\b|.*\.context of type)/.test(message))
+    return "context"
+  if (
+    message.startsWith('scorer "') ||
+    message.startsWith("Scorer ") ||
+    message === SUBSTRING_REQUIRED
+  ) {
     return "scorers"
   }
   return null
@@ -77,13 +88,19 @@ function rowsFrom(testCase: TestCase | undefined): ScorerRow[] {
   return (testCase?.scorers ?? []).map((sc) => ({
     key: nextKey(),
     name: sc.name,
-    configText: Object.keys(sc.config).length === 0 ? "" : JSON.stringify(sc.config, null, 2),
+    configText:
+      Object.keys(sc.config).length === 0
+        ? ""
+        : JSON.stringify(sc.config, null, 2),
     redacted: sc.redacted,
   }))
 }
 
 /** A scorer row's config, or the reason it cannot be sent. */
-function parseConfig(text: string, position: number): { config: Record<string, unknown> } | { problem: string } {
+function parseConfig(
+  text: string,
+  position: number
+): { config: Record<string, unknown> } | { problem: string } {
   if (text.trim() === "") return { config: {} }
   let value: unknown
   try {
@@ -102,12 +119,16 @@ function parseConfig(text: string, position: number): { config: Record<string, u
  * no write can change (the server keeps the stored one), or empty for none.
  */
 function contextText(testCase: TestCase | undefined): string {
-  const rest = Object.fromEntries(Object.entries(testCase?.context ?? {}).filter(([k]) => k !== "attack_type"))
+  const rest = Object.fromEntries(
+    Object.entries(testCase?.context ?? {}).filter(([k]) => k !== "attack_type")
+  )
   return Object.keys(rest).length === 0 ? "" : JSON.stringify(rest, null, 2)
 }
 
 /** The context field as an object, or the reason it cannot be sent. */
-function parseContext(text: string): { context: Record<string, unknown> } | { problem: string } {
+function parseContext(
+  text: string
+): { context: Record<string, unknown> } | { problem: string } {
   if (text.trim() === "") return { context: {} }
   let value: unknown
   try {
@@ -115,10 +136,12 @@ function parseContext(text: string): { context: Record<string, unknown> } | { pr
   } catch {
     return { problem: CONTEXT_NOT_JSON }
   }
-  if (value === null || typeof value !== "object" || Array.isArray(value)) return { problem: CONTEXT_NOT_OBJECT }
+  if (value === null || typeof value !== "object" || Array.isArray(value))
+    return { problem: CONTEXT_NOT_OBJECT }
   // The server drops it whatever is sent, so say so instead of saving
   // something that looks accepted.
-  if (Object.hasOwn(value, "attack_type")) return { problem: CONTEXT_ATTACK_TYPE }
+  if (Object.hasOwn(value, "attack_type"))
+    return { problem: CONTEXT_ATTACK_TYPE }
   return { context: value as Record<string, unknown> }
 }
 
@@ -151,8 +174,15 @@ export interface CaseFormDialogProps {
  * rule), so an operator can edit everything else about the case without ever
  * seeing the prompt it guards.
  */
-export function CaseFormDialog({ open, onOpenChange, suiteId, testCase }: CaseFormDialogProps) {
-  const command = useCommand<TestCase>(testCase ? "cases.update" : "cases.create")
+export function CaseFormDialog({
+  open,
+  onOpenChange,
+  suiteId,
+  testCase,
+}: CaseFormDialogProps) {
+  const command = useCommand<TestCase>(
+    testCase ? "cases.update" : "cases.create"
+  )
   const { reset } = command
   useEffect(() => {
     if (open) reset()
@@ -170,7 +200,10 @@ export function CaseFormDialog({ open, onOpenChange, suiteId, testCase }: CaseFo
       }}
       disablePointerDismissal={locked}
     >
-      <DialogContent showCloseButton={!locked} className="max-h-[calc(100vh-2rem)] overflow-y-auto sm:max-w-2xl">
+      <DialogContent
+        showCloseButton={!locked}
+        className="max-h-[calc(100vh-2rem)] overflow-y-auto sm:max-w-2xl"
+      >
         <CaseForm
           command={command}
           suiteId={suiteId}
@@ -210,7 +243,10 @@ function CaseForm({
   // holds (a mongo nested value need not survive a JSON round trip) stays.
   const [initialContext] = useState(() => contextText(testCase))
   const [contextField, setContextField] = useState(initialContext)
-  const attackType = typeof testCase?.context.attack_type === "string" ? testCase.context.attack_type : undefined
+  const attackType =
+    typeof testCase?.context.attack_type === "string"
+      ? testCase.context.attack_type
+      : undefined
   const [problem, setProblem] = useState<string | null>(null)
   const sending = useRef(false)
 
@@ -218,10 +254,14 @@ function CaseForm({
   const message = problem ?? command.error?.message
   const invalid = fieldFor(message)
   const invalidProps = (field: Problem) =>
-    invalid === field ? { "aria-invalid": true as const, "aria-describedby": id("error") } : {}
+    invalid === field
+      ? { "aria-invalid": true as const, "aria-describedby": id("error") }
+      : {}
 
   function updateRow(key: number, patch: Partial<ScorerRow>) {
-    setScorers((rows) => rows.map((r) => (r.key === key ? { ...r, ...patch } : r)))
+    setScorers((rows) =>
+      rows.map((r) => (r.key === key ? { ...r, ...patch } : r))
+    )
   }
 
   async function submit(event: FormEvent) {
@@ -270,7 +310,9 @@ function CaseForm({
   return (
     <form onSubmit={(e) => void submit(e)} className="contents" noValidate>
       <DialogHeader>
-        <DialogTitle>{testCase ? `Edit ${testCase.name}` : "Add case"}</DialogTitle>
+        <DialogTitle>
+          {testCase ? `Edit ${testCase.name}` : "Add case"}
+        </DialogTitle>
       </DialogHeader>
       <FieldGroup>
         <Field>
@@ -292,7 +334,9 @@ function CaseForm({
             {...invalidProps("input")}
             onChange={(e) => setInput(e.target.value)}
           />
-          <FieldDescription>Sent to the target exactly as written.</FieldDescription>
+          <FieldDescription>
+            Sent to the target exactly as written.
+          </FieldDescription>
         </Field>
         <Field>
           <Label htmlFor={id("expected")}>Expected output</Label>
@@ -303,7 +347,8 @@ function CaseForm({
             onChange={(e) => setExpected(e.target.value)}
           />
           <FieldDescription>
-            What exact and contains compare against when they have no config of their own.
+            What exact and contains compare against when they have no config of
+            their own.
           </FieldDescription>
         </Field>
         <Field>
@@ -347,13 +392,17 @@ function CaseForm({
             onChange={(e) => setContextField(e.target.value)}
           />
           <FieldDescription>
-            A JSON object every scorer gets with the case. A run sets latency_ms and cost itself.
+            A JSON object every scorer gets with the case. A run sets latency_ms
+            and cost itself.
           </FieldDescription>
           {attackType !== undefined && (
             <FieldDescription>{`The attack type, ${attackType}, is kept. No edit can change it.`}</FieldDescription>
           )}
         </Field>
-        <fieldset className="flex flex-col gap-3" aria-describedby={invalid === "scorers" ? id("error") : undefined}>
+        <fieldset
+          className="flex flex-col gap-3"
+          aria-describedby={invalid === "scorers" ? id("error") : undefined}
+        >
           <legend className="text-sm font-medium">Scorers</legend>
           <p className="text-xs text-muted-foreground">
             Each case's own scorers, with their settings. They run after the
@@ -361,15 +410,25 @@ function CaseForm({
             error.
           </p>
           {scorers.length === 0 && (
-            <p className="text-sm text-muted-foreground">No scorers of its own.</p>
+            <p className="text-sm text-muted-foreground">
+              No scorers of its own.
+            </p>
           )}
           {scorers.map((row, i) => {
-            const options = registered.includes(row.name) || row.name === "" ? registered : [...registered, row.name]
+            const options =
+              registered.includes(row.name) || row.name === ""
+                ? registered
+                : [...registered, row.name]
             return (
-              <div key={row.key} className="flex flex-col gap-2 rounded-md border p-3">
+              <div
+                key={row.key}
+                className="flex flex-col gap-2 rounded-md border p-3"
+              >
                 <div className="flex items-end gap-2">
                   <Field className="flex-1">
-                    <Label htmlFor={id(`scorer-${row.key}`)}>{`Scorer ${i + 1}`}</Label>
+                    <Label
+                      htmlFor={id(`scorer-${row.key}`)}
+                    >{`Scorer ${i + 1}`}</Label>
                     <NativeSelect
                       id={id(`scorer-${row.key}`)}
                       className="w-full font-mono"
@@ -378,7 +437,9 @@ function CaseForm({
                       // position among the same scorer's rows, so a hidden
                       // check keeps its name and its place.
                       disabled={row.redacted !== undefined}
-                      onChange={(e) => updateRow(row.key, { name: e.target.value })}
+                      onChange={(e) =>
+                        updateRow(row.key, { name: e.target.value })
+                      }
                     >
                       {options.map((n) => (
                         <NativeSelectOption key={n} value={n}>
@@ -387,10 +448,22 @@ function CaseForm({
                       ))}
                     </NativeSelect>
                   </Field>
-                  <IconButton type="button" variant="outline" disabled={row.redacted !== undefined} onClick={() => setScorers((rows) => rows.filter((r) => r.key !== row.key))} label={`Remove scorer ${i + 1}`} />
+                  <IconButton
+                    type="button"
+                    variant="outline"
+                    disabled={row.redacted !== undefined}
+                    onClick={() =>
+                      setScorers((rows) =>
+                        rows.filter((r) => r.key !== row.key)
+                      )
+                    }
+                    label={`Remove scorer ${i + 1}`}
+                  />
                 </div>
                 <Field>
-                  <Label htmlFor={id(`config-${row.key}`)}>{`Scorer ${i + 1} config`}</Label>
+                  <Label
+                    htmlFor={id(`config-${row.key}`)}
+                  >{`Scorer ${i + 1} config`}</Label>
                   <Textarea
                     id={id(`config-${row.key}`)}
                     rows={2}
@@ -398,7 +471,9 @@ function CaseForm({
                     className="font-mono text-xs"
                     value={row.configText}
                     placeholder="{}"
-                    onChange={(e) => updateRow(row.key, { configText: e.target.value })}
+                    onChange={(e) =>
+                      updateRow(row.key, { configText: e.target.value })
+                    }
                   />
                   {row.redacted && (
                     <FieldDescription>
@@ -409,11 +484,23 @@ function CaseForm({
               </div>
             )
           })}
-          <IconButton type="button" variant="outline" className="self-start" disabled={registered.length === 0} onClick={() =>
-              setScorers((rows) => [...rows, { key: nextKey(), name: registered[0] ?? "", configText: "" }])
-            } label="Add scorer" />
+          <IconButton
+            type="button"
+            variant="outline"
+            className="self-start"
+            disabled={registered.length === 0}
+            onClick={() =>
+              setScorers((rows) => [
+                ...rows,
+                { key: nextKey(), name: registered[0] ?? "", configText: "" },
+              ])
+            }
+            label="Add scorer"
+          />
           {config.error && (
-            <p className="text-xs text-muted-foreground">The registered scorers could not be loaded right now.</p>
+            <p className="text-xs text-muted-foreground">
+              The registered scorers could not be loaded right now.
+            </p>
           )}
         </fieldset>
       </FieldGroup>
@@ -423,7 +510,10 @@ function CaseForm({
         </p>
       )}
       <DialogFooter>
-        <DialogClose render={<Button type="button" variant="outline" />} disabled={command.loading}>
+        <DialogClose
+          render={<Button type="button" variant="outline" />}
+          disabled={command.loading}
+        >
           Cancel
         </DialogClose>
         <Button type="submit" disabled={command.loading}>

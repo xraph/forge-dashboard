@@ -51,7 +51,9 @@ export function PasswordPolicyPage({ params }: PluginPageProps) {
               {
                 term: "Require special character",
                 value: (
-                  <Badge variant={policy.requireSpecial ? "outline" : "secondary"}>
+                  <Badge
+                    variant={policy.requireSpecial ? "outline" : "secondary"}
+                  >
                     {policy.requireSpecial ? "Required" : "Optional"}
                   </Badge>
                 ),
@@ -86,7 +88,9 @@ export const passwordSubPlugin = defineSubPlugin({
   extension: "password",
   host: "authsome",
   label: "Password",
-  nav: [{ label: "Password", to: "/auth/password", group: "Auth", priority: 0 }],
+  nav: [
+    { label: "Password", to: "/auth/password", group: "Auth", priority: 0 },
+  ],
   routes: [{ path: "/auth/password", element: PasswordPolicyPage }],
   // Its own policy read needs nothing from the host. The panel below it does.
   hostIntents: [...SETTINGS_INTENTS],

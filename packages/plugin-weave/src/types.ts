@@ -92,9 +92,17 @@ export interface Chunk {
  * "" IDs, zero offsets and Go's zero time, and an unidentified one can have
  * null metadata.
  */
-export type HitChunk = Omit<Chunk, "metadata"> & { metadata: Record<string, string> | null }
+export type HitChunk = Omit<Chunk, "metadata"> & {
+  metadata: Record<string, string> | null
+}
 
-export type ScoreKind = "cosine" | "vector_similarity" | "mmr_relevance" | "rrf" | "rerank" | "unknown"
+export type ScoreKind =
+  | "cosine"
+  | "vector_similarity"
+  | "mmr_relevance"
+  | "rrf"
+  | "rerank"
+  | "unknown"
 
 export interface ComponentInfo {
   kind: string

@@ -8,7 +8,10 @@ import { Label } from "@forge-go/dashboard-kit/components/label"
 import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
-import { ResourceTable, type Column } from "@forge-go/dashboard-kit/components/resource-table"
+import {
+  ResourceTable,
+  type Column,
+} from "@forge-go/dashboard-kit/components/resource-table"
 import { DefaultMethodBadge } from "../badges"
 import type { PaymentMethod, PaymentMethods } from "../types"
 
@@ -17,23 +20,51 @@ const columns: Column<PaymentMethod>[] = [
     id: "brand",
     header: "Method",
     className: "font-medium",
-    cell: (m) => (m.brand ? `${m.brand.charAt(0).toUpperCase()}${m.brand.slice(1)}` : m.type.replace("_", " ")),
+    cell: (m) =>
+      m.brand
+        ? `${m.brand.charAt(0).toUpperCase()}${m.brand.slice(1)}`
+        : m.type.replace("_", " "),
   },
-  { id: "last4", header: "Last 4", className: "font-mono text-xs", cell: (m) => m.last4 },
+  {
+    id: "last4",
+    header: "Last 4",
+    className: "font-mono text-xs",
+    cell: (m) => m.last4,
+  },
   {
     id: "expiry",
     header: "Expires",
     className: "tabular-nums",
-    cell: (m) => (m.expiry_year > 0 ? `${String(m.expiry_month).padStart(2, "0")}/${m.expiry_year}` : <NoneCell label="expiry" />),
+    cell: (m) =>
+      m.expiry_year > 0 ? (
+        `${String(m.expiry_month).padStart(2, "0")}/${m.expiry_year}`
+      ) : (
+        <NoneCell label="expiry" />
+      ),
   },
-  { id: "default", header: "Default", cell: (m) => (m.is_default ? <DefaultMethodBadge /> : <NoneCell label="default" />) },
-  { id: "provider", header: "Provider ID", className: "font-mono text-xs", cell: (m) => m.provider_id },
+  {
+    id: "default",
+    header: "Default",
+    cell: (m) =>
+      m.is_default ? <DefaultMethodBadge /> : <NoneCell label="default" />,
+  },
+  {
+    id: "provider",
+    header: "Provider ID",
+    className: "font-mono text-xs",
+    cell: (m) => m.provider_id,
+  },
 ]
 
 function Methods({ tenant }: { tenant: string }) {
-  const methods = useQuery<PaymentMethods>("paymentMethods.list", { tenant_id: tenant })
+  const methods = useQuery<PaymentMethods>("paymentMethods.list", {
+    tenant_id: tenant,
+  })
 
-  if (methods.error?.code === "NOT_FOUND" && methods.error.message === "tenant not found") {
+  if (
+    methods.error?.code === "NOT_FOUND" &&
+    methods.error.message === "tenant not found"
+  ) {
     return (
       <EmptyState
         title={`${tenant} has no subscription in this app, so there are no payment methods to show.`}
@@ -46,7 +77,12 @@ function Methods({ tenant }: { tenant: string }) {
     <QueryBoundary title="Payment methods" query={methods} skeletonRows={3}>
       {(data) => {
         if (!data.configured) {
-          return <EmptyState title="No payment provider is configured." description="Register one with the ledger extension to see stored methods." />
+          return (
+            <EmptyState
+              title="No payment provider is configured."
+              description="Register one with the ledger extension to see stored methods."
+            />
+          )
         }
         const rows = data.methods ?? []
         return (
@@ -80,17 +116,29 @@ export function LedgerPaymentMethodsPage() {
 
   return (
     <section className="flex flex-col gap-4">
-      <PageHeader title="Payment methods" description="The cards and accounts a payment provider holds for a tenant." />
+      <PageHeader
+        title="Payment methods"
+        description="The cards and accounts a payment provider holds for a tenant."
+      />
       <form onSubmit={submit} className="flex items-end gap-2">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="pm-tenant">Tenant ID</Label>
-          <Input id="pm-tenant" className="w-64 font-mono" autoComplete="off" spellCheck={false} value={draft} onChange={(e) => setDraft(e.target.value)} />
+          <Input
+            id="pm-tenant"
+            className="w-64 font-mono"
+            autoComplete="off"
+            spellCheck={false}
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+          />
         </div>
         <Button type="submit" disabled={draft.trim() === ""}>
           Look up
         </Button>
       </form>
-      <div aria-live="polite">{tenant !== "" && <Methods key={tenant} tenant={tenant} />}</div>
+      <div aria-live="polite">
+        {tenant !== "" && <Methods key={tenant} tenant={tenant} />}
+      </div>
     </section>
   )
 }

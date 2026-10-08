@@ -1,8 +1,19 @@
 import { useEffect, useState } from "react"
 import type { ReactNode } from "react"
-import { CircleCheckIcon, CircleDashedIcon, TriangleAlertIcon } from "@forge-go/dashboard-kit/icons"
+import {
+  CircleCheckIcon,
+  CircleDashedIcon,
+  TriangleAlertIcon,
+} from "@forge-go/dashboard-kit/icons"
 import { cn } from "@forge-go/dashboard-kit/lib/utils"
-import { ago, fellPast, formatDelta, formatScore, formatThreshold, plural } from "../format"
+import {
+  ago,
+  fellPast,
+  formatDelta,
+  formatScore,
+  formatThreshold,
+  plural,
+} from "../format"
 import type { Regression, Run } from "../types"
 import { ProgressMeter } from "./progress-meter"
 
@@ -41,11 +52,26 @@ export function VerdictBand({
   const now = fixedNow ?? ticking
   if (run.state === "running") {
     return (
-      <Band tone="neutral" icon={<CircleDashedIcon aria-hidden className="size-5 text-muted-foreground" />}>
+      <Band
+        tone="neutral"
+        icon={
+          <CircleDashedIcon
+            aria-hidden
+            className="size-5 text-muted-foreground"
+          />
+        }
+      >
         <p className="text-base font-medium">{`${run.completedCases} of ${run.totalCases} cases scored`}</p>
-        <ProgressMeter done={run.completedCases} total={run.totalCases} label="Cases scored" className="max-w-md" />
+        <ProgressMeter
+          done={run.completedCases}
+          total={run.totalCases}
+          label="Cases scored"
+          className="max-w-md"
+        />
         <p className="text-sm text-muted-foreground">
-          {run.lastProgressAt ? `Last progress ${ago(run.lastProgressAt, now)}. ` : "No case scored yet. "}
+          {run.lastProgressAt
+            ? `Last progress ${ago(run.lastProgressAt, now)}. `
+            : "No case scored yet. "}
           There is no verdict until the run finishes.
         </p>
       </Band>
@@ -56,7 +82,10 @@ export function VerdictBand({
     const name = regression.baseline.name
     const was = regression.baseline.passRate
     const current = was + regression.passRateDelta
-    const threshold = regression.threshold === undefined ? "" : formatThreshold(regression.threshold)
+    const threshold =
+      regression.threshold === undefined
+        ? ""
+        : formatThreshold(regression.threshold)
     const source = SOURCE[regression.thresholdSource ?? ""] ?? ""
     // The server's rule: pass rate, average score, each dimension and each
     // case regress when they fall more than the threshold below the
@@ -68,31 +97,47 @@ export function VerdictBand({
       .sort(([a], [b]) => a.localeCompare(b))
     const evidence = [
       `Pass rate ${formatScore(was)} to ${formatScore(current)} (${formatDelta(regression.passRateDelta)})`,
-      fell(regression.avgScoreDelta) ? `Avg score ${formatDelta(regression.avgScoreDelta)}` : null,
+      fell(regression.avgScoreDelta)
+        ? `Avg score ${formatDelta(regression.avgScoreDelta)}`
+        : null,
       ...fallenDimensions.map(([dim, delta]) => `${dim} ${formatDelta(delta)}`),
       regression.regressedCases.length > 0
         ? `${plural(regression.regressedCases.length, "case", "cases")} regressed`
         : regressed
           ? null
           : "No case fell past the threshold",
-      regression.missingDimensions.length > 0 ? `${regression.missingDimensions.join(", ")} not measured` : null,
-      regression.missingCases.length > 0 ? `${plural(regression.missingCases.length, "case", "cases")} missing from this run` : null,
-      regression.newCases.length > 0 ? `${plural(regression.newCases.length, "new case", "new cases")}` : null,
+      regression.missingDimensions.length > 0
+        ? `${regression.missingDimensions.join(", ")} not measured`
+        : null,
+      regression.missingCases.length > 0
+        ? `${plural(regression.missingCases.length, "case", "cases")} missing from this run`
+        : null,
+      regression.newCases.length > 0
+        ? `${plural(regression.newCases.length, "new case", "new cases")}`
+        : null,
     ].filter((e): e is string => e !== null)
     return (
       <Band
         tone={regressed ? "regressed" : "neutral"}
         icon={
           regressed ? (
-            <TriangleAlertIcon aria-hidden className="size-5 text-destructive" />
+            <TriangleAlertIcon
+              aria-hidden
+              className="size-5 text-destructive"
+            />
           ) : (
-            <CircleCheckIcon aria-hidden className="size-5 text-muted-foreground" />
+            <CircleCheckIcon
+              aria-hidden
+              className="size-5 text-muted-foreground"
+            />
           )
         }
         action={action}
       >
         <p className="text-base font-medium">
-          {regressed ? `Regressed against "${name}"` : `Within threshold of "${name}"`}
+          {regressed
+            ? `Regressed against "${name}"`
+            : `Within threshold of "${name}"`}
           <span className="font-normal text-muted-foreground">
             {` (${baselineNote}), threshold ${threshold} ${source}`}
           </span>
@@ -103,7 +148,16 @@ export function VerdictBand({
   }
   if (regression.state === "noBaseline") {
     return (
-      <Band tone="neutral" icon={<CircleDashedIcon aria-hidden className="size-5 text-muted-foreground" />} action={action}>
+      <Band
+        tone="neutral"
+        icon={
+          <CircleDashedIcon
+            aria-hidden
+            className="size-5 text-muted-foreground"
+          />
+        }
+        action={action}
+      >
         <p className="text-base font-medium">No baseline to compare against</p>
         <p className="text-sm text-muted-foreground">
           {run.state === "completed"
@@ -114,9 +168,19 @@ export function VerdictBand({
     )
   }
   return (
-    <Band tone="neutral" icon={<CircleDashedIcon aria-hidden className="size-5 text-muted-foreground" />}>
+    <Band
+      tone="neutral"
+      icon={
+        <CircleDashedIcon
+          aria-hidden
+          className="size-5 text-muted-foreground"
+        />
+      }
+    >
       <p className="text-base font-medium">{notComparable(run, regression)}</p>
-      {run.error && <p className="text-sm text-muted-foreground">{run.error}</p>}
+      {run.error && (
+        <p className="text-sm text-muted-foreground">{run.error}</p>
+      )}
     </Band>
   )
 }
@@ -161,7 +225,9 @@ function Band({
       aria-label="Verdict"
       className={cn(
         "flex flex-wrap items-start gap-4 rounded-lg border border-l-4 px-5 py-4",
-        tone === "regressed" ? "border-destructive/40 border-l-destructive" : "border-l-foreground/30",
+        tone === "regressed"
+          ? "border-destructive/40 border-l-destructive"
+          : "border-l-foreground/30"
       )}
     >
       <span className="pt-0.5">{icon}</span>

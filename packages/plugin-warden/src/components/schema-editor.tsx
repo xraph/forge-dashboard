@@ -3,7 +3,11 @@ import { EditorState } from "@codemirror/state"
 import type { Text } from "@codemirror/state"
 import { EditorView, keymap, lineNumbers } from "@codemirror/view"
 import { defaultHighlightStyle, syntaxHighlighting } from "@codemirror/language"
-import { highlightSelectionMatches, search, searchKeymap } from "@codemirror/search"
+import {
+  highlightSelectionMatches,
+  search,
+  searchKeymap,
+} from "@codemirror/search"
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands"
 import { lintGutter, setDiagnostics } from "@codemirror/lint"
 import type { Diagnostic } from "@codemirror/lint"
@@ -52,14 +56,18 @@ export function diagnosticOffset(doc: Text, line: number, col: number): number {
 
 // What the marker covers from its position: the word, the string or the one
 // character there. Warden reports a position, not a span.
-const TOKEN = /^(?:[A-Za-z0-9_-]+|"(?:[^"\\]|\\.)*"?|[\uD800-\uDBFF][\uDC00-\uDFFF]|.)/
+const TOKEN =
+  /^(?:[A-Za-z0-9_-]+|"(?:[^"\\]|\\.)*"?|[\uD800-\uDBFF][\uDC00-\uDFFF]|.)/
 
 /**
  * The marker for each diagnostic. A position at the end of its line, where an
  * unexpected end of input is usually reported, marks the last character
  * instead, so the marker can be seen.
  */
-export function lintDiagnostics(doc: Text, diagnostics: SchemaDiagnostic[]): Diagnostic[] {
+export function lintDiagnostics(
+  doc: Text,
+  diagnostics: SchemaDiagnostic[]
+): Diagnostic[] {
   return diagnostics.map((d) => {
     const at = diagnosticOffset(doc, d.line, d.col)
     const line = doc.lineAt(at)
@@ -120,7 +128,12 @@ export interface SchemaEditorProps {
  * lint markers. Reached only through the lazy schema page, so none of it is
  * in the shell's entry chunk.
  */
-export default function SchemaEditor({ label, initial, onChange, diagnostics }: SchemaEditorProps) {
+export default function SchemaEditor({
+  label,
+  initial,
+  onChange,
+  diagnostics,
+}: SchemaEditorProps) {
   const host = useRef<HTMLDivElement>(null)
   const view = useRef<EditorView | null>(null)
 
@@ -136,7 +149,10 @@ export default function SchemaEditor({ label, initial, onChange, diagnostics }: 
   useEffect(() => {
     marks.current = diagnostics
     const v = view.current
-    if (v) v.dispatch(setDiagnostics(v.state, lintDiagnostics(v.state.doc, diagnostics)))
+    if (v)
+      v.dispatch(
+        setDiagnostics(v.state, lintDiagnostics(v.state.doc, diagnostics))
+      )
   }, [diagnostics])
 
   useEffect(() => {
@@ -154,7 +170,10 @@ export default function SchemaEditor({ label, initial, onChange, diagnostics }: 
           search({ top: true }),
           highlightSelectionMatches(),
           keymap.of([...defaultKeymap, ...historyKeymap, ...searchKeymap]),
-          EditorView.contentAttributes.of({ "aria-label": label, spellcheck: "false" }),
+          EditorView.contentAttributes.of({
+            "aria-label": label,
+            spellcheck: "false",
+          }),
           EditorView.updateListener.of((update) => {
             if (update.docChanged) latest.current(update.state.doc.toString())
           }),
@@ -164,7 +183,12 @@ export default function SchemaEditor({ label, initial, onChange, diagnostics }: 
     })
     view.current = created
     if (marks.current.length > 0) {
-      created.dispatch(setDiagnostics(created.state, lintDiagnostics(created.state.doc, marks.current)))
+      created.dispatch(
+        setDiagnostics(
+          created.state,
+          lintDiagnostics(created.state.doc, marks.current)
+        )
+      )
     }
     return () => {
       view.current = null
@@ -174,5 +198,7 @@ export default function SchemaEditor({ label, initial, onChange, diagnostics }: 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [label])
 
-  return <div ref={host} className="max-h-[70vh] overflow-auto rounded-md border" />
+  return (
+    <div ref={host} className="max-h-[70vh] overflow-auto rounded-md border" />
+  )
 }

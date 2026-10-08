@@ -1,5 +1,9 @@
 import { useState } from "react"
-import { queryStore, usePluginClient, useQuery } from "@forge-go/dashboard-plugin"
+import {
+  queryStore,
+  usePluginClient,
+  useQuery,
+} from "@forge-go/dashboard-plugin"
 import type { QueryState } from "@forge-go/dashboard-plugin"
 
 interface Held<T> {
@@ -46,7 +50,7 @@ export function useHeldPage<T>(
   intent: string,
   params: Record<string, unknown>,
   filters: string,
-  page: number,
+  page: number
 ): { shown: QueryState<T>; read: QueryState<T> } {
   const client = usePluginClient()
   const read = useQuery<T>(intent, params)

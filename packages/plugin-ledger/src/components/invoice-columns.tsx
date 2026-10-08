@@ -11,7 +11,11 @@ import { MoneyText } from "./money"
  * The columns every invoice table uses. The total is the column an operator
  * reads, so it carries the weight, right-aligned in tabular figures.
  */
-export function invoiceColumns({ withStatus }: { withStatus: boolean }): Column<Invoice>[] {
+export function invoiceColumns({
+  withStatus,
+}: {
+  withStatus: boolean
+}): Column<Invoice>[] {
   const columns: Column<Invoice>[] = [
     {
       id: "id",
@@ -19,13 +23,37 @@ export function invoiceColumns({ withStatus }: { withStatus: boolean }): Column<
       className: "font-mono text-xs",
       cell: (i) => <PluginLink to={invoicePath(i.id)}>{i.id}</PluginLink>,
     },
-    { id: "tenant", header: "Tenant", className: "font-mono text-xs", cell: (i) => i.tenant_id },
-    { id: "period", header: "Period", cell: (i) => formatPeriod(i.period_start, i.period_end) },
+    {
+      id: "tenant",
+      header: "Tenant",
+      className: "font-mono text-xs",
+      cell: (i) => i.tenant_id,
+    },
+    {
+      id: "period",
+      header: "Period",
+      cell: (i) => formatPeriod(i.period_start, i.period_end),
+    },
   ]
-  if (withStatus) columns.push({ id: "status", header: "Status", cell: (i) => <InvoiceStatusBadge status={i.status} /> })
+  if (withStatus)
+    columns.push({
+      id: "status",
+      header: "Status",
+      cell: (i) => <InvoiceStatusBadge status={i.status} />,
+    })
   columns.push(
-    { id: "due", header: "Due", cell: (i) => <Timestamp value={i.due_date} label="due date" /> },
-    { id: "total", header: "Total", align: "end", className: "font-medium", cell: (i) => <MoneyText value={i.total} /> },
+    {
+      id: "due",
+      header: "Due",
+      cell: (i) => <Timestamp value={i.due_date} label="due date" />,
+    },
+    {
+      id: "total",
+      header: "Total",
+      align: "end",
+      className: "font-medium",
+      cell: (i) => <MoneyText value={i.total} />,
+    }
   )
   return columns
 }

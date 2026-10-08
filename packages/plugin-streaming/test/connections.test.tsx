@@ -166,9 +166,13 @@ describe("kicking a connection", () => {
     "connections.list": {
       connections: [
         {
-          connID: "c1", userID: "ada", transport: "websocket",
-          joinedRooms: ["r1"], subscriptions: [],
-          lastActivity: "2026-09-08T10:00:00Z", status: "active",
+          connID: "c1",
+          userID: "ada",
+          transport: "websocket",
+          joinedRooms: ["r1"],
+          subscriptions: [],
+          lastActivity: "2026-09-08T10:00:00Z",
+          status: "active",
         },
       ],
     },
@@ -205,7 +209,9 @@ describe("kicking a connection", () => {
     await waitFor(() => expect(screen.getByText("ada")).toBeTruthy())
 
     fireEvent.click(screen.getByRole("button", { name: "Kick ada" }))
-    fireEvent.change(screen.getByLabelText("Reason"), { target: { value: "abuse" } })
+    fireEvent.change(screen.getByLabelText("Reason"), {
+      target: { value: "abuse" },
+    })
     fireEvent.click(screen.getByRole("button", { name: "Disconnect" }))
 
     await waitFor(() => expect(sent).toHaveLength(1))
@@ -230,12 +236,16 @@ describe("kicking a connection", () => {
     await waitFor(() => expect(screen.getByText("ada")).toBeTruthy())
 
     fireEvent.click(screen.getByRole("button", { name: "Kick ada" }))
-    const confirm = screen.getByRole("button", { name: "Disconnect" }) as HTMLButtonElement
+    const confirm = screen.getByRole("button", {
+      name: "Disconnect",
+    }) as HTMLButtonElement
     expect(confirm.disabled).toBe(true)
     fireEvent.click(confirm)
     expect(sent).toHaveLength(0)
 
-    fireEvent.change(screen.getByLabelText("Reason"), { target: { value: "abuse" } })
+    fireEvent.change(screen.getByLabelText("Reason"), {
+      target: { value: "abuse" },
+    })
     expect(confirm.disabled).toBe(false)
   })
 
@@ -246,11 +256,15 @@ describe("kicking a connection", () => {
     fireEvent.click(screen.getByRole("button", { name: "Kick ada" }))
     // A reason is required to enable Disconnect now; typing one is the setup
     // for this test, not what it is pinning.
-    fireEvent.change(screen.getByLabelText("Reason"), { target: { value: "abuse" } })
+    fireEvent.change(screen.getByLabelText("Reason"), {
+      target: { value: "abuse" },
+    })
     fireEvent.click(screen.getByRole("button", { name: "Disconnect" }))
 
     await waitFor(() =>
-      expect(screen.getByRole("alert").textContent).toContain("connections.kick"),
+      expect(screen.getByRole("alert").textContent).toContain(
+        "connections.kick"
+      )
     )
     expect(screen.getByText(/Disconnect ada\?/)).toBeTruthy()
   })
@@ -264,14 +278,22 @@ describe("kicking a connection", () => {
       "connections.list": {
         connections: [
           {
-            connID: "c1", userID: "ada", transport: "websocket",
-            joinedRooms: ["r1"], subscriptions: [],
-            lastActivity: "2026-09-08T10:00:00Z", status: "active",
+            connID: "c1",
+            userID: "ada",
+            transport: "websocket",
+            joinedRooms: ["r1"],
+            subscriptions: [],
+            lastActivity: "2026-09-08T10:00:00Z",
+            status: "active",
           },
           {
-            connID: "c2", userID: "bob", transport: "websocket",
-            joinedRooms: ["r1"], subscriptions: [],
-            lastActivity: "2026-09-08T10:00:00Z", status: "active",
+            connID: "c2",
+            userID: "bob",
+            transport: "websocket",
+            joinedRooms: ["r1"],
+            subscriptions: [],
+            lastActivity: "2026-09-08T10:00:00Z",
+            status: "active",
           },
         ],
       },
@@ -280,10 +302,14 @@ describe("kicking a connection", () => {
     await waitFor(() => expect(screen.getByText("ada")).toBeTruthy())
 
     fireEvent.click(screen.getByRole("button", { name: "Kick ada" }))
-    fireEvent.change(screen.getByLabelText("Reason"), { target: { value: "abuse" } })
+    fireEvent.change(screen.getByLabelText("Reason"), {
+      target: { value: "abuse" },
+    })
     fireEvent.click(screen.getByRole("button", { name: "Disconnect" }))
     await waitFor(() =>
-      expect(screen.getByRole("alert").textContent).toContain("connections.kick"),
+      expect(screen.getByRole("alert").textContent).toContain(
+        "connections.kick"
+      )
     )
 
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }))

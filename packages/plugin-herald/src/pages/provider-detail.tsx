@@ -1,39 +1,92 @@
 import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { useState } from "react"
 import type { ComponentType } from "react"
-import { PluginLink, useCommand, useNavigateTo, useQuery } from "@forge-go/dashboard-plugin"
+import {
+  PluginLink,
+  useCommand,
+  useNavigateTo,
+  useQuery,
+} from "@forge-go/dashboard-plugin"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
 import { buttonVariants } from "@forge-go/dashboard-kit/components/button"
 import { ConfirmDialog } from "@forge-go/dashboard-kit/components/confirm-dialog"
-import { DescriptionList, DetailLayout } from "@forge-go/dashboard-kit/components/detail-layout"
+import {
+  DescriptionList,
+  DetailLayout,
+} from "@forge-go/dashboard-kit/components/detail-layout"
 import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
-import { CommandAlert, QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
-import { ResourceTable, type Column } from "@forge-go/dashboard-kit/components/resource-table"
+import {
+  CommandAlert,
+  QueryBoundary,
+} from "@forge-go/dashboard-kit/components/query-boundary"
+import {
+  ResourceTable,
+  type Column,
+} from "@forge-go/dashboard-kit/components/resource-table"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { EnabledBadge, ProtectionBadge } from "../badges"
 import { HeraldHeader } from "../components/herald-header"
 import { plural } from "../format"
 import { providerEditPath, providerSendTestPath, providersPath } from "../keys"
-import type { CredentialStatus, DeleteResponse, ProviderDetail, ProvidersDetailResponse, RouteUse, SettingEntry } from "../wire"
+import type {
+  CredentialStatus,
+  DeleteResponse,
+  ProviderDetail,
+  ProvidersDetailResponse,
+  RouteUse,
+  SettingEntry,
+} from "../wire"
 
 const settingColumns: Column<SettingEntry>[] = [
-  { id: "key", header: "Key", className: "font-mono text-xs", cell: (s) => s.key },
+  {
+    id: "key",
+    header: "Key",
+    className: "font-mono text-xs",
+    cell: (s) => s.key,
+  },
   {
     id: "value",
     header: "Value",
-    cell: (s) => (s.secret ? <span className="text-muted-foreground">Hidden</span> : s.value ? <span className="font-mono text-xs">{s.value}</span> : <NoneCell label="value" />),
+    cell: (s) =>
+      s.secret ? (
+        <span className="text-muted-foreground">Hidden</span>
+      ) : s.value ? (
+        <span className="font-mono text-xs">{s.value}</span>
+      ) : (
+        <NoneCell label="value" />
+      ),
   },
 ]
 
 const credentialColumns: Column<CredentialStatus>[] = [
-  { id: "key", header: "Key", className: "font-mono text-xs", cell: (c) => c.key },
-  { id: "protection", header: "Protection", cell: (c) => <ProtectionBadge protection={c.protection} /> },
-  { id: "keyId", header: "Key ID", cell: (c) => (c.keyId ? <span className="font-mono text-xs">{c.keyId}</span> : <NoneCell label="key ID" />) },
+  {
+    id: "key",
+    header: "Key",
+    className: "font-mono text-xs",
+    cell: (c) => c.key,
+  },
+  {
+    id: "protection",
+    header: "Protection",
+    cell: (c) => <ProtectionBadge protection={c.protection} />,
+  },
+  {
+    id: "keyId",
+    header: "Key ID",
+    cell: (c) =>
+      c.keyId ? (
+        <span className="font-mono text-xs">{c.keyId}</span>
+      ) : (
+        <NoneCell label="key ID" />
+      ),
+  },
 ]
 
 /** "app app_demo (email)", for the delete confirm, which takes plain text. */
 function describeUse(u: RouteUse): string {
-  return u.scopeId === "" ? `default ${u.scope} (${u.channel})` : `${u.scope} ${u.scopeId} (${u.channel})`
+  return u.scopeId === ""
+    ? `default ${u.scope} (${u.channel})`
+    : `${u.scope} ${u.scopeId} (${u.channel})`
 }
 
 function UsedBy({ uses, enabled }: { uses: RouteUse[]; enabled: boolean }) {
@@ -55,20 +108,26 @@ function UsedBy({ uses, enabled }: { uses: RouteUse[]; enabled: boolean }) {
               `${u.channel}, default ${u.scope} rule`
             ) : (
               <>
-                {u.channel} for the {u.scope} rule <span className="font-mono text-xs">{u.scopeId}</span>
+                {u.channel} for the {u.scope} rule{" "}
+                <span className="font-mono text-xs">{u.scopeId}</span>
               </>
             )}
           </li>
         ))}
       </ul>
-      {!enabled && <p className="text-sm text-muted-foreground">Routing skips these rules while it is disabled.</p>}
+      {!enabled && (
+        <p className="text-sm text-muted-foreground">
+          Routing skips these rules while it is disabled.
+        </p>
+      )}
     </div>
   )
 }
 
 function deleteText(p: ProviderDetail): string {
   const n = p.usedBy.length
-  if (n === 0) return "This deletes the provider and its stored credentials. This cannot be undone."
+  if (n === 0)
+    return "This deletes the provider and its stored credentials. This cannot be undone."
   return `${plural(n, "routing rule")} ${n === 1 ? "names" : "name"} this provider: ${p.usedBy.map(describeUse).join(", ")}. ${n === 1 ? "It" : "They"} will point at a deleted provider, and Herald skips ${n === 1 ? "it" : "them"} at send time until changed. This cannot be undone.`
 }
 
@@ -111,11 +170,23 @@ function ProviderBody({ id }: { id: string }) {
         actions={
           loaded && (
             <div className="flex flex-wrap gap-2">
-              <IconButton label="Edit" nativeButton={false} role="link" render={<PluginLink to={providerEditPath(loaded.id)} />} />
-              <PluginLink to={providerSendTestPath(loaded.id)} className={buttonVariants({ variant: "outline" })}>
+              <IconButton
+                label="Edit"
+                nativeButton={false}
+                role="link"
+                render={<PluginLink to={providerEditPath(loaded.id)} />}
+              />
+              <PluginLink
+                to={providerSendTestPath(loaded.id)}
+                className={buttonVariants({ variant: "outline" })}
+              >
                 Send a test through this provider
               </PluginLink>
-              <IconButton variant="destructive" onClick={() => openDelete(loaded)} label="Delete" />
+              <IconButton
+                variant="destructive"
+                onClick={() => openDelete(loaded)}
+                label="Delete"
+              />
             </div>
           )
         }
@@ -127,26 +198,69 @@ function ProviderBody({ id }: { id: string }) {
               <div className="flex flex-col gap-6">
                 <DescriptionList
                   items={[
-                    { term: "ID", value: <span className="font-mono text-xs">{p.id}</span> },
+                    {
+                      term: "ID",
+                      value: <span className="font-mono text-xs">{p.id}</span>,
+                    },
                     { term: "Channel", value: p.channel },
-                    { term: "Driver", value: <span className="font-mono text-xs">{p.driver}</span> },
-                    { term: "Priority", value: <span className="font-mono text-xs">{p.priority}</span> },
-                    { term: "Status", value: <EnabledBadge enabled={p.enabled} /> },
-                    { term: "Created", value: <Timestamp value={p.createdAt} label="creation time" /> },
-                    { term: "Updated", value: <Timestamp value={p.updatedAt} label="update time" /> },
+                    {
+                      term: "Driver",
+                      value: (
+                        <span className="font-mono text-xs">{p.driver}</span>
+                      ),
+                    },
+                    {
+                      term: "Priority",
+                      value: (
+                        <span className="font-mono text-xs">{p.priority}</span>
+                      ),
+                    },
+                    {
+                      term: "Status",
+                      value: <EnabledBadge enabled={p.enabled} />,
+                    },
+                    {
+                      term: "Created",
+                      value: (
+                        <Timestamp value={p.createdAt} label="creation time" />
+                      ),
+                    },
+                    {
+                      term: "Updated",
+                      value: (
+                        <Timestamp value={p.updatedAt} label="update time" />
+                      ),
+                    },
                   ]}
                 />
                 <section className="flex flex-col gap-2">
                   <h2 className="text-sm font-medium">Settings</h2>
-                  <ResourceTable<SettingEntry> columns={settingColumns} rows={p.settings} rowKey={(s) => s.key} caption={plural(p.settings.length, "setting")} emptyMessage="No settings stored." />
+                  <ResourceTable<SettingEntry>
+                    columns={settingColumns}
+                    rows={p.settings}
+                    rowKey={(s) => s.key}
+                    caption={plural(p.settings.length, "setting")}
+                    emptyMessage="No settings stored."
+                  />
                   {p.settings.some((s) => s.secret) && (
-                    <p className="text-sm text-muted-foreground">Hidden values are secrets, or belong to a driver with no field schema, where any setting could be one.</p>
+                    <p className="text-sm text-muted-foreground">
+                      Hidden values are secrets, or belong to a driver with no
+                      field schema, where any setting could be one.
+                    </p>
                   )}
                 </section>
                 <section className="flex flex-col gap-2">
                   <h2 className="text-sm font-medium">Credentials</h2>
-                  <ResourceTable<CredentialStatus> columns={credentialColumns} rows={p.credentials} rowKey={(c) => c.key} caption={plural(p.credentials.length, "credential")} emptyMessage="No credentials stored." />
-                  <p className="text-sm text-muted-foreground">Credential values are write-only. Replace one from Edit.</p>
+                  <ResourceTable<CredentialStatus>
+                    columns={credentialColumns}
+                    rows={p.credentials}
+                    rowKey={(c) => c.key}
+                    caption={plural(p.credentials.length, "credential")}
+                    emptyMessage="No credentials stored."
+                  />
+                  <p className="text-sm text-muted-foreground">
+                    Credential values are write-only. Replace one from Edit.
+                  </p>
                 </section>
               </div>
             }
@@ -168,7 +282,10 @@ function ProviderBody({ id }: { id: string }) {
         pending={remove.loading}
         onConfirm={() => void confirmDelete()}
       >
-        <CommandAlert error={remove.error} title="Could not delete the provider" />
+        <CommandAlert
+          error={remove.error}
+          title="Could not delete the provider"
+        />
       </ConfirmDialog>
     </section>
   )
@@ -178,7 +295,9 @@ function ProviderBody({ id }: { id: string }) {
  * A thin guard so a missing id renders a status line without the body's
  * hooks running: a query with no id would ask the server about provider "".
  */
-export const ProviderDetailPage: ComponentType<PluginPageProps> = ({ params }) => {
+export const ProviderDetailPage: ComponentType<PluginPageProps> = ({
+  params,
+}) => {
   const id = params.id
   if (!id) {
     return (

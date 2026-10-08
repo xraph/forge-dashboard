@@ -18,7 +18,11 @@ function wiredClient(extension: string, fetchImpl: typeof fetch) {
 }
 
 function ok(body: unknown) {
-  return { ok: true, status: 200, json: () => Promise.resolve(body) } as unknown as Response
+  return {
+    ok: true,
+    status: 200,
+    json: () => Promise.resolve(body),
+  } as unknown as Response
 }
 
 function Page() {
@@ -39,11 +43,19 @@ describe("command invalidation", () => {
     const fetchImpl = vi.fn(async (_url: unknown, init?: RequestInit) => {
       const body = JSON.parse(String(init?.body ?? "{}")) as { intent?: string }
       if (body.intent === "users.list") {
-        return ok({ ok: true, data: { total }, meta: { cacheControl: { staleTime: "60s" } } })
+        return ok({
+          ok: true,
+          data: { total },
+          meta: { cacheControl: { staleTime: "60s" } },
+        })
       }
       if (body.intent === "users.ban") {
         total = 1
-        return ok({ ok: true, data: { ok: true }, meta: { invalidates: ["users.list"] } })
+        return ok({
+          ok: true,
+          data: { ok: true },
+          meta: { invalidates: ["users.list"] },
+        })
       }
       return ok({ token: "t" })
     }) as unknown as typeof fetch
@@ -51,7 +63,7 @@ describe("command invalidation", () => {
     render(
       <PluginProvider client={wiredClient("auth", fetchImpl)}>
         <Page />
-      </PluginProvider>,
+      </PluginProvider>
     )
 
     await waitFor(() => expect(screen.getByText("total 2")).toBeTruthy())
@@ -66,10 +78,16 @@ describe("command invalidation", () => {
     await waitFor(() => expect(queryStore.snapshot(authKey).data).toBeTruthy())
 
     const fetchImpl = vi.fn(async () =>
-      ok({ ok: true, data: { ok: true }, meta: { invalidates: ["users.list"] } }),
+      ok({
+        ok: true,
+        data: { ok: true },
+        meta: { invalidates: ["users.list"] },
+      })
     ) as unknown as typeof fetch
 
-    await wiredClient("organization", fetchImpl).command("orgs.removeMember", { id: "m1" })
+    await wiredClient("organization", fetchImpl).command("orgs.removeMember", {
+      id: "m1",
+    })
 
     expect(queryStore.snapshot(authKey).data).toEqual({ total: 2 })
   })

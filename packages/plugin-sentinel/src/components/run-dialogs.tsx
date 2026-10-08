@@ -12,7 +12,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@forge-go/dashboard-kit/components/dialog"
-import { Field, FieldDescription, FieldGroup } from "@forge-go/dashboard-kit/components/field"
+import {
+  Field,
+  FieldDescription,
+  FieldGroup,
+} from "@forge-go/dashboard-kit/components/field"
 import { Input } from "@forge-go/dashboard-kit/components/input"
 import { Label } from "@forge-go/dashboard-kit/components/label"
 import type { Baseline, Run } from "../types"
@@ -104,8 +108,15 @@ export function SaveBaselineDialog({
       }}
       disablePointerDismissal={locked}
     >
-      <DialogContent showCloseButton={!locked} className="max-h-[calc(100vh-2rem)] overflow-y-auto sm:max-w-md">
-        <SaveBaselineForm command={command} runId={runId} onSaved={() => onOpenChange(false)} />
+      <DialogContent
+        showCloseButton={!locked}
+        className="max-h-[calc(100vh-2rem)] overflow-y-auto sm:max-w-md"
+      >
+        <SaveBaselineForm
+          command={command}
+          runId={runId}
+          onSaved={() => onOpenChange(false)}
+        />
       </DialogContent>
     </Dialog>
   )
@@ -156,7 +167,8 @@ function SaveBaselineForm({
             onChange={(e) => setName(e.target.value)}
           />
           <FieldDescription>
-            It becomes the suite's current baseline, so every later run is compared with this one.
+            It becomes the suite's current baseline, so every later run is
+            compared with this one.
           </FieldDescription>
         </Field>
       </FieldGroup>
@@ -166,7 +178,10 @@ function SaveBaselineForm({
         </p>
       )}
       <DialogFooter>
-        <DialogClose render={<Button type="button" variant="outline" />} disabled={command.loading}>
+        <DialogClose
+          render={<Button type="button" variant="outline" />}
+          disabled={command.loading}
+        >
           Cancel
         </DialogClose>
         <Button type="submit" disabled={command.loading}>

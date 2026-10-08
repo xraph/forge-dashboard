@@ -13,7 +13,8 @@ import { HitStateBadge, MovementCell } from "./ranking-table"
 const STATE_NOTE = {
   orphaned:
     "The vector store returned this chunk ID, but Weave has no row for it. It keeps its rank because a model would still be handed its text.",
-  unidentified: "The retriever returned this hit without a chunk ID, so Weave can't look it up.",
+  unidentified:
+    "The retriever returned this hit without a chunk ID, so Weave can't look it up.",
 }
 
 /** Everything about one hit. An odd hit shows what it has and nothing it doesn't. */
@@ -27,11 +28,18 @@ export function Inspector({ hit, label }: { hit: Hit; label: string }) {
     <section aria-label={label} className="flex flex-col gap-3 text-sm">
       <h3 className="font-medium">{label}</h3>
       <HitStateBadge hit={hit} />
-      {state !== "hydrated" ? <p className="text-muted-foreground">{STATE_NOTE[state]}</p> : null}
+      {state !== "hydrated" ? (
+        <p className="text-muted-foreground">{STATE_NOTE[state]}</p>
+      ) : null}
       {hit.chunk ? (
-        <p className="whitespace-pre-wrap rounded-md border p-2">{hit.chunk.content}</p>
+        <p className="rounded-md border p-2 whitespace-pre-wrap">
+          {hit.chunk.content}
+        </p>
       ) : (
-        <p className="text-muted-foreground">This hit has no chunk, so it has no text and nothing went into the context for it.</p>
+        <p className="text-muted-foreground">
+          This hit has no chunk, so it has no text and nothing went into the
+          context for it.
+        </p>
       )}
       <div className="flex flex-wrap gap-4">
         {chunkId !== "" ? (
@@ -47,14 +55,44 @@ export function Inspector({ hit, label }: { hit: Hit; label: string }) {
       </div>
       <DescriptionList
         items={[
-          { term: "Score", value: <span className="font-mono text-xs tabular-nums">{formatScore(hit.score)}</span> },
+          {
+            term: "Score",
+            value: (
+              <span className="font-mono text-xs tabular-nums">
+                {formatScore(hit.score)}
+              </span>
+            ),
+          },
           { term: "Vector rank", value: <MovementCell hit={hit} /> },
           {
             term: "Vector score",
-            value: hit.vector_rank > 0 ? <span className="font-mono text-xs tabular-nums">{formatScore(hit.vector_score)}</span> : <NoneCell label="vector score" />,
+            value:
+              hit.vector_rank > 0 ? (
+                <span className="font-mono text-xs tabular-nums">
+                  {formatScore(hit.vector_score)}
+                </span>
+              ) : (
+                <NoneCell label="vector score" />
+              ),
           },
-          { term: "Chunk ID", value: hit.chunk && hit.chunk.id !== "" ? <Id value={hit.chunk.id} /> : <NoneCell label="chunk ID" /> },
-          { term: "Document", value: doc.id !== "" ? <Id value={doc.id} /> : <NoneCell label="document" /> },
+          {
+            term: "Chunk ID",
+            value:
+              hit.chunk && hit.chunk.id !== "" ? (
+                <Id value={hit.chunk.id} />
+              ) : (
+                <NoneCell label="chunk ID" />
+              ),
+          },
+          {
+            term: "Document",
+            value:
+              doc.id !== "" ? (
+                <Id value={doc.id} />
+              ) : (
+                <NoneCell label="document" />
+              ),
+          },
           {
             term: "Bytes",
             value: hydrated ? (
@@ -65,10 +103,22 @@ export function Inspector({ hit, label }: { hit: Hit; label: string }) {
               <NoneCell label="offsets" />
             ),
           },
-          { term: "Tokens", value: hydrated ? `about ${formatCount(hit.chunk!.token_count)}` : <NoneCell label="token estimate" /> },
+          {
+            term: "Tokens",
+            value: hydrated ? (
+              `about ${formatCount(hit.chunk!.token_count)}`
+            ) : (
+              <NoneCell label="token estimate" />
+            ),
+          },
           {
             term: "Created",
-            value: hit.chunk && isRealTime(hit.chunk.created_at) ? <Timestamp value={hit.chunk.created_at} label="creation date" /> : <NoneCell label="creation date" />,
+            value:
+              hit.chunk && isRealTime(hit.chunk.created_at) ? (
+                <Timestamp value={hit.chunk.created_at} label="creation date" />
+              ) : (
+                <NoneCell label="creation date" />
+              ),
           },
         ]}
       />

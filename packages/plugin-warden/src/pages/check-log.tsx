@@ -1,7 +1,10 @@
 import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { useState, type FormEvent } from "react"
 import { useQuery } from "@forge-go/dashboard-plugin"
-import { Alert, AlertDescription } from "@forge-go/dashboard-kit/components/alert"
+import {
+  Alert,
+  AlertDescription,
+} from "@forge-go/dashboard-kit/components/alert"
 import { Button } from "@forge-go/dashboard-kit/components/button"
 import { FilterBar } from "@forge-go/dashboard-kit/components/filter-bar"
 import { Input } from "@forge-go/dashboard-kit/components/input"
@@ -77,26 +80,35 @@ function checks(n: number): string {
  * the writer's queue is shared by every tenant the process serves, so the
  * line says so instead of implying the loss is this tenant's.
  */
-function LossLine({ loss }: { loss: NonNullable<CheckLogList["notRecorded"]> }) {
+function LossLine({
+  loss,
+}: {
+  loss: NonNullable<CheckLogList["notRecorded"]>
+}) {
   const total = loss.queueFull + loss.writeFailed
   if (total === 0) return null
   const causes: string[] = []
   // "it" at one, "they" and "them" otherwise.
-  const pronoun = (n: number, one: string, many: string) => (n === 1 ? one : many)
+  const pronoun = (n: number, one: string, many: string) =>
+    n === 1 ? one : many
   if (loss.queueFull > 0) {
     const n = loss.queueFull
-    causes.push(`${n} dropped before ${pronoun(n, "it", "they")} reached the store`)
+    causes.push(
+      `${n} dropped before ${pronoun(n, "it", "they")} reached the store`
+    )
   }
   if (loss.writeFailed > 0) {
     const n = loss.writeFailed
-    causes.push(`${n} because writing ${pronoun(n, "it", "them")} to the store failed`)
+    causes.push(
+      `${n} because writing ${pronoun(n, "it", "them")} to the store failed`
+    )
   }
   return (
     <p className="text-sm text-muted-foreground">
       This server failed to record {checks(total)} since it started (
       <Timestamp value={loss.since} label="start" />
-      ): {causes.join(", ")}. Those checks ran, and the log may have no row for them. The count
-      covers every tenant this server handles.
+      ): {causes.join(", ")}. Those checks ran, and the log may have no row for
+      them. The count covers every tenant this server handles.
     </p>
   )
 }
@@ -143,14 +155,23 @@ export function WardenCheckLogPage() {
   // Retention can shrink the set while an operator is on a later page. The
   // table shows no pager for an empty page, so without this they would be
   // stranded on a page that says nothing.
-  if (list.data && (list.data.items ?? []).length === 0 && list.data.total > 0 && page > 1) {
+  if (
+    list.data &&
+    (list.data.items ?? []).length === 0 &&
+    list.data.total > 0 &&
+    page > 1
+  ) {
     setPage(1)
   }
 
   function chooseWindow(next: string) {
     const key = next as "" | WindowKey
     setTimeWindow(key)
-    setAfter(key === "" ? undefined : new Date(Date.now() - WINDOWS[key].ms).toISOString())
+    setAfter(
+      key === ""
+        ? undefined
+        : new Date(Date.now() - WINDOWS[key].ms).toISOString()
+    )
     setPage(1)
   }
 
@@ -237,7 +258,9 @@ export function WardenCheckLogPage() {
           <NativeSelect
             id="check-log-subject-kind"
             value={draft.subjectKind}
-            onChange={(e) => setDraft((d) => ({ ...d, subjectKind: e.target.value }))}
+            onChange={(e) =>
+              setDraft((d) => ({ ...d, subjectKind: e.target.value }))
+            }
           >
             <NativeSelectOption value="">Any kind</NativeSelectOption>
             {CHECK_SUBJECT_KINDS.map((kind) => (
@@ -253,7 +276,9 @@ export function WardenCheckLogPage() {
             id="check-log-subject-id"
             className="font-mono text-xs"
             value={draft.subjectId}
-            onChange={(e) => setDraft((d) => ({ ...d, subjectId: e.target.value }))}
+            onChange={(e) =>
+              setDraft((d) => ({ ...d, subjectId: e.target.value }))
+            }
           />
         </span>
         <span className="flex flex-col gap-1.5">
@@ -262,7 +287,9 @@ export function WardenCheckLogPage() {
             id="check-log-action"
             className="font-mono text-xs"
             value={draft.action}
-            onChange={(e) => setDraft((d) => ({ ...d, action: e.target.value }))}
+            onChange={(e) =>
+              setDraft((d) => ({ ...d, action: e.target.value }))
+            }
           />
         </span>
         <span className="flex flex-col gap-1.5">
@@ -271,7 +298,9 @@ export function WardenCheckLogPage() {
             id="check-log-resource-type"
             className="font-mono text-xs"
             value={draft.resourceType}
-            onChange={(e) => setDraft((d) => ({ ...d, resourceType: e.target.value }))}
+            onChange={(e) =>
+              setDraft((d) => ({ ...d, resourceType: e.target.value }))
+            }
           />
         </span>
         <span className="flex flex-col gap-1.5">
@@ -280,11 +309,18 @@ export function WardenCheckLogPage() {
             id="check-log-resource-id"
             className="font-mono text-xs"
             value={draft.resourceId}
-            onChange={(e) => setDraft((d) => ({ ...d, resourceId: e.target.value }))}
+            onChange={(e) =>
+              setDraft((d) => ({ ...d, resourceId: e.target.value }))
+            }
           />
         </span>
         <Button type="submit">Apply</Button>
-        <IconButton type="button" variant="outline" onClick={clear} label="Clear" />
+        <IconButton
+          type="button"
+          variant="outline"
+          onClick={clear}
+          label="Clear"
+        />
       </form>
 
       <p className="text-sm text-muted-foreground">

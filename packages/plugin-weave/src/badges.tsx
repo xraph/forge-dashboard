@@ -8,7 +8,10 @@ import type { DocumentRow, DocumentState } from "./types"
  * second look, because ingest runs inside one request. Failed is what an
  * operator came to find.
  */
-const STATE_VARIANT: Record<DocumentState, "outline" | "secondary" | "default" | "destructive"> = {
+const STATE_VARIANT: Record<
+  DocumentState,
+  "outline" | "secondary" | "default" | "destructive"
+> = {
   ready: "outline",
   pending: "secondary",
   processing: "default",
@@ -23,7 +26,13 @@ export function DocumentStateBadge({ state }: { state: DocumentState }) {
  * The age of a processing document's last update. Weave has no heartbeat, so
  * this states the age and does not call the document dead.
  */
-export function StalledMarker({ updatedAt, now }: { updatedAt: string; now?: number }) {
+export function StalledMarker({
+  updatedAt,
+  now,
+}: {
+  updatedAt: string
+  now?: number
+}) {
   return (
     <Badge
       variant="destructive"
@@ -35,7 +44,11 @@ export function StalledMarker({ updatedAt, now }: { updatedAt: string; now?: num
 }
 
 /** The state badge, plus the marker when the server says the row looks stalled. */
-export function DocumentStateCell({ doc }: { doc: Pick<DocumentRow, "state" | "stalled" | "updated_at"> }) {
+export function DocumentStateCell({
+  doc,
+}: {
+  doc: Pick<DocumentRow, "state" | "stalled" | "updated_at">
+}) {
   return (
     <span className="inline-flex flex-wrap items-center gap-1">
       <DocumentStateBadge state={doc.state} />

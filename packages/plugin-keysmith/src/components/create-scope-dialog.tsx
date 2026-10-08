@@ -72,7 +72,10 @@ export interface CreateScopeDialogProps {
  * one. While it is in flight the dialog refuses to close: the answer would
  * have nowhere to land.
  */
-export function CreateScopeDialog({ open, onOpenChange }: CreateScopeDialogProps) {
+export function CreateScopeDialog({
+  open,
+  onOpenChange,
+}: CreateScopeDialogProps) {
   const create = useCommand<{ scope: ScopeSummary }>("scopes.create")
   const { reset } = create
 
@@ -200,7 +203,9 @@ function CreateScopeForm({
             ))}
           </NativeSelect>
           {scopes.error && (
-            <FieldDescription>Scopes could not be loaded right now.</FieldDescription>
+            <FieldDescription>
+              Scopes could not be loaded right now.
+            </FieldDescription>
           )}
           {scopes.data?.hasMore && (
             <FieldDescription>

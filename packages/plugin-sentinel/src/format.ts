@@ -72,7 +72,7 @@ export function baselinePath(baselineId: string): string {
 /** A suite page on one of its tabs. "cases" is the plain suite path. */
 export function suiteTabPath(
   suiteId: string,
-  tab: "cases" | "prompts" | "runs" | "baselines" | "redteam",
+  tab: "cases" | "prompts" | "runs" | "baselines" | "redteam"
 ): string {
   return tab === "cases" ? suitePath(suiteId) : `${suitePath(suiteId)}/${tab}`
 }
@@ -111,7 +111,10 @@ export function formatLatency(ms: number): string {
 
 /** "4m 12s", "38s", "1h 3m": how long between two timestamps. */
 export function formatDuration(fromIso: string, toIso: string): string {
-  const seconds = Math.max(0, Math.round((Date.parse(toIso) - Date.parse(fromIso)) / 1000))
+  const seconds = Math.max(
+    0,
+    Math.round((Date.parse(toIso) - Date.parse(fromIso)) / 1000)
+  )
   if (seconds < 60) return `${seconds}s`
   const minutes = Math.floor(seconds / 60)
   if (minutes < 60) return `${minutes}m ${seconds % 60}s`
@@ -129,7 +132,9 @@ export function ago(iso: string, now: number = Date.now()): string {
 
 /** A run id as people read it in a heading: the prefix and the last six characters. */
 export function shortRunId(runId: string): string {
-  return runId.length > 12 ? `${runId.slice(0, runId.indexOf("_") + 1)}…${runId.slice(-6)}` : runId
+  return runId.length > 12
+    ? `${runId.slice(0, runId.indexOf("_") + 1)}…${runId.slice(-6)}`
+    : runId
 }
 
 /** /runs/:id/compare/:otherId: run A against run B. */
@@ -141,13 +146,23 @@ export function comparePath(runId: string, otherRunId: string): string {
  * The seven dimensions in the spec's fixed order. Every chart lists them this
  * way, so a reader learns where each one sits and it never moves between runs.
  */
-export const DIMENSIONS = ["skill", "trait", "behavior", "cognition", "communication", "perception", "persona"] as const
+export const DIMENSIONS = [
+  "skill",
+  "trait",
+  "behavior",
+  "cognition",
+  "communication",
+  "perception",
+  "persona",
+] as const
 
 /** Dimension names in the fixed order, then any the engine adds, alphabetically. */
 export function orderDimensions(names: Iterable<string>): string[] {
   const set = new Set(names)
   const known = DIMENSIONS.filter((d) => set.has(d))
-  const rest = [...set].filter((d) => !(DIMENSIONS as readonly string[]).includes(d)).sort()
+  const rest = [...set]
+    .filter((d) => !(DIMENSIONS as readonly string[]).includes(d))
+    .sort()
   return [...known, ...rest]
 }
 
@@ -157,14 +172,35 @@ export function measuredDimensions(points: TrendPoint[]): string[] {
 }
 
 /** The five attack types the engine can generate, in its order. */
-export const ATTACK_TYPES = ["injection", "jailbreak", "leakage", "hallucination", "offtopic"] as const
+export const ATTACK_TYPES = [
+  "injection",
+  "jailbreak",
+  "leakage",
+  "hallucination",
+  "offtopic",
+] as const
 
 /** "offtopic" as an operator reads it. */
 export function attackLabel(type: string): string {
-  return type === "offtopic" ? "Off-topic" : type.charAt(0).toUpperCase() + type.slice(1)
+  return type === "offtopic"
+    ? "Off-topic"
+    : type.charAt(0).toUpperCase() + type.slice(1)
 }
 
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+const MONTHS = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+]
 
 /**
  * "23 Sep": a date on a chart axis, in UTC like every timestamp the server
@@ -181,6 +217,9 @@ export function formatDay(iso: string): string {
  * a change regresses when it falls more than the threshold below the
  * baseline, with the same 1e-9 allowance for floating point.
  */
-export function fellPast(delta: number, threshold: number | undefined): boolean {
+export function fellPast(
+  delta: number,
+  threshold: number | undefined
+): boolean {
   return threshold !== undefined && delta < -threshold - 1e-9
 }

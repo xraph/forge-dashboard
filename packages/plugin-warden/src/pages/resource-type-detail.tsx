@@ -114,13 +114,49 @@ export interface ExpressionDiagnostic {
 
 /** Every DSL keyword other than or/and/not. Each lexes as a non-identifier. */
 const OTHER_KEYWORDS = new Set([
-  "warden", "config", "tenant", "app", "namespace", "import", "resource",
-  "relation", "permission", "role", "policy", "effect", "allow", "deny",
-  "actions", "resources", "subjects", "when", "negate", "grants", "name",
-  "description", "priority", "active", "is_system", "is_default",
-  "max_members", "metadata", "in", "contains", "starts_with", "ends_with",
-  "exists", "ip_in_cidr", "time_after", "time_before", "all_of", "any_of",
-  "not_before", "not_after", "obligations", "true", "false",
+  "warden",
+  "config",
+  "tenant",
+  "app",
+  "namespace",
+  "import",
+  "resource",
+  "relation",
+  "permission",
+  "role",
+  "policy",
+  "effect",
+  "allow",
+  "deny",
+  "actions",
+  "resources",
+  "subjects",
+  "when",
+  "negate",
+  "grants",
+  "name",
+  "description",
+  "priority",
+  "active",
+  "is_system",
+  "is_default",
+  "max_members",
+  "metadata",
+  "in",
+  "contains",
+  "starts_with",
+  "ends_with",
+  "exists",
+  "ip_in_cidr",
+  "time_after",
+  "time_before",
+  "all_of",
+  "any_of",
+  "not_before",
+  "not_after",
+  "obligations",
+  "true",
+  "false",
 ])
 
 type TokenKind =
@@ -279,7 +315,8 @@ function parseReferences(tokens: Token[]): Reference[] {
       // Only the first step is this type's business. See the header comment.
       while (cur().kind === "arrow") {
         advance()
-        if (cur().kind !== "ident") throw new ParseFailure("expected identifier after ->")
+        if (cur().kind !== "ident")
+          throw new ParseFailure("expected identifier after ->")
         advance()
       }
       return [{ name: t.value, negated: false }]
@@ -340,7 +377,12 @@ export function analyseExpression(
     // Each name once. Negated if any occurrence is: `ghost or not ghost` has
     // a broad-granting term in it whichever occurrence is met first.
     if (already) already.negated ||= negated
-    else undeclared.push({ name, isPermission: permissionNames.has(name), negated })
+    else
+      undeclared.push({
+        name,
+        isPermission: permissionNames.has(name),
+        negated,
+      })
   }
   return { parses: true, undeclared }
 }
@@ -362,7 +404,8 @@ export function diagnosticsOf(
   for (const item of raw) {
     if (typeof item !== "object" || item === null) continue
     const d = item as Record<string, unknown>
-    if (typeof d.permission !== "string" || typeof d.message !== "string") continue
+    if (typeof d.permission !== "string" || typeof d.message !== "string")
+      continue
     out.push({
       permission: d.permission,
       line: typeof d.line === "number" ? d.line : 1,
@@ -402,7 +445,9 @@ export function WardenResourceTypeDetailPage({ params }: PluginPageProps) {
             <PageHeader
               title={rt.name}
               actions={
-                !editing && <IconButton onClick={() => setEditing(true)} label="Edit" />
+                !editing && (
+                  <IconButton onClick={() => setEditing(true)} label="Edit" />
+                )
               }
             />
 
@@ -421,7 +466,9 @@ export function WardenResourceTypeDetailPage({ params }: PluginPageProps) {
                     {
                       term: "Created by",
                       value: rt.createdBy ? (
-                        <span className="font-mono text-xs">{rt.createdBy}</span>
+                        <span className="font-mono text-xs">
+                          {rt.createdBy}
+                        </span>
                       ) : (
                         <NoneCell label="creator" />
                       ),
@@ -429,32 +476,38 @@ export function WardenResourceTypeDetailPage({ params }: PluginPageProps) {
                     {
                       term: "Updated by",
                       value: rt.updatedBy ? (
-                        <span className="font-mono text-xs">{rt.updatedBy}</span>
+                        <span className="font-mono text-xs">
+                          {rt.updatedBy}
+                        </span>
                       ) : (
                         <NoneCell label="updater" />
                       ),
                     },
                     {
                       term: "Created",
-                      value: <Timestamp value={rt.createdAt} label="creation time" />,
+                      value: (
+                        <Timestamp value={rt.createdAt} label="creation time" />
+                      ),
                     },
                     {
                       term: "Updated",
-                      value: <Timestamp value={rt.updatedAt} label="updated at" />,
+                      value: (
+                        <Timestamp value={rt.updatedAt} label="updated at" />
+                      ),
                     },
                   ]}
                 />
               }
               main={
                 editing ? (
-                  <EditForm
-                    detail={rt}
-                    onDone={() => setEditing(false)}
-                  />
+                  <EditForm detail={rt} onDone={() => setEditing(false)} />
                 ) : (
                   <>
                     <RelationsTable relations={relations} />
-                    <PermissionsTable relations={relations} permissions={permissions} />
+                    <PermissionsTable
+                      relations={relations}
+                      permissions={permissions}
+                    />
                   </>
                 )
               }
@@ -468,7 +521,12 @@ export function WardenResourceTypeDetailPage({ params }: PluginPageProps) {
 
 function RelationsTable({ relations }: { relations: RelationDef[] }) {
   const columns: Column<RelationDef>[] = [
-    { id: "name", header: "Relation", cell: (r) => r.name, className: "font-medium" },
+    {
+      id: "name",
+      header: "Relation",
+      cell: (r) => r.name,
+      className: "font-medium",
+    },
     {
       id: "subjects",
       header: "Allowed subject types",
@@ -518,7 +576,12 @@ function PermissionsTable({
   permissions: PermissionDef[]
 }) {
   const columns: Column<PermissionDef>[] = [
-    { id: "name", header: "Permission", cell: (p) => p.name, className: "font-medium" },
+    {
+      id: "name",
+      header: "Permission",
+      cell: (p) => p.name,
+      className: "font-medium",
+    },
     {
       id: "expression",
       header: "Expression",
@@ -570,7 +633,9 @@ function ExpressionCell({
         <span className="font-mono text-xs">{expression}</span>
       )}
       {!analysis.parses && (
-        <Warning>This expression does not parse, so it can never match.</Warning>
+        <Warning>
+          This expression does not parse, so it can never match.
+        </Warning>
       )}
       {analysis.undeclared.map((u) => (
         <div key={u.name} className="flex flex-col gap-1">
@@ -635,7 +700,8 @@ const splitSubjects = (text: string) =>
     .map((s) => s.trim())
     .filter((s) => s !== "")
 
-const blankRelation = (r: RelationRow) => r.name.trim() === "" && r.subjects.trim() === ""
+const blankRelation = (r: RelationRow) =>
+  r.name.trim() === "" && r.subjects.trim() === ""
 const blankPermission = (p: PermissionRow) =>
   p.name.trim() === "" && p.expression.trim() === ""
 
@@ -643,7 +709,10 @@ const blankPermission = (p: PermissionRow) =>
 function relationsOf(rows: RelationRow[]): RelationDef[] {
   return rows
     .filter((r) => !blankRelation(r))
-    .map((r) => ({ name: r.name.trim(), allowedSubjects: splitSubjects(r.subjects) }))
+    .map((r) => ({
+      name: r.name.trim(),
+      allowedSubjects: splitSubjects(r.subjects),
+    }))
 }
 function permissionsOf(rows: PermissionRow[]): PermissionDef[] {
   return rows
@@ -720,7 +789,10 @@ function EditForm({
     const submitted: Record<number, PermissionDef> = {}
     for (const p of permissionRows) {
       if (!blankPermission(p)) {
-        submitted[p.key] = { name: p.name.trim(), expression: p.expression.trim() }
+        submitted[p.key] = {
+          name: p.name.trim(),
+          expression: p.expression.trim(),
+        }
       }
     }
     setAttempt(submitted)
@@ -748,7 +820,10 @@ function EditForm({
       </p>
 
       <div className="flex flex-col gap-1.5">
-        <label htmlFor="resource-type-edit-description" className="text-sm font-medium">
+        <label
+          htmlFor="resource-type-edit-description"
+          className="text-sm font-medium"
+        >
           Description
         </label>
         <Input
@@ -766,7 +841,12 @@ function EditForm({
           subject type.
         </p>
         {relationRows.map((row, i) => (
-          <div key={row.key} role="group" aria-label={`Relation ${i + 1}`} className="flex gap-2">
+          <div
+            key={row.key}
+            role="group"
+            aria-label={`Relation ${i + 1}`}
+            className="flex gap-2"
+          >
             <Input
               aria-label={`Relation ${i + 1} name`}
               className="w-40 font-mono text-xs"
@@ -774,7 +854,9 @@ function EditForm({
               value={row.name}
               onChange={(e) =>
                 setRelationRows((rows) =>
-                  rows.map((r) => (r.key === row.key ? { ...r, name: e.target.value } : r))
+                  rows.map((r) =>
+                    r.key === row.key ? { ...r, name: e.target.value } : r
+                  )
                 )
               }
             />
@@ -787,17 +869,32 @@ function EditForm({
               value={row.subjects}
               onChange={(e) =>
                 setRelationRows((rows) =>
-                  rows.map((r) => (r.key === row.key ? { ...r, subjects: e.target.value } : r))
+                  rows.map((r) =>
+                    r.key === row.key ? { ...r, subjects: e.target.value } : r
+                  )
                 )
               }
             />
-            <IconButton variant="ghost" onClick={() => setRelationRows((rows) => rows.filter((r) => r.key !== row.key))} label={`Remove relation ${i + 1}`} />
+            <IconButton
+              variant="ghost"
+              onClick={() =>
+                setRelationRows((rows) => rows.filter((r) => r.key !== row.key))
+              }
+              label={`Remove relation ${i + 1}`}
+            />
           </div>
         ))}
         <div>
-          <IconButton variant="outline" onClick={() =>
-              setRelationRows((rows) => [...rows, { key: nextKey(), name: "", subjects: "" }])
-            } label="Add relation" />
+          <IconButton
+            variant="outline"
+            onClick={() =>
+              setRelationRows((rows) => [
+                ...rows,
+                { key: nextKey(), name: "", subjects: "" },
+              ])
+            }
+            label="Add relation"
+          />
         </div>
       </fieldset>
 
@@ -812,7 +909,10 @@ function EditForm({
           const rowDiagnostics = sent
             ? diagnostics.filter((d) => d.permission === sent.name)
             : []
-          const describedBy = rowDiagnostics.length > 0 ? `permission-${row.key}-problems` : undefined
+          const describedBy =
+            rowDiagnostics.length > 0
+              ? `permission-${row.key}-problems`
+              : undefined
           return (
             <div
               key={row.key}
@@ -828,7 +928,9 @@ function EditForm({
                   value={row.name}
                   onChange={(e) =>
                     setPermissionRows((rows) =>
-                      rows.map((p) => (p.key === row.key ? { ...p, name: e.target.value } : p))
+                      rows.map((p) =>
+                        p.key === row.key ? { ...p, name: e.target.value } : p
+                      )
                     )
                   }
                 />
@@ -842,26 +944,40 @@ function EditForm({
                   onChange={(e) =>
                     setPermissionRows((rows) =>
                       rows.map((p) =>
-                        p.key === row.key ? { ...p, expression: e.target.value } : p
+                        p.key === row.key
+                          ? { ...p, expression: e.target.value }
+                          : p
                       )
                     )
                   }
                 />
-                <IconButton variant="ghost" onClick={() =>
-                    setPermissionRows((rows) => rows.filter((p) => p.key !== row.key))
-                  } label={`Remove permission ${i + 1}`} />
+                <IconButton
+                  variant="ghost"
+                  onClick={() =>
+                    setPermissionRows((rows) =>
+                      rows.filter((p) => p.key !== row.key)
+                    )
+                  }
+                  label={`Remove permission ${i + 1}`}
+                />
               </div>
               {/* The diagnostic sits against the expression that failed, not
                   in a banner: the whole value of having it is knowing which
                   expression, and where in it. */}
               {rowDiagnostics.length > 0 && (
-                <div id={describedBy} className="flex flex-col gap-1 text-xs text-destructive">
+                <div
+                  id={describedBy}
+                  className="flex flex-col gap-1 text-xs text-destructive"
+                >
                   {rowDiagnostics.map((d, n) => {
                     const where = locationOf(d)
                     // The pointer is only true while the text still is what
                     // was sent, and only for a one-line expression.
                     const pointer =
-                      sent && d.line === 1 && d.col >= 1 && row.expression.trim() === sent.expression
+                      sent &&
+                      d.line === 1 &&
+                      d.col >= 1 &&
+                      row.expression.trim() === sent.expression
                     return (
                       <div key={n} className="flex flex-col gap-0.5">
                         <p>{where ? `At ${where}: ${d.message}` : d.message}</p>
@@ -879,12 +995,16 @@ function EditForm({
           )
         })}
         <div>
-          <IconButton variant="outline" onClick={() =>
+          <IconButton
+            variant="outline"
+            onClick={() =>
               setPermissionRows((rows) => [
                 ...rows,
                 { key: nextKey(), name: "", expression: "" },
               ])
-            } label="Add permission" />
+            }
+            label="Add permission"
+          />
         </div>
       </fieldset>
 
@@ -914,11 +1034,16 @@ function EditForm({
       {diagnostics.length > 0 ? (
         <p role="alert" className="text-sm text-destructive">
           {`Not saved. The server refused ${
-            diagnostics.length === 1 ? "an expression" : `${diagnostics.length} expressions`
+            diagnostics.length === 1
+              ? "an expression"
+              : `${diagnostics.length} expressions`
           }. Each problem is marked where it is.`}
         </p>
       ) : (
-        <CommandAlert error={update.error} title="Could not save the resource type" />
+        <CommandAlert
+          error={update.error}
+          title="Could not save the resource type"
+        />
       )}
 
       <div className="flex gap-2">

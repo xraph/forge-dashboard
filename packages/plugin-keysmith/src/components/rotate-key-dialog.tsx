@@ -54,7 +54,8 @@ import type { Rotation } from "./rotate-key-reveal"
 const MAX_GRACE_SECONDS = 7776000
 const GRACE_INVALID = "Grace must be between 0 hours and 90 days."
 const DEFAULT_GRACE_HOURS = 24
-const COMPROMISE_WARNING = "The current key stops working the moment you rotate."
+const COMPROMISE_WARNING =
+  "The current key stops working the moment you rotate."
 // What keys.rotate invalidates when it succeeds. A lost or unrepeatable answer
 // carried no invalidation, yet the key may have rotated, so the form asks for
 // the same reloads itself.
@@ -84,7 +85,9 @@ interface Grace {
  * shown in days when it divides into them and in hours otherwise; with no
  * policy window the field shows the engine's own 24 hours.
  */
-function presetGrace(policy: PolicyRef | null): Grace & { seconds: number | null } {
+function presetGrace(
+  policy: PolicyRef | null
+): Grace & { seconds: number | null } {
   const seconds = policy?.graceSeconds ?? null
   if (seconds === null) {
     return { value: String(DEFAULT_GRACE_HOURS), unit: "hours", seconds: null }
@@ -257,7 +260,8 @@ function RotateKeyForm({
   const unclaimed = claimFailed(rotate.error)
   useEffect(() => {
     if (spent) attemptKey.end()
-    if (spent || lost) queryStore.invalidate(client.extension, ROTATE_INVALIDATES)
+    if (spent || lost)
+      queryStore.invalidate(client.extension, ROTATE_INVALIDATES)
   }, [spent, lost, attemptKey, client.extension])
 
   useEffect(() => {
@@ -413,16 +417,15 @@ function RotateKeyForm({
           {problem === null && spent ? (
             <>
               This key was rotated, but the new secret can&apos;t be shown
-              again. Rotate it again to get one you can save, or go back to
-              the <KeyListLink onFollow={onClose} />.
+              again. Rotate it again to get one you can save, or go back to the{" "}
+              <KeyListLink onFollow={onClose} />.
             </>
           ) : problem === null && lost ? (
             <>
               The server&apos;s answer didn&apos;t arrive, so this key may have
               been rotated. Check the <KeyListLink onFollow={onClose} /> before
-              you try again. If it hasn&apos;t been rotated, pressing Rotate
-              key again from this form, with nothing changed, is the safest
-              retry.
+              you try again. If it hasn&apos;t been rotated, pressing Rotate key
+              again from this form, with nothing changed, is the safest retry.
             </>
           ) : problem === null && running ? (
             "Your earlier attempt is still finishing, so try again in a moment."

@@ -12,7 +12,10 @@ import {
 } from "@forge-go/dashboard-kit/components/native-select"
 import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
-import { CommandAlert, QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
+import {
+  CommandAlert,
+  QueryBoundary,
+} from "@forge-go/dashboard-kit/components/query-boundary"
 import {
   ResourceTable,
   type Column,
@@ -80,7 +83,10 @@ const EMPTY_DRAFT: Draft = {
   context: "",
 }
 
-type Bag = { absent: true } | { absent?: false; value: Record<string, unknown> } | { error: string }
+type Bag =
+  | { absent: true }
+  | { absent?: false; value: Record<string, unknown> }
+  | { error: string }
 
 /** A JSON field's text: absent when blank, else an object or the reason it is not one. */
 function parseBag(text: string): Bag {
@@ -113,7 +119,7 @@ function parseBag(text: string): Bag {
  * newline is not a document.
  */
 function buildInput(
-  draft: Draft,
+  draft: Draft
 ): { input: PlaygroundInput } | { errors: Partial<Record<JsonKey, string>> } {
   const errors: Partial<Record<JsonKey, string>> = {}
   const bags: Partial<Record<JsonKey, Record<string, unknown>>> = {}
@@ -133,8 +139,12 @@ function buildInput(
     ...(resourceId !== "" && { resourceId }),
     namespacePath: namespacePath === "/" ? "" : namespacePath,
     ...(bags.context && { context: bags.context }),
-    ...(bags.subjectAttributes && { subjectAttributes: bags.subjectAttributes }),
-    ...(bags.resourceAttributes && { resourceAttributes: bags.resourceAttributes }),
+    ...(bags.subjectAttributes && {
+      subjectAttributes: bags.subjectAttributes,
+    }),
+    ...(bags.resourceAttributes && {
+      resourceAttributes: bags.resourceAttributes,
+    }),
   }
   return { input }
 }
@@ -244,8 +254,13 @@ function BatchSection({
   const config = useQuery<ConfigDetail>("config.detail")
   const query = useQuery<BatchResponse>(
     "playground.batchCheck",
-    run ? { namespacePath: run.namespacePath, items: run.lines.map((l) => l.item) } : {},
-    { enabled: run !== null },
+    run
+      ? {
+          namespacePath: run.namespacePath,
+          items: run.lines.map((l) => l.item),
+        }
+      : {},
+    { enabled: run !== null }
   )
   // While a run is in flight the previous refusal is not this run's.
   const refusal = query.loading ? undefined : query.error
@@ -277,7 +292,12 @@ function BatchSection({
       queryStore.keyOf(
         "warden",
         "playground.batchCheck",
-        r ? { namespacePath: r.namespacePath, items: r.lines.map((l) => l.item) } : {},
+        r
+          ? {
+              namespacePath: r.namespacePath,
+              items: r.lines.map((l) => l.item),
+            }
+          : {}
       )
     const sameKey = run !== null && key(run) === key(next)
     setRun(next)
@@ -307,7 +327,9 @@ function BatchSection({
       header: "Decision",
       cell: (r) =>
         r.result ? (
-          <Badge variant={decisionVariant(r.result.decision)}>{r.result.decision}</Badge>
+          <Badge variant={decisionVariant(r.result.decision)}>
+            {r.result.decision}
+          </Badge>
         ) : (
           <NoneCell label="decision" />
         ),
@@ -330,7 +352,9 @@ function BatchSection({
 
   return (
     <details className="flex flex-col gap-3">
-      <summary className="cursor-pointer text-sm font-medium">Run a batch</summary>
+      <summary className="cursor-pointer text-sm font-medium">
+        Run a batch
+      </summary>
       <form className="mt-3 flex flex-col gap-3" onSubmit={submit}>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor={`${id}-lines`}>Checks, one per line</Label>
@@ -343,7 +367,8 @@ function BatchSection({
             onChange={(e) => setText(e.target.value)}
           />
           <p className="text-xs text-muted-foreground">
-            Each line is kind:id action type[:id]. Every line runs at the namespace above.
+            Each line is kind:id action type[:id]. Every line runs at the
+            namespace above.
           </p>
         </div>
         {problem && (
@@ -371,8 +396,8 @@ function BatchSection({
               <div className="flex flex-col gap-3">
                 {stale && (
                   <p className="text-sm text-muted-foreground">
-                    The lines or namespace have changed since this run. Run the batch again
-                    to check them.
+                    The lines or namespace have changed since this run. Run the
+                    batch again to check them.
                   </p>
                 )}
                 <ResourceTable<BatchRow>
@@ -382,7 +407,12 @@ function BatchSection({
                   caption={`${rows.length} ${rows.length === 1 ? "check" : "checks"}`}
                   emptyMessage="The batch returned no results."
                   rowActions={(r) => (
-                    <IconButton type="button" variant="outline" onClick={() => onOpen(r.item)} label={`Open in builder, line ${r.n}`} />
+                    <IconButton
+                      type="button"
+                      variant="outline"
+                      onClick={() => onOpen(r.item)}
+                      label={`Open in builder, line ${r.n}`}
+                    />
                   )}
                 />
               </div>
@@ -412,17 +442,22 @@ function ResultView({
     <div className="flex flex-col gap-4">
       {stale && (
         <p className="text-sm text-muted-foreground">
-          The form has changed since this run. Run it again to check the new input.
+          The form has changed since this run. Run it again to check the new
+          input.
         </p>
       )}
       <div className="flex flex-col gap-1.5">
         <div className="flex flex-wrap items-center gap-2 text-sm">
-          <Badge variant={decisionVariant(result.decision)}>{result.decision}</Badge>
-          {failed ? (
-            result.error && <span className="text-destructive">{result.error}</span>
-          ) : (
-            result.reason && <span className="text-muted-foreground">{result.reason}</span>
-          )}
+          <Badge variant={decisionVariant(result.decision)}>
+            {result.decision}
+          </Badge>
+          {failed
+            ? result.error && (
+                <span className="text-destructive">{result.error}</span>
+              )
+            : result.reason && (
+                <span className="text-muted-foreground">{result.reason}</span>
+              )}
         </div>
         {/*
           A failed check returned no decision, and its time is the handler's
@@ -453,7 +488,11 @@ function ResultView({
         <p className="flex flex-wrap items-center gap-1.5 text-sm">
           <span>would emit</span>
           {obligations.map((o, i) => (
-            <Badge key={`${i}-${o}`} variant="outline" className="font-mono text-xs">
+            <Badge
+              key={`${i}-${o}`}
+              variant="outline"
+              className="font-mono text-xs"
+            >
               {o}
             </Badge>
           ))}
@@ -478,7 +517,9 @@ function Playground({ checkId }: { checkId: string | undefined }) {
   const ids = useId()
   const [draft, setDraft] = useState<Draft>(EMPTY_DRAFT)
   // The fields the operator has typed in. A prefill never overwrites these.
-  const [touched, setTouched] = useState<ReadonlySet<keyof Draft>>(() => new Set())
+  const [touched, setTouched] = useState<ReadonlySet<keyof Draft>>(
+    () => new Set()
+  )
   // Whether the check's fields have been applied, once, and the time of the
   // check when any field took one.
   const [prefilled, setPrefilled] = useState(false)
@@ -487,7 +528,9 @@ function Playground({ checkId }: { checkId: string | undefined }) {
   // offers (the REST API logs "", and Go callers pass anything). The
   // engine evaluates any kind, so the select offers that one too.
   const [extraKind, setExtraKind] = useState<string | null>(null)
-  const [jsonErrors, setJsonErrors] = useState<Partial<Record<JsonKey, string>>>({})
+  const [jsonErrors, setJsonErrors] = useState<
+    Partial<Record<JsonKey, string>>
+  >({})
   const [attributesOpen, setAttributesOpen] = useState(false)
   // What was last sent. `null` until the first Run, and the query below waits
   // for it: reading is free, but a check is a request the operator chose to
@@ -499,9 +542,13 @@ function Playground({ checkId }: { checkId: string | undefined }) {
 
   // The check the route names, read only when it names one. It fills the
   // form and nothing more: a check is run only when the operator presses Run.
-  const detail = useQuery<CheckDetail>("checkLogs.detail", checkId ? { id: checkId } : {}, {
-    enabled: checkId !== undefined,
-  })
+  const detail = useQuery<CheckDetail>(
+    "checkLogs.detail",
+    checkId ? { id: checkId } : {},
+    {
+      enabled: checkId !== undefined,
+    }
+  )
   // Applied once, when the detail settles, and never again: an operator who
   // has started editing must not have the form pulled back under them. A
   // cached copy still being refreshed is not the answer yet.
@@ -539,23 +586,28 @@ function Playground({ checkId }: { checkId: string | undefined }) {
   const query = useQuery<PlaygroundResult>(
     "playground.explain",
     submitted ? { ...submitted } : {},
-    { enabled: submitted !== null },
+    { enabled: submitted !== null }
   )
   // While a run is in flight the previous refusal is not this run's, so it
   // is not shown.
   const refusal = query.loading ? undefined : query.error
 
   // Only an empty string is unfilled. A space is an id.
-  const canRun = draft.subjectId !== "" && draft.action !== "" && draft.resourceType !== ""
+  const canRun =
+    draft.subjectId !== "" && draft.action !== "" && draft.resourceType !== ""
 
   // Draft's keys are always in the same order, so comparing them as text is
   // a comparison of the fields. A run whose JSON did not validate was never
   // submitted, so the form differs from it and the note shows then too.
-  const stale = submittedDraft !== null && JSON.stringify(draft) !== JSON.stringify(submittedDraft)
+  const stale =
+    submittedDraft !== null &&
+    JSON.stringify(draft) !== JSON.stringify(submittedDraft)
 
   function edit(patch: Partial<Draft>) {
     setDraft((d) => ({ ...d, ...patch }))
-    setTouched((t) => new Set([...t, ...(Object.keys(patch) as (keyof Draft)[])]))
+    setTouched(
+      (t) => new Set([...t, ...(Object.keys(patch) as (keyof Draft)[])])
+    )
   }
 
   /**
@@ -572,7 +624,9 @@ function Playground({ checkId }: { checkId: string | undefined }) {
       resourceId: item.resourceId ?? "",
     })
     // The select offers four kinds. The engine takes any, and so does a line.
-    if (!(CHECK_SUBJECT_KINDS as readonly string[]).includes(item.subjectKind)) {
+    if (
+      !(CHECK_SUBJECT_KINDS as readonly string[]).includes(item.subjectKind)
+    ) {
       setExtraKind(item.subjectKind)
     }
   }
@@ -605,7 +659,11 @@ function Playground({ checkId }: { checkId: string | undefined }) {
     // store's own, which sorts object keys, so a JSON field with its keys
     // reordered is the same key and is refetched rather than skipped.
     const key = (input: PlaygroundInput | null) =>
-      queryStore.keyOf("warden", "playground.explain", input ? { ...input } : {})
+      queryStore.keyOf(
+        "warden",
+        "playground.explain",
+        input ? { ...input } : {}
+      )
     const sameKey = submitted !== null && key(submitted) === key(built.input)
     setSubmitted(built.input)
     setSubmittedDraft(draft)
@@ -627,8 +685,9 @@ function Playground({ checkId }: { checkId: string | undefined }) {
 
       {prefilledAt !== null && (
         <p className="text-sm text-muted-foreground">
-          Prefilled from a check logged at <Timestamp value={prefilledAt} label="checked at" />.
-          The check log does not record context or attributes, so add any the original check
+          Prefilled from a check logged at{" "}
+          <Timestamp value={prefilledAt} label="checked at" />. The check log
+          does not record context or attributes, so add any the original check
           carried.
         </p>
       )}
@@ -740,11 +799,16 @@ function Playground({ checkId }: { checkId: string | undefined }) {
                       spellCheck={false}
                       value={draft[key]}
                       aria-invalid={message ? true : undefined}
-                      aria-describedby={message ? `${fieldId}-error` : undefined}
+                      aria-describedby={
+                        message ? `${fieldId}-error` : undefined
+                      }
                       onChange={(e) => editJson(key, e.target.value)}
                     />
                     {message && (
-                      <p id={`${fieldId}-error`} className="text-xs text-destructive">
+                      <p
+                        id={`${fieldId}-error`}
+                        className="text-xs text-destructive"
+                      >
                         {message}
                       </p>
                     )}
@@ -770,13 +834,18 @@ function Playground({ checkId }: { checkId: string | undefined }) {
             </p>
           ) : (
             <QueryBoundary title="Result" query={query} skeletonRows={4}>
-              {(result) => <ResultView result={result} stale={stale} input={submitted} />}
+              {(result) => (
+                <ResultView result={result} stale={stale} input={submitted} />
+              )}
             </QueryBoundary>
           )}
         </div>
       </div>
 
-      <BatchSection namespacePath={draft.namespacePath} onOpen={openInBuilder} />
+      <BatchSection
+        namespacePath={draft.namespacePath}
+        onOpen={openInBuilder}
+      />
 
       <p className="text-xs text-muted-foreground">{DRY_RUN_NOTE}</p>
     </section>

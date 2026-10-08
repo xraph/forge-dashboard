@@ -47,7 +47,7 @@ function PolicyCell({
 }
 
 function columnsFor(
-  policyNames: ReadonlyMap<string, string>,
+  policyNames: ReadonlyMap<string, string>
 ): Column<KeySummary>[] {
   return [
     {
@@ -110,18 +110,21 @@ export const KeysPage: ComponentType<PluginPageProps> = () => {
   const columns = useMemo(
     () =>
       columnsFor(
-        new Map((policyData?.policies ?? []).map((p) => [p.id, p.name])),
+        new Map((policyData?.policies ?? []).map((p) => [p.id, p.name]))
       ),
-    [policyData],
+    [policyData]
   )
   // Names shown, ids sent. A policy past the first 200 cannot be picked here;
   // its own page lists its keys.
   const policyOptions = useMemo(
     () => [
       ALL,
-      ...(policyData?.policies ?? []).map((p) => ({ value: p.id, label: p.name })),
+      ...(policyData?.policies ?? []).map((p) => ({
+        value: p.id,
+        label: p.name,
+      })),
     ],
-    [policyData],
+    [policyData]
   )
 
   // An empty filter is left out of the params rather than sent as "".
@@ -137,7 +140,7 @@ export const KeysPage: ComponentType<PluginPageProps> = () => {
       ...(policyId !== "" && { policyId }),
     },
     JSON.stringify([environment, state, policyId]),
-    page,
+    page
   )
 
   // The data can shrink under the page being viewed (keys deleted elsewhere),
@@ -150,12 +153,7 @@ export const KeysPage: ComponentType<PluginPageProps> = () => {
   // evidence that this one ran past the end.
   const total = read.data?.total
   const rowCount = read.data?.keys?.length
-  if (
-    page > 1 &&
-    total !== undefined &&
-    total > 0 &&
-    rowCount === 0
-  ) {
+  if (page > 1 && total !== undefined && total > 0 && rowCount === 0) {
     const last = Math.max(1, Math.ceil(total / PAGE_SIZE))
     if (last !== page) setPage(last)
   }

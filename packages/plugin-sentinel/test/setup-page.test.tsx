@@ -3,7 +3,12 @@ import { screen, within } from "@testing-library/react"
 import { ContractError } from "@forge-go/dashboard-plugin"
 import { SetupPage } from "../src/pages/setup"
 import { config } from "./fixtures"
-import { failingClient, recordingClient, renderPage, stubClient } from "./harness"
+import {
+  failingClient,
+  recordingClient,
+  renderPage,
+  stubClient,
+} from "./harness"
 
 describe("SetupPage", () => {
   it("reads config.get and shows the effective configuration", async () => {
@@ -11,7 +16,9 @@ describe("SetupPage", () => {
     renderPage(SetupPage, client)
     expect(await screen.findByText("Engine configuration")).toBeTruthy()
     expect(intents).toEqual(["config.get"])
-    const settings = screen.getByText("Pass threshold").closest("dl") as HTMLElement
+    const settings = screen
+      .getByText("Pass threshold")
+      .closest("dl") as HTMLElement
     expect(within(settings).getByText("0.70")).toBeTruthy()
     expect(within(settings).getByText("0.05")).toBeTruthy()
     expect(within(settings).getByText("4")).toBeTruthy()
@@ -41,7 +48,9 @@ describe("SetupPage", () => {
   it("says no run can start when no target is registered, and how to register one", async () => {
     renderPage(SetupPage, stubClient({ "config.get": config({ targets: [] }) }))
     const note = await screen.findByRole("note")
-    expect(note.textContent).toContain("No target is registered, so no run can start.")
+    expect(note.textContent).toContain(
+      "No target is registered, so no run can start."
+    )
     expect(note.textContent).toContain("WithTarget(name, description, target)")
     expect(screen.getByText("No targets registered.")).toBeTruthy()
     expect(screen.getByText("0 targets")).toBeTruthy()
@@ -54,7 +63,12 @@ describe("SetupPage", () => {
   })
 
   it("shows a failed read with its code", async () => {
-    renderPage(SetupPage, failingClient(new ContractError("PERMISSION_DENIED", "no app in scope")))
-    expect((await screen.findByRole("alert")).textContent).toBe("PERMISSION_DENIED: no app in scope")
+    renderPage(
+      SetupPage,
+      failingClient(new ContractError("PERMISSION_DENIED", "no app in scope"))
+    )
+    expect((await screen.findByRole("alert")).textContent).toBe(
+      "PERMISSION_DENIED: no app in scope"
+    )
   })
 })

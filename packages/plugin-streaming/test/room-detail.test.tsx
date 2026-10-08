@@ -6,39 +6,63 @@ import { StreamingRoomDetailPage } from "../src/pages/room-detail"
 
 const answers = {
   "rooms.detail": {
-    id: "r1", name: "general", description: "everything", owner: "ada",
-    members: 2, private: false, archived: false,
-    created: "2026-09-01T10:00:00Z", updated: "2026-09-02T10:00:00Z",
+    id: "r1",
+    name: "general",
+    description: "everything",
+    owner: "ada",
+    members: 2,
+    private: false,
+    archived: false,
+    created: "2026-09-01T10:00:00Z",
+    updated: "2026-09-02T10:00:00Z",
   },
   "rooms.members": {
     members: [
-      { userID: "ada", role: "owner", joinedAt: "2026-09-01T10:00:00Z", permissions: ["all"] },
-      { userID: "grace", role: "member", joinedAt: "2026-09-02T10:00:00Z", permissions: [] },
+      {
+        userID: "ada",
+        role: "owner",
+        joinedAt: "2026-09-01T10:00:00Z",
+        permissions: ["all"],
+      },
+      {
+        userID: "grace",
+        role: "member",
+        joinedAt: "2026-09-02T10:00:00Z",
+        permissions: [],
+      },
     ],
   },
   "rooms.moderation": {
     entries: [
       {
-        timestamp: "2026-09-03T10:00:00Z", action: "mute", actorID: "ada",
-        targetID: "grace", reason: "spam",
+        timestamp: "2026-09-03T10:00:00Z",
+        action: "mute",
+        actorID: "ada",
+        targetID: "grace",
+        reason: "spam",
       },
     ],
   },
 }
 
 /** Renders the page the way the host does, with params supplied as a prop. */
-function renderDetail(client: Parameters<typeof PluginProvider>[0]["client"], id = "r1") {
+function renderDetail(
+  client: Parameters<typeof PluginProvider>[0]["client"],
+  id = "r1"
+) {
   return render(
     <PluginProvider client={client}>
       <StreamingRoomDetailPage params={{ id }} />
-    </PluginProvider>,
+    </PluginProvider>
   )
 }
 
 describe("StreamingRoomDetailPage", () => {
   it("shows the room, its members and its moderation log", async () => {
     renderDetail(stubClient(answers))
-    await waitFor(() => expect(screen.getByRole("heading", { name: "general" })).toBeTruthy())
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: "general" })).toBeTruthy()
+    )
     expect(screen.getByText("everything")).toBeTruthy()
     // "ada" is the room's owner (DescriptionList), a member (the members
     // table) and the moderation entry's actor (the moderation table), so it
@@ -86,21 +110,28 @@ describe("StreamingRoomDetailPage", () => {
         "rooms.moderation": {
           entries: [
             {
-              timestamp: "2026-09-03T10:00:00Z", action: "mute", actorID: "ada",
-              targetID: "grace", reason: "",
+              timestamp: "2026-09-03T10:00:00Z",
+              action: "mute",
+              actorID: "ada",
+              targetID: "grace",
+              reason: "",
             },
           ],
         },
-      }),
+      })
     )
-    await waitFor(() => expect(screen.getByRole("heading", { name: "general" })).toBeTruthy())
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: "general" })).toBeTruthy()
+    )
     expect(screen.getByLabelText("no reason")).toBeTruthy()
   })
 
   it("reads every intent scoped to the room in the URL", async () => {
     const { client, sent } = recordingCommandClient(answers, {})
     renderDetail(client, "r9")
-    await waitFor(() => expect(screen.getByRole("heading", { name: "general" })).toBeTruthy())
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: "general" })).toBeTruthy()
+    )
     // Nothing is asserted about `sent`; this test is about the reads carrying
     // the id. The recording client records commands, so use the query path.
     expect(sent).toHaveLength(0)
@@ -111,10 +142,16 @@ describe("StreamingRoomDetailPage", () => {
       "rooms.send-message": { ok: true },
     })
     renderDetail(client, "r1")
-    await waitFor(() => expect(screen.getByRole("heading", { name: "general" })).toBeTruthy())
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: "general" })).toBeTruthy()
+    )
 
-    fireEvent.change(screen.getByLabelText("Send as"), { target: { value: "ada" } })
-    fireEvent.change(screen.getByLabelText("Message"), { target: { value: "hello room" } })
+    fireEvent.change(screen.getByLabelText("Send as"), {
+      target: { value: "ada" },
+    })
+    fireEvent.change(screen.getByLabelText("Message"), {
+      target: { value: "hello room" },
+    })
     fireEvent.click(screen.getByRole("button", { name: "Send" }))
 
     await waitFor(() => expect(sent).toHaveLength(1))
@@ -129,10 +166,16 @@ describe("StreamingRoomDetailPage", () => {
       "rooms.send-message": { ok: true },
     })
     renderDetail(client)
-    await waitFor(() => expect(screen.getByRole("heading", { name: "general" })).toBeTruthy())
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: "general" })).toBeTruthy()
+    )
 
-    fireEvent.change(screen.getByLabelText("Send as"), { target: { value: "ada" } })
-    const send = screen.getByRole("button", { name: "Send" }) as HTMLButtonElement
+    fireEvent.change(screen.getByLabelText("Send as"), {
+      target: { value: "ada" },
+    })
+    const send = screen.getByRole("button", {
+      name: "Send",
+    }) as HTMLButtonElement
     expect(send.disabled).toBe(true)
     fireEvent.click(send)
     expect(sent).toHaveLength(0)
@@ -147,7 +190,7 @@ describe("StreamingRoomDetailPage", () => {
     render(
       <PluginProvider client={stubClient(answers)}>
         <StreamingRoomDetailPage params={{}} />
-      </PluginProvider>,
+      </PluginProvider>
     )
     expect(screen.getByText("No room selected.")).toBeTruthy()
   })

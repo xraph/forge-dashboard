@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest"
-import { formatCount, formatMs, formatPercent, formatUptime } from "../src/format"
+import {
+  formatCount,
+  formatMs,
+  formatPercent,
+  formatUptime,
+} from "../src/format"
 import { routePath } from "../src/keys"
 
 describe("format", () => {

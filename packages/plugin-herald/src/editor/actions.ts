@@ -69,5 +69,7 @@ export function findActions(text: string): ActionRange[] {
 
 /** Whether `pos` is inside an action's body: after its "{{", and before its "}}" when it has one. */
 export function inAction(text: string, pos: number): boolean {
-  return findActions(text).some((a) => pos >= a.from + 2 && (a.closed ? pos <= a.to - 2 : pos <= a.to))
+  return findActions(text).some(
+    (a) => pos >= a.from + 2 && (a.closed ? pos <= a.to - 2 : pos <= a.to)
+  )
 }

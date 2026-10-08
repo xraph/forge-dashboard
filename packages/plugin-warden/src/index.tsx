@@ -22,7 +22,10 @@ import { WardenPermissionDetailPage } from "./pages/permission-detail"
 import { WardenPermissionsPage } from "./pages/permissions"
 import { WardenPlaygroundPage } from "./pages/playground"
 import { WardenPoliciesPage } from "./pages/policies"
-import { WardenPolicyDetailPage, WardenPolicyEditPage } from "./pages/policy-detail"
+import {
+  WardenPolicyDetailPage,
+  WardenPolicyEditPage,
+} from "./pages/policy-detail"
 import { WardenRelationGraphPage } from "./pages/relation-graph"
 import { WardenRelationsPage } from "./pages/relations"
 import { WardenResourceTypeDetailPage } from "./pages/resource-type-detail"
@@ -76,7 +79,10 @@ export type {
 export { PolicyRule, conditionNote } from "./components/policy-rule"
 export type { PolicyPageProps } from "./pages/policy-detail"
 export type { RelationSummary, RelationsList } from "./pages/relations"
-export type { ResourceTypeSummary, ResourceTypesList } from "./pages/resource-types"
+export type {
+  ResourceTypeSummary,
+  ResourceTypesList,
+} from "./pages/resource-types"
 export type {
   ExpressionDiagnostic,
   PermissionDef,
@@ -102,7 +108,11 @@ export {
   WardenRoleDetailPage,
   WardenSubjectDetailPage,
 }
-export { NamespaceCell, useNamespaceFilter, namespaceParam } from "./components/namespace-filter"
+export {
+  NamespaceCell,
+  useNamespaceFilter,
+  namespaceParam,
+} from "./components/namespace-filter"
 export type { NamespaceValue } from "./components/namespace-filter"
 
 /**
@@ -234,7 +244,10 @@ export const wardenPlugin = definePlugin({
     // relation, the optional subject whose path is asked for and the optional
     // namespace are all path segments, and the namespace segment is omitted
     // for the tenant root.
-    { path: "/relations/graph/:objectType/:objectId/:relation", element: WardenRelationGraphPage },
+    {
+      path: "/relations/graph/:objectType/:objectId/:relation",
+      element: WardenRelationGraphPage,
+    },
     {
       path: "/relations/graph/:objectType/:objectId/:relation/in/:namespace",
       element: WardenRelationGraphPage,

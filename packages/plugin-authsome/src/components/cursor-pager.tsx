@@ -73,10 +73,22 @@ export function CursorPager({
       aria-label="Pagination"
       className="flex items-center justify-between gap-2 text-sm text-muted-foreground"
     >
-      <span>{total === undefined ? `${shown} shown` : `${shown} of ${total}`}</span>
+      <span>
+        {total === undefined ? `${shown} shown` : `${shown} of ${total}`}
+      </span>
       <span className="flex gap-2">
-        <IconButton variant="outline" disabled={!canGoBack} onClick={onPrevious} label="Previous page" />
-        <IconButton variant="outline" disabled={!nextCursor} onClick={() => nextCursor && onNext(nextCursor)} label="Next page" />
+        <IconButton
+          variant="outline"
+          disabled={!canGoBack}
+          onClick={onPrevious}
+          label="Previous page"
+        />
+        <IconButton
+          variant="outline"
+          disabled={!nextCursor}
+          onClick={() => nextCursor && onNext(nextCursor)}
+          label="Next page"
+        />
       </span>
     </nav>
   )

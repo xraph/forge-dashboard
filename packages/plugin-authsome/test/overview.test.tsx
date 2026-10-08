@@ -41,7 +41,9 @@ describe("AuthOverviewPage", () => {
   it("passes the recent-signups limit through to the server", async () => {
     const { client, intents } = stubClient(answers)
     renderPage(AuthOverviewPage, client)
-    await waitFor(() => expect(screen.getByText("ada@example.com")).toBeTruthy())
+    await waitFor(() =>
+      expect(screen.getByText("ada@example.com")).toBeTruthy()
+    )
     expect(intents).toContain("overview.recentSignups")
   })
 

@@ -72,8 +72,19 @@ const ROLES = {
   items: [
     { id: "role_reader", slug: "reader", name: "Reader", namespacePath: "" },
     { id: "role_auditor", slug: "auditor", name: "Auditor", namespacePath: "" },
-    { id: "role_reader_eng", slug: "reader", name: "Reader", namespacePath: "eng/platform" },
-    { id: "role_system", slug: "warden-admin", name: "Warden admin", namespacePath: "", isSystem: true },
+    {
+      id: "role_reader_eng",
+      slug: "reader",
+      name: "Reader",
+      namespacePath: "eng/platform",
+    },
+    {
+      id: "role_system",
+      slug: "warden-admin",
+      name: "Warden admin",
+      namespacePath: "",
+      isSystem: true,
+    },
   ],
   total: 4,
   limit: 200,
@@ -101,7 +112,12 @@ async function rowOf(subject: string) {
 
 /** A client that reads normally and refuses every command with `error`. */
 function refusingCommands(error: ContractError): ScopedClient {
-  return { ...client(), command: async () => { throw error } } as ScopedClient
+  return {
+    ...client(),
+    command: async () => {
+      throw error
+    },
+  } as ScopedClient
 }
 
 async function openCreate() {
@@ -111,8 +127,12 @@ async function openCreate() {
 }
 
 function fillRequired(dialog: ReturnType<typeof within>) {
-  fireEvent.change(dialog.getByLabelText("Role"), { target: { value: "role_reader" } })
-  fireEvent.change(dialog.getByLabelText("Subject id"), { target: { value: "ada" } })
+  fireEvent.change(dialog.getByLabelText("Role"), {
+    target: { value: "role_reader" },
+  })
+  fireEvent.change(dialog.getByLabelText("Subject id"), {
+    target: { value: "ada" },
+  })
 }
 
 describe("WardenAssignmentsPage", () => {
@@ -136,7 +156,9 @@ describe("WardenAssignmentsPage", () => {
   it("links each subject to its access page, encoded", async () => {
     const odd = {
       ...ASSIGNMENTS,
-      items: [{ ...ASSIGNMENTS.items[1]!, subjectKind: "api_key", subjectId: "a/b" }],
+      items: [
+        { ...ASSIGNMENTS.items[1]!, subjectKind: "api_key", subjectId: "a/b" },
+      ],
       total: 1,
     }
     renderPage(WardenAssignmentsPage, client({ "assignments.list": odd }))
@@ -303,11 +325,19 @@ describe("WardenAssignmentsPage", () => {
     renderPage(WardenAssignmentsPage, client({ "assignments.list": EMPTY }))
     expect(await screen.findByText(/0 assignments/)).toBeTruthy()
     expect(await screen.findByText("No assignments yet.")).toBeTruthy()
-    fireEvent.change(screen.getByLabelText("Namespace"), { target: { value: "eng/platform" } })
-    expect(await screen.findByText("No assignments in eng/platform.")).toBeTruthy()
+    fireEvent.change(screen.getByLabelText("Namespace"), {
+      target: { value: "eng/platform" },
+    })
+    expect(
+      await screen.findByText("No assignments in eng/platform.")
+    ).toBeTruthy()
     expect(screen.queryByText("No assignments yet.")).toBeNull()
-    fireEvent.change(screen.getByLabelText("Namespace"), { target: { value: "" } })
-    expect(await screen.findByText("No assignments in the tenant root.")).toBeTruthy()
+    fireEvent.change(screen.getByLabelText("Namespace"), {
+      target: { value: "" },
+    })
+    expect(
+      await screen.findByText("No assignments in the tenant root.")
+    ).toBeTruthy()
   })
 
   it("offers no edit control, and says why", async () => {
@@ -317,14 +347,18 @@ describe("WardenAssignmentsPage", () => {
     await screen.findByText("user:gone")
     expect(screen.queryByRole("button", { name: /edit/i })).toBeNull()
     expect(screen.queryByRole("link", { name: /edit/i })).toBeNull()
-    expect(screen.getByText(/cannot be edited, only created and deleted/i)).toBeTruthy()
+    expect(
+      screen.getByText(/cannot be edited, only created and deleted/i)
+    ).toBeTruthy()
     expect(screen.getByText(/store has no update/i)).toBeTruthy()
   })
 
   it("surfaces a list failure instead of rendering an empty table", async () => {
     renderPage(
       WardenAssignmentsPage,
-      failingClient(new ContractError("PERMISSION_DENIED", "no tenant in scope"))
+      failingClient(
+        new ContractError("PERMISSION_DENIED", "no tenant in scope")
+      )
     )
     expect(await screen.findAllByText(/no tenant in scope/i)).toBeTruthy()
     expect(screen.queryByText("user:gone")).toBeNull()
@@ -336,7 +370,10 @@ describe("WardenAssignmentsPage", () => {
     await screen.findByText("user:gone")
     const list = sent.find((q) => q.intent === "assignments.list")
     expect(list).toBeTruthy()
-    expect(list?.params as Record<string, unknown>).toEqual({ limit: 25, offset: 0 })
+    expect(list?.params as Record<string, unknown>).toEqual({
+      limit: 25,
+      offset: 0,
+    })
   })
 
   it("resets paging when the namespace filter changes", async () => {
@@ -349,21 +386,30 @@ describe("WardenAssignmentsPage", () => {
     await waitFor(() =>
       expect(
         sent.some(
-          (q) => q.intent === "assignments.list" && (q.params as { offset?: number }).offset === 25
+          (q) =>
+            q.intent === "assignments.list" &&
+            (q.params as { offset?: number }).offset === 25
         )
       ).toBe(true)
     )
 
-    fireEvent.change(screen.getByLabelText("Namespace"), { target: { value: "eng/platform" } })
+    fireEvent.change(screen.getByLabelText("Namespace"), {
+      target: { value: "eng/platform" },
+    })
     await waitFor(() => {
       const last = sent.filter((q) => q.intent === "assignments.list").at(-1)
-      expect(last?.params).toMatchObject({ namespacePath: "eng/platform", offset: 0 })
+      expect(last?.params).toMatchObject({
+        namespacePath: "eng/platform",
+        offset: 0,
+      })
     })
   })
 
   it("shows who granted each assignment, and the empty mark when nobody is recorded", async () => {
     renderPage(WardenAssignmentsPage, client())
-    expect(cellUnder(await rowOf("user:gone"), "Granted by").textContent).toBe("admin")
+    expect(cellUnder(await rowOf("user:gone"), "Granted by").textContent).toBe(
+      "admin"
+    )
     const none = cellUnder(await rowOf("api_key:soon"), "Granted by")
     expect(none.textContent).toBe(EMPTY_MARK)
     expect(within(none).getByLabelText("no granter")).toBeTruthy()
@@ -388,7 +434,9 @@ describe("WardenAssignmentsPage", () => {
         },
       })
     )
-    expect(cellUnder(await rowOf("service:forever"), "Created").textContent).toBe(EMPTY_MARK)
+    expect(
+      cellUnder(await rowOf("service:forever"), "Created").textContent
+    ).toBe(EMPTY_MARK)
   })
 
   describe("filtering", () => {
@@ -404,7 +452,9 @@ describe("WardenAssignmentsPage", () => {
     }
 
     function paged() {
-      return recordingQueryClient(answers({ "assignments.list": { ...ASSIGNMENTS, total: 60 } }))
+      return recordingQueryClient(
+        answers({ "assignments.list": { ...ASSIGNMENTS, total: 60 } })
+      )
     }
 
     it("offers subject kind over the closed set, with no filter by default", async () => {
@@ -425,9 +475,15 @@ describe("WardenAssignmentsPage", () => {
       const { client: c, sent } = paged()
       renderPage(WardenAssignmentsPage, c)
       await toPageTwo(sent)
-      fireEvent.change(screen.getByLabelText("Subject kind"), { target: { value: "api_key" } })
+      fireEvent.change(screen.getByLabelText("Subject kind"), {
+        target: { value: "api_key" },
+      })
       await waitFor(() =>
-        expect(lastList(sent)).toEqual({ subjectKind: "api_key", limit: 25, offset: 0 })
+        expect(lastList(sent)).toEqual({
+          subjectKind: "api_key",
+          limit: 25,
+          offset: 0,
+        })
       )
     })
 
@@ -435,15 +491,27 @@ describe("WardenAssignmentsPage", () => {
       const { client: c, sent } = paged()
       renderPage(WardenAssignmentsPage, c)
       const select = (await screen.findByLabelText("Role")) as HTMLSelectElement
-      await waitFor(() => expect(within(select).getByText("reader (eng/platform)")).toBeTruthy())
-      const options = Array.from(select.options).map((o) => [o.value, o.textContent])
+      await waitFor(() =>
+        expect(within(select).getByText("reader (eng/platform)")).toBeTruthy()
+      )
+      const options = Array.from(select.options).map((o) => [
+        o.value,
+        o.textContent,
+      ])
       expect(options[0]).toEqual(["", "Any role"])
       expect(options).toContainEqual(["role_reader", "reader (/)"])
-      expect(options).toContainEqual(["role_reader_eng", "reader (eng/platform)"])
+      expect(options).toContainEqual([
+        "role_reader_eng",
+        "reader (eng/platform)",
+      ])
       await toPageTwo(sent)
       fireEvent.change(select, { target: { value: "role_reader_eng" } })
       await waitFor(() =>
-        expect(lastList(sent)).toEqual({ roleId: "role_reader_eng", limit: 25, offset: 0 })
+        expect(lastList(sent)).toEqual({
+          roleId: "role_reader_eng",
+          limit: 25,
+          offset: 0,
+        })
       )
     })
 
@@ -453,9 +521,7 @@ describe("WardenAssignmentsPage", () => {
         client({ "roles.list": { ...ROLES, total: 450 } })
       )
       expect(
-        await screen.findByText(
-          "The role filter offers 4 of the 450 roles."
-        )
+        await screen.findByText("The role filter offers 4 of the 450 roles.")
       ).toBeTruthy()
     })
 
@@ -463,14 +529,17 @@ describe("WardenAssignmentsPage", () => {
       const c = {
         ...client(),
         query: async (intent: string) => {
-          if (intent === "roles.list") throw new ContractError("PERMISSION_DENIED", "cannot list roles")
+          if (intent === "roles.list")
+            throw new ContractError("PERMISSION_DENIED", "cannot list roles")
           return answers()[intent as keyof ReturnType<typeof answers>]
         },
       } as ScopedClient
       renderPage(WardenAssignmentsPage, c)
       expect(await screen.findByText("user:gone")).toBeTruthy()
       expect(
-        await screen.findByText("The role filter could not load roles: cannot list roles")
+        await screen.findByText(
+          "The role filter could not load roles: cannot list roles"
+        )
       ).toBeTruthy()
     })
 
@@ -487,20 +556,35 @@ describe("WardenAssignmentsPage", () => {
       expect(lastList(sent)).not.toHaveProperty("subjectId")
       fireEvent.click(screen.getByRole("button", { name: /^apply$/i }))
       await waitFor(() =>
-        expect(lastList(sent)).toEqual({ subjectId: "ada", limit: 25, offset: 0 })
+        expect(lastList(sent)).toEqual({
+          subjectId: "ada",
+          limit: 25,
+          offset: 0,
+        })
       )
       fireEvent.click(screen.getByRole("button", { name: /^clear$/i }))
-      await waitFor(() => expect(lastList(sent)).toEqual({ limit: 25, offset: 0 }))
-      expect((screen.getByLabelText("Filter by subject id") as HTMLInputElement).value).toBe("")
+      await waitFor(() =>
+        expect(lastList(sent)).toEqual({ limit: 25, offset: 0 })
+      )
+      expect(
+        (screen.getByLabelText("Filter by subject id") as HTMLInputElement)
+          .value
+      ).toBe("")
     })
 
     it("combines the filters with the namespace", async () => {
       const { client: c, sent } = recordingQueryClient(answers())
       renderPage(WardenAssignmentsPage, c)
       await screen.findByText("user:gone")
-      fireEvent.change(screen.getByLabelText("Namespace"), { target: { value: "eng/platform" } })
-      fireEvent.change(screen.getByLabelText("Subject kind"), { target: { value: "user" } })
-      fireEvent.change(screen.getByLabelText("Filter by subject id"), { target: { value: "ada" } })
+      fireEvent.change(screen.getByLabelText("Namespace"), {
+        target: { value: "eng/platform" },
+      })
+      fireEvent.change(screen.getByLabelText("Subject kind"), {
+        target: { value: "user" },
+      })
+      fireEvent.change(screen.getByLabelText("Filter by subject id"), {
+        target: { value: "ada" },
+      })
       fireEvent.click(screen.getByRole("button", { name: /^apply$/i }))
       await waitFor(() =>
         expect(lastList(sent)).toEqual({
@@ -516,14 +600,17 @@ describe("WardenAssignmentsPage", () => {
     it("says the filters emptied the list rather than that none exist", async () => {
       renderPage(WardenAssignmentsPage, client({ "assignments.list": EMPTY }))
       await screen.findByText("No assignments yet.")
-      fireEvent.change(screen.getByLabelText("Subject kind"), { target: { value: "service" } })
-      expect(await screen.findByText("No assignments match these filters.")).toBeTruthy()
+      fireEvent.change(screen.getByLabelText("Subject kind"), {
+        target: { value: "service" },
+      })
+      expect(
+        await screen.findByText("No assignments match these filters.")
+      ).toBeTruthy()
       expect(screen.queryByText("No assignments yet.")).toBeNull()
     })
   })
 
   describe("creating", () => {
-
     it("offers each role by slug and namespace, the root as /, and sends the id", async () => {
       // Slugs are unique only within a namespace. Labelled by slug alone, the
       // two readers here would be identical options on a write path, and an
@@ -531,10 +618,18 @@ describe("WardenAssignmentsPage", () => {
       renderPage(WardenAssignmentsPage, client())
       const dialog = await openCreate()
       const select = (await dialog.findByLabelText("Role")) as HTMLSelectElement
-      await waitFor(() => expect(within(select).getByText("reader (/)")).toBeTruthy())
-      const options = Array.from(select.options).map((o) => [o.value, o.textContent])
+      await waitFor(() =>
+        expect(within(select).getByText("reader (/)")).toBeTruthy()
+      )
+      const options = Array.from(select.options).map((o) => [
+        o.value,
+        o.textContent,
+      ])
       expect(options).toContainEqual(["role_reader", "reader (/)"])
-      expect(options).toContainEqual(["role_reader_eng", "reader (eng/platform)"])
+      expect(options).toContainEqual([
+        "role_reader_eng",
+        "reader (eng/platform)",
+      ])
       expect(options).toContainEqual(["role_auditor", "auditor (/)"])
       expect(options.filter(([, label]) => label === "reader")).toHaveLength(0)
     })
@@ -549,12 +644,20 @@ describe("WardenAssignmentsPage", () => {
       renderPage(WardenAssignmentsPage, c)
       const dialog = await openCreate()
       const select = dialog.getByLabelText("Role") as HTMLSelectElement
-      await waitFor(() => expect(within(select).getByText("warden-admin (/)")).toBeTruthy())
+      await waitFor(() =>
+        expect(within(select).getByText("warden-admin (/)")).toBeTruthy()
+      )
       fireEvent.change(select, { target: { value: "role_system" } })
-      fireEvent.change(dialog.getByLabelText("Subject id"), { target: { value: "root" } })
-      fireEvent.click(dialog.getByRole("button", { name: /^create assignment$/i }))
+      fireEvent.change(dialog.getByLabelText("Subject id"), {
+        target: { value: "root" },
+      })
+      fireEvent.click(
+        dialog.getByRole("button", { name: /^create assignment$/i })
+      )
       await waitFor(() => expect(sent).toHaveLength(1))
-      expect((sent[0]?.payload as { roleId: string }).roleId).toBe("role_system")
+      expect((sent[0]?.payload as { roleId: string }).roleId).toBe(
+        "role_system"
+      )
     })
 
     it("requires both resource fields or neither, and says why", async () => {
@@ -563,13 +666,25 @@ describe("WardenAssignmentsPage", () => {
       // resource whose id is empty. Neither can be confirmed.
       renderPage(WardenAssignmentsPage, client())
       const dialog = await openCreate()
-      await waitFor(() => expect(within(dialog.getByLabelText("Role")).getByText("reader (/)")).toBeTruthy())
+      await waitFor(() =>
+        expect(
+          within(dialog.getByLabelText("Role")).getByText("reader (/)")
+        ).toBeTruthy()
+      )
       fillRequired(dialog)
-      const confirm = dialog.getByRole("button", { name: /^create assignment$/i }) as HTMLButtonElement
+      const confirm = dialog.getByRole("button", {
+        name: /^create assignment$/i,
+      }) as HTMLButtonElement
       expect(confirm.disabled).toBe(false)
-      expect(dialog.getByText("Fill in both to limit the assignment to one resource, or leave both empty.")).toBeTruthy()
+      expect(
+        dialog.getByText(
+          "Fill in both to limit the assignment to one resource, or leave both empty."
+        )
+      ).toBeTruthy()
 
-      fireEvent.change(dialog.getByLabelText(/Resource type/), { target: { value: "document" } })
+      fireEvent.change(dialog.getByLabelText(/Resource type/), {
+        target: { value: "document" },
+      })
       expect(confirm.disabled).toBe(true)
       expect(
         dialog.getByText(
@@ -577,11 +692,15 @@ describe("WardenAssignmentsPage", () => {
         )
       ).toBeTruthy()
 
-      fireEvent.change(dialog.getByLabelText(/Resource id/), { target: { value: "d-42" } })
+      fireEvent.change(dialog.getByLabelText(/Resource id/), {
+        target: { value: "d-42" },
+      })
       expect(confirm.disabled).toBe(false)
       expect(dialog.queryByText(/needs a resource/)).toBeNull()
 
-      fireEvent.change(dialog.getByLabelText(/Resource type/), { target: { value: "  " } })
+      fireEvent.change(dialog.getByLabelText(/Resource type/), {
+        target: { value: "  " },
+      })
       expect(confirm.disabled).toBe(true)
       expect(
         dialog.getByText(
@@ -589,7 +708,9 @@ describe("WardenAssignmentsPage", () => {
         )
       ).toBeTruthy()
 
-      fireEvent.change(dialog.getByLabelText(/Resource id/), { target: { value: "" } })
+      fireEvent.change(dialog.getByLabelText(/Resource id/), {
+        target: { value: "" },
+      })
       expect(confirm.disabled).toBe(false)
     })
 
@@ -599,10 +720,18 @@ describe("WardenAssignmentsPage", () => {
       })
       renderPage(WardenAssignmentsPage, c)
       const dialog = await openCreate()
-      await waitFor(() => expect(within(dialog.getByLabelText("Role")).getByText("reader (/)")).toBeTruthy())
+      await waitFor(() =>
+        expect(
+          within(dialog.getByLabelText("Role")).getByText("reader (/)")
+        ).toBeTruthy()
+      )
       fillRequired(dialog)
-      fireEvent.change(dialog.getByLabelText(/Resource id/), { target: { value: "d-42" } })
-      fireEvent.click(dialog.getByRole("button", { name: /^create assignment$/i }))
+      fireEvent.change(dialog.getByLabelText(/Resource id/), {
+        target: { value: "d-42" },
+      })
+      fireEvent.click(
+        dialog.getByRole("button", { name: /^create assignment$/i })
+      )
       await new Promise((r) => setTimeout(r, 20))
       expect(sent).toHaveLength(0)
     })
@@ -610,7 +739,9 @@ describe("WardenAssignmentsPage", () => {
     it("says the assignment applies in its namespace and every namespace below it", async () => {
       renderPage(WardenAssignmentsPage, client())
       await screen.findByText("user:gone")
-      fireEvent.change(screen.getByLabelText("Namespace"), { target: { value: "eng/platform" } })
+      fireEvent.change(screen.getByLabelText("Namespace"), {
+        target: { value: "eng/platform" },
+      })
       await openCreate()
       const text = (await screen.findByRole("alertdialog")).textContent ?? ""
       expect(text).toContain(
@@ -636,14 +767,26 @@ describe("WardenAssignmentsPage", () => {
     it("waits for a role and a subject id before it can be confirmed", async () => {
       renderPage(WardenAssignmentsPage, client())
       const dialog = await openCreate()
-      const confirm = dialog.getByRole("button", { name: /^create assignment$/i }) as HTMLButtonElement
+      const confirm = dialog.getByRole("button", {
+        name: /^create assignment$/i,
+      }) as HTMLButtonElement
       expect(confirm.disabled).toBe(true)
-      await waitFor(() => expect(within(dialog.getByLabelText("Role")).getByText("reader (/)")).toBeTruthy())
-      fireEvent.change(dialog.getByLabelText("Role"), { target: { value: "role_reader" } })
+      await waitFor(() =>
+        expect(
+          within(dialog.getByLabelText("Role")).getByText("reader (/)")
+        ).toBeTruthy()
+      )
+      fireEvent.change(dialog.getByLabelText("Role"), {
+        target: { value: "role_reader" },
+      })
       expect(confirm.disabled).toBe(true)
-      fireEvent.change(dialog.getByLabelText("Subject id"), { target: { value: "   " } })
+      fireEvent.change(dialog.getByLabelText("Subject id"), {
+        target: { value: "   " },
+      })
       expect(confirm.disabled).toBe(true)
-      fireEvent.change(dialog.getByLabelText("Subject id"), { target: { value: "ada" } })
+      fireEvent.change(dialog.getByLabelText("Subject id"), {
+        target: { value: "ada" },
+      })
       expect(confirm.disabled).toBe(false)
     })
 
@@ -654,16 +797,36 @@ describe("WardenAssignmentsPage", () => {
       renderPage(WardenAssignmentsPage, c)
       // Filter to a namespace first: the create lands in the one on screen.
       await screen.findByText("user:gone")
-      fireEvent.change(screen.getByLabelText("Namespace"), { target: { value: "eng/platform" } })
+      fireEvent.change(screen.getByLabelText("Namespace"), {
+        target: { value: "eng/platform" },
+      })
       const dialog = await openCreate()
-      await waitFor(() => expect(within(dialog.getByLabelText("Role")).getByText("auditor (/)")).toBeTruthy())
-      fireEvent.change(dialog.getByLabelText("Role"), { target: { value: "role_auditor" } })
-      fireEvent.change(dialog.getByLabelText("Subject kind"), { target: { value: "service_acct" } })
-      fireEvent.change(dialog.getByLabelText("Subject id"), { target: { value: "  ci-runner " } })
-      fireEvent.change(dialog.getByLabelText(/Resource type/), { target: { value: " document " } })
-      fireEvent.change(dialog.getByLabelText(/Resource id/), { target: { value: " d-42 " } })
-      fireEvent.change(dialog.getByLabelText(/Expires/), { target: { value: "2031-01-15T10:30" } })
-      fireEvent.click(dialog.getByRole("button", { name: /^create assignment$/i }))
+      await waitFor(() =>
+        expect(
+          within(dialog.getByLabelText("Role")).getByText("auditor (/)")
+        ).toBeTruthy()
+      )
+      fireEvent.change(dialog.getByLabelText("Role"), {
+        target: { value: "role_auditor" },
+      })
+      fireEvent.change(dialog.getByLabelText("Subject kind"), {
+        target: { value: "service_acct" },
+      })
+      fireEvent.change(dialog.getByLabelText("Subject id"), {
+        target: { value: "  ci-runner " },
+      })
+      fireEvent.change(dialog.getByLabelText(/Resource type/), {
+        target: { value: " document " },
+      })
+      fireEvent.change(dialog.getByLabelText(/Resource id/), {
+        target: { value: " d-42 " },
+      })
+      fireEvent.change(dialog.getByLabelText(/Expires/), {
+        target: { value: "2031-01-15T10:30" },
+      })
+      fireEvent.click(
+        dialog.getByRole("button", { name: /^create assignment$/i })
+      )
 
       await waitFor(() => expect(sent).toHaveLength(1))
       expect(sent[0]?.intent).toBe("assignments.create")
@@ -673,7 +836,9 @@ describe("WardenAssignmentsPage", () => {
       expect(new Date(payload.expiresAt as string).getTime()).toBe(
         new Date(2031, 0, 15, 10, 30).getTime()
       )
-      expect(payload.expiresAt).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/)
+      expect(payload.expiresAt).toMatch(
+        /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/
+      )
       expect(payload).toEqual({
         roleId: "role_auditor",
         subjectKind: "service_acct",
@@ -691,9 +856,15 @@ describe("WardenAssignmentsPage", () => {
       })
       renderPage(WardenAssignmentsPage, c)
       const dialog = await openCreate()
-      await waitFor(() => expect(within(dialog.getByLabelText("Role")).getByText("reader (/)")).toBeTruthy())
+      await waitFor(() =>
+        expect(
+          within(dialog.getByLabelText("Role")).getByText("reader (/)")
+        ).toBeTruthy()
+      )
       fillRequired(dialog)
-      fireEvent.click(dialog.getByRole("button", { name: /^create assignment$/i }))
+      fireEvent.click(
+        dialog.getByRole("button", { name: /^create assignment$/i })
+      )
 
       await waitFor(() => expect(sent).toHaveLength(1))
       const payload = sent[0]?.payload as Record<string, unknown>
@@ -720,9 +891,15 @@ describe("WardenAssignmentsPage", () => {
       })
       renderPage(WardenAssignmentsPage, c)
       const dialog = await openCreate()
-      await waitFor(() => expect(within(dialog.getByLabelText("Role")).getByText("reader (/)")).toBeTruthy())
+      await waitFor(() =>
+        expect(
+          within(dialog.getByLabelText("Role")).getByText("reader (/)")
+        ).toBeTruthy()
+      )
       fillRequired(dialog)
-      fireEvent.click(dialog.getByRole("button", { name: /^create assignment$/i }))
+      fireEvent.click(
+        dialog.getByRole("button", { name: /^create assignment$/i })
+      )
       await waitFor(() => expect(sent).toHaveLength(1))
       await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull())
     })
@@ -734,31 +911,54 @@ describe("WardenAssignmentsPage", () => {
       renderPage(
         WardenAssignmentsPage,
         refusingCommands(
-          new ContractError("CONFLICT", '"reader" is capped at 2 members and already has 2')
+          new ContractError(
+            "CONFLICT",
+            '"reader" is capped at 2 members and already has 2'
+          )
         )
       )
       const dialog = await openCreate()
-      await waitFor(() => expect(within(dialog.getByLabelText("Role")).getByText("reader (/)")).toBeTruthy())
+      await waitFor(() =>
+        expect(
+          within(dialog.getByLabelText("Role")).getByText("reader (/)")
+        ).toBeTruthy()
+      )
       fillRequired(dialog)
-      fireEvent.click(dialog.getByRole("button", { name: /^create assignment$/i }))
+      fireEvent.click(
+        dialog.getByRole("button", { name: /^create assignment$/i })
+      )
 
       const alert = await dialog.findByRole("alert")
-      expect(alert.textContent).toContain("capped at 2 members and already has 2")
+      expect(alert.textContent).toContain(
+        "capped at 2 members and already has 2"
+      )
       expect(alert.textContent).toContain("CONFLICT")
       expect(screen.getByRole("alertdialog")).toBeTruthy()
-      expect((dialog.getByLabelText("Subject id") as HTMLInputElement).value).toBe("ada")
-      expect((dialog.getByLabelText("Role") as HTMLSelectElement).value).toBe("role_reader")
+      expect(
+        (dialog.getByLabelText("Subject id") as HTMLInputElement).value
+      ).toBe("ada")
+      expect((dialog.getByLabelText("Role") as HTMLSelectElement).value).toBe(
+        "role_reader"
+      )
     })
 
     it("clears an earlier refusal when the dialog is opened again", async () => {
       renderPage(
         WardenAssignmentsPage,
-        refusingCommands(new ContractError("CONFLICT", "capped at 2 members and already has 2"))
+        refusingCommands(
+          new ContractError("CONFLICT", "capped at 2 members and already has 2")
+        )
       )
       const first = await openCreate()
-      await waitFor(() => expect(within(first.getByLabelText("Role")).getByText("reader (/)")).toBeTruthy())
+      await waitFor(() =>
+        expect(
+          within(first.getByLabelText("Role")).getByText("reader (/)")
+        ).toBeTruthy()
+      )
       fillRequired(first)
-      fireEvent.click(first.getByRole("button", { name: /^create assignment$/i }))
+      fireEvent.click(
+        first.getByRole("button", { name: /^create assignment$/i })
+      )
       await first.findByRole("alert")
 
       fireEvent.click(first.getByRole("button", { name: /^cancel$/i }))
@@ -766,7 +966,9 @@ describe("WardenAssignmentsPage", () => {
 
       const second = await openCreate()
       expect(second.queryByRole("alert")).toBeNull()
-      expect((second.getByLabelText("Subject id") as HTMLInputElement).value).toBe("")
+      expect(
+        (second.getByLabelText("Subject id") as HTMLInputElement).value
+      ).toBe("")
     })
 
     it("shows the create as pending while the command is in flight", async () => {
@@ -776,10 +978,18 @@ describe("WardenAssignmentsPage", () => {
       } as ScopedClient
       renderPage(WardenAssignmentsPage, pending)
       const dialog = await openCreate()
-      await waitFor(() => expect(within(dialog.getByLabelText("Role")).getByText("reader (/)")).toBeTruthy())
+      await waitFor(() =>
+        expect(
+          within(dialog.getByLabelText("Role")).getByText("reader (/)")
+        ).toBeTruthy()
+      )
       fillRequired(dialog)
-      fireEvent.click(dialog.getByRole("button", { name: /^create assignment$/i }))
-      const working = (await dialog.findByRole("button", { name: /working/i })) as HTMLButtonElement
+      fireEvent.click(
+        dialog.getByRole("button", { name: /^create assignment$/i })
+      )
+      const working = (await dialog.findByRole("button", {
+        name: /working/i,
+      })) as HTMLButtonElement
       expect(working.disabled).toBe(true)
     })
 
@@ -796,7 +1006,8 @@ describe("WardenAssignmentsPage", () => {
       const c = {
         ...client(),
         query: async (intent: string) => {
-          if (intent === "roles.list") throw new ContractError("PERMISSION_DENIED", "cannot list roles")
+          if (intent === "roles.list")
+            throw new ContractError("PERMISSION_DENIED", "cannot list roles")
           return answers()[intent as keyof ReturnType<typeof answers>]
         },
       } as ScopedClient
@@ -808,10 +1019,14 @@ describe("WardenAssignmentsPage", () => {
 
   describe("deleting", () => {
     it("sends the assignment id, and only the id", async () => {
-      const { client: c, sent } = recordingCommandClient(answers(), { "assignments.delete": {} })
+      const { client: c, sent } = recordingCommandClient(answers(), {
+        "assignments.delete": {},
+      })
       renderPage(WardenAssignmentsPage, c)
       await screen.findByText("api_key:soon")
-      fireEvent.click(screen.getByRole("button", { name: "Delete api_key:soon from reader" }))
+      fireEvent.click(
+        screen.getByRole("button", { name: "Delete api_key:soon from reader" })
+      )
       fireEvent.click(await screen.findByRole("button", { name: /^Delete$/ }))
       await waitFor(() => expect(sent).toHaveLength(1))
       expect(sent[0]?.intent).toBe("assignments.delete")
@@ -821,7 +1036,9 @@ describe("WardenAssignmentsPage", () => {
     it("names the subject and the role in the confirmation", async () => {
       renderPage(WardenAssignmentsPage, client())
       await screen.findByText("api_key:soon")
-      fireEvent.click(screen.getByRole("button", { name: "Delete api_key:soon from reader" }))
+      fireEvent.click(
+        screen.getByRole("button", { name: "Delete api_key:soon from reader" })
+      )
       const dialog = within(await screen.findByRole("alertdialog"))
       expect(dialog.getByText("Delete api_key:soon from reader?")).toBeTruthy()
     })
@@ -833,7 +1050,9 @@ describe("WardenAssignmentsPage", () => {
       // believe it gone when it was not.
       renderPage(WardenAssignmentsPage, client())
       await screen.findByText("api_key:soon")
-      fireEvent.click(screen.getByRole("button", { name: "Delete api_key:soon from reader" }))
+      fireEvent.click(
+        screen.getByRole("button", { name: "Delete api_key:soon from reader" })
+      )
       const dialog = within(await screen.findByRole("alertdialog"))
       expect(
         dialog.getByText(
@@ -852,19 +1071,27 @@ describe("WardenAssignmentsPage", () => {
       } as ScopedClient
       renderPage(WardenAssignmentsPage, pending)
       await screen.findByText("api_key:soon")
-      fireEvent.click(screen.getByRole("button", { name: "Delete api_key:soon from reader" }))
+      fireEvent.click(
+        screen.getByRole("button", { name: "Delete api_key:soon from reader" })
+      )
       const dialog = within(await screen.findByRole("alertdialog"))
       fireEvent.click(dialog.getByRole("button", { name: /^Delete$/ }))
-      const working = (await dialog.findByRole("button", { name: /working/i })) as HTMLButtonElement
+      const working = (await dialog.findByRole("button", {
+        name: /working/i,
+      })) as HTMLButtonElement
       expect(working.disabled).toBe(true)
     })
 
     it("tells the operator an expired assignment already grants nothing", async () => {
       renderPage(WardenAssignmentsPage, client())
       await screen.findByText("user:gone")
-      fireEvent.click(screen.getByRole("button", { name: "Delete user:gone from auditor" }))
+      fireEvent.click(
+        screen.getByRole("button", { name: "Delete user:gone from auditor" })
+      )
       const dialog = within(await screen.findByRole("alertdialog"))
-      expect(dialog.getByText(/already expired and grants nothing/i)).toBeTruthy()
+      expect(
+        dialog.getByText(/already expired and grants nothing/i)
+      ).toBeTruthy()
     })
 
     it("shows a refused delete inside the dialog", async () => {
@@ -873,7 +1100,9 @@ describe("WardenAssignmentsPage", () => {
         refusingCommands(new ContractError("NOT_FOUND", "no such assignment"))
       )
       await screen.findByText("api_key:soon")
-      fireEvent.click(screen.getByRole("button", { name: "Delete api_key:soon from reader" }))
+      fireEvent.click(
+        screen.getByRole("button", { name: "Delete api_key:soon from reader" })
+      )
       const dialog = within(await screen.findByRole("alertdialog"))
       fireEvent.click(dialog.getByRole("button", { name: /^Delete$/ }))
       const alert = await dialog.findByRole("alert")
@@ -888,7 +1117,9 @@ describe("WardenAssignmentsPage", () => {
         limit: 25,
         offset: 25,
       }
-      const { client: c, sent } = recordingQueryClient(answers({ "assignments.list": lastPage }))
+      const { client: c, sent } = recordingQueryClient(
+        answers({ "assignments.list": lastPage })
+      )
       const withDelete = { ...c, command: async () => ({}) } as typeof c
       renderPage(WardenAssignmentsPage, withDelete)
       await screen.findByText("api_key:soon")
@@ -896,11 +1127,15 @@ describe("WardenAssignmentsPage", () => {
       await waitFor(() =>
         expect(
           sent.some(
-            (q) => q.intent === "assignments.list" && (q.params as { offset?: number }).offset === 25
+            (q) =>
+              q.intent === "assignments.list" &&
+              (q.params as { offset?: number }).offset === 25
           )
         ).toBe(true)
       )
-      fireEvent.click(screen.getByRole("button", { name: "Delete api_key:soon from reader" }))
+      fireEvent.click(
+        screen.getByRole("button", { name: "Delete api_key:soon from reader" })
+      )
       fireEvent.click(await screen.findByRole("button", { name: /^Delete$/ }))
       await waitFor(() => {
         const last = sent.filter((q) => q.intent === "assignments.list").at(-1)
@@ -926,12 +1161,15 @@ describe("WardenAssignmentsPage", () => {
     }
 
     function lastExpiring(sent: { intent: string; params?: unknown }[]) {
-      return sent.filter((q) => q.intent === "assignments.expiring").at(-1)?.params
+      return sent.filter((q) => q.intent === "assignments.expiring").at(-1)
+        ?.params
     }
 
     async function showExpiring() {
       await screen.findByText("user:gone")
-      fireEvent.change(screen.getByLabelText("Show"), { target: { value: "expiring" } })
+      fireEvent.change(screen.getByLabelText("Show"), {
+        target: { value: "expiring" },
+      })
     }
 
     function many(n: number) {
@@ -950,7 +1188,9 @@ describe("WardenAssignmentsPage", () => {
       await screen.findByText("user:gone")
       const show = screen.getByLabelText("Show") as HTMLSelectElement
       expect(show.value).toBe("all")
-      expect(Array.from(show.options).map((o) => [o.value, o.textContent])).toEqual([
+      expect(
+        Array.from(show.options).map((o) => [o.value, o.textContent])
+      ).toEqual([
         ["all", "All assignments"],
         ["expiring", "Expiring soon"],
       ])
@@ -967,19 +1207,27 @@ describe("WardenAssignmentsPage", () => {
     })
 
     it("lists what the intent returns, the expired rows marked", async () => {
-      renderPage(WardenAssignmentsPage, client({ "assignments.expiring": FEED }))
+      renderPage(
+        WardenAssignmentsPage,
+        client({ "assignments.expiring": FEED })
+      )
       await showExpiring()
       expect(await screen.findByText("api_key:upcoming")).toBeTruthy()
       const gone = await rowOf("user:gone")
       expect(within(gone).getByText("Expired")).toBeTruthy()
-      expect(within(await rowOf("api_key:upcoming")).queryByText("Expired")).toBeNull()
+      expect(
+        within(await rowOf("api_key:upcoming")).queryByText("Expired")
+      ).toBeNull()
       expect(screen.getByText("2 assignments")).toBeTruthy()
     })
 
     it("hides the filters the feed does not take", async () => {
       // assignments.expiring reads the whole tenant and takes no namespace,
       // kind, role or subject, so offering them would promise a filter.
-      renderPage(WardenAssignmentsPage, client({ "assignments.expiring": FEED }))
+      renderPage(
+        WardenAssignmentsPage,
+        client({ "assignments.expiring": FEED })
+      )
       await showExpiring()
       await screen.findByText("api_key:upcoming")
       expect(screen.queryByLabelText("Namespace")).toBeNull()
@@ -989,7 +1237,10 @@ describe("WardenAssignmentsPage", () => {
     })
 
     it("says the window it used, that it covers every namespace, and that expired rows are in it", async () => {
-      renderPage(WardenAssignmentsPage, client({ "assignments.expiring": FEED }))
+      renderPage(
+        WardenAssignmentsPage,
+        client({ "assignments.expiring": FEED })
+      )
       await showExpiring()
       expect(
         await screen.findByText(
@@ -1002,19 +1253,32 @@ describe("WardenAssignmentsPage", () => {
       const { client: c, sent } = recordingQueryClient(expiringAnswers())
       renderPage(WardenAssignmentsPage, c)
       await showExpiring()
-      const within_ = (await screen.findByLabelText("Within")) as HTMLSelectElement
-      expect(Array.from(within_.options).map((o) => [o.value, o.textContent])).toEqual([
+      const within_ = (await screen.findByLabelText(
+        "Within"
+      )) as HTMLSelectElement
+      expect(
+        Array.from(within_.options).map((o) => [o.value, o.textContent])
+      ).toEqual([
         ["24", "24 hours"],
         ["168", "7 days"],
         ["720", "30 days"],
       ])
       fireEvent.change(within_, { target: { value: "24" } })
-      await waitFor(() => expect(lastExpiring(sent)).toEqual({ withinHours: 24, limit: 200 }))
-      expect(await screen.findByText(/^Assignments that expire within the next 24 hours,/)).toBeTruthy()
+      await waitFor(() =>
+        expect(lastExpiring(sent)).toEqual({ withinHours: 24, limit: 200 })
+      )
+      expect(
+        await screen.findByText(
+          /^Assignments that expire within the next 24 hours,/
+        )
+      ).toBeTruthy()
     })
 
     it("says when it hit its limit, and what may be missing", async () => {
-      renderPage(WardenAssignmentsPage, client({ "assignments.expiring": many(200) }))
+      renderPage(
+        WardenAssignmentsPage,
+        client({ "assignments.expiring": many(200) })
+      )
       await showExpiring()
       expect(
         await screen.findByText(
@@ -1024,14 +1288,20 @@ describe("WardenAssignmentsPage", () => {
     })
 
     it("says nothing about a limit when the list came back short of it", async () => {
-      renderPage(WardenAssignmentsPage, client({ "assignments.expiring": many(199) }))
+      renderPage(
+        WardenAssignmentsPage,
+        client({ "assignments.expiring": many(199) })
+      )
       await showExpiring()
       await screen.findByText("199 assignments")
       expect(screen.queryByText(/Warden stopped at/)).toBeNull()
     })
 
     it("says which kind of empty an empty feed is", async () => {
-      renderPage(WardenAssignmentsPage, client({ "assignments.expiring": { items: [] } }))
+      renderPage(
+        WardenAssignmentsPage,
+        client({ "assignments.expiring": { items: [] } })
+      )
       await showExpiring()
       expect(
         await screen.findByText(
@@ -1041,9 +1311,14 @@ describe("WardenAssignmentsPage", () => {
     })
 
     it("survives a null items list rather than throwing", async () => {
-      renderPage(WardenAssignmentsPage, client({ "assignments.expiring": { items: null } }))
+      renderPage(
+        WardenAssignmentsPage,
+        client({ "assignments.expiring": { items: null } })
+      )
       await showExpiring()
-      expect(await screen.findByText(/^No assignment expires within/)).toBeTruthy()
+      expect(
+        await screen.findByText(/^No assignment expires within/)
+      ).toBeTruthy()
     })
 
     it("surfaces a failure of the feed", async () => {
@@ -1052,7 +1327,10 @@ describe("WardenAssignmentsPage", () => {
         ...c,
         query: async (intent: string, params?: Record<string, unknown>) => {
           if (intent === "assignments.expiring") {
-            throw new ContractError("PERMISSION_DENIED", "cannot read assignments")
+            throw new ContractError(
+              "PERMISSION_DENIED",
+              "cannot read assignments"
+            )
           }
           return c.query(intent, params)
         },
@@ -1063,25 +1341,35 @@ describe("WardenAssignmentsPage", () => {
     })
 
     it("deletes from the feed by id", async () => {
-      const { client: c, sent } = recordingCommandClient(
-        expiringAnswers(),
-        { "assignments.delete": {} }
-      )
+      const { client: c, sent } = recordingCommandClient(expiringAnswers(), {
+        "assignments.delete": {},
+      })
       renderPage(WardenAssignmentsPage, c)
       await showExpiring()
       await screen.findByText("api_key:upcoming")
-      fireEvent.click(screen.getByRole("button", { name: "Delete api_key:upcoming from reader" }))
+      fireEvent.click(
+        screen.getByRole("button", {
+          name: "Delete api_key:upcoming from reader",
+        })
+      )
       fireEvent.click(await screen.findByRole("button", { name: /^Delete$/ }))
       await waitFor(() =>
-        expect(sent).toEqual([{ intent: "assignments.delete", payload: { id: "asg_upcoming" } }])
+        expect(sent).toEqual([
+          { intent: "assignments.delete", payload: { id: "asg_upcoming" } },
+        ])
       )
     })
 
     it("goes back to the full list, with its filters", async () => {
-      renderPage(WardenAssignmentsPage, client({ "assignments.expiring": FEED }))
+      renderPage(
+        WardenAssignmentsPage,
+        client({ "assignments.expiring": FEED })
+      )
       await showExpiring()
       await screen.findByText("api_key:upcoming")
-      fireEvent.change(screen.getByLabelText("Show"), { target: { value: "all" } })
+      fireEvent.change(screen.getByLabelText("Show"), {
+        target: { value: "all" },
+      })
       expect(await screen.findByText("service:forever")).toBeTruthy()
       expect(screen.getByLabelText("Namespace")).toBeTruthy()
       expect(screen.queryByLabelText("Within")).toBeNull()

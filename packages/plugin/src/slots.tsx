@@ -56,7 +56,10 @@ interface Resolved {
  * whatever the plugin array happened to be in, which changes when somebody
  * reorders an import and produces a diff nobody can explain.
  */
-function contributionsFor(entries: ResolvedSubPlugin[], name: SlotName): Resolved[] {
+function contributionsFor(
+  entries: ResolvedSubPlugin[],
+  name: SlotName
+): Resolved[] {
   const out: Resolved[] = []
   for (const entry of entries) {
     for (const contribution of entry.subPlugin.contributions[name] ?? []) {
@@ -156,7 +159,7 @@ export interface SlotEntry {
  */
 export function useSlotEntries(
   name: SlotName,
-  params?: Record<string, unknown>,
+  params?: Record<string, unknown>
 ): SlotEntry[] {
   const entries = useContext(SubPluginContext)
   const resolved = contributionsFor(entries, name)
@@ -250,12 +253,12 @@ export function useHostAccess(intent: string): ScopedClient {
   const access = useContext(HostAccessContext)
   if (!access) {
     throw new Error(
-      `useHostQuery/useHostCommand were called outside a HostAccessProvider (intent "${intent}"). Only a sub-plugin's own routes and contributions may read host intents.`,
+      `useHostQuery/useHostCommand were called outside a HostAccessProvider (intent "${intent}"). Only a sub-plugin's own routes and contributions may read host intents.`
     )
   }
   if (!access.allowed.includes(intent)) {
     throw new Error(
-      `sub-plugin "${access.subExtension}" read host intent "${intent}" without declaring it. Add it to \`hostIntents\` in defineSubPlugin, or query the sub-plugin's own extension instead.`,
+      `sub-plugin "${access.subExtension}" read host intent "${intent}" without declaring it. Add it to \`hostIntents\` in defineSubPlugin, or query the sub-plugin's own extension instead.`
     )
   }
   return access.client

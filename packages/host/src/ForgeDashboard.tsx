@@ -1,6 +1,9 @@
 import type { ReactNode } from "react"
 import { BrowserRouter } from "react-router"
-import { ForgeDashboardProvider, SessionProvider } from "@forge-go/dashboard-runtime"
+import {
+  ForgeDashboardProvider,
+  SessionProvider,
+} from "@forge-go/dashboard-runtime"
 import type { DashboardConfigInput } from "@forge-go/dashboard-runtime"
 import type { ForgePlugin, ForgeSubPlugin } from "@forge-go/dashboard-plugin"
 import { TooltipProvider } from "@forge-go/dashboard-kit/components/tooltip"

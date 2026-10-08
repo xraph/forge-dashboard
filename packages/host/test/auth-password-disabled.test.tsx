@@ -5,7 +5,7 @@ import type { AuthIntents } from "@forge-go/dashboard-plugin"
 
 vi.mock("@forge-go/dashboard-plugin", async () => {
   const actual = await vi.importActual<Record<string, unknown>>(
-    "@forge-go/dashboard-plugin",
+    "@forge-go/dashboard-plugin"
   )
   return {
     ...actual,
@@ -37,7 +37,7 @@ describe("sign-in with password login disabled", () => {
           next="/forge"
           onAuthenticated={vi.fn()}
         />
-      </MemoryRouter>,
+      </MemoryRouter>
     )
     expect(screen.getByRole("heading", { name: /sign in/i })).toBeDefined()
     expect(screen.queryByLabelText(/password/i)).toBeNull()

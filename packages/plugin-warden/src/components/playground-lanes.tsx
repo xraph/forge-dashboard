@@ -66,7 +66,11 @@ type Model = PlaygroundLane["model"]
 /** The engine's pipeline order, which is also the order `mergeDecisions` reads. */
 const PIPELINE: readonly Model[] = ["rbac", "rebac", "abac"]
 
-const MODEL_NAME: Record<Model, string> = { rbac: "RBAC", rebac: "ReBAC", abac: "ABAC" }
+const MODEL_NAME: Record<Model, string> = {
+  rbac: "RBAC",
+  rebac: "ReBAC",
+  abac: "ABAC",
+}
 
 /** The lanes in pipeline order, whatever order they arrived in. */
 function inOrder(result: PlaygroundResult): PlaygroundLane[] {
@@ -106,7 +110,8 @@ export function decidingLane(result: PlaygroundResult): Model | null {
   return lanes.find((l) => l.reason)?.model ?? null
 }
 
-const WALK_NOTE = "The relation walk stopped at its limit, so a relation may exist beyond it."
+const WALK_NOTE =
+  "The relation walk stopped at its limit, so a relation may exist beyond it."
 const EXPRESSION_NOTE =
   "The resource type's permission expression failed, so it was treated as no match."
 const EXPRESSION_ALLOW_NOTE =
@@ -133,7 +138,9 @@ export function verdictSentence(result: PlaygroundResult): string {
   } else if (result.decision === "deny_explicit") {
     // RBAC and ReBAC are the two models an ABAC deny can override, and the
     // first of them that allowed is the one the deny displaced.
-    const overridden = lanes.find((l) => l.model !== "abac" && l.state === "allow")
+    const overridden = lanes.find(
+      (l) => l.model !== "abac" && l.state === "allow"
+    )
     sentence = overridden
       ? `An explicit deny overrides the ${MODEL_NAME[overridden.model]} allow.`
       : "A deny policy matched."
@@ -218,9 +225,16 @@ const TRANSITIVE_DETAIL = "transitive: "
  * ReBAC reads it, and the subject is the check's own. The path route has no
  * segment for an empty resource id, so a check on a type alone gets no link.
  */
-export function walkGraphHref(lane: PlaygroundLane, input: PlaygroundInput | undefined): string | null {
-  if (lane.model !== "rebac" || lane.state !== "allow" || !input?.resourceId) return null
-  if (!(lane.matchedBy ?? []).some((m) => m.detail?.startsWith(TRANSITIVE_DETAIL))) return null
+export function walkGraphHref(
+  lane: PlaygroundLane,
+  input: PlaygroundInput | undefined
+): string | null {
+  if (lane.model !== "rebac" || lane.state !== "allow" || !input?.resourceId)
+    return null
+  if (
+    !(lane.matchedBy ?? []).some((m) => m.detail?.startsWith(TRANSITIVE_DETAIL))
+  )
+    return null
   return relationGraphPath({
     objectType: input.resourceType,
     objectId: input.resourceId,
@@ -243,7 +257,8 @@ function LaneDetail({ lane }: { lane: PlaygroundLane }) {
         </>
       )
     case "noMatch":
-      if (lane.reason) return <span className="text-muted-foreground">{lane.reason}</span>
+      if (lane.reason)
+        return <span className="text-muted-foreground">{lane.reason}</span>
       // ABAC with no result has no reason. It is not always that no policy
       // matched: an allow policy whose condition threw is skipped too. RBAC
       // and ReBAC always give a reason.
@@ -252,12 +267,20 @@ function LaneDetail({ lane }: { lane: PlaygroundLane }) {
       ) : null
     case "skipped":
       return (
-        <span className="text-muted-foreground">RBAC already allowed, so ReBAC did not run.</span>
+        <span className="text-muted-foreground">
+          RBAC already allowed, so ReBAC did not run.
+        </span>
       )
     case "disabled":
-      return <span className="text-muted-foreground">Turned off in warden's config.</span>
+      return (
+        <span className="text-muted-foreground">
+          Turned off in warden's config.
+        </span>
+      )
     case "error":
-      return lane.error ? <span className="text-destructive">{lane.error}</span> : null
+      return lane.error ? (
+        <span className="text-destructive">{lane.error}</span>
+      ) : null
     case "notEvaluated":
       return (
         <span className="text-muted-foreground">
@@ -295,17 +318,21 @@ export function LaneRow({
       data-deciding={deciding ? "true" : undefined}
       className={cn(
         "grid grid-cols-[3.5rem_minmax(0,1fr)] items-baseline gap-x-3 rounded-md border px-3 py-2 text-sm",
-        deciding && "border-l-2 border-l-foreground",
+        deciding && "border-l-2 border-l-foreground"
       )}
     >
       <span className="font-medium">{MODEL_NAME[lane.model]}</span>
       <div className="flex flex-col gap-1">
         <span className="flex flex-wrap items-center gap-2">
-          <span className={bad ? "font-medium text-destructive" : "font-medium"}>
+          <span
+            className={bad ? "font-medium text-destructive" : "font-medium"}
+          >
             {STATE_WORD[lane.state]}
           </span>
           {deciding && (
-            <Badge variant="outline">{reasonOnly ? "gave the reason" : "decided it"}</Badge>
+            <Badge variant="outline">
+              {reasonOnly ? "gave the reason" : "decided it"}
+            </Badge>
           )}
         </span>
         <LaneDetail lane={lane} />

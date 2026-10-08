@@ -18,7 +18,10 @@ if (typeof window.PointerEvent === "undefined") {
 // jsdom 25 has no layout, so Range has no geometry. CodeMirror measures a
 // range when it scrolls a selection into view, which the workspace does when
 // a problem is clicked. Empty geometry is what a hidden element reports.
-if (typeof Range !== "undefined" && typeof Range.prototype.getClientRects !== "function") {
+if (
+  typeof Range !== "undefined" &&
+  typeof Range.prototype.getClientRects !== "function"
+) {
   Range.prototype.getClientRects = () => [] as unknown as DOMRectList
   Range.prototype.getBoundingClientRect = () => new DOMRect()
 }
@@ -32,5 +35,6 @@ if (typeof globalThis.ResizeObserver === "undefined") {
     unobserve() {}
     disconnect() {}
   }
-  globalThis.ResizeObserver = NoopResizeObserver as unknown as typeof ResizeObserver
+  globalThis.ResizeObserver =
+    NoopResizeObserver as unknown as typeof ResizeObserver
 }

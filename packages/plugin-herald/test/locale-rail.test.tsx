@@ -1,5 +1,13 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
-import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react"
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react"
 import { ContractError, PluginProvider } from "@forge-go/dashboard-plugin"
 import { LocaleRail } from "../src/workspace/locale-rail"
 import type { LocaleRailProps } from "../src/workspace/locale-rail"
@@ -12,25 +20,60 @@ afterEach(() => {
   vi.useRealTimers()
 })
 
-const FR: VersionWire = { id: "htpv_01j00000000000000000000027", locale: "fr", subject: "Votre reçu", html: "", text: "Bonjour", title: "", active: false, createdAt: "2026-09-20T10:00:00Z", updatedAt: "2026-09-20T10:00:00Z" }
+const FR: VersionWire = {
+  id: "htpv_01j00000000000000000000027",
+  locale: "fr",
+  subject: "Votre reçu",
+  html: "",
+  text: "Bonjour",
+  title: "",
+  active: false,
+  createdAt: "2026-09-20T10:00:00Z",
+  updatedAt: "2026-09-20T10:00:00Z",
+}
 const base = templateDetail()
 const detail = templateDetail({ versions: [...base.versions, FR] })
 const [FALLBACK, EN] = detail.versions
 
-function setup(over: Partial<LocaleRailProps> = {}, commands: Record<string, object> = {}, queries: Record<string, object> = {}) {
+function setup(
+  over: Partial<LocaleRailProps> = {},
+  commands: Record<string, object> = {},
+  queries: Record<string, object> = {}
+) {
   const onSelect = vi.fn()
   const onCreated = vi.fn()
   const { client, sent, queried } = scriptedClient(
     { ...queries },
-    { "versions.update": { version: EN }, "versions.delete": { ok: true, id: EN.id }, "versions.create": { version: { ...FR, id: "htpv_new", locale: "de" } }, ...commands },
+    {
+      "versions.update": { version: EN },
+      "versions.delete": { ok: true, id: EN.id },
+      "versions.create": { version: { ...FR, id: "htpv_new", locale: "de" } },
+      ...commands,
+    }
   )
   const ui = (props: Partial<LocaleRailProps>) => (
     <PluginProvider client={client}>
-      <LocaleRail template={detail} selectedId={EN.id} onSelect={onSelect} dirtyIds={new Set()} copyFrom={{ subject: "S", html: "H", text: "T", title: "" }} copyName="the en version" onCreated={onCreated} {...over} {...props} />
+      <LocaleRail
+        template={detail}
+        selectedId={EN.id}
+        onSelect={onSelect}
+        dirtyIds={new Set()}
+        copyFrom={{ subject: "S", html: "H", text: "T", title: "" }}
+        copyName="the en version"
+        onCreated={onCreated}
+        {...over}
+        {...props}
+      />
     </PluginProvider>
   )
   const { rerender } = render(ui({}))
-  return { onSelect, onCreated, sent, queried, reload: (props: Partial<LocaleRailProps>) => rerender(ui(props)) }
+  return {
+    onSelect,
+    onCreated,
+    sent,
+    queried,
+    reload: (props: Partial<LocaleRailProps>) => rerender(ui(props)),
+  }
 }
 
 const rail = () => screen.getByRole("complementary", { name: "Locales" })
@@ -42,33 +85,66 @@ describe("LocaleRail", () => {
     const items = within(rail()).getAllByRole("listitem")
     expect(items).toHaveLength(3)
     expect(within(items[0]).getByText("Fallback")).toBeTruthy()
-    expect(within(items[0]).getByText("Live").getAttribute("data-variant")).toBe("outline")
-    expect(within(items[0]).getByText("Answers any locale no other live version takes")).toBeTruthy()
-    expect(items[1].textContent).toContain("Answers en, and en-* without a live version of its own")
-    expect(within(items[2]).getByText("Inactive").getAttribute("data-variant")).toBe("secondary")
+    expect(
+      within(items[0]).getByText("Live").getAttribute("data-variant")
+    ).toBe("outline")
+    expect(
+      within(items[0]).getByText(
+        "Answers any locale no other live version takes"
+      )
+    ).toBeTruthy()
+    expect(items[1].textContent).toContain(
+      "Answers en, and en-* without a live version of its own"
+    )
+    expect(
+      within(items[2]).getByText("Inactive").getAttribute("data-variant")
+    ).toBe("secondary")
     expect(items[2].textContent).not.toContain("Answers")
   })
 
   it("marks the selected version and selects another on click", () => {
     const { onSelect } = setup()
-    expect(within(rail()).getByRole("button", { name: /^en/ }).getAttribute("aria-current")).toBe("true")
+    expect(
+      within(rail())
+        .getByRole("button", { name: /^en/ })
+        .getAttribute("aria-current")
+    ).toBe("true")
     fireEvent.click(within(rail()).getByRole("button", { name: /^fr/ }))
     expect(onSelect).toHaveBeenCalledWith(FR.id)
   })
 
   it("marks a version with unsaved edits", () => {
     setup({ dirtyIds: new Set([EN.id]) })
-    expect(within(rail()).getByRole("button", { name: /^en/ }).textContent).toContain("edited")
+    expect(
+      within(rail()).getByRole("button", { name: /^en/ }).textContent
+    ).toContain("edited")
   })
 
   it("says what will answer en before taking it offline, then sends only the switch", async () => {
     const { sent } = setup()
     fireEvent.click(screen.getByRole("switch", { name: "Live: en version" }))
     expect(within(dialog()).getByText("Take en offline?")).toBeTruthy()
-    expect(within(dialog()).getByText("A request for en will then get the fallback version. Requests for en-* with no live version of their own will then get the fallback version.")).toBeTruthy()
-    expect(within(dialog()).getByRole("button", { name: "Take offline" }).className.split(/\s+/)).not.toContain("text-destructive")
-    fireEvent.click(within(dialog()).getByRole("button", { name: "Take offline" }))
-    await waitFor(() => expect(sent).toEqual([{ intent: "versions.update", payload: { templateId: detail.id, versionId: EN.id, active: false } }]))
+    expect(
+      within(dialog()).getByText(
+        "A request for en will then get the fallback version. Requests for en-* with no live version of their own will then get the fallback version."
+      )
+    ).toBeTruthy()
+    expect(
+      within(dialog())
+        .getByRole("button", { name: "Take offline" })
+        .className.split(/\s+/)
+    ).not.toContain("text-destructive")
+    fireEvent.click(
+      within(dialog()).getByRole("button", { name: "Take offline" })
+    )
+    await waitFor(() =>
+      expect(sent).toEqual([
+        {
+          intent: "versions.update",
+          payload: { templateId: detail.id, versionId: EN.id, active: false },
+        },
+      ])
+    )
     await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull())
   })
 
@@ -76,47 +152,104 @@ describe("LocaleRail", () => {
     setup()
     fireEvent.click(screen.getByRole("switch", { name: "Live: fr version" }))
     expect(within(dialog()).getByText("Put fr live?")).toBeTruthy()
-    expect(within(dialog()).getByText("A request for fr will then get the fr version. Requests for fr-* with no live version of their own will then get the fr version.")).toBeTruthy()
+    expect(
+      within(dialog()).getByText(
+        "A request for fr will then get the fr version. Requests for fr-* with no live version of their own will then get the fr version."
+      )
+    ).toBeTruthy()
     // The kit Button has no data-variant; the destructive variant is its text-destructive class.
-    expect(within(dialog()).getByRole("button", { name: "Put live" }).className.split(/\s+/)).not.toContain("text-destructive")
+    expect(
+      within(dialog())
+        .getByRole("button", { name: "Put live" })
+        .className.split(/\s+/)
+    ).not.toContain("text-destructive")
   })
 
   it("says sends will fail before taking the fallback offline", () => {
     setup()
-    fireEvent.click(screen.getByRole("switch", { name: "Live: fallback version" }))
-    expect(within(dialog()).getByText("A send in any locale no other live version takes will then fail.")).toBeTruthy()
-    expect(within(dialog()).getByRole("button", { name: "Take offline" }).className.split(/\s+/)).toContain("text-destructive")
+    fireEvent.click(
+      screen.getByRole("switch", { name: "Live: fallback version" })
+    )
+    expect(
+      within(dialog()).getByText(
+        "A send in any locale no other live version takes will then fail."
+      )
+    ).toBeTruthy()
+    expect(
+      within(dialog())
+        .getByRole("button", { name: "Take offline" })
+        .className.split(/\s+/)
+    ).toContain("text-destructive")
   })
 
   it("says what the fallback will answer once it is live", () => {
-    const off = templateDetail({ versions: [{ ...FALLBACK, active: false }, EN] })
+    const off = templateDetail({
+      versions: [{ ...FALLBACK, active: false }, EN],
+    })
     setup({ template: off })
-    fireEvent.click(screen.getByRole("switch", { name: "Live: fallback version" }))
-    expect(within(dialog()).getByText("A send in any locale no other live version takes will then get the fallback version.")).toBeTruthy()
-    expect(within(dialog()).getByRole("button", { name: "Put live" }).className.split(/\s+/)).not.toContain("text-destructive")
+    fireEvent.click(
+      screen.getByRole("switch", { name: "Live: fallback version" })
+    )
+    expect(
+      within(dialog()).getByText(
+        "A send in any locale no other live version takes will then get the fallback version."
+      )
+    ).toBeTruthy()
+    expect(
+      within(dialog())
+        .getByRole("button", { name: "Put live" })
+        .className.split(/\s+/)
+    ).not.toContain("text-destructive")
   })
 
   it("names the language version a regional tag falls to, and the regions a bare language covers", () => {
     const PT: VersionWire = { ...FR, id: "htpv_pt", locale: "pt", active: true }
-    const PTBR: VersionWire = { ...FR, id: "htpv_ptbr", locale: "pt-BR", active: true }
+    const PTBR: VersionWire = {
+      ...FR,
+      id: "htpv_ptbr",
+      locale: "pt-BR",
+      active: true,
+    }
     setup({ template: templateDetail({ versions: [FALLBACK, PT, PTBR] }) })
     fireEvent.click(screen.getByRole("switch", { name: "Live: pt-BR version" }))
-    expect(within(dialog()).getByText("A request for pt-BR will then get the pt version.")).toBeTruthy()
+    expect(
+      within(dialog()).getByText(
+        "A request for pt-BR will then get the pt version."
+      )
+    ).toBeTruthy()
   })
 
   it("is destructive only when taking en offline leaves it with nothing", () => {
-    setup({ template: templateDetail({ versions: [{ ...FALLBACK, active: false }, EN] }) })
+    setup({
+      template: templateDetail({
+        versions: [{ ...FALLBACK, active: false }, EN],
+      }),
+    })
     fireEvent.click(screen.getByRole("switch", { name: "Live: en version" }))
-    expect(within(dialog()).getByText("A request for en will then get nothing, so a send in that locale fails. Requests for en-* with no live version of their own will then get nothing, so a send in that locale fails.")).toBeTruthy()
-    expect(within(dialog()).getByRole("button", { name: "Take offline" }).className.split(/\s+/)).toContain("text-destructive")
+    expect(
+      within(dialog()).getByText(
+        "A request for en will then get nothing, so a send in that locale fails. Requests for en-* with no live version of their own will then get nothing, so a send in that locale fails."
+      )
+    ).toBeTruthy()
+    expect(
+      within(dialog())
+        .getByRole("button", { name: "Take offline" })
+        .className.split(/\s+/)
+    ).toContain("text-destructive")
   })
 
   it("keeps saying what it said when the template reloads under an open dialog", () => {
     const { reload } = setup()
     fireEvent.click(screen.getByRole("switch", { name: "Live: en version" }))
-    const text = "A request for en will then get the fallback version. Requests for en-* with no live version of their own will then get the fallback version."
+    const text =
+      "A request for en will then get the fallback version. Requests for en-* with no live version of their own will then get the fallback version."
     expect(within(dialog()).getByText(text)).toBeTruthy()
-    reload({ template: { ...detail, versions: [FALLBACK, EN, { ...FR, active: true }] } })
+    reload({
+      template: {
+        ...detail,
+        versions: [FALLBACK, EN, { ...FR, active: true }],
+      },
+    })
     expect(within(dialog()).getByText("Take en offline?")).toBeTruthy()
     expect(within(dialog()).getByText(text)).toBeTruthy()
   })
@@ -124,66 +257,162 @@ describe("LocaleRail", () => {
   it("says deleting an inactive version changes nothing for sends", () => {
     setup()
     fireEvent.click(screen.getByRole("button", { name: "Delete fr version" }))
-    expect(within(dialog()).getByText("Nothing changes for sends, since it isn't live. Its content is deleted and can't be brought back.")).toBeTruthy()
+    expect(
+      within(dialog()).getByText(
+        "Nothing changes for sends, since it isn't live. Its content is deleted and can't be brought back."
+      )
+    ).toBeTruthy()
   })
 
   it("names what answers after a delete and that unsaved edits go too", async () => {
     const { sent } = setup({ dirtyIds: new Set([EN.id]) })
     fireEvent.click(screen.getByRole("button", { name: "Delete en version" }))
     expect(within(dialog()).getByText("Delete the en version?")).toBeTruthy()
-    expect(within(dialog()).getByText("A request for en will then get the fallback version. Requests for en-* with no live version of their own will then get the fallback version. Its content is deleted and can't be brought back. Its unsaved edits go with it.")).toBeTruthy()
-    fireEvent.click(within(dialog()).getByRole("button", { name: "Delete version" }))
-    await waitFor(() => expect(sent).toEqual([{ intent: "versions.delete", payload: { templateId: detail.id, versionId: EN.id } }]))
+    expect(
+      within(dialog()).getByText(
+        "A request for en will then get the fallback version. Requests for en-* with no live version of their own will then get the fallback version. Its content is deleted and can't be brought back. Its unsaved edits go with it."
+      )
+    ).toBeTruthy()
+    fireEvent.click(
+      within(dialog()).getByRole("button", { name: "Delete version" })
+    )
+    await waitFor(() =>
+      expect(sent).toEqual([
+        {
+          intent: "versions.delete",
+          payload: { templateId: detail.id, versionId: EN.id },
+        },
+      ])
+    )
   })
 
   it("moves focus to Add locale once a delete has gone through", async () => {
     setup()
     fireEvent.click(screen.getByRole("button", { name: "Delete fr version" }))
-    fireEvent.click(within(dialog()).getByRole("button", { name: "Delete version" }))
+    fireEvent.click(
+      within(dialog()).getByRole("button", { name: "Delete version" })
+    )
     await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull())
-    await waitFor(() => expect(document.activeElement).toBe(within(rail()).getByRole("button", { name: "Add locale" })))
+    await waitFor(() =>
+      expect(document.activeElement).toBe(
+        within(rail()).getByRole("button", { name: "Add locale" })
+      )
+    )
   })
 
   it("keeps the dialog open with the refusal when a delete fails", async () => {
-    setup({}, { "versions.delete": new ContractError("NOT_FOUND", "template version not found") })
+    setup(
+      {},
+      {
+        "versions.delete": new ContractError(
+          "NOT_FOUND",
+          "template version not found"
+        ),
+      }
+    )
     fireEvent.click(screen.getByRole("button", { name: "Delete en version" }))
-    fireEvent.click(within(dialog()).getByRole("button", { name: "Delete version" }))
-    expect(await within(dialog()).findByText("template version not found")).toBeTruthy()
+    fireEvent.click(
+      within(dialog()).getByRole("button", { name: "Delete version" })
+    )
+    expect(
+      await within(dialog()).findByText("template version not found")
+    ).toBeTruthy()
   })
 
   it("adds an inactive locale from the selected version's content", async () => {
     const { sent, onCreated } = setup()
     fireEvent.click(screen.getByRole("button", { name: "Add locale" }))
     const form = await screen.findByRole("dialog")
-    fireEvent.change(within(form).getByLabelText("Locale"), { target: { value: "de" } })
+    fireEvent.change(within(form).getByLabelText("Locale"), {
+      target: { value: "de" },
+    })
     fireEvent.click(within(form).getByRole("button", { name: "Add locale" }))
-    await waitFor(() => expect(sent).toEqual([{ intent: "versions.create", payload: { templateId: detail.id, locale: "de", subject: "S", html: "H", text: "T", title: "", active: false } }]))
-    await waitFor(() => expect(onCreated).toHaveBeenCalledWith(expect.objectContaining({ id: "htpv_new", locale: "de" })))
+    await waitFor(() =>
+      expect(sent).toEqual([
+        {
+          intent: "versions.create",
+          payload: {
+            templateId: detail.id,
+            locale: "de",
+            subject: "S",
+            html: "H",
+            text: "T",
+            title: "",
+            active: false,
+          },
+        },
+      ])
+    )
+    await waitFor(() =>
+      expect(onCreated).toHaveBeenCalledWith(
+        expect.objectContaining({ id: "htpv_new", locale: "de" })
+      )
+    )
   })
 
   it("starts a new locale empty when asked to", async () => {
     const { sent } = setup()
     fireEvent.click(screen.getByRole("button", { name: "Add locale" }))
     const form = await screen.findByRole("dialog")
-    fireEvent.click(within(form).getByRole("checkbox", { name: "Start from the en version's content" }))
-    fireEvent.change(within(form).getByLabelText("Locale"), { target: { value: "de" } })
+    fireEvent.click(
+      within(form).getByRole("checkbox", {
+        name: "Start from the en version's content",
+      })
+    )
+    fireEvent.change(within(form).getByLabelText("Locale"), {
+      target: { value: "de" },
+    })
     fireEvent.click(within(form).getByRole("button", { name: "Add locale" }))
-    await waitFor(() => expect(sent[0]?.payload).toEqual({ templateId: detail.id, locale: "de", subject: "", html: "", text: "", title: "", active: false }))
+    await waitFor(() =>
+      expect(sent[0]?.payload).toEqual({
+        templateId: detail.id,
+        locale: "de",
+        subject: "",
+        html: "",
+        text: "",
+        title: "",
+        active: false,
+      })
+    )
   })
 
   it("refuses a malformed or taken locale before the round trip", async () => {
     const { sent } = setup()
     fireEvent.click(screen.getByRole("button", { name: "Add locale" }))
     const form = await screen.findByRole("dialog")
-    fireEvent.change(within(form).getByLabelText("Locale"), { target: { value: "e" } })
-    expect(within(form).getByText("A locale is a tag like en or pt-BR.")).toBeTruthy()
-    expect((within(form).getByRole("button", { name: "Add locale" }) as HTMLButtonElement).disabled).toBe(true)
-    fireEvent.change(within(form).getByLabelText("Locale"), { target: { value: "fr" } })
-    expect(within(form).getByText("This template already has a fr version.")).toBeTruthy()
-    fireEvent.change(within(form).getByLabelText("Locale"), { target: { value: "" } })
+    fireEvent.change(within(form).getByLabelText("Locale"), {
+      target: { value: "e" },
+    })
+    expect(
+      within(form).getByText("A locale is a tag like en or pt-BR.")
+    ).toBeTruthy()
+    expect(
+      (
+        within(form).getByRole("button", {
+          name: "Add locale",
+        }) as HTMLButtonElement
+      ).disabled
+    ).toBe(true)
+    fireEvent.change(within(form).getByLabelText("Locale"), {
+      target: { value: "fr" },
+    })
+    expect(
+      within(form).getByText("This template already has a fr version.")
+    ).toBeTruthy()
+    fireEvent.change(within(form).getByLabelText("Locale"), {
+      target: { value: "" },
+    })
     expect(within(form).getByText("A tag like fr or pt-BR.")).toBeTruthy()
-    expect(within(form).queryByText("This template already has a fallback version.")).toBeNull()
-    expect((within(form).getByRole("button", { name: "Add locale" }) as HTMLButtonElement).disabled).toBe(true)
+    expect(
+      within(form).queryByText("This template already has a fallback version.")
+    ).toBeNull()
+    expect(
+      (
+        within(form).getByRole("button", {
+          name: "Add locale",
+        }) as HTMLButtonElement
+      ).disabled
+    ).toBe(true)
     expect(sent).toEqual([])
   })
 
@@ -196,7 +425,13 @@ describe("LocaleRail", () => {
     expect(hint.className).not.toContain("text-destructive")
     expect(input.getAttribute("aria-invalid")).toBeNull()
     expect(within(form).queryByText(/already has/)).toBeNull()
-    expect((within(form).getByRole("button", { name: "Add locale" }) as HTMLButtonElement).disabled).toBe(true)
+    expect(
+      (
+        within(form).getByRole("button", {
+          name: "Add locale",
+        }) as HTMLButtonElement
+      ).disabled
+    ).toBe(true)
   })
 
   it("ties the add locale hint and error to the input", async () => {
@@ -204,7 +439,9 @@ describe("LocaleRail", () => {
     fireEvent.click(screen.getByRole("button", { name: "Add locale" }))
     const form = await screen.findByRole("dialog")
     const input = within(form).getByLabelText("Locale")
-    const hint = () => document.getElementById(input.getAttribute("aria-describedby") ?? "")?.textContent
+    const hint = () =>
+      document.getElementById(input.getAttribute("aria-describedby") ?? "")
+        ?.textContent
     fireEvent.change(input, { target: { value: "de" } })
     expect(hint()).toBe("A tag like fr or pt-BR.")
     fireEvent.change(input, { target: { value: "e" } })
@@ -214,12 +451,26 @@ describe("LocaleRail", () => {
   })
 
   it("shows the server's refusal inside the add dialog", async () => {
-    setup({}, { "versions.create": new ContractError("CONFLICT", "this template already has a version for that locale") })
+    setup(
+      {},
+      {
+        "versions.create": new ContractError(
+          "CONFLICT",
+          "this template already has a version for that locale"
+        ),
+      }
+    )
     fireEvent.click(screen.getByRole("button", { name: "Add locale" }))
     const form = await screen.findByRole("dialog")
-    fireEvent.change(within(form).getByLabelText("Locale"), { target: { value: "de" } })
+    fireEvent.change(within(form).getByLabelText("Locale"), {
+      target: { value: "de" },
+    })
     fireEvent.click(within(form).getByRole("button", { name: "Add locale" }))
-    expect(await within(form).findByText("this template already has a version for that locale")).toBeTruthy()
+    expect(
+      await within(form).findByText(
+        "this template already has a version for that locale"
+      )
+    ).toBeTruthy()
   })
 })
 
@@ -238,7 +489,9 @@ describe("Test a locale", () => {
   it("asks the server 300ms after typing stops and draws each step", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
     const { queried } = setup({}, {}, { "templates.resolve": FALLS_BACK })
-    fireEvent.change(screen.getByLabelText("Test a locale"), { target: { value: "fr-CA" } })
+    fireEvent.change(screen.getByLabelText("Test a locale"), {
+      target: { value: "fr-CA" },
+    })
     await act(async () => {
       vi.advanceTimersByTime(299)
     })
@@ -246,8 +499,16 @@ describe("Test a locale", () => {
     await act(async () => {
       vi.advanceTimersByTime(1)
     })
-    await waitFor(() => expect(queried.filter((q) => q.intent === "templates.resolve").map((q) => q.params)).toEqual([{ id: detail.id, locale: "fr-CA" }]))
-    const ladder = await screen.findByRole("list", { name: "How fr-CA resolves" })
+    await waitFor(() =>
+      expect(
+        queried
+          .filter((q) => q.intent === "templates.resolve")
+          .map((q) => q.params)
+      ).toEqual([{ id: detail.id, locale: "fr-CA" }])
+    )
+    const ladder = await screen.findByRole("list", {
+      name: "How fr-CA resolves",
+    })
     const steps = within(ladder).getAllByRole("listitem")
     expect(steps.map((s) => s.textContent)).toEqual([
       "Tries fr-CANo live version.",
@@ -258,17 +519,48 @@ describe("Test a locale", () => {
   })
 
   it("still reads as answered when the answering version is not in the rail's list yet", async () => {
-    setup({}, {}, { "templates.resolve": { ...FALLS_BACK, versionId: "htpv_not_yet_listed" } })
-    fireEvent.change(screen.getByLabelText("Test a locale"), { target: { value: "fr-CA" } })
-    const ladder = await screen.findByRole("list", { name: "How fr-CA resolves" })
+    setup(
+      {},
+      {},
+      {
+        "templates.resolve": {
+          ...FALLS_BACK,
+          versionId: "htpv_not_yet_listed",
+        },
+      }
+    )
+    fireEvent.change(screen.getByLabelText("Test a locale"), {
+      target: { value: "fr-CA" },
+    })
+    const ladder = await screen.findByRole("list", {
+      name: "How fr-CA resolves",
+    })
     const steps = within(ladder).getAllByRole("listitem")
     expect(steps.at(-1)?.textContent).toBe("Answered by the fallback version.")
   })
 
   it("ends in a failure when nothing answers", async () => {
-    setup({}, {}, { "templates.resolve": { locale: "de", steps: [{ try: "de", match: "exact", found: false }, { try: "", match: "default", found: false }], versionId: null, match: "none" } })
-    fireEvent.change(screen.getByLabelText("Test a locale"), { target: { value: "de" } })
-    expect(await screen.findByText(/Nothing answers it, so a send in/)).toBeTruthy()
+    setup(
+      {},
+      {},
+      {
+        "templates.resolve": {
+          locale: "de",
+          steps: [
+            { try: "de", match: "exact", found: false },
+            { try: "", match: "default", found: false },
+          ],
+          versionId: null,
+          match: "none",
+        },
+      }
+    )
+    fireEvent.change(screen.getByLabelText("Test a locale"), {
+      target: { value: "de" },
+    })
+    expect(
+      await screen.findByText(/Nothing answers it, so a send in/)
+    ).toBeTruthy()
   })
 
   it("announces the ladder from a live region that is there before the answer", async () => {
@@ -276,23 +568,41 @@ describe("Test a locale", () => {
     const region = rail().querySelector('[aria-live="polite"]')
     expect(region).not.toBeNull()
     expect(region?.textContent).toBe("")
-    fireEvent.change(screen.getByLabelText("Test a locale"), { target: { value: "fr-CA" } })
-    const ladder = await screen.findByRole("list", { name: "How fr-CA resolves" })
+    fireEvent.change(screen.getByLabelText("Test a locale"), {
+      target: { value: "fr-CA" },
+    })
+    const ladder = await screen.findByRole("list", {
+      name: "How fr-CA resolves",
+    })
     expect(region?.contains(ladder)).toBe(true)
   })
 
   it("announces a refusal from the same live region", async () => {
-    setup({}, {}, { "templates.resolve": new ContractError("UNAVAILABLE", "store is down") })
+    setup(
+      {},
+      {},
+      { "templates.resolve": new ContractError("UNAVAILABLE", "store is down") }
+    )
     const region = rail().querySelector('[aria-live="polite"]')
-    fireEvent.change(screen.getByLabelText("Test a locale"), { target: { value: "fr-CA" } })
-    await waitFor(() => expect(region?.textContent).toContain("UNAVAILABLE: store is down"))
+    fireEvent.change(screen.getByLabelText("Test a locale"), {
+      target: { value: "fr-CA" },
+    })
+    await waitFor(() =>
+      expect(region?.textContent).toContain("UNAVAILABLE: store is down")
+    )
   })
 
   it("says a malformed locale is malformed and asks nothing", async () => {
     const { queried } = setup({}, {}, { "templates.resolve": FALLS_BACK })
-    fireEvent.change(screen.getByLabelText("Test a locale"), { target: { value: "f" } })
-    const message = await screen.findByText("A locale is a tag like en or pt-BR.")
-    expect(screen.getByLabelText("Test a locale").getAttribute("aria-describedby")).toBe(message.id)
+    fireEvent.change(screen.getByLabelText("Test a locale"), {
+      target: { value: "f" },
+    })
+    const message = await screen.findByText(
+      "A locale is a tag like en or pt-BR."
+    )
+    expect(
+      screen.getByLabelText("Test a locale").getAttribute("aria-describedby")
+    ).toBe(message.id)
     expect(queried.filter((q) => q.intent === "templates.resolve")).toEqual([])
   })
 })

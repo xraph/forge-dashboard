@@ -45,7 +45,9 @@ export interface TabTransport {
  * Undefined means this environment has no way to reach other tabs, and the
  * sync then clears locally only.
  */
-export type TransportFactory = (onMessage: (message: ClearMessage) => void) => TabTransport | undefined
+export type TransportFactory = (
+  onMessage: (message: ClearMessage) => void
+) => TabTransport | undefined
 
 export const QUERY_SYNC_CHANNEL = "forge-dashboard:query-store"
 export const QUERY_SYNC_STORAGE_KEY = "forge-dashboard:query-store-cleared"
@@ -109,7 +111,10 @@ export const browserTransport: TransportFactory = (onMessage) => {
       // has already happened by the time this runs; failing to tell the
       // other tabs is no reason to fail that.
       try {
-        window.localStorage.setItem(QUERY_SYNC_STORAGE_KEY, JSON.stringify(message))
+        window.localStorage.setItem(
+          QUERY_SYNC_STORAGE_KEY,
+          JSON.stringify(message)
+        )
         window.localStorage.removeItem(QUERY_SYNC_STORAGE_KEY)
       } catch {
         // Nothing to do. The other tabs catch up when they are next shown.
@@ -153,7 +158,8 @@ export function createQuerySync(options: QuerySyncOptions = {}): QuerySync {
   let trailing: ReturnType<typeof setTimeout> | undefined
 
   const inFront =
-    options.inFront ?? (() => document.visibilityState !== "hidden" && document.hasFocus())
+    options.inFront ??
+    (() => document.visibilityState !== "hidden" && document.hasFocus())
 
   const refreshed = () => {
     lastRefreshAt = now()

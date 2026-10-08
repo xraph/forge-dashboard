@@ -158,13 +158,23 @@ export function OneTimeKey({
       </p>
 
       <div className="flex gap-2">
-        <IconButton variant="outline" onClick={() => void copy()} label={copied ? "Copied" : copyFailed ? "Select and copy" : "Copy"} />
+        <IconButton
+          variant="outline"
+          onClick={() => void copy()}
+          label={copied ? "Copied" : copyFailed ? "Select and copy" : "Copy"}
+        />
         {/* A toggle keeps one label and says its state with aria-pressed. A
             label that flipped to "Show" would read as "Show, pressed". The
             kit Button has no pressed style, so the class shows it too. The
             dark one is named as well: outline's dark:bg-input/30 is as
             specific as aria-pressed:bg-muted and comes later in the CSS. */}
-        <IconButton variant="outline" className="aria-pressed:bg-muted aria-pressed:text-foreground dark:aria-pressed:bg-muted" aria-pressed={hidden} onClick={() => setHidden((h) => !h)} label="Hide key" />
+        <IconButton
+          variant="outline"
+          className="aria-pressed:bg-muted aria-pressed:text-foreground dark:aria-pressed:bg-muted"
+          aria-pressed={hidden}
+          onClick={() => setHidden((h) => !h)}
+          label="Hide key"
+        />
       </div>
 
       <span role="status" aria-live="polite" className="sr-only">

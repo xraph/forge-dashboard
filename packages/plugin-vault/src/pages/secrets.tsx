@@ -153,7 +153,10 @@ export const SecretsPage: ComponentType<PluginPageProps> = () => {
 
       {/* Outside the boundary, so choosing a filter never takes the control away. */}
       <div className="flex items-center gap-1.5">
-        <Label htmlFor="secret-expiry-filter" className="text-xs text-muted-foreground">
+        <Label
+          htmlFor="secret-expiry-filter"
+          className="text-xs text-muted-foreground"
+        >
           Expiry
         </Label>
         <NativeSelect
@@ -189,9 +192,9 @@ export const SecretsPage: ComponentType<PluginPageProps> = () => {
             <>
               {anyUnencrypted && (
                 <p className="text-sm text-muted-foreground">
-                  Secrets marked Not encrypted were stored while this vault had no
-                  encryption key. Adding a key later does not encrypt them; replace
-                  their values to re-store them encrypted.
+                  Secrets marked Not encrypted were stored while this vault had
+                  no encryption key. Adding a key later does not encrypt them;
+                  replace their values to re-store them encrypted.
                 </p>
               )}
               <ResourceTable<SecretSummary>
@@ -200,7 +203,9 @@ export const SecretsPage: ComponentType<PluginPageProps> = () => {
                 rowKey={(s) => s.id}
                 caption={caption}
                 emptyMessage={
-                  expiry === "" ? "No secrets yet." : "No secrets match this expiry filter."
+                  expiry === ""
+                    ? "No secrets yet."
+                    : "No secrets match this expiry filter."
                 }
                 emptyAction={expiry === "" ? <NewSecretLink /> : undefined}
                 pagination={{ page, pageSize: PAGE_SIZE, total: data.total }}

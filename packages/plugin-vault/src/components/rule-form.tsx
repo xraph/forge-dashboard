@@ -54,11 +54,15 @@ const DIGITS = /^\d{0,3}$/
  * is a whole number from 0 to 100.
  */
 function Rollout({ rule, onChange }: Pick<RuleFormProps, "rule" | "onChange">) {
-  const [text, setText] = useState(rule.percentage === undefined ? "" : String(rule.percentage))
+  const [text, setText] = useState(
+    rule.percentage === undefined ? "" : String(rule.percentage)
+  )
   const idBase = `${rule.uid}-percentage`
   const n = text === "" ? undefined : Number(text)
   const invalid = rule.percentage === undefined
-  const shown = rule.percentage ?? (n !== undefined && n > MAX_PERCENTAGE ? MAX_PERCENTAGE : MIN_PERCENTAGE)
+  const shown =
+    rule.percentage ??
+    (n !== undefined && n > MAX_PERCENTAGE ? MAX_PERCENTAGE : MIN_PERCENTAGE)
 
   function fromSlider(next: number) {
     setText(String(next))
@@ -71,7 +75,9 @@ function Rollout({ rule, onChange }: Pick<RuleFormProps, "rule" | "onChange">) {
     const parsed = next === "" ? undefined : Number(next)
     onChange({
       percentage:
-        parsed !== undefined && parsed >= MIN_PERCENTAGE && parsed <= MAX_PERCENTAGE
+        parsed !== undefined &&
+        parsed >= MIN_PERCENTAGE &&
+        parsed <= MAX_PERCENTAGE
           ? parsed
           : undefined,
     })
@@ -112,8 +118,8 @@ function Rollout({ rule, onChange }: Pick<RuleFormProps, "rule" | "onChange">) {
         </div>
       </div>
       <p id={`${idBase}-help`} className="text-xs text-muted-foreground">
-        Tenants whose bucket is under {rule.percentage ?? n ?? 0} get this value. Users without a
-        tenant never match.
+        Tenants whose bucket is under {rule.percentage ?? n ?? 0} get this
+        value. Users without a tenant never match.
       </p>
       {invalid ? (
         <p className="text-sm text-destructive">
@@ -124,7 +130,10 @@ function Rollout({ rule, onChange }: Pick<RuleFormProps, "rule" | "onChange">) {
   )
 }
 
-function Schedule({ rule, onChange }: Pick<RuleFormProps, "rule" | "onChange">) {
+function Schedule({
+  rule,
+  onChange,
+}: Pick<RuleFormProps, "rule" | "onChange">) {
   const problem = scheduleProblem(rule)
   const errorId = `${rule.uid}-schedule-error`
   // The instant is not known to be wrong until both ends have been looked at,
@@ -197,8 +206,12 @@ export function RuleForm({ rule, flagType, onChange }: RuleFormProps) {
           />
         </Field>
       ) : null}
-      {rule.type === "rollout" ? <Rollout rule={rule} onChange={onChange} /> : null}
-      {rule.type === "schedule" ? <Schedule rule={rule} onChange={onChange} /> : null}
+      {rule.type === "rollout" ? (
+        <Rollout rule={rule} onChange={onChange} />
+      ) : null}
+      {rule.type === "schedule" ? (
+        <Schedule rule={rule} onChange={onChange} />
+      ) : null}
       {rule.kept !== undefined ? (
         <div className="flex flex-col gap-1">
           <p className="text-xs text-muted-foreground">
@@ -208,7 +221,11 @@ export function RuleForm({ rule, flagType, onChange }: RuleFormProps) {
           </p>
         </div>
       ) : null}
-      <Field label="Return value" htmlFor={valueId} labelId={`${valueId}-label`}>
+      <Field
+        label="Return value"
+        htmlFor={valueId}
+        labelId={`${valueId}-label`}
+      >
         <ValueInput
           id={valueId}
           aria-labelledby={`${valueId}-label`}

@@ -1,7 +1,27 @@
 import { lazy } from "react"
 import { definePlugin } from "@forge-go/dashboard-plugin"
-import { BellOffIcon, FileTextIcon, HouseIcon, InboxIcon, MailIcon, RouteIcon, SendIcon, ServerIcon } from "@forge-go/dashboard-kit/icons"
-import { inboxPath, messagesPath, newProviderPath, newTemplatePath, preferencesPath, providersPath, routingPath, sendTestPath, templatesPath, templatesWithoutFallbackPath } from "./keys"
+import {
+  BellOffIcon,
+  FileTextIcon,
+  HouseIcon,
+  InboxIcon,
+  MailIcon,
+  RouteIcon,
+  SendIcon,
+  ServerIcon,
+} from "@forge-go/dashboard-kit/icons"
+import {
+  inboxPath,
+  messagesPath,
+  newProviderPath,
+  newTemplatePath,
+  preferencesPath,
+  providersPath,
+  routingPath,
+  sendTestPath,
+  templatesPath,
+  templatesWithoutFallbackPath,
+} from "./keys"
 import { InboxPage } from "./pages/inbox"
 import { MessageDetailPage } from "./pages/message-detail"
 import { MessagesPage } from "./pages/messages"
@@ -23,8 +43,28 @@ const ProviderEditPage = lazy(() => import("./pages/provider-edit"))
 /** The template workspace is its own chunk, and CodeMirror is further chunks below it. */
 const TemplateWorkspacePage = lazy(() => import("./pages/template-workspace"))
 
-export { InboxPage, MessageDetailPage, MessagesPage, OverviewPage, PreferencesPage, ProviderDetailPage, ProvidersPage, RoutingPage, SendTestPage, TemplateCreatePage, TemplatesPage, TemplatesWithoutFallbackPage }
-export { DanglingBadge, DisabledProviderBadge, EnabledBadge, MessageStatusBadge, ProtectionBadge, VersionBadge } from "./badges"
+export {
+  InboxPage,
+  MessageDetailPage,
+  MessagesPage,
+  OverviewPage,
+  PreferencesPage,
+  ProviderDetailPage,
+  ProvidersPage,
+  RoutingPage,
+  SendTestPage,
+  TemplateCreatePage,
+  TemplatesPage,
+  TemplatesWithoutFallbackPage,
+}
+export {
+  DanglingBadge,
+  DisabledProviderBadge,
+  EnabledBadge,
+  MessageStatusBadge,
+  ProtectionBadge,
+  VersionBadge,
+} from "./badges"
 export { HeraldHeader, useEngineInfo } from "./components/herald-header"
 export type * from "./wire"
 
@@ -44,14 +84,62 @@ export const heraldPlugin = definePlugin({
   namespace: "herald",
   label: "Herald",
   nav: [
-    { label: "Overview", to: "/", priority: -10, icon: <HouseIcon />, group: "Notifications" },
-    { label: "Providers", to: providersPath, priority: 30, icon: <ServerIcon />, group: "Notifications" },
-    { label: "Templates", to: templatesPath, priority: 10, icon: <FileTextIcon />, group: "Notifications" },
-    { label: "Messages", to: messagesPath, priority: 20, icon: <MailIcon />, group: "Notifications" },
-    { label: "Inbox", to: inboxPath, priority: 50, icon: <InboxIcon />, group: "Notifications" },
-    { label: "Preferences", to: preferencesPath, priority: 60, icon: <BellOffIcon />, group: "Notifications" },
-    { label: "Routing", to: routingPath, priority: 40, icon: <RouteIcon />, group: "Notifications" },
-    { label: "Send test", to: sendTestPath, priority: 70, icon: <SendIcon />, group: "Notifications" },
+    {
+      label: "Overview",
+      to: "/",
+      priority: -10,
+      icon: <HouseIcon />,
+      group: "Notifications",
+    },
+    {
+      label: "Providers",
+      to: providersPath,
+      priority: 30,
+      icon: <ServerIcon />,
+      group: "Notifications",
+    },
+    {
+      label: "Templates",
+      to: templatesPath,
+      priority: 10,
+      icon: <FileTextIcon />,
+      group: "Notifications",
+    },
+    {
+      label: "Messages",
+      to: messagesPath,
+      priority: 20,
+      icon: <MailIcon />,
+      group: "Notifications",
+    },
+    {
+      label: "Inbox",
+      to: inboxPath,
+      priority: 50,
+      icon: <InboxIcon />,
+      group: "Notifications",
+    },
+    {
+      label: "Preferences",
+      to: preferencesPath,
+      priority: 60,
+      icon: <BellOffIcon />,
+      group: "Notifications",
+    },
+    {
+      label: "Routing",
+      to: routingPath,
+      priority: 40,
+      icon: <RouteIcon />,
+      group: "Notifications",
+    },
+    {
+      label: "Send test",
+      to: sendTestPath,
+      priority: 70,
+      icon: <SendIcon />,
+      group: "Notifications",
+    },
   ],
   routes: [
     { path: "/", element: OverviewPage },
@@ -61,7 +149,10 @@ export const heraldPlugin = definePlugin({
     { path: newProviderPath, element: ProviderCreatePage },
     { path: "/providers/:id/edit", element: ProviderEditPage },
     { path: templatesPath, element: TemplatesPage },
-    { path: templatesWithoutFallbackPath, element: TemplatesWithoutFallbackPage },
+    {
+      path: templatesWithoutFallbackPath,
+      element: TemplatesWithoutFallbackPage,
+    },
     { path: newTemplatePath, element: TemplateCreatePage },
     { path: "/templates/:id", element: TemplateWorkspacePage },
     { path: messagesPath, element: MessagesPage },

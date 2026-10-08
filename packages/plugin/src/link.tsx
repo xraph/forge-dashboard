@@ -95,7 +95,12 @@ export function NavigationProvider({
  * work to look at one user. Twenty-one call sites across two plugins were doing
  * exactly that before this existed.
  */
-export function PluginLink({ to, children, className, ...rest }: Omit<PluginLinkProps, "children"> & { children?: ReactNode }) {
+export function PluginLink({
+  to,
+  children,
+  className,
+  ...rest
+}: Omit<PluginLinkProps, "children"> & { children?: ReactNode }) {
   const nav = useContext(NavigationContext)
   const href = nav?.resolve && !isAbsolute(to) ? nav.resolve(to) : to
 
@@ -128,7 +133,10 @@ export function PluginLink({ to, children, className, ...rest }: Omit<PluginLink
  * for a replace, which is correct rather than merely tolerable: a standalone
  * render has no router to ask.
  */
-export function useNavigateTo(): (to: string, options?: NavigateOptions) => void {
+export function useNavigateTo(): (
+  to: string,
+  options?: NavigateOptions
+) => void {
   const nav = useContext(NavigationContext)
   if (nav) {
     const { navigate, resolve } = nav

@@ -7,7 +7,10 @@ import { FilterBar } from "@forge-go/dashboard-kit/components/filter-bar"
 import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
-import { ResourceTable, type Column } from "@forge-go/dashboard-kit/components/resource-table"
+import {
+  ResourceTable,
+  type Column,
+} from "@forge-go/dashboard-kit/components/resource-table"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { Id, IdLink } from "../components/id"
 import { TenantFilter } from "../components/tenant-filter"
@@ -25,27 +28,72 @@ const columns: Column<Collection>[] = [
     className: "font-medium",
     cell: (c) => (
       <div className="flex flex-col">
-        <PluginLink to={collectionPath(c.id)} className="font-medium underline-offset-4 hover:underline">
+        <PluginLink
+          to={collectionPath(c.id)}
+          className="font-medium underline-offset-4 hover:underline"
+        >
           {c.name}
         </PluginLink>
-        {c.description ? <span className="text-xs text-muted-foreground">{c.description}</span> : null}
+        {c.description ? (
+          <span className="text-xs text-muted-foreground">{c.description}</span>
+        ) : null}
       </div>
     ),
   },
-  { id: "id", header: "ID", cell: (c) => <IdLink to={collectionPath(c.id)} value={c.id} label={`Open collection ${c.id}`} /> },
-  { id: "tenant", header: "Tenant", cell: (c) => (c.tenant_id !== "" ? <Id value={c.tenant_id} /> : <NoneCell label="tenant" />) },
-  { id: "documents", header: "Documents", align: "end", cell: (c) => <span className="tabular-nums">{formatCount(c.document_count)}</span> },
-  { id: "chunks", header: "Chunks", align: "end", cell: (c) => <span className="tabular-nums">{formatCount(c.chunk_count)}</span> },
+  {
+    id: "id",
+    header: "ID",
+    cell: (c) => (
+      <IdLink
+        to={collectionPath(c.id)}
+        value={c.id}
+        label={`Open collection ${c.id}`}
+      />
+    ),
+  },
+  {
+    id: "tenant",
+    header: "Tenant",
+    cell: (c) =>
+      c.tenant_id !== "" ? (
+        <Id value={c.tenant_id} />
+      ) : (
+        <NoneCell label="tenant" />
+      ),
+  },
+  {
+    id: "documents",
+    header: "Documents",
+    align: "end",
+    cell: (c) => (
+      <span className="tabular-nums">{formatCount(c.document_count)}</span>
+    ),
+  },
+  {
+    id: "chunks",
+    header: "Chunks",
+    align: "end",
+    cell: (c) => (
+      <span className="tabular-nums">{formatCount(c.chunk_count)}</span>
+    ),
+  },
   {
     id: "chunking",
     header: "Size / overlap",
     cell: (c) => (
-      <span className="font-mono text-xs tabular-nums" title="Chunk size and overlap, in tokens">
+      <span
+        className="font-mono text-xs tabular-nums"
+        title="Chunk size and overlap, in tokens"
+      >
         {c.chunk_size} / {c.chunk_overlap}
       </span>
     ),
   },
-  { id: "created", header: "Created", cell: (c) => <Timestamp value={c.created_at} label="creation date" /> },
+  {
+    id: "created",
+    header: "Created",
+    cell: (c) => <Timestamp value={c.created_at} label="creation date" />,
+  },
 ]
 
 export const CollectionsPage: ComponentType<PluginPageProps> = () => {
@@ -54,7 +102,10 @@ export const CollectionsPage: ComponentType<PluginPageProps> = () => {
   const [offset, setOffset] = useState(0)
   const term = useDebounced(search.trim(), 300)
 
-  const params = withTenant({ limit: PAGE_SIZE, offset, ...(term !== "" ? { search: term } : {}) }, tenant)
+  const params = withTenant(
+    { limit: PAGE_SIZE, offset, ...(term !== "" ? { search: term } : {}) },
+    tenant
+  )
   const list = useQuery<ListOutput<Collection>>("collections.list", params)
   const filtered = term !== "" || tenant !== null
 
@@ -96,7 +147,11 @@ export const CollectionsPage: ComponentType<PluginPageProps> = () => {
             rows={data.items}
             rowKey={(c) => c.id}
             caption={plural(data.total, "collection", "collections")}
-            emptyMessage={filtered ? "No collections match these filters." : "No collections yet. Create one to start ingesting."}
+            emptyMessage={
+              filtered
+                ? "No collections match these filters."
+                : "No collections yet. Create one to start ingesting."
+            }
             pagination={pageOf(data)}
             onPageChange={(page) => setOffset(offsetFor(page, data.limit))}
           />

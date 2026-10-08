@@ -74,7 +74,10 @@ function DeviceActions({
         pending={remove.loading}
         onConfirm={() => void confirmForget()}
       >
-        <CommandAlert error={remove.error} title="Could not forget the device" />
+        <CommandAlert
+          error={remove.error}
+          title="Could not forget the device"
+        />
       </ConfirmDialog>
     </div>
   )
@@ -131,10 +134,19 @@ function DeviceDetailBody({ deviceId }: { deviceId: string }) {
             <DescriptionList
               items={[
                 { term: "User", value: device.userId },
-                { term: "Type", value: device.type || <NoneCell label="type" /> },
-                { term: "Browser", value: device.browser || <NoneCell label="browser" /> },
+                {
+                  term: "Type",
+                  value: device.type || <NoneCell label="type" />,
+                },
+                {
+                  term: "Browser",
+                  value: device.browser || <NoneCell label="browser" />,
+                },
                 { term: "OS", value: device.os || <NoneCell label="os" /> },
-                { term: "IP", value: device.ipAddress || <NoneCell label="ip address" /> },
+                {
+                  term: "IP",
+                  value: device.ipAddress || <NoneCell label="ip address" />,
+                },
                 {
                   term: "Trusted",
                   value: (
@@ -147,7 +159,10 @@ function DeviceDetailBody({ deviceId }: { deviceId: string }) {
                     </Badge>
                   ),
                 },
-                { term: "Last seen", value: formatTimestamp(device.lastSeenAt) },
+                {
+                  term: "Last seen",
+                  value: formatTimestamp(device.lastSeenAt),
+                },
                 { term: "Created", value: formatTimestamp(device.createdAt) },
               ]}
             />

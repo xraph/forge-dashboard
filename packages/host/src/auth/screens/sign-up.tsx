@@ -38,7 +38,11 @@ export function SignUpScreen({ intents, onAuthenticated }: AuthScreenProps) {
       serverHost={currentServerHost()}
       title="Create an account"
     >
-      <CommandAlert error={signUp.error} showCode={false} title="Could not create the account" />
+      <CommandAlert
+        error={signUp.error}
+        showCode={false}
+        title="Could not create the account"
+      />
       <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor={emailId}>Email</Label>
@@ -62,7 +66,11 @@ export function SignUpScreen({ intents, onAuthenticated }: AuthScreenProps) {
             value={password}
           />
         </div>
-        <button className={buttonVariants({ className: "w-full" })} disabled={signUp.loading} type="submit">
+        <button
+          className={buttonVariants({ className: "w-full" })}
+          disabled={signUp.loading}
+          type="submit"
+        >
           {signUp.loading ? "Creating…" : "Create account"}
         </button>
       </form>

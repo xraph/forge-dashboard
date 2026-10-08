@@ -21,8 +21,7 @@ export interface JsonProblem {
 }
 
 export type JsonParse =
-  | { ok: true; value: unknown }
-  | { ok: false; error: JsonProblem }
+  { ok: true; value: unknown } | { ok: false; error: JsonProblem }
 
 class Stop extends Error {
   readonly offset: number
@@ -59,7 +58,9 @@ function scan(text: string): void {
         return
       }
       if (c < " ") {
-        stop("A line break or control character cannot sit in a string. Use an escape such as \\n.")
+        stop(
+          "A line break or control character cannot sit in a string. Use an escape such as \\n."
+        )
       }
       if (c !== "\\") {
         i++
@@ -116,10 +117,12 @@ function scan(text: string): void {
     }
     for (;;) {
       space()
-      if (text[i] !== '"') stop(`Expected a property name in double quotes, found ${found()}.`)
+      if (text[i] !== '"')
+        stop(`Expected a property name in double quotes, found ${found()}.`)
       string()
       space()
-      if (text[i] !== ":") stop(`Expected ":" after the property name, found ${found()}.`)
+      if (text[i] !== ":")
+        stop(`Expected ":" after the property name, found ${found()}.`)
       i++
       value()
       space()
@@ -158,10 +161,12 @@ function scan(text: string): void {
   }
 
   space()
-  if (i >= text.length) stop("There is nothing here yet. Enter a JSON value, or null.", 0)
+  if (i >= text.length)
+    stop("There is nothing here yet. Enter a JSON value, or null.", 0)
   value()
   space()
-  if (i < text.length) stop(`Expected the text to end after the value, found ${found()}.`)
+  if (i < text.length)
+    stop(`Expected the text to end after the value, found ${found()}.`)
 }
 
 function place(text: string, offset: number): { line: number; column: number } {
@@ -183,7 +188,10 @@ export function parseJsonText(text: string): JsonParse {
     return { ok: true, value: JSON.parse(text) as unknown }
   } catch (err) {
     if (err instanceof Stop) {
-      return { ok: false, error: { message: err.message, ...place(text, err.offset) } }
+      return {
+        ok: false,
+        error: { message: err.message, ...place(text, err.offset) },
+      }
     }
     // The scanner found nothing and JSON.parse still refused, or the text was
     // nested too deeply to walk. Say so without a made-up position.
@@ -200,7 +208,12 @@ export function prettyJson(value: unknown): string {
 /** Whether two JSON values are the same value. Key order does not matter, array order does. */
 export function sameJson(a: unknown, b: unknown): boolean {
   if (a === b) return true
-  if (typeof a !== "object" || typeof b !== "object" || a === null || b === null) {
+  if (
+    typeof a !== "object" ||
+    typeof b !== "object" ||
+    a === null ||
+    b === null
+  ) {
     return false
   }
   if (Array.isArray(a) !== Array.isArray(b)) return false

@@ -55,12 +55,16 @@ export interface DynamicRegisterResult {
   subject: string
 }
 
-
 export function AuthDynamicClientsPage() {
   const query = useQuery<DynamicConfigResponse>("auth.dynamicConfig")
 
   const columns: Column<DynamicSignupField>[] = [
-    { id: "key", header: "Key", cell: (f) => f.key, className: "font-mono text-xs" },
+    {
+      id: "key",
+      header: "Key",
+      cell: (f) => f.key,
+      className: "font-mono text-xs",
+    },
     {
       id: "label",
       header: "Label",
@@ -76,7 +80,11 @@ export function AuthDynamicClientsPage() {
         title="Dynamic signup form"
         description="What an unauthenticated visitor is asked for, from auth.dynamicConfig"
       />
-      <QueryBoundary title="Dynamic signup configuration" query={query} skeletonRows={3}>
+      <QueryBoundary
+        title="Dynamic signup configuration"
+        query={query}
+        skeletonRows={3}
+      >
         {(data) => {
           if (!data.active) {
             // The config says dynamic registration is disabled - say so
@@ -84,13 +92,15 @@ export function AuthDynamicClientsPage() {
             // fail once submitted.
             return (
               <p role="status" className="text-sm text-muted-foreground">
-                Dynamic registration is disabled. New signups use the static signup form,
-                so nothing here is in force.
+                Dynamic registration is disabled. New signups use the static
+                signup form, so nothing here is in force.
               </p>
             )
           }
 
-          const fields = [...(data.fields ?? [])].sort((a, b) => a.order - b.order)
+          const fields = [...(data.fields ?? [])].sort(
+            (a, b) => a.order - b.order
+          )
           const caption = `${fields.length} ${fields.length === 1 ? "field" : "fields"}`
 
           return (
@@ -98,10 +108,14 @@ export function AuthDynamicClientsPage() {
               <div className="flex flex-col gap-2 rounded-md border p-4">
                 <div className="flex items-center gap-2">
                   <Badge variant="outline">active</Badge>
-                  <span className="text-sm font-medium">{data.title || "Untitled form"}</span>
+                  <span className="text-sm font-medium">
+                    {data.title || "Untitled form"}
+                  </span>
                 </div>
                 {data.description && (
-                  <p className="text-sm text-muted-foreground">{data.description}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {data.description}
+                  </p>
                 )}
                 <ResourceTable<DynamicSignupField>
                   columns={columns}

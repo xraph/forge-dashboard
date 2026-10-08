@@ -15,7 +15,10 @@ const PAGE = 50
  * user's first page, not on whatever page the last one was left at.
  */
 export const UserEventsPage: ComponentType<PluginPageProps> = (props) => (
-  <UserEventsView key={props.params.userId ?? ""} userId={props.params.userId ?? ""} />
+  <UserEventsView
+    key={props.params.userId ?? ""}
+    userId={props.params.userId ?? ""}
+  />
 )
 
 /**
@@ -24,10 +27,17 @@ export const UserEventsPage: ComponentType<PluginPageProps> = (props) => (
  */
 function UserEventsView({ userId }: { userId: string }) {
   const [offset, setOffset] = useState(0)
-  const q = useQuery<EventListResponse>("events.byUser", { userId, limit: PAGE, offset })
+  const q = useQuery<EventListResponse>("events.byUser", {
+    userId,
+    limit: PAGE,
+    offset,
+  })
   return (
     <section className="flex flex-col gap-4">
-      <PageHeader title={`Events by ${userId}`} description="Every event this user took part in, newest first." />
+      <PageHeader
+        title={`Events by ${userId}`}
+        description="Every event this user took part in, newest first."
+      />
       <QueryBoundary title="events" query={q} skeletonRows={10}>
         {(data) => (
           <ResourceTable
@@ -36,7 +46,11 @@ function UserEventsView({ userId }: { userId: string }) {
             rowKey={(e) => e.id}
             caption={pageOf(data.events.length, data.total, "event", "events")}
             emptyMessage="No events are recorded for this user."
-            pagination={{ page: offset / PAGE + 1, pageSize: PAGE, total: data.total }}
+            pagination={{
+              page: offset / PAGE + 1,
+              pageSize: PAGE,
+              total: data.total,
+            }}
             onPageChange={(page) => setOffset((page - 1) * PAGE)}
           />
         )}

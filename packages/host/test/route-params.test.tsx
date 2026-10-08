@@ -1,15 +1,23 @@
 import { describe, expect, it, vi } from "vitest"
 import { render, screen, waitFor } from "@testing-library/react"
 import { MemoryRouter } from "react-router"
-import { ForgeDashboardProvider, SessionProvider } from "@forge-go/dashboard-runtime"
+import {
+  ForgeDashboardProvider,
+  SessionProvider,
+} from "@forge-go/dashboard-runtime"
 import { definePlugin } from "@forge-go/dashboard-plugin"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
 import { PluginHost } from "../src/host/PluginHost"
 
 window.matchMedia ??= ((query: string) => ({
-  matches: false, media: query, onchange: null,
-  addEventListener: () => {}, removeEventListener: () => {},
-  addListener: () => {}, removeListener: () => {}, dispatchEvent: () => false,
+  matches: false,
+  media: query,
+  onchange: null,
+  addEventListener: () => {},
+  removeEventListener: () => {},
+  addListener: () => {},
+  removeListener: () => {},
+  dispatchEvent: () => false,
 })) as unknown as typeof window.matchMedia
 
 function RoomDetail({ params }: PluginPageProps) {
@@ -47,7 +55,7 @@ function renderAt(path: string) {
           <PluginHost plugins={[plugin]} fetchImpl={fetchImpl} />
         </SessionProvider>
       </MemoryRouter>
-    </ForgeDashboardProvider>,
+    </ForgeDashboardProvider>
   )
 }
 

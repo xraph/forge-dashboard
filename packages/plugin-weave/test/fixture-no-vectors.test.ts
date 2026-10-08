@@ -7,13 +7,16 @@ class FixtureError extends Error {
   constructor(
     readonly status: number,
     readonly code: string,
-    message: string,
+    message: string
   ) {
     super(message)
   }
 }
 
-type Handler = { kind: string; handler: (input: Record<string, unknown>) => unknown }
+type Handler = {
+  kind: string
+  handler: (input: Record<string, unknown>) => unknown
+}
 type Fixture = {
   createWeaveHandlers: (e: typeof FixtureError) => Record<string, Handler>
   resetWeave: () => void
@@ -36,7 +39,8 @@ const FORBIDDEN = new Set(["vector", "vectors", "embedding", "embeddings"])
 /** Every forbidden key, and every numeric array long enough to be an embedding. */
 function leaks(value: unknown, path: string, out: string[]): string[] {
   if (Array.isArray(value)) {
-    if (value.length > 64 && value.every((v) => typeof v === "number")) out.push(`${path}: ${value.length} numbers`)
+    if (value.length > 64 && value.every((v) => typeof v === "number"))
+      out.push(`${path}: ${value.length} numbers`)
     value.forEach((v, i) => leaks(v, `${path}[${i}]`, out))
   } else if (value !== null && typeof value === "object") {
     for (const [k, v] of Object.entries(value)) {
@@ -52,11 +56,24 @@ describe("the weave fixture", () => {
     const handlers = fixture.createWeaveHandlers(FixtureError)
     expect(Object.keys(handlers).sort()).toEqual(
       [
-        "chunks.get", "chunks.list", "collections.create", "collections.delete", "collections.get",
-        "collections.list", "collections.reindex", "collections.update", "documents.delete",
-        "documents.get", "documents.ingest", "documents.list", "documents.spans",
-        "retrieval.assemble", "retrieval.run", "system.components", "system.overview",
-      ].sort(),
+        "chunks.get",
+        "chunks.list",
+        "collections.create",
+        "collections.delete",
+        "collections.get",
+        "collections.list",
+        "collections.reindex",
+        "collections.update",
+        "documents.delete",
+        "documents.get",
+        "documents.ingest",
+        "documents.list",
+        "documents.spans",
+        "retrieval.assemble",
+        "retrieval.run",
+        "system.components",
+        "system.overview",
+      ].sort()
     )
   })
 

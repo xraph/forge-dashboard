@@ -70,21 +70,29 @@ describe("WardenPermissionsPage", () => {
     // the Delete button, so a system row, which has no Delete, must still
     // have it.
     renderPage(WardenPermissionsPage, client())
-    const row = (await screen.findByText("document:read")).closest("tr") as HTMLElement
-    expect(within(row).getByRole("link", { name: "Details" }).getAttribute("href")).toBe(
-      "/permissions/perm_01a"
-    )
-    expect(within(row).getByRole("button", { name: "Delete document:read" })).toBeTruthy()
-    const system = (await screen.findByText("cluster:admin")).closest("tr") as HTMLElement
-    expect(within(system).getByRole("link", { name: "Details" }).getAttribute("href")).toBe(
-      "/permissions/perm_01c"
-    )
+    const row = (await screen.findByText("document:read")).closest(
+      "tr"
+    ) as HTMLElement
+    expect(
+      within(row).getByRole("link", { name: "Details" }).getAttribute("href")
+    ).toBe("/permissions/perm_01a")
+    expect(
+      within(row).getByRole("button", { name: "Delete document:read" })
+    ).toBeTruthy()
+    const system = (await screen.findByText("cluster:admin")).closest(
+      "tr"
+    ) as HTMLElement
+    expect(
+      within(system).getByRole("link", { name: "Details" }).getAttribute("href")
+    ).toBe("/permissions/perm_01c")
   })
 
   it("says which kind of empty an empty list is, and still counts", async () => {
     renderPage(
       WardenPermissionsPage,
-      client({ "permissions.list": { items: [], total: 0, limit: 25, offset: 0 } })
+      client({
+        "permissions.list": { items: [], total: 0, limit: 25, offset: 0 },
+      })
     )
     expect(await screen.findByText(/0 permissions/)).toBeTruthy()
     expect(await screen.findByText(/No permissions yet/i)).toBeTruthy()
@@ -107,8 +115,12 @@ describe("WardenPermissionsPage", () => {
   it("offers no delete on a system permission", async () => {
     renderPage(WardenPermissionsPage, client())
     await screen.findByText("cluster:admin")
-    expect(screen.queryByRole("button", { name: /Delete cluster:admin/i })).toBeNull()
-    expect(screen.getByRole("button", { name: /Delete document:read/i })).toBeTruthy()
+    expect(
+      screen.queryByRole("button", { name: /Delete cluster:admin/i })
+    ).toBeNull()
+    expect(
+      screen.getByRole("button", { name: /Delete document:read/i })
+    ).toBeTruthy()
   })
 
   it("shows the conflict when a delete is refused because a role grants it", async () => {
@@ -118,7 +130,9 @@ describe("WardenPermissionsPage", () => {
     )
     renderPage(WardenPermissionsPage, c)
     await screen.findByText("document:read")
-    fireEvent.click(screen.getByRole("button", { name: /Delete document:read/i }))
+    fireEvent.click(
+      screen.getByRole("button", { name: /Delete document:read/i })
+    )
     const confirm = await screen.findByRole("button", { name: /^Delete$/i })
     fireEvent.click(confirm)
     // permissions.delete is absent from the command map, so the harness
@@ -130,7 +144,9 @@ describe("WardenPermissionsPage", () => {
   it("surfaces a list failure instead of an empty table", async () => {
     renderPage(
       WardenPermissionsPage,
-      failingClient(new ContractError("PERMISSION_DENIED", "no tenant in scope"))
+      failingClient(
+        new ContractError("PERMISSION_DENIED", "no tenant in scope")
+      )
     )
     expect(await screen.findAllByText(/no tenant in scope/i)).toBeTruthy()
     expect(screen.queryByText("document:read")).toBeNull()
@@ -139,10 +155,14 @@ describe("WardenPermissionsPage", () => {
   it("names the search when a search is what emptied the list", async () => {
     renderPage(
       WardenPermissionsPage,
-      client({ "permissions.list": { items: [], total: 0, limit: 25, offset: 0 } })
+      client({
+        "permissions.list": { items: [], total: 0, limit: 25, offset: 0 },
+      })
     )
     await screen.findByText(/No permissions yet/i)
-    fireEvent.change(screen.getByLabelText("Search permissions"), { target: { value: "zzz" } })
+    fireEvent.change(screen.getByLabelText("Search permissions"), {
+      target: { value: "zzz" },
+    })
     expect(await screen.findByText(/No permissions match .zzz./)).toBeTruthy()
     expect(screen.queryByText(/No permissions yet/i)).toBeNull()
   })
@@ -150,11 +170,17 @@ describe("WardenPermissionsPage", () => {
   it("names the namespace when the filter is what emptied the list", async () => {
     renderPage(
       WardenPermissionsPage,
-      client({ "permissions.list": { items: [], total: 0, limit: 25, offset: 0 } })
+      client({
+        "permissions.list": { items: [], total: 0, limit: 25, offset: 0 },
+      })
     )
     await screen.findByText(/No permissions yet/i)
-    fireEvent.change(screen.getByLabelText("Namespace"), { target: { value: "eng/platform" } })
-    expect(await screen.findByText("No permissions in eng/platform.")).toBeTruthy()
+    fireEvent.change(screen.getByLabelText("Namespace"), {
+      target: { value: "eng/platform" },
+    })
+    expect(
+      await screen.findByText("No permissions in eng/platform.")
+    ).toBeTruthy()
   })
 
   it("goes back to page one when the namespace filter changes", async () => {
@@ -168,14 +194,21 @@ describe("WardenPermissionsPage", () => {
     await waitFor(() =>
       expect(
         sent.some(
-          (q) => q.intent === "permissions.list" && (q.params as { offset?: number }).offset === 25
+          (q) =>
+            q.intent === "permissions.list" &&
+            (q.params as { offset?: number }).offset === 25
         )
       ).toBe(true)
     )
-    fireEvent.change(screen.getByLabelText("Namespace"), { target: { value: "eng/platform" } })
+    fireEvent.change(screen.getByLabelText("Namespace"), {
+      target: { value: "eng/platform" },
+    })
     await waitFor(() => {
       const last = sent.filter((q) => q.intent === "permissions.list").at(-1)
-      expect(last?.params).toMatchObject({ namespacePath: "eng/platform", offset: 0 })
+      expect(last?.params).toMatchObject({
+        namespacePath: "eng/platform",
+        offset: 0,
+      })
     })
   })
 
@@ -204,18 +237,27 @@ describe("WardenPermissionsPage", () => {
     await waitFor(() =>
       expect(
         sent.some(
-          (q) => q.intent === "permissions.list" && (q.params as { offset?: number }).offset === 25
+          (q) =>
+            q.intent === "permissions.list" &&
+            (q.params as { offset?: number }).offset === 25
         )
       ).toBe(true)
     )
     fireEvent.change(screen.getByLabelText("Filter by resource"), {
       target: { value: " document " },
     })
-    fireEvent.change(screen.getByLabelText("Filter by action"), { target: { value: "read " } })
+    fireEvent.change(screen.getByLabelText("Filter by action"), {
+      target: { value: "read " },
+    })
     fireEvent.click(screen.getByRole("button", { name: /^apply$/i }))
     await waitFor(() => {
       const last = sent.filter((q) => q.intent === "permissions.list").at(-1)
-      expect(last?.params).toEqual({ resource: "document", action: "read", limit: 25, offset: 0 })
+      expect(last?.params).toEqual({
+        resource: "document",
+        action: "read",
+        limit: 25,
+        offset: 0,
+      })
     })
   })
 
@@ -226,7 +268,9 @@ describe("WardenPermissionsPage", () => {
     })
     renderPage(WardenPermissionsPage, c)
     await screen.findByText("document:read")
-    fireEvent.change(screen.getByLabelText("Filter by action"), { target: { value: "admin" } })
+    fireEvent.change(screen.getByLabelText("Filter by action"), {
+      target: { value: "admin" },
+    })
     fireEvent.click(screen.getByRole("button", { name: /^apply$/i }))
     await waitFor(() => {
       const last = sent.filter((q) => q.intent === "permissions.list").at(-1)
@@ -241,10 +285,14 @@ describe("WardenPermissionsPage", () => {
     })
     renderPage(WardenPermissionsPage, c)
     await screen.findByText("document:read")
-    fireEvent.change(screen.getByLabelText("Filter by resource"), { target: { value: "document" } })
+    fireEvent.change(screen.getByLabelText("Filter by resource"), {
+      target: { value: "document" },
+    })
     fireEvent.click(screen.getByRole("button", { name: /^apply$/i }))
     await waitFor(() =>
-      expect(sent.filter((q) => q.intent === "permissions.list").at(-1)?.params).toMatchObject({
+      expect(
+        sent.filter((q) => q.intent === "permissions.list").at(-1)?.params
+      ).toMatchObject({
         resource: "document",
         offset: 0,
       })
@@ -252,30 +300,42 @@ describe("WardenPermissionsPage", () => {
     // Page two of the filtered set, so Clear has a page to reset.
     fireEvent.click(screen.getByRole("button", { name: /next page/i }))
     await waitFor(() =>
-      expect(sent.filter((q) => q.intent === "permissions.list").at(-1)?.params).toMatchObject({
+      expect(
+        sent.filter((q) => q.intent === "permissions.list").at(-1)?.params
+      ).toMatchObject({
         resource: "document",
         offset: 25,
       })
     )
     fireEvent.click(screen.getByRole("button", { name: /^clear$/i }))
     await waitFor(() =>
-      expect(sent.filter((q) => q.intent === "permissions.list").at(-1)?.params).toEqual({
+      expect(
+        sent.filter((q) => q.intent === "permissions.list").at(-1)?.params
+      ).toEqual({
         limit: 25,
         offset: 0,
       })
     )
-    expect((screen.getByLabelText("Filter by resource") as HTMLInputElement).value).toBe("")
+    expect(
+      (screen.getByLabelText("Filter by resource") as HTMLInputElement).value
+    ).toBe("")
   })
 
   it("says the filters emptied the list rather than that none exist", async () => {
     renderPage(
       WardenPermissionsPage,
-      client({ "permissions.list": { items: [], total: 0, limit: 25, offset: 0 } })
+      client({
+        "permissions.list": { items: [], total: 0, limit: 25, offset: 0 },
+      })
     )
     await screen.findByText(/No permissions yet/i)
-    fireEvent.change(screen.getByLabelText("Filter by resource"), { target: { value: "folder" } })
+    fireEvent.change(screen.getByLabelText("Filter by resource"), {
+      target: { value: "folder" },
+    })
     fireEvent.click(screen.getByRole("button", { name: /^apply$/i }))
-    expect(await screen.findByText("No permissions match these filters.")).toBeTruthy()
+    expect(
+      await screen.findByText("No permissions match these filters.")
+    ).toBeTruthy()
     expect(screen.queryByText(/No permissions yet/i)).toBeNull()
   })
 
@@ -291,12 +351,22 @@ describe("WardenPermissionsPage", () => {
     renderPage(WardenPermissionsPage, c)
     await screen.findByText("document:read")
     fireEvent.click(screen.getByRole("button", { name: /New permission/i }))
-    fireEvent.change(await screen.findByLabelText("Resource"), { target: { value: " folder " } })
-    fireEvent.change(await screen.findByLabelText("Action"), { target: { value: " write" } })
-    fireEvent.click(screen.getByRole("button", { name: /^create permission$/i }))
+    fireEvent.change(await screen.findByLabelText("Resource"), {
+      target: { value: " folder " },
+    })
+    fireEvent.change(await screen.findByLabelText("Action"), {
+      target: { value: " write" },
+    })
+    fireEvent.click(
+      screen.getByRole("button", { name: /^create permission$/i })
+    )
     await waitFor(() => expect(sent).toHaveLength(1))
     expect(sent[0]?.intent).toBe("permissions.create")
-    expect(sent[0]?.payload).toEqual({ resource: "folder", action: "write", namespacePath: "" })
+    expect(sent[0]?.payload).toEqual({
+      resource: "folder",
+      action: "write",
+      namespacePath: "",
+    })
     expect(Object.keys(sent[0]?.payload as object)).not.toContain("name")
   })
 
@@ -307,7 +377,9 @@ describe("WardenPermissionsPage", () => {
     )
     renderPage(WardenPermissionsPage, c)
     await screen.findByText("document:read")
-    fireEvent.click(screen.getByRole("button", { name: /Delete document:read/i }))
+    fireEvent.click(
+      screen.getByRole("button", { name: /Delete document:read/i })
+    )
     fireEvent.click(await screen.findByRole("button", { name: /^Delete$/i }))
     await waitFor(() => expect(sent).toHaveLength(1))
     expect(sent[0]?.intent).toBe("permissions.delete")

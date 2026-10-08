@@ -238,7 +238,8 @@ function CreateKeyForm({
   const unclaimed = claimFailed(create.error)
   useEffect(() => {
     if (spent) attemptKey.end()
-    if (spent || lost) queryStore.invalidate(client.extension, CREATE_INVALIDATES)
+    if (spent || lost)
+      queryStore.invalidate(client.extension, CREATE_INVALIDATES)
   }, [spent, lost, attemptKey, client.extension])
 
   const message = problem ?? create.error?.message
@@ -256,7 +257,8 @@ function CreateKeyForm({
   if (scopes.data !== undefined && scopes.data !== heldScopes) {
     setHeldScopes(scopes.data)
   }
-  const policyList = policies.data ?? (policies.error ? heldPolicies : undefined)
+  const policyList =
+    policies.data ?? (policies.error ? heldPolicies : undefined)
   const scopeList = scopes.data ?? (scopes.error ? heldScopes : undefined)
 
   const policy = policyList?.policies?.find((p) => p.id === policyId)
@@ -687,8 +689,8 @@ function CreateKeyForm({
           {problem === null && spent ? (
             <>
               Your key was created, but its secret can&apos;t be shown again.
-              Revoke it from the <KeyListLink onFollow={onClose} />, then
-              create it again.
+              Revoke it from the <KeyListLink onFollow={onClose} />, then create
+              it again.
             </>
           ) : problem === null && lost ? (
             <>

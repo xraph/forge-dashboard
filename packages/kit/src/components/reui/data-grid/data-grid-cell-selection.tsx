@@ -252,7 +252,9 @@ function getDataGridRenderedRowIds<TData extends object>(
   if (!viewport) return null
   // When the page slice covers the whole display order (manual pagination,
   // virtualization, no pagination) no row can be off-page: skip the walk.
-  if (table.getRowModel().rows.length === table.getRowsInDisplayOrder().length) {
+  if (
+    table.getRowModel().rows.length === table.getRowsInDisplayOrder().length
+  ) {
     return null
   }
   const rendered = new Set<string>(
@@ -351,9 +353,7 @@ function getDataGridStepTarget<TData extends object>(
     const selectable = getDataGridDisplayOrderedColumns(table).filter(
       (column) => column.columnDef.enableCellSelection !== false
     )
-    const index = selectable.findIndex(
-      (column) => column.id === from.columnId
-    )
+    const index = selectable.findIndex((column) => column.id === from.columnId)
     if (index === -1) return null
     const next = selectable[index + (direction === "right" ? 1 : -1)]
     return next ? { rowId: from.rowId, columnId: next.id } : "edge"
@@ -396,9 +396,7 @@ function extendDataGridSelection<TData extends object>(
     return {
       rowId:
         rows[
-          rowIndex === bound.minRowIndex
-            ? bound.maxRowIndex
-            : bound.minRowIndex
+          rowIndex === bound.minRowIndex ? bound.maxRowIndex : bound.minRowIndex
         ]?.id ?? focused.row.id,
       columnId:
         allColumns[
@@ -466,9 +464,7 @@ function getDataGridActiveRegionGrid<TData extends object>(
       if (!column || column.columnDef.enableCellSelection === false) continue
       const value = cells[column.id]?.getValue()
       const format = column.columnDef.meta?.cellEdit?.format
-      line.push(
-        format ? format(value, row.original) : String(value ?? "")
-      )
+      line.push(format ? format(value, row.original) : String(value ?? ""))
     }
     grid.push(line)
   }
@@ -509,7 +505,10 @@ function buildDataGridClearDetails<TData extends object>(
       for (let c = bound.minColumnIndex; c <= bound.maxColumnIndex; c++) {
         const column = columns[c]
         if (!column || column.columnDef.enableCellSelection === false) continue
-        const cellEdit = getDataGridWritableCellEdit<TData>(column, row.original)
+        const cellEdit = getDataGridWritableCellEdit<TData>(
+          column,
+          row.original
+        )
         if (!cellEdit) continue
         changes.push({
           rowId: row.id,
@@ -577,7 +576,10 @@ function buildDataGridPasteDetails<TData extends object>(
   if (!regionColumns) return null
 
   const blockRows = block.length
-  const blockColumns = block.reduce((max, line) => Math.max(max, line.length), 1)
+  const blockColumns = block.reduce(
+    (max, line) => Math.max(max, line.length),
+    1
+  )
   const regionRows = bound.maxRowIndex - bound.minRowIndex + 1
 
   let rowCount: number
@@ -602,8 +604,10 @@ function buildDataGridPasteDetails<TData extends object>(
   // Rows the block maps onto: the next rowCount rows the view can show,
   // starting at the region's top. Off-page rows between a page's tail and
   // a pinned draft are skipped rather than silently written.
-  const targetRows: Array<{ row: (typeof rows)[number]; displayIndex: number }> =
-    []
+  const targetRows: Array<{
+    row: (typeof rows)[number]
+    displayIndex: number
+  }> = []
   for (let r = startRowIndex; r < rows.length; r++) {
     if (targetRows.length === rowCount) break
     const row = rows[r]
@@ -658,7 +662,8 @@ function buildDataGridPasteDetails<TData extends object>(
     details: { source: "paste", changes, rejected },
     target: {
       startRowIndex,
-      endRowIndex: targetRows[targetRows.length - 1]?.displayIndex ?? startRowIndex,
+      endRowIndex:
+        targetRows[targetRows.length - 1]?.displayIndex ?? startRowIndex,
       rowCount: targetRows.length,
       startColumnIndex: targetColumns[0]!.displayIndex,
       endColumnIndex: lastTarget!.displayIndex,
@@ -763,8 +768,10 @@ function startDataGridFillSession<TData extends object>(options: {
     const id = rowEl.getAttribute("data-row-id")
     if (id) domRowIds.add(id)
   }
-  const visibleRows: Array<{ row: (typeof rows)[number]; displayIndex: number }> =
-    []
+  const visibleRows: Array<{
+    row: (typeof rows)[number]
+    displayIndex: number
+  }> = []
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i]!
     if (domRowIds.has(row.id)) {
@@ -839,7 +846,8 @@ function startDataGridFillSession<TData extends object>(options: {
   }
 
   const clearPreview = () => {
-    for (const cell of previewCells) cell.removeAttribute("data-cell-fill-target")
+    for (const cell of previewCells)
+      cell.removeAttribute("data-cell-fill-target")
     previewCells = []
     positionPreviewOutline()
   }
@@ -964,7 +972,10 @@ function startDataGridFillSession<TData extends object>(options: {
       const regionColumns = bound.maxColumnIndex - bound.minColumnIndex + 1
       for (const { row } of targets.rowEntries) {
         const cells = row.getAllCellsByColumnId()
-        for (const { column: targetColumn, displayIndex } of targets.columnEntries) {
+        for (const {
+          column: targetColumn,
+          displayIndex,
+        } of targets.columnEntries) {
           const offset = displayIndex - (bound.maxColumnIndex + 1)
           const sourceColumn =
             columns[bound.minColumnIndex + (offset % regionColumns)]
@@ -980,8 +991,7 @@ function startDataGridFillSession<TData extends object>(options: {
           // source's format and the target's parse, exactly what pasting
           // the same cells would do. Same-column fills keep raw values.
           if (targetColumn.id !== sourceColumn.id && targetEdit.parse) {
-            const sourceFormat =
-              sourceColumn.columnDef.meta?.cellEdit?.format
+            const sourceFormat = sourceColumn.columnDef.meta?.cellEdit?.format
             const raw = sourceFormat
               ? sourceFormat(sourceValue, row.original)
               : String(sourceValue ?? "")
@@ -1118,7 +1128,9 @@ function DataGridCellSelection<TData extends object>({
 
     // Split header/body grids render two viewports; the body one owns focus.
     const viewports = Array.from(
-      root.querySelectorAll<HTMLElement>('[data-slot="data-grid-table-viewport"]')
+      root.querySelectorAll<HTMLElement>(
+        '[data-slot="data-grid-table-viewport"]'
+      )
     )
     const viewport =
       viewports.find((node) =>
@@ -1431,9 +1443,7 @@ function DataGridCellSelection<TData extends object>({
         clampedRowIndex,
         rows.length,
         // The extend keeps focus on the anchor; follow the jump target.
-        extend
-          ? { rowId: targetRow.id, columnId: targetColumn.id }
-          : undefined
+        extend ? { rowId: targetRow.id, columnId: targetColumn.id } : undefined
       )
       return true
     }
@@ -1633,9 +1643,17 @@ function DataGridCellSelection<TData extends object>({
             // Ctrl/Cmd+Arrow jumps to the grid edge in that direction.
             const jumped =
               direction === "up"
-                ? jumpFocus("first", "same", event.shiftKey && isRangeSelectionEnabled())
+                ? jumpFocus(
+                    "first",
+                    "same",
+                    event.shiftKey && isRangeSelectionEnabled()
+                  )
                 : direction === "down"
-                  ? jumpFocus("last", "same", event.shiftKey && isRangeSelectionEnabled())
+                  ? jumpFocus(
+                      "last",
+                      "same",
+                      event.shiftKey && isRangeSelectionEnabled()
+                    )
                   : jumpFocus(
                       "same",
                       direction === "left" ? "first" : "last",
@@ -1652,9 +1670,8 @@ function DataGridCellSelection<TData extends object>({
             const renderedRows = viewport.querySelectorAll(
               "tbody tr[data-row-id]"
             )
-            const lastRenderedId = renderedRows[
-              renderedRows.length - 1
-            ]?.getAttribute("data-row-id")
+            const lastRenderedId =
+              renderedRows[renderedRows.length - 1]?.getAttribute("data-row-id")
             if (
               focused &&
               lastRenderedId &&
@@ -1701,18 +1718,33 @@ function DataGridCellSelection<TData extends object>({
         case "Home":
         case "End": {
           // Home/End: row start or end; with Ctrl/Cmd, the grid's corners.
-          const edge = event.key === "Home" ? ("first" as const) : ("last" as const)
+          const edge =
+            event.key === "Home" ? ("first" as const) : ("last" as const)
           const jumped =
             event.metaKey || event.ctrlKey
-              ? jumpFocus(edge, edge, event.shiftKey && isRangeSelectionEnabled())
-              : jumpFocus("same", edge, event.shiftKey && isRangeSelectionEnabled())
+              ? jumpFocus(
+                  edge,
+                  edge,
+                  event.shiftKey && isRangeSelectionEnabled()
+                )
+              : jumpFocus(
+                  "same",
+                  edge,
+                  event.shiftKey && isRangeSelectionEnabled()
+                )
           if (jumped) event.preventDefault()
           return
         }
         case "PageUp":
         case "PageDown": {
           const delta = (event.key === "PageUp" ? -1 : 1) * getPageJumpSize()
-          if (jumpFocus({ delta }, "same", event.shiftKey && isRangeSelectionEnabled())) {
+          if (
+            jumpFocus(
+              { delta },
+              "same",
+              event.shiftKey && isRangeSelectionEnabled()
+            )
+          ) {
             event.preventDefault()
           }
           return
@@ -1871,7 +1903,10 @@ function DataGridCellSelection<TData extends object>({
       event.preventDefault()
       const text = serializeDataGridClipboardText(grid)
       event.clipboardData.setData("text/plain", text)
-      event.clipboardData.setData("text/html", renderDataGridClipboardHtml(grid))
+      event.clipboardData.setData(
+        "text/html",
+        renderDataGridClipboardHtml(grid)
+      )
       context.props.onCellsCopy?.({ text, grid, cut })
       return true
     }
@@ -2029,10 +2064,7 @@ function DataGridCellSelection<TData extends object>({
         clickEvent.preventDefault()
       }
       viewport.addEventListener("click", squelch, { capture: true })
-      setTimeout(
-        () => viewport.removeEventListener("click", squelch, true),
-        0
-      )
+      setTimeout(() => viewport.removeEventListener("click", squelch, true), 0)
     }
 
     const handleMouseDown = (event: MouseEvent) => {
@@ -2316,7 +2348,9 @@ function DataGridCellSelection<TData extends object>({
           key={`${editorSession.rowId}:${editorSession.columnId}`}
           viewport={viewportEl}
           session={editorSession}
-          enterAdvance={context.props.tableLayout?.cellEditEnterAdvance === true}
+          enterAdvance={
+            context.props.tableLayout?.cellEditEnterAdvance === true
+          }
           onCommit={commitEditorSession}
           onCancel={() => closeEditorSession(null)}
         />
@@ -2561,11 +2595,11 @@ function DataGridSelectionBar({
           <div
             data-slot="data-grid-selection-bar"
             className={cn(
-              "bg-background rounded-lg sticky inset-x-0 bottom-4 z-40 mx-auto flex w-fit max-w-[calc(100%-2rem)] flex-wrap items-center gap-3 border px-4 py-2.5 shadow-lg",
+              "sticky inset-x-0 bottom-4 z-40 mx-auto flex w-fit max-w-[calc(100%-2rem)] flex-wrap items-center gap-3 rounded-lg border bg-background px-4 py-2.5 shadow-lg",
               className
             )}
           >
-            <span className="text-foreground text-sm font-medium">
+            <span className="text-sm font-medium text-foreground">
               {label ? label(count) : `${count} selected`}
             </span>
             <div className="flex flex-1 flex-wrap items-center justify-end gap-2.5">

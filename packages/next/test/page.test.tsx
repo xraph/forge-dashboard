@@ -34,7 +34,10 @@ describe("ForgeDashboardPage", () => {
     render(<ForgeDashboardPage forge={forge} />)
     await vi.waitFor(() => expect(seen.length).toBeGreaterThan(0))
 
-    const props = seen.at(-1) as { basename: string; config: { basePath: string } }
+    const props = seen.at(-1) as {
+      basename: string
+      config: { basePath: string }
+    }
     // The basename is the page's own mount. Handing it the contract prefix
     // instead is the mistake that puts every route one directory off.
     expect(props.basename).toBe("/forge")

@@ -138,7 +138,9 @@ describe("WardenOverviewPage", () => {
 
   it("links the panel even when the recent checks cannot be read", async () => {
     renderPage(WardenOverviewPage, stubClient({ "overview.stats": STATS }))
-    expect(await screen.findByRole("link", { name: "View the check log" })).toBeTruthy()
+    expect(
+      await screen.findByRole("link", { name: "View the check log" })
+    ).toBeTruthy()
   })
 
   it("links each recent check's timestamp to that check's own page", async () => {
@@ -153,7 +155,10 @@ describe("WardenOverviewPage", () => {
   it("says which kind of empty an empty check list is", async () => {
     renderPage(
       WardenOverviewPage,
-      stubClient({ "overview.stats": STATS, "overview.recentChecks": { checks: [] } })
+      stubClient({
+        "overview.stats": STATS,
+        "overview.recentChecks": { checks: [] },
+      })
     )
     // Zero rows still gets a count, per the table conventions.
     expect(await screen.findByText(/0 checks/)).toBeTruthy()

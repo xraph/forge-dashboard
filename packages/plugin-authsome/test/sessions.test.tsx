@@ -115,7 +115,11 @@ describe("AuthSessionsPage", () => {
     const { client } = stubClient({
       "sessions.list": {
         sessions: [
-          session({ ipAddress: undefined, userAgent: undefined, lastActivityAt: undefined }),
+          session({
+            ipAddress: undefined,
+            userAgent: undefined,
+            lastActivityAt: undefined,
+          }),
         ],
       },
     })
@@ -157,16 +161,22 @@ describe("AuthSessionsPage", () => {
 describe("AuthSessionsPage actions", () => {
   const sessionsAnswer = {
     sessions: [
-      { id: "s1", userId: "u1", ipAddress: "10.0.0.1", userAgent: "Firefox",
-        lastActivityAt: "2026-02-02T00:00:00Z", expiresAt: "2026-03-01T00:00:00Z",
-        createdAt: "2026-02-01T00:00:00Z" },
+      {
+        id: "s1",
+        userId: "u1",
+        ipAddress: "10.0.0.1",
+        userAgent: "Firefox",
+        lastActivityAt: "2026-02-02T00:00:00Z",
+        expiresAt: "2026-03-01T00:00:00Z",
+        createdAt: "2026-02-01T00:00:00Z",
+      },
     ],
   }
 
   it("revokes one session after confirming, naming the user", async () => {
     const { client, sent } = recordingCommandClient(
       { "sessions.list": sessionsAnswer },
-      { "sessions.revoke": { ok: true } },
+      { "sessions.revoke": { ok: true } }
     )
     renderPage(AuthSessionsPage, client)
     await waitFor(() => expect(screen.getByText("10.0.0.1")).toBeTruthy())
@@ -176,7 +186,10 @@ describe("AuthSessionsPage actions", () => {
     fireEvent.click(screen.getByRole("button", { name: "Revoke" }))
 
     await waitFor(() => expect(sent).toHaveLength(1))
-    expect(sent[0]).toEqual({ intent: "sessions.revoke", payload: { id: "s1" } })
+    expect(sent[0]).toEqual({
+      intent: "sessions.revoke",
+      payload: { id: "s1" },
+    })
   })
 
   it("revokes every session for one user, and says how many that is", async () => {
@@ -184,7 +197,7 @@ describe("AuthSessionsPage actions", () => {
     // json tag is `count`, not `revoked`.
     const { client, sent } = recordingCommandClient(
       { "sessions.list": sessionsAnswer },
-      { "sessions.bulkRevoke": { ok: true, count: 3 } },
+      { "sessions.bulkRevoke": { ok: true, count: 3 } }
     )
     renderPage(AuthSessionsPage, client)
     await waitFor(() => expect(screen.getByText("10.0.0.1")).toBeTruthy())
@@ -193,29 +206,44 @@ describe("AuthSessionsPage actions", () => {
     fireEvent.click(screen.getByRole("button", { name: "Revoke all" }))
 
     await waitFor(() => expect(sent).toHaveLength(1))
-    expect(sent[0]).toEqual({ intent: "sessions.bulkRevoke", payload: { userId: "u1" } })
+    expect(sent[0]).toEqual({
+      intent: "sessions.bulkRevoke",
+      payload: { userId: "u1" },
+    })
     // The dialog closing is not feedback. The server's own count has to
     // reach the operator, not just fire on the wire.
     expect(await screen.findByText("Revoked 3 sessions for u1.")).toBeTruthy()
   })
 
   it("filters by user id and drops the filter when cleared", async () => {
-    const { client, queries } = recordingClient({ "sessions.list": sessionsAnswer })
+    const { client, queries } = recordingClient({
+      "sessions.list": sessionsAnswer,
+    })
     renderPage(AuthSessionsPage, client)
     await waitFor(() => expect(screen.getByText("10.0.0.1")).toBeTruthy())
 
-    fireEvent.change(screen.getByRole("searchbox", { name: "Filter by user" }), {
-      target: { value: "u9" },
-    })
-    await waitFor(() => expect(queries.some((q) => q.params?.userId === "u9")).toBe(true))
+    fireEvent.change(
+      screen.getByRole("searchbox", { name: "Filter by user" }),
+      {
+        target: { value: "u9" },
+      }
+    )
+    await waitFor(() =>
+      expect(queries.some((q) => q.params?.userId === "u9")).toBe(true)
+    )
 
-    fireEvent.change(screen.getByRole("searchbox", { name: "Filter by user" }), {
-      target: { value: "" },
-    })
+    fireEvent.change(
+      screen.getByRole("searchbox", { name: "Filter by user" }),
+      {
+        target: { value: "" },
+      }
+    )
     // Cleared means absent, not empty string: an empty userId would be a
     // different cache key for the same question.
     await waitFor(() =>
-      expect(queries.filter((q) => q.params?.userId === undefined).length).toBeGreaterThan(1),
+      expect(
+        queries.filter((q) => q.params?.userId === undefined).length
+      ).toBeGreaterThan(1)
     )
   })
 })
@@ -262,7 +290,10 @@ describe("AuthSessionsPage stale command state across rows", () => {
       {
         "sessions.bulkRevoke": (payload?: unknown) =>
           (payload as { userId: string }).userId === "u1"
-            ? new ContractError("PERMISSION_DENIED", "sessions.bulkRevoke required")
+            ? new ContractError(
+                "PERMISSION_DENIED",
+                "sessions.bulkRevoke required"
+              )
             : { ok: true },
       }
     )

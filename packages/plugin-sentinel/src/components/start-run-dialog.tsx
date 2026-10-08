@@ -13,7 +13,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@forge-go/dashboard-kit/components/dialog"
-import { Field, FieldDescription, FieldGroup } from "@forge-go/dashboard-kit/components/field"
+import {
+  Field,
+  FieldDescription,
+  FieldGroup,
+} from "@forge-go/dashboard-kit/components/field"
 import { Input } from "@forge-go/dashboard-kit/components/input"
 import { Label } from "@forge-go/dashboard-kit/components/label"
 import {
@@ -67,10 +71,18 @@ export function StartRunDialog({
       }}
       disablePointerDismissal={locked}
     >
-      <DialogContent showCloseButton={!locked} className="max-h-[calc(100vh-2rem)] overflow-y-auto sm:max-w-lg">
+      <DialogContent
+        showCloseButton={!locked}
+        className="max-h-[calc(100vh-2rem)] overflow-y-auto sm:max-w-lg"
+      >
         {/* Mounted per open, so each opening starts from the defaults. */}
         {open && (
-          <StartRunForm command={command} suite={suite} config={config} onStarted={() => onOpenChange(false)} />
+          <StartRunForm
+            command={command}
+            suite={suite}
+            config={config}
+            onStarted={() => onOpenChange(false)}
+          />
         )}
       </DialogContent>
     </Dialog>
@@ -95,17 +107,25 @@ function StartRunForm({
   const [scorers, setScorers] = useState<string[]>([])
   const [problem, setProblem] = useState<string | null>(null)
   const sending = useRef(false)
-  const last = useQuery<RunsList>("runs.list", { suiteId: suite.id, state: "completed", limit: 1 })
+  const last = useQuery<RunsList>("runs.list", {
+    suiteId: suite.id,
+    state: "completed",
+    limit: 1,
+  })
   const message = problem ?? command.error?.message
   const chosenTarget = config.targets.find((t) => t.name === target)
   const effectiveModel = model.trim() || suite.model || config.defaultModel
-  const llmChosen = config.scorers.some((s) => s.usesLlm && scorers.includes(s.name))
+  const llmChosen = config.scorers.some(
+    (s) => s.usesLlm && scorers.includes(s.name)
+  )
 
   function toggle(name: string, on: boolean) {
     setProblem(null)
     // Kept in the order the engine lists them, whatever order they were ticked.
     setScorers((current) =>
-      config.scorers.map((s) => s.name).filter((n) => (n === name ? on : current.includes(n))),
+      config.scorers
+        .map((s) => s.name)
+        .filter((n) => (n === name ? on : current.includes(n)))
     )
   }
 
@@ -176,10 +196,17 @@ function StartRunForm({
               : `Leave it empty to use the engine's default, ${config.defaultModel}.`}
           </FieldDescription>
         </Field>
-        <fieldset className="flex flex-col gap-2" aria-describedby={`${id}-scorers-about`}>
+        <fieldset
+          className="flex flex-col gap-2"
+          aria-describedby={`${id}-scorers-about`}
+        >
           <legend className="text-sm font-medium">Scorers</legend>
-          <p id={`${id}-scorers-about`} className="text-sm text-muted-foreground">
-            Each case's own scorers run as well. A scorer that needs config of its own can only run from a case.
+          <p
+            id={`${id}-scorers-about`}
+            className="text-sm text-muted-foreground"
+          >
+            Each case's own scorers run as well. A scorer that needs config of
+            its own can only run from a case.
           </p>
           {config.scorers.map((s) => (
             <Label key={s.name} className="items-start font-normal">
@@ -194,22 +221,33 @@ function StartRunForm({
                   {s.usesLlm && <LlmBadge />}
                   {s.requiresConfig && <NeedsConfigBadge />}
                 </span>
-                {s.description && <span className="text-xs text-muted-foreground">{s.description}</span>}
+                {s.description && (
+                  <span className="text-xs text-muted-foreground">
+                    {s.description}
+                  </span>
+                )}
               </span>
             </Label>
           ))}
         </fieldset>
       </FieldGroup>
-      <section aria-label="What this run uses" className="flex flex-col gap-1 rounded-md border p-3 text-sm">
+      <section
+        aria-label="What this run uses"
+        className="flex flex-col gap-1 rounded-md border p-3 text-sm"
+      >
         <p>
           {`${plural(suite.caseCount, "case", "cases")} to `}
           <span className="font-mono text-xs">{target}</span>
           {" on "}
           <span className="font-mono text-xs">{effectiveModel}</span>
-          {scorers.length > 0 ? `, judged by ${plural(scorers.length, "scorer", "scorers")}` : ", no scorer chosen yet"}
+          {scorers.length > 0
+            ? `, judged by ${plural(scorers.length, "scorer", "scorers")}`
+            : ", no scorer chosen yet"}
           {llmChosen ? ", some of which call an LLM." : "."}
         </p>
-        <p className="text-muted-foreground">{lastCost(last.data, Boolean(last.error))}</p>
+        <p className="text-muted-foreground">
+          {lastCost(last.data, Boolean(last.error))}
+        </p>
       </section>
       {message && (
         <p id={`${id}-error`} role="alert" className="text-sm text-destructive">
@@ -217,7 +255,10 @@ function StartRunForm({
         </p>
       )}
       <DialogFooter>
-        <DialogClose render={<Button type="button" variant="outline" />} disabled={command.loading}>
+        <DialogClose
+          render={<Button type="button" variant="outline" />}
+          disabled={command.loading}
+        >
           Cancel
         </DialogClose>
         <Button type="submit" disabled={command.loading}>
@@ -233,7 +274,8 @@ function lastCost(data: RunsList | undefined, failed: boolean): string {
   if (failed) return "The last run's cost could not be read."
   if (!data) return "Reading the last run's cost."
   const run = data.items[0]
-  if (!run) return "This suite has no completed run yet, so there is no cost to go on."
+  if (!run)
+    return "This suite has no completed run yet, so there is no cost to go on."
   if (run.totalCost === 0)
     return "The last completed run's target reported no cost. LLM judge calls are not metered either, so that is not a sign the run is free."
   return `The last completed run reported ${formatCost(run.totalCost)}. That is what the target reported; LLM judge calls are not metered and are not in it.`

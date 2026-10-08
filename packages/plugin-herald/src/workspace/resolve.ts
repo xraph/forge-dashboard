@@ -21,11 +21,18 @@ export interface LocaleStep {
  * will answer a locale afterwards. The locale tester asks the server
  * (templates.resolve) instead, so the two can be compared if they drift.
  */
-export function explainLocale(versions: VersionState[], locale: string): { steps: LocaleStep[]; versionId: string | null } {
+export function explainLocale(
+  versions: VersionState[],
+  locale: string
+): { steps: LocaleStep[]; versionId: string | null } {
   const steps: LocaleStep[] = []
   const attempt = (want: string, match: ResolveMatch): string | null => {
     const v = versions.find((x) => x.active && x.locale === want)
-    steps.push(v ? { try: want, match, found: true, versionId: v.id } : { try: want, match, found: false })
+    steps.push(
+      v
+        ? { try: want, match, found: true, versionId: v.id }
+        : { try: want, match, found: false }
+    )
     return v ? v.id : null
   }
   let id = attempt(locale, "exact")
@@ -42,11 +49,18 @@ export function explainLocale(versions: VersionState[], locale: string): { steps
   return { steps, versionId: null }
 }
 
-export function withActive<T extends VersionState>(versions: T[], id: string, active: boolean): T[] {
+export function withActive<T extends VersionState>(
+  versions: T[],
+  id: string,
+  active: boolean
+): T[] {
   return versions.map((v) => (v.id === id ? { ...v, active } : v))
 }
 
-export function without<T extends VersionState>(versions: T[], id: string): T[] {
+export function without<T extends VersionState>(
+  versions: T[],
+  id: string
+): T[] {
   return versions.filter((v) => v.id !== id)
 }
 
@@ -58,15 +72,23 @@ export function versionName(locale: string): string {
 /** What a request for `locale` gets among `versions`, in words. */
 export function answerText(versions: VersionState[], locale: string): string {
   const { versionId } = explainLocale(versions, locale)
-  const v = versionId === null ? undefined : versions.find((x) => x.id === versionId)
+  const v =
+    versionId === null ? undefined : versions.find((x) => x.id === versionId)
   return v ? versionName(v.locale) : "nothing, so a send in that locale fails"
 }
 
-export type Answers = { kind: "fallback" } | { kind: "locale"; locale: string; wildcard: string | null } | null
+export type Answers =
+  | { kind: "fallback" }
+  | { kind: "locale"; locale: string; wildcard: string | null }
+  | null
 
 /** Which requested locales a live version answers. A bare language also answers its regions that have no live version of their own. */
 export function answersFor(version: VersionState): Answers {
   if (!version.active) return null
   if (version.locale === "") return { kind: "fallback" }
-  return { kind: "locale", locale: version.locale, wildcard: version.locale.includes("-") ? null : `${version.locale}-*` }
+  return {
+    kind: "locale",
+    locale: version.locale,
+    wildcard: version.locale.includes("-") ? null : `${version.locale}-*`,
+  }
 }

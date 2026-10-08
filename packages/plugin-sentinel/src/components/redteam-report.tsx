@@ -20,15 +20,39 @@ function judged(t: Pick<RedTeamTally, "total" | "unscored">): number {
 
 function bypassLabel(t: RedTeamTally): string {
   const scored = judged(t)
-  const base = scored === 0 ? "none judged" : `${t.bypassed} of ${scored} bypassed`
+  const base =
+    scored === 0 ? "none judged" : `${t.bypassed} of ${scored} bypassed`
   return t.unscored > 0 ? `${base}, ${t.unscored} not scored` : base
 }
 
 const columns: Column<RedTeamTally>[] = [
-  { id: "type", header: "Attack type", className: "font-medium", cell: (t) => attackLabel(t.attackType) },
-  { id: "total", header: "Cases", align: "end", className: "tabular-nums", cell: (t) => t.total },
-  { id: "bypassed", header: "Bypassed", align: "end", className: "tabular-nums", cell: (t) => t.bypassed },
-  { id: "unscored", header: "Not scored", align: "end", className: "tabular-nums", cell: (t) => t.unscored },
+  {
+    id: "type",
+    header: "Attack type",
+    className: "font-medium",
+    cell: (t) => attackLabel(t.attackType),
+  },
+  {
+    id: "total",
+    header: "Cases",
+    align: "end",
+    className: "tabular-nums",
+    cell: (t) => t.total,
+  },
+  {
+    id: "bypassed",
+    header: "Bypassed",
+    align: "end",
+    className: "tabular-nums",
+    cell: (t) => t.bypassed,
+  },
+  {
+    id: "unscored",
+    header: "Not scored",
+    align: "end",
+    className: "tabular-nums",
+    cell: (t) => t.unscored,
+  },
 ]
 
 /**
@@ -55,7 +79,9 @@ export function RedTeamReportSection({
   /** Shown above the report, and only when there is one. */
   intro?: ReactNode
 }) {
-  const report = useSettled(useQuery<RedTeamReport | null>("redteam.report", { runId }))
+  const report = useSettled(
+    useQuery<RedTeamReport | null>("redteam.report", { runId })
+  )
   usePoll(() => {
     if (running) report.refetch()
   }, RUN_POLL_MS)
@@ -72,14 +98,21 @@ export function RedTeamReportSection({
     return (
       <section className="flex flex-col gap-2">
         <h2 className="text-sm font-medium">{title}</h2>
-        <p role="alert" className="text-sm text-destructive">{`The red-team report could not be read. ${report.error.message}`}</p>
+        <p
+          role="alert"
+          className="text-sm text-destructive"
+        >{`The red-team report could not be read. ${report.error.message}`}</p>
       </section>
     )
   }
   const data = report.data
   if (!data) return null
   const stale = report.stale && (
-    <StaleNotice what="the red-team report" error={report.error} onRetry={report.refetch} />
+    <StaleNotice
+      what="the red-team report"
+      error={report.error}
+      onRetry={report.refetch}
+    />
   )
   if (data.total === 0) {
     return (
@@ -87,12 +120,16 @@ export function RedTeamReportSection({
         {intro}
         {stale}
         <h2 className="text-sm font-medium">{title}</h2>
-        <p className="text-sm text-muted-foreground">No red-team case has a result in this run yet.</p>
+        <p className="text-sm text-muted-foreground">
+          No red-team case has a result in this run yet.
+        </p>
       </section>
     )
   }
   const judgedBy =
-    data.judgedBy.length > 0 ? `Judged by ${data.judgedBy.join(", ")}.` : "No scorer is recorded as judging these cases."
+    data.judgedBy.length > 0
+      ? `Judged by ${data.judgedBy.join(", ")}.`
+      : "No scorer is recorded as judging these cases."
   return (
     <div className="flex flex-col gap-2">
       {intro}
@@ -100,7 +137,9 @@ export function RedTeamReportSection({
       <ChartFrame
         title={title}
         description={`${data.bypassed} of ${judged(data)} judged red-team cases bypassed the target's defences${
-          data.unscored > 0 ? `, and ${plural(data.unscored, "case", "cases")} could not be scored` : ""
+          data.unscored > 0
+            ? `, and ${plural(data.unscored, "case", "cases")} could not be scored`
+            : ""
         }. ${judgedBy}`}
         table={
           <ResourceTable<RedTeamTally>

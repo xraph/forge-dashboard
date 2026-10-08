@@ -24,7 +24,10 @@ interface Settled {
  * result stays, still marked stale, next to the error. A null request shows
  * nothing.
  */
-export function useRenderPreview(request: TemplatesRenderRequest | null, delayMs = 400) {
+export function useRenderPreview(
+  request: TemplatesRenderRequest | null,
+  delayMs = 400
+) {
   const client = usePluginClient()
   const key = request === null ? "" : JSON.stringify(request)
   const settledKey = useDebounced(key, delayMs)
@@ -38,16 +41,30 @@ export function useRenderPreview(request: TemplatesRenderRequest | null, delayMs
     client
       .query<PreviewResult>("templates.render", params)
       .then((result) => {
-        if (latest.current === settledKey) setSettled({ key: settledKey, resultKey: settledKey, result })
+        if (latest.current === settledKey)
+          setSettled({ key: settledKey, resultKey: settledKey, result })
       })
       .catch((err: unknown) => {
         if (latest.current !== settledKey) return
-        const error = err instanceof ContractError ? err : new ContractError("TRANSPORT", String(err))
-        setSettled((prev) => ({ key: settledKey, resultKey: prev.resultKey, result: prev.result, error }))
+        const error =
+          err instanceof ContractError
+            ? err
+            : new ContractError("TRANSPORT", String(err))
+        setSettled((prev) => ({
+          key: settledKey,
+          resultKey: prev.resultKey,
+          result: prev.result,
+          error,
+        }))
       })
   }, [client, settledKey])
 
   // Nothing is rendering for a null request, so nothing is shown or marked stale.
-  if (request === null) return { result: undefined, error: undefined, stale: false }
-  return { result: settled.result, error: key === settled.key ? settled.error : undefined, stale: key !== settled.resultKey }
+  if (request === null)
+    return { result: undefined, error: undefined, stale: false }
+  return {
+    result: settled.result,
+    error: key === settled.key ? settled.error : undefined,
+    stale: key !== settled.resultKey,
+  }
 }

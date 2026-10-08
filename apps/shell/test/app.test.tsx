@@ -1,5 +1,11 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest"
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react"
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react"
 import type {
   Capabilities,
   ContributorCapability,
@@ -245,7 +251,11 @@ describe("App at a non-default mount", () => {
     //
     // Not /@authsome/login either. Sign-in is the gate, not a page: authsome
     // dropped it from both nav and routes.
-    window.history.replaceState({}, "", `${SHELL_BASE}/@authsome/platform/users`)
+    window.history.replaceState(
+      {},
+      "",
+      `${SHELL_BASE}/@authsome/platform/users`
+    )
     const auth = render(<App />)
     const authNav = await screen.findByRole("navigation", {
       name: "Scope navigation",
@@ -290,9 +300,8 @@ describe("App at a non-default mount", () => {
     // One labelled list per group of authsome's nav, so a screen reader hears
     // which group a page belongs to.
     expect(
-      Array.from(
-        authNav.querySelectorAll('[data-slot="rail-entries"]'),
-        (ul) => ul.getAttribute("aria-label")
+      Array.from(authNav.querySelectorAll('[data-slot="rail-entries"]'), (ul) =>
+        ul.getAttribute("aria-label")
       )
     ).toEqual(["Identity", "Configuration", "Security", "System"])
     auth.unmount()
@@ -473,10 +482,13 @@ describe("authsome's routed app segment", () => {
    * has no pages to offer.
    */
   it("builds every nav href under the app in the URL", async () => {
-    vi.stubGlobal("fetch", serverFetch([
-      { name: "core-contract", envelopes: ["v1"], configured: true },
-      { name: "authsome", envelopes: ["v1"], configured: true },
-    ]))
+    vi.stubGlobal(
+      "fetch",
+      serverFetch([
+        { name: "core-contract", envelopes: ["v1"], configured: true },
+        { name: "authsome", envelopes: ["v1"], configured: true },
+      ])
+    )
     window.history.replaceState({}, "", `${SHELL_BASE}/@authsome/acme/users`)
     render(<App />)
 
@@ -488,15 +500,20 @@ describe("authsome's routed app segment", () => {
     // Not one link outside the app. A single href that forgot the segment
     // would land somebody in another app's page and look perfectly ordinary.
     for (const link of within(nav).getAllByRole("link")) {
-      expect(link.getAttribute("href")).toMatch(/^\/dashboard\/ui\/@authsome\/acme(\/|$)/)
+      expect(link.getAttribute("href")).toMatch(
+        /^\/dashboard\/ui\/@authsome\/acme(\/|$)/
+      )
     }
   })
 
   it("offers no pages at all when the URL names no app", async () => {
-    vi.stubGlobal("fetch", serverFetch([
-      { name: "core-contract", envelopes: ["v1"], configured: true },
-      { name: "authsome", envelopes: ["v1"], configured: true },
-    ]))
+    vi.stubGlobal(
+      "fetch",
+      serverFetch([
+        { name: "core-contract", envelopes: ["v1"], configured: true },
+        { name: "authsome", envelopes: ["v1"], configured: true },
+      ])
+    )
     window.history.replaceState({}, "", `${SHELL_BASE}/@authsome`)
     render(<App />)
 
@@ -531,12 +548,22 @@ describe("the authsome sub-plugins the shell mounts", () => {
       { name: "authsome", envelopes: ["v1"], configured: true },
     ])
     vi.stubGlobal("fetch", fetchImpl)
-    window.history.replaceState({}, "", `${SHELL_BASE}/@authsome/platform/users`)
+    window.history.replaceState(
+      {},
+      "",
+      `${SHELL_BASE}/@authsome/platform/users`
+    )
     const { container } = render(<App />)
-    await waitFor(() => expect(screen.getAllByRole("link").length).toBeGreaterThan(0))
+    await waitFor(() =>
+      expect(screen.getAllByRole("link").length).toBeGreaterThan(0)
+    )
 
-    expect(within(container).queryByRole("link", { name: "Waitlist" })).toBeNull()
-    expect(within(container).queryByRole("link", { name: /^Organizations?$/ })).toBeNull()
+    expect(
+      within(container).queryByRole("link", { name: "Waitlist" })
+    ).toBeNull()
+    expect(
+      within(container).queryByRole("link", { name: /^Organizations?$/ })
+    ).toBeNull()
     expect(within(container).queryByRole("link", { name: "MFA" })).toBeNull()
   })
 
@@ -551,17 +578,25 @@ describe("the authsome sub-plugins the shell mounts", () => {
     // Under an app. Authsome's nav, sub-plugins included, only renders once
     // the URL names one, so a test landing at the bare namespace would see
     // nothing and could not tell that from a sub-plugin that never mounted.
-    window.history.replaceState({}, "", `${SHELL_BASE}/@authsome/platform/users`)
+    window.history.replaceState(
+      {},
+      "",
+      `${SHELL_BASE}/@authsome/platform/users`
+    )
     const { container } = render(<App />)
 
     // A data sub-plugin and a settings-only one, because they reach the
     // sidebar by different routes: one declares its own intents, the other
     // declares none and reads settings through its host.
     await waitFor(() =>
-      expect(within(container).getByRole("link", { name: "Waitlist" })).toBeTruthy()
+      expect(
+        within(container).getByRole("link", { name: "Waitlist" })
+      ).toBeTruthy()
     )
     expect(within(container).getByRole("link", { name: "MFA" })).toBeTruthy()
     // Still gated: organization was not reported, so it is still absent.
-    expect(within(container).queryByRole("link", { name: /^Organizations?$/ })).toBeNull()
+    expect(
+      within(container).queryByRole("link", { name: /^Organizations?$/ })
+    ).toBeNull()
   })
 })

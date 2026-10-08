@@ -10,7 +10,10 @@ import { EmptyState } from "@forge-go/dashboard-kit/components/empty-state"
 import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { CommandAlert } from "@forge-go/dashboard-kit/components/query-boundary"
-import { ResourceTable, type Column } from "@forge-go/dashboard-kit/components/resource-table"
+import {
+  ResourceTable,
+  type Column,
+} from "@forge-go/dashboard-kit/components/resource-table"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { CasStateBadge } from "../badges"
 import { Bytes } from "../components/bytes"
@@ -55,19 +58,42 @@ function CasCeiling({ status }: { status: CasStatus }) {
     <section className="flex flex-col gap-2">
       <DescriptionList
         items={[
-          { term: "Algorithm", value: status.algorithm ? <span className="font-mono text-xs">{status.algorithm}</span> : <NoneCell label="algorithm" /> },
-          { term: "Bucket", value: status.bucket ? <span className="font-mono text-xs">{status.bucket}</span> : <NoneCell label="bucket" /> },
-          { term: "Index", value: status.index === "memory" ? "In memory" : status.index ?? <NoneCell label="index" /> },
+          {
+            term: "Algorithm",
+            value: status.algorithm ? (
+              <span className="font-mono text-xs">{status.algorithm}</span>
+            ) : (
+              <NoneCell label="algorithm" />
+            ),
+          },
+          {
+            term: "Bucket",
+            value: status.bucket ? (
+              <span className="font-mono text-xs">{status.bucket}</span>
+            ) : (
+              <NoneCell label="bucket" />
+            ),
+          },
+          {
+            term: "Index",
+            value:
+              status.index === "memory"
+                ? "In memory"
+                : (status.index ?? <NoneCell label="index" />),
+          },
         ]}
       />
       {status.resetsOnRestart ? (
         <p className="text-sm text-muted-foreground">
-          The index lives in this process's memory. A restart forgets every reference count and pin, and blobs already in the bucket then show as not indexed.
+          The index lives in this process's memory. A restart forgets every
+          reference count and pin, and blobs already in the bucket then show as
+          not indexed.
         </p>
       ) : null}
       {!status.releaseSupported ? (
         <p className="text-sm text-muted-foreground">
-          Nothing in CAS lowers a reference count, so garbage collection never finds anything to collect.
+          Nothing in CAS lowers a reference count, so garbage collection never
+          finds anything to collect.
         </p>
       ) : null}
     </section>
@@ -87,7 +113,13 @@ function entriesCaption(n: number, more: boolean, paged: boolean): string {
 function CasEntries({ store }: { store: string }) {
   const [cursors, setCursors] = useState<string[]>([])
   const cursor = cursors.at(-1) ?? ""
-  const list = useQuery<CasList>("cas.list", withStore(store, cursor ? { cursor, limit: PAGE_SIZE } : { limit: PAGE_SIZE }))
+  const list = useQuery<CasList>(
+    "cas.list",
+    withStore(
+      store,
+      cursor ? { cursor, limit: PAGE_SIZE } : { limit: PAGE_SIZE }
+    )
+  )
   const pin = useCommand<CasEntry>("cas.pin")
   const unpin = useCommand<CasEntry>("cas.unpin")
   const gc = useCommand<CasGCResult>("cas.gc")
@@ -100,20 +132,34 @@ function CasEntries({ store }: { store: string }) {
       header: "Hash",
       className: "font-medium",
       cell: (e) => (
-        <span className="block max-w-48 truncate font-mono text-xs" title={e.hash}>
+        <span
+          className="block max-w-48 truncate font-mono text-xs"
+          title={e.hash}
+        >
           {e.hash}
         </span>
       ),
     },
-    { id: "size", header: "Stored size", cell: (e) => <Bytes value={e.storedSize} /> },
+    {
+      id: "size",
+      header: "Stored size",
+      cell: (e) => <Bytes value={e.storedSize} />,
+    },
     {
       id: "refs",
       header: "References",
       className: "font-mono text-xs",
-      cell: (e) => (e.refCount === null ? <NoneCell label="reference count" /> : e.refCount),
+      cell: (e) =>
+        e.refCount === null ? <NoneCell label="reference count" /> : e.refCount,
     },
     { id: "state", header: "State", cell: (e) => <CasStateBadge entry={e} /> },
-    { id: "modified", header: "Last modified", cell: (e) => <Timestamp value={e.lastModified ?? undefined} label="modified time" /> },
+    {
+      id: "modified",
+      header: "Last modified",
+      cell: (e) => (
+        <Timestamp value={e.lastModified ?? undefined} label="modified time" />
+      ),
+    },
   ]
 
   function openGC() {
@@ -140,7 +186,9 @@ function CasEntries({ store }: { store: string }) {
       {gcResult ? (
         <p className="text-sm">
           {`Found ${gcResult.scanned} ${gcResult.scanned === 1 ? "entry" : "entries"} with no references and no pin, deleted ${gcResult.deleted}, freed ${formatBytes(gcResult.freedBytes)}.`}
-          {gcResult.errors > 0 ? ` ${gcResult.errors} could not be deleted.` : ""}
+          {gcResult.errors > 0
+            ? ` ${gcResult.errors} could not be deleted.`
+            : ""}
         </p>
       ) : null}
       <CommandAlert error={pin.error} title="Could not pin" />
@@ -153,7 +201,11 @@ function CasEntries({ store }: { store: string }) {
               columns={columns}
               rows={data.entries}
               rowKey={(e) => e.hash}
-              caption={entriesCaption(data.entries.length, data.nextCursor !== null, cursors.length > 0)}
+              caption={entriesCaption(
+                data.entries.length,
+                data.nextCursor !== null,
+                cursors.length > 0
+              )}
               emptyMessage={
                 data.nextCursor !== null
                   ? "Nothing on this page, but the driver has more to list."
@@ -163,15 +215,42 @@ function CasEntries({ store }: { store: string }) {
               }
               rowActions={(e) =>
                 !e.indexed ? null : e.pinned ? (
-                  <IconButton variant="ghost" disabled={unpin.loading} onClick={() => void unpin.execute(withStore(store, { hash: e.hash }))} label={`Unpin ${e.hash}`} />
+                  <IconButton
+                    variant="ghost"
+                    disabled={unpin.loading}
+                    onClick={() =>
+                      void unpin.execute(withStore(store, { hash: e.hash }))
+                    }
+                    label={`Unpin ${e.hash}`}
+                  />
                 ) : (
-                  <IconButton variant="ghost" disabled={pin.loading} onClick={() => void pin.execute(withStore(store, { hash: e.hash }))} label={`Pin ${e.hash}`} />
+                  <IconButton
+                    variant="ghost"
+                    disabled={pin.loading}
+                    onClick={() =>
+                      void pin.execute(withStore(store, { hash: e.hash }))
+                    }
+                    label={`Pin ${e.hash}`}
+                  />
                 )
               }
             />
             <div className="flex gap-2">
-              <IconButton variant="outline" disabled={cursors.length === 0} onClick={() => setCursors((c) => c.slice(0, -1))} label="Previous page" />
-              <IconButton variant="outline" disabled={data.nextCursor === null} onClick={() => data.nextCursor !== null && setCursors((c) => [...c, data.nextCursor as string])} label="Next page" />
+              <IconButton
+                variant="outline"
+                disabled={cursors.length === 0}
+                onClick={() => setCursors((c) => c.slice(0, -1))}
+                label="Previous page"
+              />
+              <IconButton
+                variant="outline"
+                disabled={data.nextCursor === null}
+                onClick={() =>
+                  data.nextCursor !== null &&
+                  setCursors((c) => [...c, data.nextCursor as string])
+                }
+                label="Next page"
+              />
             </div>
           </>
         )}

@@ -20,7 +20,7 @@ const props = {
 
 vi.mock("@forge-go/dashboard-plugin", async () => {
   const actual = await vi.importActual<Record<string, unknown>>(
-    "@forge-go/dashboard-plugin",
+    "@forge-go/dashboard-plugin"
   )
   return {
     ...actual,
@@ -45,11 +45,14 @@ vi.mock("@forge-go/dashboard-plugin", async () => {
 // wrongly prefixed its own links (Critical 1) would have passed every href
 // assertion below, because there would have been no basename for the double
 // prefix to show up against.
-function mount(Screen: React.ComponentType<AuthScreenProps>, initialEntries = ["/forge"]) {
+function mount(
+  Screen: React.ComponentType<AuthScreenProps>,
+  initialEntries = ["/forge"]
+) {
   return render(
     <MemoryRouter basename="/forge" initialEntries={initialEntries}>
       <Screen {...props} />
-    </MemoryRouter>,
+    </MemoryRouter>
   )
 }
 
@@ -68,37 +71,46 @@ describe("default auth screens", () => {
   // other assertion here would catch the attributes going missing.
   it("sign-in carries autocomplete hints a password manager can act on", () => {
     mount(defaultAuthScreens.signIn)
-    expect(screen.getByLabelText(/email/i).getAttribute("autocomplete")).toBe("username")
-    expect(screen.getByLabelText(/password/i).getAttribute("autocomplete")).toBe(
-      "current-password",
+    expect(screen.getByLabelText(/email/i).getAttribute("autocomplete")).toBe(
+      "username"
     )
+    expect(
+      screen.getByLabelText(/password/i).getAttribute("autocomplete")
+    ).toBe("current-password")
   })
 
   it("sign-in links to forgot-password under the basename", () => {
     mount(defaultAuthScreens.signIn)
     expect(
-      screen.getByRole("link", { name: /forgot/i }).getAttribute("href"),
+      screen.getByRole("link", { name: /forgot/i }).getAttribute("href")
     ).toBe("/forge/forgot-password")
   })
 
   it("forgot-password asks for an email and links back", () => {
     mount(defaultAuthScreens.forgotPassword)
     expect(screen.getByLabelText(/email/i)).toBeDefined()
-    expect(screen.getByRole("link", { name: /back to sign in/i }).getAttribute("href"))
-      .toBe("/forge/login")
+    expect(
+      screen
+        .getByRole("link", { name: /back to sign in/i })
+        .getAttribute("href")
+    ).toBe("/forge/login")
   })
 
   it("reset-password asks for a new password twice", () => {
     // Needs a token in the URL: the screen treats a tokenless link as
     // incomplete and renders that state instead of the form, on purpose.
-    mount(defaultAuthScreens.resetPassword, ["/forge/reset-password?token=abc123"])
+    mount(defaultAuthScreens.resetPassword, [
+      "/forge/reset-password?token=abc123",
+    ])
     expect(screen.getByLabelText(/new password/i)).toBeDefined()
     expect(screen.getByLabelText(/confirm/i)).toBeDefined()
   })
 
   it("reset-password refuses to collect a password with no token", () => {
     mount(defaultAuthScreens.resetPassword, ["/forge/reset-password"])
-    expect(screen.getByRole("heading", { name: /link is incomplete/i })).toBeDefined()
+    expect(
+      screen.getByRole("heading", { name: /link is incomplete/i })
+    ).toBeDefined()
     expect(screen.queryByLabelText(/new password/i)).toBeNull()
   })
 })

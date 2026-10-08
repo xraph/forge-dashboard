@@ -5,21 +5,50 @@ import { PluginLink, useCommand, useQuery } from "@forge-go/dashboard-plugin"
 import type { PluginPageProps, QueryState } from "@forge-go/dashboard-plugin"
 import { Button } from "@forge-go/dashboard-kit/components/button"
 import { ConfirmDialog } from "@forge-go/dashboard-kit/components/confirm-dialog"
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@forge-go/dashboard-kit/components/dialog"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@forge-go/dashboard-kit/components/dialog"
 import { Input } from "@forge-go/dashboard-kit/components/input"
 import { Label } from "@forge-go/dashboard-kit/components/label"
-import { NativeSelect, NativeSelectOption } from "@forge-go/dashboard-kit/components/native-select"
+import {
+  NativeSelect,
+  NativeSelectOption,
+} from "@forge-go/dashboard-kit/components/native-select"
 import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
-import { CommandAlert, QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
+import {
+  CommandAlert,
+  QueryBoundary,
+} from "@forge-go/dashboard-kit/components/query-boundary"
 import { DanglingBadge, DisabledProviderBadge } from "../badges"
 import { HeraldHeader, useEngineInfo } from "../components/herald-header"
 import { ResolvedProvider } from "../components/resolved-provider"
 import { ROUTED_CHANNELS } from "../format"
 import { providerPath } from "../keys"
 import { useDebounced } from "../use-debounced"
-import type { DeleteResponse, ProviderSummary, ProvidersListResponse, RoutedChannel, ScopeRule, ScopeType, ScopesListResponse, ScopesSetRequest, ScopesSetResponse, SendResolveResponse } from "../wire"
+import type {
+  DeleteResponse,
+  ProviderSummary,
+  ProvidersListResponse,
+  RoutedChannel,
+  ScopeRule,
+  ScopeType,
+  ScopesListResponse,
+  ScopesSetRequest,
+  ScopesSetResponse,
+  SendResolveResponse,
+} from "../wire"
 
-type SlotKey = "emailProviderId" | "smsProviderId" | "pushProviderId" | "webhookProviderId" | "chatProviderId"
+type SlotKey =
+  | "emailProviderId"
+  | "smsProviderId"
+  | "pushProviderId"
+  | "webhookProviderId"
+  | "chatProviderId"
 const slotKey = (ch: RoutedChannel): SlotKey => `${ch}ProviderId` as SlotKey
 
 const LEVELS: { scope: ScopeType; heading: string }[] = [
@@ -38,16 +67,25 @@ function WhoSends({ channels }: { channels: string[] }) {
   const params: Record<string, unknown> = { channel }
   if (orgId) params.orgId = orgId
   if (userId) params.userId = userId
-  const resolve = useQuery<SendResolveResponse>("send.resolve", params, { enabled: channel !== "" })
+  const resolve = useQuery<SendResolveResponse>("send.resolve", params, {
+    enabled: channel !== "",
+  })
   return (
-    <section aria-labelledby="who-sends" className="flex flex-col gap-3 rounded-lg border p-4">
+    <section
+      aria-labelledby="who-sends"
+      className="flex flex-col gap-3 rounded-lg border p-4"
+    >
       <h2 id="who-sends" className="text-sm font-medium">
         Who sends?
       </h2>
       <div className="grid gap-3 sm:grid-cols-3">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="who-channel">Channel to test</Label>
-          <NativeSelect id="who-channel" value={channel} onChange={(e) => setChannel(e.target.value)}>
+          <NativeSelect
+            id="who-channel"
+            value={channel}
+            onChange={(e) => setChannel(e.target.value)}
+          >
             <NativeSelectOption value="">Choose a channel</NativeSelectOption>
             {channels.map((c) => (
               <NativeSelectOption key={c} value={c}>
@@ -58,11 +96,25 @@ function WhoSends({ channels }: { channels: string[] }) {
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="who-org">Org ID (optional)</Label>
-          <Input id="who-org" className="font-mono text-xs" autoComplete="off" spellCheck={false} value={org} onChange={(e) => setOrg(e.target.value)} />
+          <Input
+            id="who-org"
+            className="font-mono text-xs"
+            autoComplete="off"
+            spellCheck={false}
+            value={org}
+            onChange={(e) => setOrg(e.target.value)}
+          />
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="who-user">User ID (optional)</Label>
-          <Input id="who-user" className="font-mono text-xs" autoComplete="off" spellCheck={false} value={user} onChange={(e) => setUser(e.target.value)} />
+          <Input
+            id="who-user"
+            className="font-mono text-xs"
+            autoComplete="off"
+            spellCheck={false}
+            value={user}
+            onChange={(e) => setUser(e.target.value)}
+          />
         </div>
       </div>
       {channel !== "" && (
@@ -74,15 +126,42 @@ function WhoSends({ channels }: { channels: string[] }) {
   )
 }
 
-function RuleCard({ rule, providers, onEdit, onDelete }: { rule: ScopeRule; providers: ProviderSummary[]; onEdit: () => void; onDelete: () => void }) {
-  const who = rule.scope === "app" ? "the app rule" : `the ${rule.scope} rule for ${rule.scopeId}`
+function RuleCard({
+  rule,
+  providers,
+  onEdit,
+  onDelete,
+}: {
+  rule: ScopeRule
+  providers: ProviderSummary[]
+  onEdit: () => void
+  onDelete: () => void
+}) {
+  const who =
+    rule.scope === "app"
+      ? "the app rule"
+      : `the ${rule.scope} rule for ${rule.scopeId}`
   return (
     <article className="flex flex-col gap-3 rounded-lg border p-4">
       <header className="flex flex-wrap items-center justify-between gap-2">
-        <span className="text-sm font-medium">{rule.scope === "app" ? "This app" : <span className="font-mono text-xs">{rule.scopeId}</span>}</span>
+        <span className="text-sm font-medium">
+          {rule.scope === "app" ? (
+            "This app"
+          ) : (
+            <span className="font-mono text-xs">{rule.scopeId}</span>
+          )}
+        </span>
         <span className="flex gap-2">
-          <IconButton variant="outline" onClick={onEdit} label={`Edit ${who}`} />
-          <IconButton variant="ghost" onClick={onDelete} label={`Delete ${who}`} />
+          <IconButton
+            variant="outline"
+            onClick={onEdit}
+            label={`Edit ${who}`}
+          />
+          <IconButton
+            variant="ghost"
+            onClick={onDelete}
+            label={`Delete ${who}`}
+          />
         </span>
       </header>
       <dl className="grid grid-cols-[8rem_1fr] gap-x-3 gap-y-1.5 text-sm">
@@ -107,7 +186,10 @@ function RuleCard({ rule, providers, onEdit, onDelete }: { rule: ScopeRule; prov
                     {providers.some((q) => q.id === p.id && !q.enabled) && (
                       <>
                         <DisabledProviderBadge />
-                        <span className="text-xs text-muted-foreground">Provider disabled: this rule is skipped for {ch} until it's enabled.</span>
+                        <span className="text-xs text-muted-foreground">
+                          Provider disabled: this rule is skipped for {ch} until
+                          it's enabled.
+                        </span>
                       </>
                     )}
                   </span>
@@ -121,8 +203,12 @@ function RuleCard({ rule, providers, onEdit, onDelete }: { rule: ScopeRule; prov
           {rule.fromEmail || rule.fromName || rule.fromPhone ? (
             <span>
               {rule.fromName ? `${rule.fromName} ` : ""}
-              {rule.fromEmail && <span className="font-mono text-xs">{rule.fromEmail}</span>}
-              {rule.fromPhone && <span className="font-mono text-xs"> {rule.fromPhone}</span>}
+              {rule.fromEmail && (
+                <span className="font-mono text-xs">{rule.fromEmail}</span>
+              )}
+              {rule.fromPhone && (
+                <span className="font-mono text-xs"> {rule.fromPhone}</span>
+              )}
             </span>
           ) : (
             <NoneCell label="sender" />
@@ -132,7 +218,10 @@ function RuleCard({ rule, providers, onEdit, onDelete }: { rule: ScopeRule; prov
           <>
             <dt className="text-muted-foreground">Default locale</dt>
             <dd>
-              <span className="font-mono text-xs">{rule.defaultLocale}</span> <span className="text-muted-foreground">(stored, but Send doesn't use it)</span>
+              <span className="font-mono text-xs">{rule.defaultLocale}</span>{" "}
+              <span className="text-muted-foreground">
+                (stored, but Send doesn't use it)
+              </span>
             </dd>
           </>
         )}
@@ -157,9 +246,16 @@ function draftOf(rule: ScopeRule | null): Draft {
       // A dangling slot starts cleared: the server re-checks every slot on
       // save and refuses a rule naming a deleted provider.
       return [ch, p && !p.dangling ? p.id : ""]
-    }),
+    })
   ) as Record<RoutedChannel, string>
-  return { scope: rule?.scope ?? "app", scopeId: rule?.scopeId ?? "", slots, fromEmail: rule?.fromEmail ?? "", fromName: rule?.fromName ?? "", fromPhone: rule?.fromPhone ?? "" }
+  return {
+    scope: rule?.scope ?? "app",
+    scopeId: rule?.scopeId ?? "",
+    slots,
+    fromEmail: rule?.fromEmail ?? "",
+    fromName: rule?.fromName ?? "",
+    fromPhone: rule?.fromPhone ?? "",
+  }
 }
 
 /**
@@ -168,12 +264,24 @@ function draftOf(rule: ScopeRule | null): Draft {
  * is the page's snapshot of the rule taken when it opened, so a refetch of
  * the rule list cannot change what this dialog says or sends.
  */
-function RuleDialog({ open, rule, providers, onClose }: { open: boolean; rule: ScopeRule | null; providers: QueryState<ProvidersListResponse>; onClose: () => void }) {
+function RuleDialog({
+  open,
+  rule,
+  providers,
+  onClose,
+}: {
+  open: boolean
+  rule: ScopeRule | null
+  providers: QueryState<ProvidersListResponse>
+  onClose: () => void
+}) {
   const set = useCommand<ScopesSetResponse>("scopes.set")
   const [draft, setDraft] = useState<Draft>(() => draftOf(rule))
   const editing = rule !== null
   const stored = draftOf(rule)
-  const danglingSlots = ROUTED_CHANNELS.filter((ch) => rule?.providers[ch]?.dangling)
+  const danglingSlots = ROUTED_CHANNELS.filter(
+    (ch) => rule?.providers[ch]?.dangling
+  )
   const needsId = draft.scope !== "app"
   const canSubmit = !set.loading && (!needsId || draft.scopeId.trim() !== "")
   const known: ProviderSummary[] = providers.data?.providers ?? []
@@ -200,23 +308,42 @@ function RuleDialog({ open, rule, providers, onClose }: { open: boolean; rule: S
   }
 
   return (
-    <Dialog open={open} onOpenChange={(next) => !next && !set.loading && onClose()}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => !next && !set.loading && onClose()}
+    >
       <DialogContent className="sm:max-w-lg">
         <form onSubmit={(e) => void submit(e)} className="flex flex-col gap-4">
           <DialogHeader>
-            <DialogTitle>{editing ? "Edit routing rule" : "Add a routing rule"}</DialogTitle>
-            <DialogDescription>A rule picks the provider per channel and the sender. Leave a channel empty to let the next level decide.</DialogDescription>
+            <DialogTitle>
+              {editing ? "Edit routing rule" : "Add a routing rule"}
+            </DialogTitle>
+            <DialogDescription>
+              A rule picks the provider per channel and the sender. Leave a
+              channel empty to let the next level decide.
+            </DialogDescription>
           </DialogHeader>
           <CommandAlert error={set.error} title="Could not save the rule" />
           {providers.error && (
             <p className="text-sm text-muted-foreground">
-              Could not load the providers to choose from: {providers.error.code}: {providers.error.message}
+              Could not load the providers to choose from:{" "}
+              {providers.error.code}: {providers.error.message}
             </p>
           )}
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="rule-level">Level</Label>
-              <NativeSelect id="rule-level" value={draft.scope} disabled={editing} onChange={(e) => setDraft((d) => ({ ...d, scope: e.target.value as ScopeType }))}>
+              <NativeSelect
+                id="rule-level"
+                value={draft.scope}
+                disabled={editing}
+                onChange={(e) =>
+                  setDraft((d) => ({
+                    ...d,
+                    scope: e.target.value as ScopeType,
+                  }))
+                }
+              >
                 <NativeSelectOption value="app">app</NativeSelectOption>
                 <NativeSelectOption value="org">org</NativeSelectOption>
                 <NativeSelectOption value="user">user</NativeSelectOption>
@@ -224,8 +351,20 @@ function RuleDialog({ open, rule, providers, onClose }: { open: boolean; rule: S
             </div>
             {needsId && (
               <div className="flex flex-col gap-1.5">
-                <Label htmlFor="rule-id">{draft.scope === "org" ? "Org ID" : "User ID"}</Label>
-                <Input id="rule-id" className="font-mono text-xs" autoComplete="off" spellCheck={false} disabled={editing} value={draft.scopeId} onChange={(e) => setDraft((d) => ({ ...d, scopeId: e.target.value }))} />
+                <Label htmlFor="rule-id">
+                  {draft.scope === "org" ? "Org ID" : "User ID"}
+                </Label>
+                <Input
+                  id="rule-id"
+                  className="font-mono text-xs"
+                  autoComplete="off"
+                  spellCheck={false}
+                  disabled={editing}
+                  value={draft.scopeId}
+                  onChange={(e) =>
+                    setDraft((d) => ({ ...d, scopeId: e.target.value }))
+                  }
+                />
               </div>
             )}
           </div>
@@ -233,20 +372,38 @@ function RuleDialog({ open, rule, providers, onClose }: { open: boolean; rule: S
             const options = known.filter((p) => p.channel === ch)
             const current = draft.slots[ch]
             // The list may not have loaded, or the provider may sit past it. Never show a stored choice as "Not set".
-            const missing = current !== "" && !options.some((p) => p.id === current)
+            const missing =
+              current !== "" && !options.some((p) => p.id === current)
             return (
               <div key={ch} className="flex flex-col gap-1.5">
                 <Label htmlFor={`rule-${ch}`}>{`${ch} provider`}</Label>
-                <NativeSelect id={`rule-${ch}`} value={current} onChange={(e) => setDraft((d) => ({ ...d, slots: { ...d.slots, [ch]: e.target.value } }))}>
+                <NativeSelect
+                  id={`rule-${ch}`}
+                  value={current}
+                  onChange={(e) =>
+                    setDraft((d) => ({
+                      ...d,
+                      slots: { ...d.slots, [ch]: e.target.value },
+                    }))
+                  }
+                >
                   <NativeSelectOption value="">Not set</NativeSelectOption>
-                  {missing && <NativeSelectOption value={current}>{rule?.providers[ch]?.name || current}</NativeSelectOption>}
+                  {missing && (
+                    <NativeSelectOption value={current}>
+                      {rule?.providers[ch]?.name || current}
+                    </NativeSelectOption>
+                  )}
                   {options.map((p) => (
                     <NativeSelectOption key={p.id} value={p.id}>
                       {p.enabled ? p.name : `${p.name} (disabled)`}
                     </NativeSelectOption>
                   ))}
                 </NativeSelect>
-                {danglingSlots.includes(ch) && current === "" && <p className="text-xs text-muted-foreground">The provider this pointed at was deleted. Saving clears it.</p>}
+                {danglingSlots.includes(ch) && current === "" && (
+                  <p className="text-xs text-muted-foreground">
+                    The provider this pointed at was deleted. Saving clears it.
+                  </p>
+                )}
               </div>
             )
           })}
@@ -260,12 +417,24 @@ function RuleDialog({ open, rule, providers, onClose }: { open: boolean; rule: S
             ).map(([key, label]) => (
               <div key={key} className="flex flex-col gap-1.5">
                 <Label htmlFor={`rule-${key}`}>{label}</Label>
-                <Input id={`rule-${key}`} autoComplete="off" value={draft[key]} onChange={(e) => setDraft((d) => ({ ...d, [key]: e.target.value }))} />
+                <Input
+                  id={`rule-${key}`}
+                  autoComplete="off"
+                  value={draft[key]}
+                  onChange={(e) =>
+                    setDraft((d) => ({ ...d, [key]: e.target.value }))
+                  }
+                />
               </div>
             ))}
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" disabled={set.loading} onClick={onClose}>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={set.loading}
+              onClick={onClose}
+            >
               Cancel
             </Button>
             <Button type="submit" disabled={!canSubmit}>
@@ -309,7 +478,10 @@ export const RoutingPage: ComponentType<PluginPageProps> = () => {
 
   async function confirmDelete() {
     if (!deleting) return
-    const payload = deleting.scope === "app" ? { scope: "app" } : { scope: deleting.scope, scopeId: deleting.scopeId }
+    const payload =
+      deleting.scope === "app"
+        ? { scope: "app" }
+        : { scope: deleting.scope, scopeId: deleting.scopeId }
     const result = await remove.execute(payload)
     if (result === undefined) return
     setConfirming(false)
@@ -332,9 +504,21 @@ export const RoutingPage: ComponentType<PluginPageProps> = () => {
                 <section key={scope} className="flex flex-col gap-3">
                   <h2 className="text-sm font-medium">{heading}</h2>
                   {level.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">{scope === "app" ? "No app rule. Each channel falls back to its first enabled provider." : `No ${scope} rules.`}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {scope === "app"
+                        ? "No app rule. Each channel falls back to its first enabled provider."
+                        : `No ${scope} rules.`}
+                    </p>
                   ) : (
-                    level.map((rule) => <RuleCard key={rule.id} rule={rule} providers={providers.data?.providers ?? []} onEdit={() => openRule(rule)} onDelete={() => openDelete(rule)} />)
+                    level.map((rule) => (
+                      <RuleCard
+                        key={rule.id}
+                        rule={rule}
+                        providers={providers.data?.providers ?? []}
+                        onEdit={() => openRule(rule)}
+                        onDelete={() => openDelete(rule)}
+                      />
+                    ))
                   )}
                 </section>
               )
@@ -342,11 +526,25 @@ export const RoutingPage: ComponentType<PluginPageProps> = () => {
           </div>
         )}
       </QueryBoundary>
-      {session.count > 0 && <RuleDialog key={session.count} open={session.open} rule={editing} providers={providers} onClose={() => setSession((s) => ({ ...s, open: false }))} />}
+      {session.count > 0 && (
+        <RuleDialog
+          key={session.count}
+          open={session.open}
+          rule={editing}
+          providers={providers}
+          onClose={() => setSession((s) => ({ ...s, open: false }))}
+        />
+      )}
       <ConfirmDialog
         open={confirming}
-        onOpenChange={(open) => !open && !remove.loading && setConfirming(false)}
-        title={deleting?.scope === "app" ? "Delete the app rule?" : `Delete the ${deleting?.scope ?? ""} rule for ${deleting?.scopeId ?? ""}?`}
+        onOpenChange={(open) =>
+          !open && !remove.loading && setConfirming(false)
+        }
+        title={
+          deleting?.scope === "app"
+            ? "Delete the app rule?"
+            : `Delete the ${deleting?.scope ?? ""} rule for ${deleting?.scopeId ?? ""}?`
+        }
         description="Sends that matched it fall through to the next level. This cannot be undone."
         confirmLabel="Delete"
         pending={remove.loading}

@@ -7,13 +7,18 @@ import type { CasEntry, FlagStatus } from "./types"
  * state. The note beside the badge says where an applied flag applies.
  */
 export function FlagStateBadge({ flag }: { flag: FlagStatus }) {
-  if (flag.configured && !flag.applied) return <Badge variant="destructive">Configured, not applied</Badge>
+  if (flag.configured && !flag.applied)
+    return <Badge variant="destructive">Configured, not applied</Badge>
   if (flag.applied) return <Badge variant="outline">Applied</Badge>
   return <Badge variant="secondary">Not configured</Badge>
 }
 
 export function HealthBadge({ ok }: { ok: boolean }) {
-  return ok ? <Badge variant="outline">Healthy</Badge> : <Badge variant="destructive">Unhealthy</Badge>
+  return ok ? (
+    <Badge variant="outline">Healthy</Badge>
+  ) : (
+    <Badge variant="destructive">Unhealthy</Badge>
+  )
 }
 
 /**
@@ -28,7 +33,10 @@ export function CasStateBadge({ entry }: { entry: CasEntry }) {
   return <Badge variant="outline">Indexed</Badge>
 }
 
-const STREAM_VARIANT: Record<string, "outline" | "secondary" | "default" | "destructive"> = {
+const STREAM_VARIANT: Record<
+  string,
+  "outline" | "secondary" | "default" | "destructive"
+> = {
   active: "outline",
   idle: "secondary",
   paused: "secondary",

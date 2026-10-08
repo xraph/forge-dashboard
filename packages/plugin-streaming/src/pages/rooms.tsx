@@ -47,7 +47,10 @@ const columns: Column<RoomInfo>[] = [
     id: "name",
     header: "Name",
     cell: (r) => (
-      <PluginLink to={`/rooms/${r.id}`} className="underline underline-offset-4">
+      <PluginLink
+        to={`/rooms/${r.id}`}
+        className="underline underline-offset-4"
+      >
         {r.name}
       </PluginLink>
     ),
@@ -103,7 +106,12 @@ function CreateRoomForm({ onDone }: { onDone: () => void }) {
   const [isPrivate, setPrivate] = useState(false)
 
   async function submit() {
-    const result = await create.execute({ name, description, owner, private: isPrivate })
+    const result = await create.execute({
+      name,
+      description,
+      owner,
+      private: isPrivate,
+    })
     // `execute` resolves with undefined on failure and never rejects, so this
     // is the success check. A failed create must not close the form and throw
     // away what the operator typed.
@@ -116,7 +124,11 @@ function CreateRoomForm({ onDone }: { onDone: () => void }) {
       <CommandAlert error={create.error} title="Could not create the room" />
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="room-name">Name</Label>
-        <Input id="room-name" value={name} onChange={(e) => setName(e.target.value)} />
+        <Input
+          id="room-name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+        />
       </div>
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="room-description">Description</Label>
@@ -128,7 +140,11 @@ function CreateRoomForm({ onDone }: { onDone: () => void }) {
       </div>
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="room-owner">Owner</Label>
-        <Input id="room-owner" value={owner} onChange={(e) => setOwner(e.target.value)} />
+        <Input
+          id="room-owner"
+          value={owner}
+          onChange={(e) => setOwner(e.target.value)}
+        />
       </div>
       <div className="flex items-center gap-2">
         {/*
@@ -148,7 +164,10 @@ function CreateRoomForm({ onDone }: { onDone: () => void }) {
         />
       </div>
       <div className="flex gap-2">
-        <Button onClick={() => void submit()} disabled={create.loading || name.trim() === ""}>
+        <Button
+          onClick={() => void submit()}
+          disabled={create.loading || name.trim() === ""}
+        >
           {create.loading ? "Creating…" : "Create room"}
         </Button>
         <Button variant="ghost" onClick={onDone} disabled={create.loading}>
@@ -178,7 +197,9 @@ export function StreamingRoomsPage() {
       <PageHeader
         title="Rooms"
         actions={
-          !creating && <Button onClick={() => setCreating(true)}>New room</Button>
+          !creating && (
+            <Button onClick={() => setCreating(true)}>New room</Button>
+          )
         }
       />
       {creating && <CreateRoomForm onDone={() => setCreating(false)} />}
@@ -201,10 +222,14 @@ export function StreamingRoomsPage() {
               }
               emptyMessage="No rooms yet."
               rowActions={(room) => (
-                <IconButton variant="destructive" onClick={() => {
+                <IconButton
+                  variant="destructive"
+                  onClick={() => {
                     remove.reset()
                     setPendingDelete(room)
-                  }} label={`Delete ${room.name}`} />
+                  }}
+                  label={`Delete ${room.name}`}
+                />
               )}
             />
           )

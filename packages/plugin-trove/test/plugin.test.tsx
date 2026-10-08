@@ -6,7 +6,11 @@ import trovePlugin, { trovePlugin as named } from "../src/index"
 function capabilities(...names: string[]): Capabilities {
   return {
     shellEnvelopes: ["v1"],
-    contributors: names.map((name) => ({ name, envelopes: ["v1"], configured: true })),
+    contributors: names.map((name) => ({
+      name,
+      envelopes: ["v1"],
+      configured: true,
+    })),
   }
 }
 
@@ -19,11 +23,15 @@ describe("trovePlugin", () => {
   // compared to itself: trove/extension/contract/manifest.yaml registers the
   // contributor as "trove".
   it("resolves to ready against a host reporting trove's contributor", () => {
-    expect(resolvePluginState(trovePlugin, capabilities("trove"))).toEqual({ kind: "ready" })
+    expect(resolvePluginState(trovePlugin, capabilities("trove"))).toEqual({
+      kind: "ready",
+    })
   })
 
   it("is hidden when the host does not report trove", () => {
-    expect(resolvePluginState(trovePlugin, capabilities("vault")).kind).toBe("hidden")
+    expect(resolvePluginState(trovePlugin, capabilities("vault")).kind).toBe(
+      "hidden"
+    )
   })
 
   it("mounts under the trove namespace with the extension's own label", () => {
@@ -69,7 +77,11 @@ describe("trovePlugin", () => {
   it("serves the browser at /buckets/:bucket as a lazy route with no nav entry", () => {
     const route = trovePlugin.routes.find((r) => r.path === "/buckets/:bucket")
     expect(route).toBeDefined()
-    expect((route!.element as unknown as { $$typeof?: symbol }).$$typeof).toBe(Symbol.for("react.lazy"))
-    expect(trovePlugin.nav.some((n) => n.to.startsWith("/buckets/"))).toBe(false)
+    expect((route!.element as unknown as { $$typeof?: symbol }).$$typeof).toBe(
+      Symbol.for("react.lazy")
+    )
+    expect(trovePlugin.nav.some((n) => n.to.startsWith("/buckets/"))).toBe(
+      false
+    )
   })
 })

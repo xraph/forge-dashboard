@@ -84,7 +84,7 @@ const columns: Column<RotationItem>[] = [
 function caption(
   offset: number,
   shown: number,
-  hasMore: boolean,
+  hasMore: boolean
 ): string | undefined {
   if (offset === 0 && !hasMore) {
     return `${shown} ${shown === 1 ? "rotation" : "rotations"}`
@@ -113,8 +113,18 @@ function Pager({
       aria-label="Pagination"
       className="flex items-center justify-end gap-2 text-sm text-muted-foreground"
     >
-      <IconButton variant="outline" disabled={offset === 0} onClick={() => onOffsetChange(Math.max(0, offset - PAGE_SIZE))} label="Previous page" />
-      <IconButton variant="outline" disabled={!hasMore} onClick={() => onOffsetChange(offset + PAGE_SIZE)} label="Next page" />
+      <IconButton
+        variant="outline"
+        disabled={offset === 0}
+        onClick={() => onOffsetChange(Math.max(0, offset - PAGE_SIZE))}
+        label="Previous page"
+      />
+      <IconButton
+        variant="outline"
+        disabled={!hasMore}
+        onClick={() => onOffsetChange(offset + PAGE_SIZE)}
+        label="Next page"
+      />
     </nav>
   )
 }
@@ -124,7 +134,13 @@ function Pager({
  * filtering by it. The id stands in, in mono, when keys.detail cannot name
  * the key: still loading, refused, or the key is gone.
  */
-function KeyFilterChip({ keyId, onClear }: { keyId: string; onClear: () => void }) {
+function KeyFilterChip({
+  keyId,
+  onClear,
+}: {
+  keyId: string
+  onClear: () => void
+}) {
   const name = useKeyName(keyId, true)
   return (
     <div role="group" aria-label="Key filter" className="flex flex-wrap gap-1">
@@ -135,7 +151,12 @@ function KeyFilterChip({ keyId, onClear }: { keyId: string; onClear: () => void 
         ) : (
           <span>{name}</span>
         )}
-        <IconButton type="button" variant="ghost" onClick={onClear} label="Clear the key filter" />
+        <IconButton
+          type="button"
+          variant="ghost"
+          onClick={onClear}
+          label="Clear the key filter"
+        />
       </Badge>
     </div>
   )
@@ -171,7 +192,7 @@ export const RotationsPage: ComponentType<PluginPageProps> = () => {
       ...(reason !== "" && { reason }),
     },
     JSON.stringify([keyId, reason]),
-    offset,
+    offset
   )
 
   // A new filter means a new result set, and page 3 of it may not exist.
@@ -189,7 +210,9 @@ export const RotationsPage: ComponentType<PluginPageProps> = () => {
         ? "No rotations of this key match this reason."
         : "This key has not been rotated."
     }
-    return reason !== "" ? "No rotations match this reason." : "No rotations yet."
+    return reason !== ""
+      ? "No rotations match this reason."
+      : "No rotations yet."
   }
 
   return (

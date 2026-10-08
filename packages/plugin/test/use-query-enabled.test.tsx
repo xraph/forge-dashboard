@@ -1,7 +1,13 @@
 import { act, render, screen, waitFor } from "@testing-library/react"
 import { useState } from "react"
 import { beforeEach, describe, expect, it } from "vitest"
-import { HostAccessProvider, PluginProvider, queryStore, useHostQuery, useQuery } from "../src"
+import {
+  HostAccessProvider,
+  PluginProvider,
+  queryStore,
+  useHostQuery,
+  useQuery,
+} from "../src"
 import type { ScopedClient } from "../src"
 
 beforeEach(() => queryStore.clear())
@@ -20,7 +26,11 @@ function countingClient(extension = "chronicle") {
 }
 
 function Probe({ enabled }: { enabled: boolean }) {
-  const q = useQuery<{ answer: string }>("verify.run", { fromSeq: 1 }, { enabled })
+  const q = useQuery<{ answer: string }>(
+    "verify.run",
+    { fromSeq: 1 },
+    { enabled }
+  )
   return (
     <div>
       <span data-testid="loading">{String(q.loading)}</span>
@@ -36,7 +46,7 @@ describe("useQuery with enabled", () => {
     render(
       <PluginProvider client={client}>
         <Probe enabled={false} />
-      </PluginProvider>,
+      </PluginProvider>
     )
     // Give any stray effect a chance to fire.
     await act(async () => {})
@@ -50,7 +60,7 @@ describe("useQuery with enabled", () => {
     render(
       <PluginProvider client={client}>
         <Probe enabled={false} />
-      </PluginProvider>,
+      </PluginProvider>
     )
     await act(async () => screen.getByText("refetch").click())
     expect(calls).toHaveLength(0)
@@ -70,10 +80,12 @@ describe("useQuery with enabled", () => {
     render(
       <PluginProvider client={client}>
         <Toggle />
-      </PluginProvider>,
+      </PluginProvider>
     )
     await act(async () => screen.getByText("run").click())
-    await waitFor(() => expect(screen.getByTestId("data").textContent).toBe("verify.run"))
+    await waitFor(() =>
+      expect(screen.getByTestId("data").textContent).toBe("verify.run")
+    )
     expect(calls).toEqual([{ intent: "verify.run", params: { fromSeq: 1 } }])
   })
 
@@ -86,7 +98,7 @@ describe("useQuery with enabled", () => {
     render(
       <PluginProvider client={client}>
         <Probe enabled={false} />
-      </PluginProvider>,
+      </PluginProvider>
     )
     expect(screen.getByTestId("data").textContent).toBe("none")
   })
@@ -96,7 +108,7 @@ describe("useQuery with enabled", () => {
     render(
       <PluginProvider client={client}>
         <Probe enabled={false} />
-      </PluginProvider>,
+      </PluginProvider>
     )
     await act(async () => queryStore.invalidate("chronicle", ["verify.run"]))
     expect(calls).toHaveLength(0)
@@ -107,13 +119,15 @@ describe("useQuery with enabled", () => {
     const view = render(
       <PluginProvider client={client}>
         <Probe enabled />
-      </PluginProvider>,
+      </PluginProvider>
     )
-    await waitFor(() => expect(screen.getByTestId("data").textContent).toBe("verify.run"))
+    await waitFor(() =>
+      expect(screen.getByTestId("data").textContent).toBe("verify.run")
+    )
     view.rerender(
       <PluginProvider client={client}>
         <Probe enabled={false} />
-      </PluginProvider>,
+      </PluginProvider>
     )
     await act(async () => queryStore.invalidate("chronicle", ["verify.run"]))
     expect(calls).toHaveLength(1)
@@ -128,16 +142,22 @@ describe("useQuery with enabled", () => {
     render(
       <PluginProvider client={client}>
         <Plain />
-      </PluginProvider>,
+      </PluginProvider>
     )
-    await waitFor(() => expect(screen.getByTestId("plain").textContent).toBe("streams.mine"))
+    await waitFor(() =>
+      expect(screen.getByTestId("plain").textContent).toBe("streams.mine")
+    )
     expect(calls).toHaveLength(1)
   })
 })
 
 describe("useHostQuery with enabled", () => {
   function HostProbe({ enabled }: { enabled: boolean }) {
-    const q = useHostQuery<{ answer: string }>("settings.namespace", { a: 1 }, { enabled })
+    const q = useHostQuery<{ answer: string }>(
+      "settings.namespace",
+      { a: 1 },
+      { enabled }
+    )
     return (
       <div>
         <span data-testid="loading">{String(q.loading)}</span>
@@ -153,7 +173,7 @@ describe("useHostQuery with enabled", () => {
         value={{ client, allowed: ["settings.namespace"], subExtension: "mfa" }}
       >
         <HostProbe enabled={enabled} />
-      </HostAccessProvider>,
+      </HostAccessProvider>
     )
   }
 
@@ -190,9 +210,11 @@ describe("useHostQuery with enabled", () => {
         value={{ client, allowed: ["settings.namespace"], subExtension: "mfa" }}
       >
         <HostProbe enabled />
-      </HostAccessProvider>,
+      </HostAccessProvider>
     )
-    await waitFor(() => expect(screen.getByTestId("data").textContent).toBe("settings.namespace"))
+    await waitFor(() =>
+      expect(screen.getByTestId("data").textContent).toBe("settings.namespace")
+    )
     expect(calls).toEqual([{ intent: "settings.namespace", params: { a: 1 } }])
   })
 })

@@ -1,8 +1,11 @@
-import { PluginLink, PluginSlot, useQuery, useSlotCount } from "@forge-go/dashboard-plugin"
-import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import {
-  QueryBoundary,
-} from "@forge-go/dashboard-kit/components/query-boundary"
+  PluginLink,
+  PluginSlot,
+  useQuery,
+  useSlotCount,
+} from "@forge-go/dashboard-plugin"
+import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
+import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
 import {
   ResourceTable,
   type Column,
@@ -25,9 +28,18 @@ export interface RecentSignups {
 }
 
 const columns: Column<UserSummary>[] = [
-  { id: "email", header: "Email", cell: (u) => u.email, className: "font-medium" },
+  {
+    id: "email",
+    header: "Email",
+    cell: (u) => u.email,
+    className: "font-medium",
+  },
   { id: "name", header: "Name", cell: (u) => displayName(u) },
-  { id: "createdAt", header: "Created", cell: (u) => formatTimestamp(u.createdAt) },
+  {
+    id: "createdAt",
+    header: "Created",
+    cell: (u) => formatTimestamp(u.createdAt),
+  },
 ]
 
 /**
@@ -44,7 +56,9 @@ const columns: Column<UserSummary>[] = [
  */
 export function AuthOverviewPage() {
   const stats = useQuery<OverviewStats>("overview.stats")
-  const recent = useQuery<RecentSignups>("overview.recentSignups", { limit: 10 })
+  const recent = useQuery<RecentSignups>("overview.recentSignups", {
+    limit: 10,
+  })
   const widgetCount = useSlotCount("overview.widgets")
 
   return (

@@ -130,7 +130,11 @@ export function scheduleProblem(rule: DraftRule): string | undefined {
   ) {
     return "Enter the time as a date and a time."
   }
-  if (start !== undefined && end !== undefined && !(Date.parse(start) < Date.parse(end))) {
+  if (
+    start !== undefined &&
+    end !== undefined &&
+    !(Date.parse(start) < Date.parse(end))
+  ) {
     return "The start must be before the end."
   }
   return undefined
@@ -216,11 +220,23 @@ export function payloadOf(rule: DraftRule): RulePayload {
   }
   switch (rule.type) {
     case "when_tenant":
-      return { type: rule.type, tenantIds: rule.tenantIds, returnValue: rule.returnValue }
+      return {
+        type: rule.type,
+        tenantIds: rule.tenantIds,
+        returnValue: rule.returnValue,
+      }
     case "when_user":
-      return { type: rule.type, userIds: rule.userIds, returnValue: rule.returnValue }
+      return {
+        type: rule.type,
+        userIds: rule.userIds,
+        returnValue: rule.returnValue,
+      }
     case "rollout":
-      return { type: rule.type, percentage: rule.percentage, returnValue: rule.returnValue }
+      return {
+        type: rule.type,
+        percentage: rule.percentage,
+        returnValue: rule.returnValue,
+      }
     default: {
       const startAt = scheduleTime(rule.startText, rule.startAt)
       const endAt = scheduleTime(rule.endText, rule.endAt)
@@ -244,8 +260,14 @@ export function payloadOfAll(rules: DraftRule[]): RulePayload[] {
  * sent, so dragging a row away and back, or typing a value and retyping it,
  * is not a change.
  */
-export function isChanged(draft: DraftRule[], saved: FlagRuleSummary[]): boolean {
-  return JSON.stringify(payloadOfAll(draft)) !== JSON.stringify(payloadOfAll(draftFromSaved(saved)))
+export function isChanged(
+  draft: DraftRule[],
+  saved: FlagRuleSummary[]
+): boolean {
+  return (
+    JSON.stringify(payloadOfAll(draft)) !==
+    JSON.stringify(payloadOfAll(draftFromSaved(saved)))
+  )
 }
 
 /** A draft row as the read-mode summary component takes it. */

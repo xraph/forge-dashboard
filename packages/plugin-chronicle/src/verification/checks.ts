@@ -25,7 +25,11 @@ export interface ChecksContext {
 }
 
 function checkpointOk(c: CheckpointResult): boolean {
-  return c.signatureValid && (!c.hashChecked || c.hashMatch) && (!c.continuityChecked || c.continuityOk)
+  return (
+    c.signatureValid &&
+    (!c.hashChecked || c.hashMatch) &&
+    (!c.continuityChecked || c.continuityOk)
+  )
 }
 
 /**
@@ -42,7 +46,8 @@ function checkpointsHeld(cps: CheckpointResult[]): string {
 export function checksOf(r: VerifyReport, ctx: ChecksContext = {}): CheckRow[] {
   const noStore = ctx.checkpointingConfigured === false
   const linksChecked = r.verified > 0
-  const linksOk = (r.tampered ?? []).length === 0 && (r.downgrades ?? []).length === 0
+  const linksOk =
+    (r.tampered ?? []).length === 0 && (r.downgrades ?? []).length === 0
   return [
     {
       label: "Digests and links",
@@ -56,7 +61,12 @@ export function checksOf(r: VerifyReport, ctx: ChecksContext = {}): CheckRow[] {
       // A gap found, or a range retention accounts for, means the check ran
       // even when no event came back. A run that examined nothing and found
       // nothing proves nothing, so it is not checked, never "no gaps".
-      state: tri(r.verified > 0 || (r.gaps ?? []).length > 0 || (r.retained ?? []).length > 0, (r.gaps ?? []).length === 0),
+      state: tri(
+        r.verified > 0 ||
+          (r.gaps ?? []).length > 0 ||
+          (r.retained ?? []).length > 0,
+        (r.gaps ?? []).length === 0
+      ),
       held: "No unexplained gaps",
       failed: "Sequences missing",
       notChecked: NO_EVENTS,
@@ -69,14 +79,23 @@ export function checksOf(r: VerifyReport, ctx: ChecksContext = {}): CheckRow[] {
       // The verifier checks the head only on a range that is not partial. The
       // default window ends at the head but starts after 1, so it is partial
       // too, and "stops before the head" would be the wrong reason.
-      notChecked: r.partial ? "Not checked: a partial range does not check the head" : "Not checked",
+      notChecked: r.partial
+        ? "Not checked: a partial range does not check the head"
+        : "Not checked",
     },
     {
       label: "Checkpoints",
-      state: tri(r.checkpointsChecked, (r.checkpoints ?? []).every(checkpointOk)),
+      state: tri(
+        r.checkpointsChecked,
+        (r.checkpoints ?? []).every(checkpointOk)
+      ),
       held: checkpointsHeld(r.checkpoints ?? []),
       failed: "At least one fails",
-      notChecked: noStore ? NO_STORE : r.verified === 0 ? NO_EVENTS : "Not checked",
+      notChecked: noStore
+        ? NO_STORE
+        : r.verified === 0
+          ? NO_EVENTS
+          : "Not checked",
     },
     {
       label: "Checkpoint against head",
@@ -131,7 +150,8 @@ export function checkpointRows(c: CheckpointResult): CheckRow[] {
   const owner = rows.find((r) => r.state !== "held")
   if (c.note && owner) {
     // An unchecked row still has to say first that it was not checked; the note says why.
-    if (owner.state === "not-checked") owner.notChecked = `Not checked. ${c.note}`
+    if (owner.state === "not-checked")
+      owner.notChecked = `Not checked. ${c.note}`
     else owner.failedNote = c.note
   }
   return rows

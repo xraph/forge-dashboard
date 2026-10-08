@@ -18,8 +18,16 @@ export class ContentRouteError extends Error {
  * the route always answers `Content-Disposition: attachment`, and the ticket
  * in `?t=` is what authorises it.
  */
-export async function downloadObject(client: ScopedClient, store: string, bucket: string, key: string): Promise<void> {
-  const link = await client.query<ContentLink>("objects.contentUrl", withStore(store, { bucket, key, purpose: "download" }))
+export async function downloadObject(
+  client: ScopedClient,
+  store: string,
+  bucket: string,
+  key: string
+): Promise<void> {
+  const link = await client.query<ContentLink>(
+    "objects.contentUrl",
+    withStore(store, { bucket, key, purpose: "download" })
+  )
   const anchor = document.createElement("a")
   anchor.href = link.url
   anchor.setAttribute("download", "")
@@ -74,8 +82,10 @@ export function previewKind(contentType: string | null): PreviewKind {
   if (type === "application/json" || type.endsWith("+json")) return "json"
   // Images first: image/svg+xml also ends in +xml, and must stay in an <img>.
   if (type === "image/svg+xml") return "svg"
-  if (type.startsWith("image/")) return RASTER_TYPES.has(type) ? "image" : "none"
-  if (type.startsWith("text/") || TEXT_TYPES.has(type) || type.endsWith("+xml")) return "text"
+  if (type.startsWith("image/"))
+    return RASTER_TYPES.has(type) ? "image" : "none"
+  if (type.startsWith("text/") || TEXT_TYPES.has(type) || type.endsWith("+xml"))
+    return "text"
   return "none"
 }
 
@@ -112,7 +122,8 @@ export async function fetchContent(url: string): Promise<ArrayBuffer> {
     let message = `The content route answered ${res.status}.`
     try {
       const body = (await res.json()) as { error?: unknown }
-      if (typeof body.error === "string" && body.error !== "") message = body.error
+      if (typeof body.error === "string" && body.error !== "")
+        message = body.error
     } catch {
       // Not JSON: keep the status line.
     }
@@ -121,6 +132,9 @@ export async function fetchContent(url: string): Promise<ArrayBuffer> {
   try {
     return await res.arrayBuffer()
   } catch {
-    throw new ContentRouteError(res.status, "The download broke off before it finished.")
+    throw new ContentRouteError(
+      res.status,
+      "The download broke off before it finished."
+    )
   }
 }

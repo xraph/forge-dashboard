@@ -8,8 +8,20 @@ import { recordingCommandClient, renderPage, stubClient } from "./harness"
 
 const appsAnswer = {
   apps: [
-    { id: "app_1", name: "Core", slug: "core", isPlatform: true, createdAt: "2026-01-01T00:00:00Z" },
-    { id: "app_2", name: "Storefront", slug: "storefront", isPlatform: false, createdAt: "2026-01-02T00:00:00Z" },
+    {
+      id: "app_1",
+      name: "Core",
+      slug: "core",
+      isPlatform: true,
+      createdAt: "2026-01-01T00:00:00Z",
+    },
+    {
+      id: "app_2",
+      name: "Storefront",
+      slug: "storefront",
+      isPlatform: false,
+      createdAt: "2026-01-02T00:00:00Z",
+    },
   ],
 }
 
@@ -31,20 +43,24 @@ describe("AuthAppsPage", () => {
     await waitFor(() => expect(screen.getByText("Core")).toBeTruthy())
 
     expect(screen.queryByRole("button", { name: "Delete Core" })).toBeNull()
-    expect(screen.getByRole("button", { name: "Delete Storefront" })).toBeTruthy()
+    expect(
+      screen.getByRole("button", { name: "Delete Storefront" })
+    ).toBeTruthy()
   })
 
   it("confirms before deleting a normal app, warning what goes with it", async () => {
     const { client, sent } = recordingCommandClient(
       { "apps.list": appsAnswer },
-      { "apps.delete": { ok: true } },
+      { "apps.delete": { ok: true } }
     )
     renderPage(AuthAppsPage, client)
     await waitFor(() => expect(screen.getByText("Storefront")).toBeTruthy())
 
     fireEvent.click(screen.getByRole("button", { name: "Delete Storefront" }))
     expect(sent).toHaveLength(0)
-    expect(screen.getByText(/Everything scoped to this app goes with it/)).toBeTruthy()
+    expect(
+      screen.getByText(/Everything scoped to this app goes with it/)
+    ).toBeTruthy()
 
     fireEvent.click(screen.getByRole("button", { name: "Delete" }))
     await waitFor(() => expect(sent).toHaveLength(1))
@@ -57,8 +73,20 @@ describe("AuthAppsPage stale command state across rows", () => {
   // `appsAnswer` has none.
   const twoDeletable = {
     apps: [
-      { id: "app_1", name: "Core", slug: "core", isPlatform: false, createdAt: "2026-01-01T00:00:00Z" },
-      { id: "app_2", name: "Storefront", slug: "storefront", isPlatform: false, createdAt: "2026-01-02T00:00:00Z" },
+      {
+        id: "app_1",
+        name: "Core",
+        slug: "core",
+        isPlatform: false,
+        createdAt: "2026-01-01T00:00:00Z",
+      },
+      {
+        id: "app_2",
+        name: "Storefront",
+        slug: "storefront",
+        isPlatform: false,
+        createdAt: "2026-01-02T00:00:00Z",
+      },
     ],
   }
 
@@ -68,9 +96,12 @@ describe("AuthAppsPage stale command state across rows", () => {
       {
         "apps.delete": (payload?: unknown) =>
           (payload as { id: string }).id === "app_1"
-            ? new ContractError("VALIDATION", "cannot delete an app with active users")
+            ? new ContractError(
+                "VALIDATION",
+                "cannot delete an app with active users"
+              )
             : { ok: true },
-      },
+      }
     )
     renderPage(AuthAppsPage, client)
     await waitFor(() => expect(screen.getByText("Core")).toBeTruthy())
@@ -79,7 +110,9 @@ describe("AuthAppsPage stale command state across rows", () => {
     fireEvent.click(screen.getByRole("button", { name: "Delete Core" }))
     fireEvent.click(screen.getByRole("button", { name: "Delete" }))
     const failure = await screen.findByRole("alert")
-    expect(failure.textContent).toContain("cannot delete an app with active users")
+    expect(failure.textContent).toContain(
+      "cannot delete an app with active users"
+    )
 
     // Back out, then open the same dialog pointed at Storefront instead.
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }))
@@ -89,17 +122,26 @@ describe("AuthAppsPage stale command state across rows", () => {
     // Storefront has not been touched. Core's failure must not show up here.
     expect(screen.getByText(/Delete Storefront\?/)).toBeTruthy()
     expect(screen.queryByRole("alert")).toBeNull()
-    expect(screen.queryByText("cannot delete an app with active users")).toBeNull()
+    expect(
+      screen.queryByText("cannot delete an app with active users")
+    ).toBeNull()
   })
 })
 
 describe("AuthAppCreatePage", () => {
   it("sends name and slug with no logo key when the field is left empty", async () => {
-    const { client, sent } = recordingCommandClient({}, { "apps.create": { ok: true, id: "app_3" } })
+    const { client, sent } = recordingCommandClient(
+      {},
+      { "apps.create": { ok: true, id: "app_3" } }
+    )
     renderPage(AuthAppCreatePage, client)
 
-    fireEvent.change(screen.getByLabelText("Name"), { target: { value: "New App" } })
-    fireEvent.change(screen.getByLabelText("Slug"), { target: { value: "new-app" } })
+    fireEvent.change(screen.getByLabelText("Name"), {
+      target: { value: "New App" },
+    })
+    fireEvent.change(screen.getByLabelText("Slug"), {
+      target: { value: "new-app" },
+    })
     fireEvent.click(screen.getByRole("button", { name: "Create app" }))
 
     await waitFor(() => expect(sent).toHaveLength(1))
@@ -109,9 +151,15 @@ describe("AuthAppCreatePage", () => {
   })
 
   it("will not create an app without a name and a slug", async () => {
-    const { client, sent } = recordingCommandClient({}, { "apps.create": { ok: true } })
+    const { client, sent } = recordingCommandClient(
+      {},
+      { "apps.create": { ok: true } }
+    )
     renderPage(AuthAppCreatePage, client)
-    expect((screen.getByRole("button", { name: "Create app" }) as HTMLButtonElement).disabled).toBe(true)
+    expect(
+      (screen.getByRole("button", { name: "Create app" }) as HTMLButtonElement)
+        .disabled
+    ).toBe(true)
     expect(sent).toHaveLength(0)
   })
 })
@@ -135,23 +183,31 @@ describe("AuthAppDetailPage", () => {
     render(
       <PluginProvider client={client}>
         <AuthAppDetailPage params={{ id: "app_2" }} />
-      </PluginProvider>,
+      </PluginProvider>
     )
-    await waitFor(() => expect(screen.getByRole("heading", { name: "Storefront" })).toBeTruthy())
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: "Storefront" })).toBeTruthy()
+    )
     expect(screen.getByText("pk_live_abc123")).toBeTruthy()
-    expect(screen.getByRole("button", { name: "Copy publishable key" })).toBeTruthy()
+    expect(
+      screen.getByRole("button", { name: "Copy publishable key" })
+    ).toBeTruthy()
   })
 
   it("sends only the changed field when renaming, never an untouched slug", async () => {
-    const { client, sent } = recordingCommandClient(detail, { "apps.update": { ok: true } })
+    const { client, sent } = recordingCommandClient(detail, {
+      "apps.update": { ok: true },
+    })
     render(
       <PluginProvider client={client}>
         <AuthAppDetailPage params={{ id: "app_2" }} />
-      </PluginProvider>,
+      </PluginProvider>
     )
     await waitFor(() => expect(screen.getByLabelText("Name")).toBeTruthy())
 
-    fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Storefront Renamed" } })
+    fireEvent.change(screen.getByLabelText("Name"), {
+      target: { value: "Storefront Renamed" },
+    })
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }))
 
     await waitFor(() => expect(sent).toHaveLength(1))
@@ -166,11 +222,13 @@ describe("AuthAppDetailPage", () => {
   })
 
   it("sends a deliberately cleared field as an empty string, present in the payload", async () => {
-    const { client, sent } = recordingCommandClient(detail, { "apps.update": { ok: true } })
+    const { client, sent } = recordingCommandClient(detail, {
+      "apps.update": { ok: true },
+    })
     render(
       <PluginProvider client={client}>
         <AuthAppDetailPage params={{ id: "app_2" }} />
-      </PluginProvider>,
+      </PluginProvider>
     )
     await waitFor(() => expect(screen.getByLabelText("Slug")).toBeTruthy())
 
@@ -192,7 +250,7 @@ describe("AuthAppDetailPage", () => {
     render(
       <PluginProvider client={client}>
         <AuthAppDetailPage params={{}} />
-      </PluginProvider>,
+      </PluginProvider>
     )
     expect(screen.getByText("No app selected.")).toBeTruthy()
   })

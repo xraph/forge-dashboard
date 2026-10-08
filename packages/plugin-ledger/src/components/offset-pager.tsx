@@ -19,11 +19,24 @@ export function OffsetPager({
 }) {
   if (page === 1 && !hasMore) return null
   return (
-    <nav aria-label="Pagination" className="flex items-center justify-between gap-2 text-sm text-muted-foreground">
+    <nav
+      aria-label="Pagination"
+      className="flex items-center justify-between gap-2 text-sm text-muted-foreground"
+    >
       <span>Page {page}</span>
       <span className="flex gap-2">
-        <IconButton variant="outline" disabled={page <= 1} onClick={() => onPageChange(page - 1)} label="Previous page" />
-        <IconButton variant="outline" disabled={!hasMore} onClick={() => onPageChange(page + 1)} label="Next page" />
+        <IconButton
+          variant="outline"
+          disabled={page <= 1}
+          onClick={() => onPageChange(page - 1)}
+          label="Previous page"
+        />
+        <IconButton
+          variant="outline"
+          disabled={!hasMore}
+          onClick={() => onPageChange(page + 1)}
+          label="Next page"
+        />
       </span>
     </nav>
   )
@@ -32,6 +45,10 @@ export function OffsetPager({
 /** The way out of a page past the end of a list: one button, worded the same on every list. */
 export function BackToFirstPage({ onClick }: { onClick: () => void }) {
   return (
-    <IconButton variant="outline" onClick={onClick} label="Back to the first page" />
+    <IconButton
+      variant="outline"
+      onClick={onClick}
+      label="Back to the first page"
+    />
   )
 }

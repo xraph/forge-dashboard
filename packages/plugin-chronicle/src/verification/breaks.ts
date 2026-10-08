@@ -6,7 +6,8 @@ import { formatSeq } from "../format"
  * location and a kind; that is what an operator working through a failure
  * needs, and what a boolean cannot give them.
  */
-export type BreakKind = "altered" | "missing" | "relabelled" | "truncated" | "head-contradicted"
+export type BreakKind =
+  "altered" | "missing" | "relabelled" | "truncated" | "head-contradicted"
 
 export interface Break {
   kind: BreakKind
@@ -29,7 +30,9 @@ export function runs(seqs: number[]): [number, number][] {
 }
 
 function span(from: number, to: number): string {
-  return from === to ? `Sequence ${formatSeq(from)}` : `Sequences ${formatSeq(from)} to ${formatSeq(to)}`
+  return from === to
+    ? `Sequence ${formatSeq(from)}`
+    : `Sequences ${formatSeq(from)} to ${formatSeq(to)}`
 }
 
 /**

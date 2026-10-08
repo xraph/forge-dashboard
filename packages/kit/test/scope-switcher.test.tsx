@@ -19,7 +19,12 @@ window.matchMedia ??= ((query: string) => ({
 const scopes: ScopeOption[] = [
   { id: "core-contract", label: "System", namespace: "system" },
   { id: "auth", label: "Auth", namespace: "auth" },
-  { id: "gateway-contract", label: "Gateway", namespace: "gateway", badge: "setup" },
+  {
+    id: "gateway-contract",
+    label: "Gateway",
+    namespace: "gateway",
+    badge: "setup",
+  },
 ]
 
 function setup(activeId?: string) {
@@ -27,7 +32,7 @@ function setup(activeId?: string) {
   render(
     <SidebarProvider>
       <ScopeSwitcher scopes={scopes} activeId={activeId} onSelect={onSelect} />
-    </SidebarProvider>,
+    </SidebarProvider>
   )
   return onSelect
 }
@@ -42,8 +47,12 @@ describe("ScopeSwitcher", () => {
   it("falls back when nothing is active yet", () => {
     render(
       <SidebarProvider>
-        <ScopeSwitcher scopes={[]} onSelect={() => {}} fallbackLabel="Dashboard" />
-      </SidebarProvider>,
+        <ScopeSwitcher
+          scopes={[]}
+          onSelect={() => {}}
+          fallbackLabel="Dashboard"
+        />
+      </SidebarProvider>
     )
     expect(screen.getByText("Dashboard")).toBeTruthy()
   })
@@ -102,7 +111,7 @@ describe("ScopeSwitcher glyph", () => {
           activeId="auth"
           onSelect={() => {}}
         />
-      </SidebarProvider>,
+      </SidebarProvider>
     )
     const glyph = container.querySelector('[data-slot="scope-glyph"]')
     expect(glyph).toBeTruthy()
@@ -119,7 +128,7 @@ describe("ScopeSwitcher glyph", () => {
           activeId="auth"
           onSelect={() => {}}
         />
-      </SidebarProvider>,
+      </SidebarProvider>
     )
     expect(container.querySelector('[data-slot="scope-glyph"]')).toBeNull()
   })
@@ -134,18 +143,25 @@ describe("ScopeSwitcher glyph", () => {
         <ScopeSwitcher
           scopes={[
             { id: "auth", label: "Auth", namespace: "auth", icon: <svg /> },
-            { id: "streaming", label: "Streaming", namespace: "streaming", icon: <svg /> },
+            {
+              id: "streaming",
+              label: "Streaming",
+              namespace: "streaming",
+              icon: <svg />,
+            },
             { id: "bare", label: "Bare", namespace: "bare" },
           ]}
           activeId="auth"
           onSelect={() => {}}
         />
-      </SidebarProvider>,
+      </SidebarProvider>
     )
     fireEvent.click(screen.getByRole("button", { name: /Auth/ }))
 
     // Three tiles: the trigger's, plus one for each of the two rows that
     // declared an icon. "Bare" contributes none.
-    expect(container.ownerDocument.querySelectorAll('[data-slot="scope-glyph"]')).toHaveLength(3)
+    expect(
+      container.ownerDocument.querySelectorAll('[data-slot="scope-glyph"]')
+    ).toHaveLength(3)
   })
 })

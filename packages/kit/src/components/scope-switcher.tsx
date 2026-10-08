@@ -161,7 +161,7 @@ export function ScopeSwitcher({
                     className={
                       isActive
                         ? "bg-primary text-primary-foreground"
-                        : "bg-sidebar-accent text-muted-foreground border"
+                        : "border bg-sidebar-accent text-muted-foreground"
                     }
                   />
                   <div className="grid flex-1 leading-tight">

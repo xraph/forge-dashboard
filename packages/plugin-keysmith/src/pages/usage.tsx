@@ -62,25 +62,33 @@ function bucketColumns(period: UsagePeriod): Column<UsageBucket>[] {
       id: "succeeded",
       header: "Succeeded",
       align: "end",
-      cell: (b) => <span className="tabular-nums">{formatCount(b.succeeded)}</span>,
+      cell: (b) => (
+        <span className="tabular-nums">{formatCount(b.succeeded)}</span>
+      ),
     },
     {
       id: "clientErrors",
       header: "4xx",
       align: "end",
-      cell: (b) => <span className="tabular-nums">{formatCount(b.clientErrors)}</span>,
+      cell: (b) => (
+        <span className="tabular-nums">{formatCount(b.clientErrors)}</span>
+      ),
     },
     {
       id: "serverErrors",
       header: "5xx",
       align: "end",
-      cell: (b) => <span className="tabular-nums">{formatCount(b.serverErrors)}</span>,
+      cell: (b) => (
+        <span className="tabular-nums">{formatCount(b.serverErrors)}</span>
+      ),
     },
     {
       id: "requests",
       header: "Requests",
       align: "end",
-      cell: (b) => <span className="tabular-nums">{formatCount(b.requests)}</span>,
+      cell: (b) => (
+        <span className="tabular-nums">{formatCount(b.requests)}</span>
+      ),
     },
     {
       id: "avgLatency",
@@ -136,7 +144,9 @@ const recordColumns: Column<UsageRecordItem>[] = [
   {
     id: "latency",
     header: "Latency",
-    cell: (r) => <span className="tabular-nums">{formatLatency(r.latencyMs)}</span>,
+    cell: (r) => (
+      <span className="tabular-nums">{formatLatency(r.latencyMs)}</span>
+    ),
   },
   {
     id: "ip",
@@ -163,7 +173,9 @@ function RangeSummary({ buckets }: { buckets: readonly UsageBucket[] }) {
     ["5xx", formatCount(s.serverErrors)],
     [
       "Avg latency",
-      s.avgLatencyMs === null ? "no requests" : formatLatency(Math.round(s.avgLatencyMs)),
+      s.avgLatencyMs === null
+        ? "no requests"
+        : formatLatency(Math.round(s.avgLatencyMs)),
     ],
   ]
   return (
@@ -300,7 +312,7 @@ export const UsagePage: ComponentType<PluginPageProps> = () => {
       ...forKey,
     },
     JSON.stringify([keyId, bounds.after, bounds.before]),
-    page,
+    page
   )
 
   function changeRange(value: string) {
@@ -356,7 +368,10 @@ export const UsagePage: ComponentType<PluginPageProps> = () => {
           failed, a tenant with no usage would otherwise flash "No requests
           recorded in this range." before the empty state above says why. */}
       {series.data?.recorded === true && (
-        <section aria-labelledby="usage-records" className="flex flex-col gap-3">
+        <section
+          aria-labelledby="usage-records"
+          className="flex flex-col gap-3"
+        >
           <h2 id="usage-records" className="text-base font-medium">
             Requests
           </h2>

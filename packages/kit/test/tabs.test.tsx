@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest"
 import { fireEvent, render, screen } from "@testing-library/react"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "../src/components/tabs"
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "../src/components/tabs"
 
 function ThreeTabs() {
   return (
@@ -19,7 +24,9 @@ function ThreeTabs() {
 
 /** Panels Base UI has marked inert, which is every one but the selected tab. */
 function inertPanels() {
-  return screen.getAllByRole("tabpanel", { hidden: true }).filter((p) => p.hasAttribute("inert"))
+  return screen
+    .getAllByRole("tabpanel", { hidden: true })
+    .filter((p) => p.hasAttribute("inert"))
 }
 
 describe("TabsContent", () => {

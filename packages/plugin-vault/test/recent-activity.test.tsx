@@ -42,7 +42,13 @@ describe("RecentActivity", () => {
   it("labels both when a user wrote for a tenant", () => {
     render(
       <RecentActivity
-        entries={[entry({ action: "config.override.set", userId: "u-rex", tenantId: "t-acme" })]}
+        entries={[
+          entry({
+            action: "config.override.set",
+            userId: "u-rex",
+            tenantId: "t-acme",
+          }),
+        ]}
       />
     )
     const row = rowOf("config.override.set")
@@ -61,9 +67,17 @@ describe("RecentActivity", () => {
   it("shows a failure row's error under it", () => {
     render(
       <RecentActivity
-        entries={[entry({ action: "secret.rotated", outcome: "failure", error: "rotator refused" })]}
+        entries={[
+          entry({
+            action: "secret.rotated",
+            outcome: "failure",
+            error: "rotator refused",
+          }),
+        ]}
       />
     )
-    expect(within(rowOf("secret.rotated")).getByText("rotator refused")).toBeTruthy()
+    expect(
+      within(rowOf("secret.rotated")).getByText("rotator refused")
+    ).toBeTruthy()
   })
 })

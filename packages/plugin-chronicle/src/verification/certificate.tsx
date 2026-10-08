@@ -30,7 +30,9 @@ export function Certificate({
 
   const verdict = (
     <div>
-      <h2 className={`max-w-3xl text-balance text-2xl font-normal leading-snug tabular-nums md:text-3xl ${failed ? "text-destructive" : ""}`}>
+      <h2
+        className={`max-w-3xl text-2xl leading-snug font-normal text-balance tabular-nums md:text-3xl ${failed ? "text-destructive" : ""}`}
+      >
         {v.headline.map((p, i) =>
           p.mono ? (
             <span key={i} className="font-mono">
@@ -38,7 +40,7 @@ export function Certificate({
             </span>
           ) : (
             <span key={i}>{p.text}</span>
-          ),
+          )
         )}
       </h2>
       {v.qualifiers.map((q) => (
@@ -54,7 +56,13 @@ export function Certificate({
   const limits =
     v.limits.length > 0 ? (
       <Section title="What this check cannot see" loud={v.limitsLoud}>
-        <ul className={v.limitsLoud ? "flex flex-col gap-2 text-base font-medium" : "flex flex-col gap-1 text-sm"}>
+        <ul
+          className={
+            v.limitsLoud
+              ? "flex flex-col gap-2 text-base font-medium"
+              : "flex flex-col gap-1 text-sm"
+          }
+        >
           {v.limits.map((l) => (
             <li key={l}>{l}</li>
           ))}
@@ -83,7 +91,9 @@ export function Certificate({
             <span>{formatSeq(from)}</span>
             <span>{formatSeq(to)}</span>
           </p>
-          {to < r.headSeq && <p className="mt-2 text-sm">{`The chain's head is at sequence ${formatSeq(r.headSeq)}.`}</p>}
+          {to < r.headSeq && (
+            <p className="mt-2 text-sm">{`The chain's head is at sequence ${formatSeq(r.headSeq)}.`}</p>
+          )}
         </Section>
       )}
       {breaks.length > 0 && (
@@ -92,12 +102,21 @@ export function Certificate({
             <caption className="sr-only">{`${breaks.length} breaks`}</caption>
             <tbody>
               {breaks.map((b) => (
-                <tr key={breakAnchor(b)} id={breakAnchor(b)} tabIndex={-1} className="border-b align-top focus:bg-muted focus:outline-none">
+                <tr
+                  key={breakAnchor(b)}
+                  id={breakAnchor(b)}
+                  tabIndex={-1}
+                  className="border-b align-top focus:bg-muted focus:outline-none"
+                >
                   <td className="py-2 pr-4 font-mono text-xs whitespace-nowrap">
-                    {b.fromSeq === b.toSeq ? formatSeq(b.fromSeq) : `${formatSeq(b.fromSeq)} to ${formatSeq(b.toSeq)}`}
+                    {b.fromSeq === b.toSeq
+                      ? formatSeq(b.fromSeq)
+                      : `${formatSeq(b.fromSeq)} to ${formatSeq(b.toSeq)}`}
                   </td>
                   <td className="py-2">
-                    <div className="font-medium text-destructive">{b.title}</div>
+                    <div className="font-medium text-destructive">
+                      {b.title}
+                    </div>
                     <div className="text-muted-foreground">{b.explanation}</div>
                   </td>
                 </tr>
@@ -115,7 +134,9 @@ export function Certificate({
                   {formatSeq(rg.fromSeq)} to {formatSeq(rg.toSeq)}
                 </span>
                 {", recorded at sequence "}
-                <span className="font-mono text-xs">{formatSeq(rg.recordSeq)}</span>
+                <span className="font-mono text-xs">
+                  {formatSeq(rg.recordSeq)}
+                </span>
                 {rg.policyId ? (
                   <>
                     {" under "}
@@ -131,14 +152,22 @@ export function Certificate({
       {tolerant.length > 0 && (
         <Section title="Scheme inferred">
           <table className="w-full text-sm">
-            <caption className="sr-only">{tolerantCount === 1 ? "1 event" : `${formatSeq(tolerantCount)} events`}</caption>
+            <caption className="sr-only">
+              {tolerantCount === 1
+                ? "1 event"
+                : `${formatSeq(tolerantCount)} events`}
+            </caption>
             <tbody>
               {tolerant.map((row) => (
                 <tr key={row.fromSeq} className="border-b align-top">
                   <td className="py-2 pr-4 font-mono text-xs whitespace-nowrap">
-                    {row.fromSeq === row.toSeq ? formatSeq(row.fromSeq) : `${formatSeq(row.fromSeq)} to ${formatSeq(row.toSeq)}`}
+                    {row.fromSeq === row.toSeq
+                      ? formatSeq(row.fromSeq)
+                      : `${formatSeq(row.fromSeq)} to ${formatSeq(row.toSeq)}`}
                   </td>
-                  <td className="py-2 text-muted-foreground">{tolerantExplanation(row)}</td>
+                  <td className="py-2 text-muted-foreground">
+                    {tolerantExplanation(row)}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -147,13 +176,16 @@ export function Certificate({
       )}
       <Section title="What was examined">
         <p className="mb-3 text-sm">
-          {examined ? `${formatSeq(r.verified)} events read, sequences ${formatSeq(from)} to ${formatSeq(to)}.` : "No events were read."}
+          {examined
+            ? `${formatSeq(r.verified)} events read, sequences ${formatSeq(from)} to ${formatSeq(to)}.`
+            : "No events were read."}
         </p>
         <CheckTable rows={checksOf(r, ctx)} />
         {(r.checkpoints ?? []).map((c) => (
           <div key={c.id} className="mt-4">
             <p className="text-sm">
-              Checkpoint <span className="font-mono text-xs">{c.id}</span>, sequences{" "}
+              Checkpoint <span className="font-mono text-xs">{c.id}</span>,
+              sequences{" "}
               <span className="font-mono text-xs">
                 {formatSeq(c.fromSeq)} to {formatSeq(c.toSeq)}
               </span>
@@ -167,12 +199,19 @@ export function Certificate({
         <Section title="Coverage">
           <ul className="flex flex-col gap-1 text-sm">
             {(r.coverage ?? []).map((s) => (
-              <li key={`${s.fromSeq}-${s.level}`} className="flex items-center gap-2">
+              <li
+                key={`${s.fromSeq}-${s.level}`}
+                className="flex items-center gap-2"
+              >
                 <CoverageBadge level={s.level} />
-                <span className="font-mono text-xs">{formatSeq(s.fromSeq)}</span>
+                <span className="font-mono text-xs">
+                  {formatSeq(s.fromSeq)}
+                </span>
                 <span>to</span>
                 <span className="font-mono text-xs">{formatSeq(s.toSeq)}</span>
-                {s.note ? <span className="text-muted-foreground">{s.note}</span> : null}
+                {s.note ? (
+                  <span className="text-muted-foreground">{s.note}</span>
+                ) : null}
               </li>
             ))}
           </ul>
@@ -194,10 +233,22 @@ function tolerantExplanation(row: TolerantRow): string {
     : "They recorded no digest scheme, so their scheme was inferred when they were checked."
 }
 
-function Section({ title, loud, children }: { title: string; loud?: boolean; children: ReactNode }) {
+function Section({
+  title,
+  loud,
+  children,
+}: {
+  title: string
+  loud?: boolean
+  children: ReactNode
+}) {
   const id = `cert-${title.toLowerCase().replace(/[^a-z]+/g, "-")}`
   return (
-    <section aria-labelledby={id} data-loud={loud ? "true" : undefined} className={loud ? "border-l-2 border-foreground pl-4" : ""}>
+    <section
+      aria-labelledby={id}
+      data-loud={loud ? "true" : undefined}
+      className={loud ? "border-l-2 border-foreground pl-4" : ""}
+    >
       <h3 id={id} className="mb-2 text-sm font-medium text-muted-foreground">
         {title}
       </h3>
@@ -213,8 +264,15 @@ function CheckTable({ rows }: { rows: CheckRow[] }) {
         <div key={row.label} className="contents">
           <dt>{row.label}</dt>
           <dd>
-            <TriStateMark state={row.state} held={row.held} failed={row.failed} notChecked={row.notChecked} />
-            {row.state === "failed" && row.failedNote ? <span className="ml-2">{row.failedNote}</span> : null}
+            <TriStateMark
+              state={row.state}
+              held={row.held}
+              failed={row.failed}
+              notChecked={row.notChecked}
+            />
+            {row.state === "failed" && row.failedNote ? (
+              <span className="ml-2">{row.failedNote}</span>
+            ) : null}
           </dd>
         </div>
       ))}

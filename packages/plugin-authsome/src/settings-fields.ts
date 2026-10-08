@@ -57,12 +57,14 @@ export interface SettingField {
  * Takes `undefined` because the page calls this while the query behind it is
  * still loading, before there is a response to flatten.
  */
-export function flattenCategories(res: SettingsNamespaceResponse | undefined): SettingField[] {
+export function flattenCategories(
+  res: SettingsNamespaceResponse | undefined
+): SettingField[] {
   return (res?.categories ?? []).flatMap((category) =>
     (category.settings ?? []).map((field) => ({
       ...field,
       section: field.section || category.name,
-    })),
+    }))
   )
 }
 
@@ -74,7 +76,9 @@ export function flattenCategories(res: SettingsNamespaceResponse | undefined): S
  * eighteen settings-only sub-plugins share one renderer. Widening kit to
  * understand `SettingField` would trade that away for nothing.
  */
-export function toDescriptors(fields: SettingField[]): SettingFieldDescriptor[] {
+export function toDescriptors(
+  fields: SettingField[]
+): SettingFieldDescriptor[] {
   return [...(fields ?? [])]
     .sort((a, b) => a.order - b.order)
     .map((field) => ({

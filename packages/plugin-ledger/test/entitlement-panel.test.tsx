@@ -2,19 +2,34 @@ import { describe, expect, it } from "vitest"
 import { render, screen } from "@testing-library/react"
 import { ContractError, PluginProvider } from "@forge-go/dashboard-plugin"
 import type { ScopedClient } from "@forge-go/dashboard-plugin"
-import { EntitlementPanel, EntitlementRow } from "../src/components/entitlement-panel"
+import {
+  EntitlementPanel,
+  EntitlementRow,
+} from "../src/components/entitlement-panel"
 import type { FeatureUsage } from "../src/types"
 import { scriptedClient } from "./harness"
 
 function feature(over: Partial<FeatureUsage>): FeatureUsage {
-  return { key: "api_calls", name: "API calls", type: "metered", period: "monthly", limit: 1000, used: 400, remaining: 600, soft_limit: false, over_limit: false, enabled: false, ...over }
+  return {
+    key: "api_calls",
+    name: "API calls",
+    type: "metered",
+    period: "monthly",
+    limit: 1000,
+    used: 400,
+    remaining: 600,
+    soft_limit: false,
+    over_limit: false,
+    enabled: false,
+    ...over,
+  }
 }
 
 function row(f: FeatureUsage) {
   return render(
     <ul>
       <EntitlementRow feature={f} />
-    </ul>,
+    </ul>
   )
 }
 
@@ -28,14 +43,20 @@ describe("EntitlementRow", () => {
   })
 
   it("marks a hard limit that was passed, in words and not only colour", () => {
-    const { container } = row(feature({ used: 1200, remaining: 0, over_limit: true }))
+    const { container } = row(
+      feature({ used: 1200, remaining: 0, over_limit: true })
+    )
     expect(screen.getByText("200 over the limit")).toBeTruthy()
     expect(container.innerHTML).toMatch(/bg-destructive/)
   })
 
   it("marks a soft limit that was passed as billed overage", () => {
-    const { container } = row(feature({ used: 1500, remaining: 0, over_limit: true, soft_limit: true }))
-    expect(screen.getByText("500 over the soft limit. Use is not blocked")).toBeTruthy()
+    const { container } = row(
+      feature({ used: 1500, remaining: 0, over_limit: true, soft_limit: true })
+    )
+    expect(
+      screen.getByText("500 over the soft limit. Use is not blocked")
+    ).toBeTruthy()
     expect(container.innerHTML).toMatch(/bg-warning/)
   })
 
@@ -44,15 +65,23 @@ describe("EntitlementRow", () => {
   // subscriptions.usage sets over_limit only for used > limit. A full bar with
   // no words would read as healthy while the engine is refusing the tenant.
   it("says a hard limit that was reached is refusing further use", () => {
-    const { container } = row(feature({ used: 1000, remaining: 0, over_limit: false }))
-    expect(screen.getByText("At the limit, further use is refused")).toBeTruthy()
+    const { container } = row(
+      feature({ used: 1000, remaining: 0, over_limit: false })
+    )
+    expect(
+      screen.getByText("At the limit, further use is refused")
+    ).toBeTruthy()
     expect(container.innerHTML).toMatch(/bg-destructive/)
   })
 
   // Whether overage is priced is not in the result, so the copy says only that use is not blocked.
   it("says a soft limit that was reached does not block what comes after it", () => {
-    const { container } = row(feature({ used: 1000, remaining: 0, soft_limit: true }))
-    expect(screen.getByText("At the soft limit. Use past it is not blocked")).toBeTruthy()
+    const { container } = row(
+      feature({ used: 1000, remaining: 0, soft_limit: true })
+    )
+    expect(
+      screen.getByText("At the soft limit. Use past it is not blocked")
+    ).toBeTruthy()
     expect(container.innerHTML).not.toMatch(/overage/)
     expect(container.innerHTML).toMatch(/bg-warning/)
     expect(container.innerHTML).not.toMatch(/bg-destructive/)
@@ -61,20 +90,44 @@ describe("EntitlementRow", () => {
   it("treats a metered limit of zero as reached, because the engine refuses it", () => {
     const { container } = row(feature({ limit: 0, used: 0, remaining: 0 }))
     expect(screen.getByText("0 of 0 this month")).toBeTruthy()
-    expect(screen.getByText("At the limit, further use is refused")).toBeTruthy()
+    expect(
+      screen.getByText("At the limit, further use is refused")
+    ).toBeTruthy()
     expect(container.innerHTML).not.toMatch(/NaN|Infinity/)
   })
 
   // Seats are priced per seat from the subscription's counts and the limit
   // plays no part in billing, so a seat count past a soft limit is not overage.
   it("does not call seats past a soft limit unblocked or billed", () => {
-    row(feature({ key: "seats", name: "Seats", type: "seat", period: "none", limit: 10, used: 12, remaining: 0, over_limit: true, soft_limit: true }))
+    row(
+      feature({
+        key: "seats",
+        name: "Seats",
+        type: "seat",
+        period: "none",
+        limit: 10,
+        used: 12,
+        remaining: 0,
+        over_limit: true,
+        soft_limit: true,
+      })
+    )
     expect(screen.getByText("2 over the soft limit")).toBeTruthy()
     expect(screen.queryByText(/overage|not blocked/)).toBeNull()
   })
 
   it("does not say a full seat count is refusing use", () => {
-    row(feature({ key: "seats", name: "Seats", type: "seat", period: "none", limit: 10, used: 10, remaining: 0 }))
+    row(
+      feature({
+        key: "seats",
+        name: "Seats",
+        type: "seat",
+        period: "none",
+        limit: 10,
+        used: 10,
+        remaining: 0,
+      })
+    )
     expect(screen.getByText("10 of 10")).toBeTruthy()
     expect(screen.queryByText(/At the/)).toBeNull()
   })
@@ -87,41 +140,92 @@ describe("EntitlementRow", () => {
   })
 
   it("names a yearly period and leaves out one that does not reset", () => {
-    const { unmount } = row(feature({ limit: -1, used: 9, remaining: -1, period: "yearly" }))
+    const { unmount } = row(
+      feature({ limit: -1, used: 9, remaining: -1, period: "yearly" })
+    )
     expect(screen.getByText("9 this year")).toBeTruthy()
     unmount()
-    row(feature({ key: "seats", name: "Seats", type: "seat", period: "none", limit: -1, used: 6, remaining: -1 }))
+    row(
+      feature({
+        key: "seats",
+        name: "Seats",
+        type: "seat",
+        period: "none",
+        limit: -1,
+        used: 6,
+        remaining: -1,
+      })
+    )
     expect(screen.getByText("6")).toBeTruthy()
   })
 
   it("says Included or Not included for a boolean feature", () => {
-    const { unmount } = row(feature({ key: "sso", name: "Single sign-on", type: "boolean", period: "none", limit: 1, used: 0, remaining: -1, enabled: true }))
+    const { unmount } = row(
+      feature({
+        key: "sso",
+        name: "Single sign-on",
+        type: "boolean",
+        period: "none",
+        limit: 1,
+        used: 0,
+        remaining: -1,
+        enabled: true,
+      })
+    )
     expect(screen.getByText("Included")).toBeTruthy()
     unmount()
-    row(feature({ key: "sso", name: "Single sign-on", type: "boolean", period: "none", limit: 0, used: 0, remaining: -1, enabled: false }))
+    row(
+      feature({
+        key: "sso",
+        name: "Single sign-on",
+        type: "boolean",
+        period: "none",
+        limit: 0,
+        used: 0,
+        remaining: -1,
+        enabled: false,
+      })
+    )
     expect(screen.getByText("Not included")).toBeTruthy()
   })
 
   it("points the bar at the note that explains it", () => {
     row(feature({ used: 1200, remaining: 0, over_limit: true }))
     const bar = screen.getByRole("progressbar")
-    expect(document.getElementById(bar.getAttribute("aria-describedby") ?? "")?.textContent).toBe("200 over the limit")
+    expect(
+      document.getElementById(bar.getAttribute("aria-describedby") ?? "")
+        ?.textContent
+    ).toBe("200 over the limit")
   })
 
   it("describes nothing when there is no note", () => {
     row(feature({}))
-    expect(screen.getByRole("progressbar").getAttribute("aria-describedby")).toBeNull()
+    expect(
+      screen.getByRole("progressbar").getAttribute("aria-describedby")
+    ).toBeNull()
   })
 
   it("never divides by a zero limit", () => {
-    const { container } = row(feature({ key: "seats", name: "Seats", type: "seat", period: "none", limit: 0, used: 0, remaining: 0 }))
+    const { container } = row(
+      feature({
+        key: "seats",
+        name: "Seats",
+        type: "seat",
+        period: "none",
+        limit: 0,
+        used: 0,
+        remaining: 0,
+      })
+    )
     expect(screen.getByText("0 of 0")).toBeTruthy()
     expect(container.innerHTML).not.toMatch(/NaN|Infinity/)
   })
 
   it("fills the bar to the top, not past it, when usage is over", () => {
     row(feature({ used: 5000, remaining: 0, over_limit: true }))
-    expect(screen.getByRole("progressbar").getAttribute("aria-valuenow")).toBe("100")
+    expect(screen.getByRole("progressbar").getAttribute("aria-valuenow")).toBe(
+      "100"
+    )
   })
 })
 
@@ -129,27 +233,46 @@ function panel(client: ScopedClient) {
   return render(
     <PluginProvider client={client}>
       <EntitlementPanel subscriptionId="sub_acme" />
-    </PluginProvider>,
+    </PluginProvider>
   )
 }
 
 describe("EntitlementPanel", () => {
   it("says so when the plan grants no features", async () => {
-    const { client } = scriptedClient({ "subscriptions.usage": { features: [] } })
+    const { client } = scriptedClient({
+      "subscriptions.usage": { features: [] },
+    })
     panel(client)
-    expect(await screen.findByText("This plan grants no features, so there is nothing to measure.")).toBeTruthy()
+    expect(
+      await screen.findByText(
+        "This plan grants no features, so there is nothing to measure."
+      )
+    ).toBeTruthy()
   })
 
   it("reads a null feature list as empty", async () => {
-    const { client } = scriptedClient({ "subscriptions.usage": { features: null } })
+    const { client } = scriptedClient({
+      "subscriptions.usage": { features: null },
+    })
     panel(client)
-    expect(await screen.findByText("This plan grants no features, so there is nothing to measure.")).toBeTruthy()
+    expect(
+      await screen.findByText(
+        "This plan grants no features, so there is nothing to measure."
+      )
+    ).toBeTruthy()
   })
 
   it("shows the engine's refusal, never an empty list", async () => {
-    const { client } = scriptedClient({ "subscriptions.usage": new ContractError("PERMISSION_DENIED", "no app selected") })
+    const { client } = scriptedClient({
+      "subscriptions.usage": new ContractError(
+        "PERMISSION_DENIED",
+        "no app selected"
+      ),
+    })
     panel(client)
-    expect(await screen.findByText(/PERMISSION_DENIED: no app selected/)).toBeTruthy()
+    expect(
+      await screen.findByText(/PERMISSION_DENIED: no app selected/)
+    ).toBeTruthy()
     expect(screen.queryByText(/nothing to measure/)).toBeNull()
   })
 })

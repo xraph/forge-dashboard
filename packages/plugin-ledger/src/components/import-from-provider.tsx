@@ -2,10 +2,20 @@ import { useEffect, useId, useRef, useState } from "react"
 import type { FormEvent } from "react"
 import { useCommand, useNavigateTo, useQuery } from "@forge-go/dashboard-plugin"
 import { Button } from "@forge-go/dashboard-kit/components/button"
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@forge-go/dashboard-kit/components/dialog"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@forge-go/dashboard-kit/components/dialog"
 import { Input } from "@forge-go/dashboard-kit/components/input"
 import { Label } from "@forge-go/dashboard-kit/components/label"
-import { NativeSelect, NativeSelectOption } from "@forge-go/dashboard-kit/components/native-select"
+import {
+  NativeSelect,
+  NativeSelectOption,
+} from "@forge-go/dashboard-kit/components/native-select"
 import { CommandAlert } from "@forge-go/dashboard-kit/components/query-boundary"
 import type { SettingsDetail } from "../types"
 
@@ -43,7 +53,13 @@ export function ImportFromProviderAction<T>(props: ImportProps<T>) {
   )
 }
 
-function ImportDialog<T>({ intent, noun, description, pathOf, onClose }: ImportProps<T> & { onClose: () => void }) {
+function ImportDialog<T>({
+  intent,
+  noun,
+  description,
+  pathOf,
+  onClose,
+}: ImportProps<T> & { onClose: () => void }) {
   const settings = useQuery<SettingsDetail>("settings.detail")
   const command = useCommand<T>(intent)
   const navigate = useNavigateTo()
@@ -75,7 +91,10 @@ function ImportDialog<T>({ intent, noun, description, pathOf, onClose }: ImportP
     inFlight.current = true
     let result: T | undefined
     try {
-      result = await command.execute({ provider_name: provider, provider_id: id })
+      result = await command.execute({
+        provider_name: provider,
+        provider_id: id,
+      })
     } finally {
       inFlight.current = false
     }
@@ -85,37 +104,56 @@ function ImportDialog<T>({ intent, noun, description, pathOf, onClose }: ImportP
   }
 
   return (
-    <Dialog open onOpenChange={(next) => !next && !command.loading && onClose()}>
+    <Dialog
+      open
+      onOpenChange={(next) => !next && !command.loading && onClose()}
+    >
       <DialogContent>
         <form onSubmit={(e) => void submit(e)} className="flex flex-col gap-4">
           <DialogHeader>
             <DialogTitle>
-              Import {/^[aeiou]/i.test(noun) ? "an" : "a"} {noun} from the payment provider
+              Import {/^[aeiou]/i.test(noun) ? "an" : "a"} {noun} from the
+              payment provider
             </DialogTitle>
             <DialogDescription>{description}</DialogDescription>
           </DialogHeader>
           {settings.error ? (
-            <CommandAlert title="Could not read the payment providers" error={settings.error} />
+            <CommandAlert
+              title="Could not read the payment providers"
+              error={settings.error}
+            />
           ) : settings.data === undefined ? (
             <p role="status" className="text-sm text-muted-foreground">
               Checking which payment providers are configured…
             </p>
           ) : providers.length === 0 ? (
             <p role="status" className="text-sm text-muted-foreground">
-              No payment provider is configured, so there is nothing to import from. Once a payment provider is registered with the
-              ledger extension, this dialog asks which record to import.
+              No payment provider is configured, so there is nothing to import
+              from. Once a payment provider is registered with the ledger
+              extension, this dialog asks which record to import.
             </p>
           ) : (
             <>
               {command.error && (
                 <div ref={errorRef} tabIndex={-1} className="outline-none">
-                  <CommandAlert title={`Could not import the ${noun}`} error={command.error} />
+                  <CommandAlert
+                    title={`Could not import the ${noun}`}
+                    error={command.error}
+                  />
                 </div>
               )}
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor={`${fieldId}-provider`}>Provider</Label>
-                <NativeSelect id={`${fieldId}-provider`} value={provider} onChange={(e) => setChosen(e.target.value)}>
-                  {providers.length > 1 && <NativeSelectOption value="">Choose a provider</NativeSelectOption>}
+                <NativeSelect
+                  id={`${fieldId}-provider`}
+                  value={provider}
+                  onChange={(e) => setChosen(e.target.value)}
+                >
+                  {providers.length > 1 && (
+                    <NativeSelectOption value="">
+                      Choose a provider
+                    </NativeSelectOption>
+                  )}
                   {providers.map((p) => (
                     <NativeSelectOption key={p} value={p}>
                       {p}
@@ -134,14 +172,23 @@ function ImportDialog<T>({ intent, noun, description, pathOf, onClose }: ImportP
                   value={providerId}
                   onChange={(e) => setProviderId(e.target.value)}
                 />
-                <p id={`${fieldId}-hint`} className="text-xs text-muted-foreground">
-                  The {noun}'s ID at {provider || "the provider"}, as the provider shows it.
+                <p
+                  id={`${fieldId}-hint`}
+                  className="text-xs text-muted-foreground"
+                >
+                  The {noun}'s ID at {provider || "the provider"}, as the
+                  provider shows it.
                 </p>
               </div>
             </>
           )}
           <DialogFooter>
-            <Button type="button" variant="outline" disabled={command.loading} onClick={onClose}>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={command.loading}
+              onClick={onClose}
+            >
               Cancel
             </Button>
             {providers.length > 0 && (

@@ -16,7 +16,10 @@ export function LedgerCouponCreatePage() {
   }
   return (
     <section className="flex flex-col gap-4">
-      <PageHeader title="New coupon" description="A discount code a subscription can apply to its invoices." />
+      <PageHeader
+        title="New coupon"
+        description="A discount code a subscription can apply to its invoices."
+      />
       <CouponForm
         mode="create"
         initial={emptyCouponForm()}

@@ -5,17 +5,31 @@ import { TemplateCreatePage } from "../src/pages/template-create"
 import { engine, templateSummary } from "./data"
 import { renderWithNavigate, scriptedClient } from "./harness"
 
-const CREATED = { template: templateSummary({ id: "htpl_01j00000000000000000000101", slug: "billing.dunning" }) }
+const CREATED = {
+  template: templateSummary({
+    id: "htpl_01j00000000000000000000101",
+    slug: "billing.dunning",
+  }),
+}
 
 function setup(onCreate: () => unknown = () => CREATED) {
-  const c = scriptedClient({ "engine.info": engine() }, { "templates.create": onCreate })
+  const c = scriptedClient(
+    { "engine.info": engine() },
+    { "templates.create": onCreate }
+  )
   return { ...c, ...renderWithNavigate(TemplateCreatePage, c.client) }
 }
 
 async function fill() {
-  fireEvent.change(await screen.findByLabelText("Name"), { target: { value: "Dunning" } })
-  fireEvent.change(screen.getByLabelText("Slug"), { target: { value: "billing.dunning" } })
-  fireEvent.change(screen.getByLabelText("Channel"), { target: { value: "email" } })
+  fireEvent.change(await screen.findByLabelText("Name"), {
+    target: { value: "Dunning" },
+  })
+  fireEvent.change(screen.getByLabelText("Slug"), {
+    target: { value: "billing.dunning" },
+  })
+  fireEvent.change(screen.getByLabelText("Channel"), {
+    target: { value: "email" },
+  })
 }
 
 describe("TemplateCreatePage", () => {
@@ -24,38 +38,74 @@ describe("TemplateCreatePage", () => {
     await fill()
     fireEvent.click(screen.getByRole("button", { name: "Create template" }))
     await waitFor(() => expect(sent).toHaveLength(1))
-    expect(sent[0]?.payload).toEqual({ slug: "billing.dunning", name: "Dunning", channel: "email", category: "transactional", version: { locale: "" } })
-    await waitFor(() => expect(navigate).toHaveBeenCalledWith("/templates/htpl_01j00000000000000000000101"))
+    expect(sent[0]?.payload).toEqual({
+      slug: "billing.dunning",
+      name: "Dunning",
+      channel: "email",
+      category: "transactional",
+      version: { locale: "" },
+    })
+    await waitFor(() =>
+      expect(navigate).toHaveBeenCalledWith(
+        "/templates/htpl_01j00000000000000000000101"
+      )
+    )
   })
 
   it("starts with the locale you type instead", async () => {
     const { sent } = setup()
     await fill()
-    fireEvent.change(screen.getByLabelText("First version's locale"), { target: { value: "pt-BR" } })
+    fireEvent.change(screen.getByLabelText("First version's locale"), {
+      target: { value: "pt-BR" },
+    })
     fireEvent.click(screen.getByRole("button", { name: "Create template" }))
     await waitFor(() => expect(sent).toHaveLength(1))
-    expect((sent[0]?.payload as { version: unknown }).version).toEqual({ locale: "pt-BR" })
+    expect((sent[0]?.payload as { version: unknown }).version).toEqual({
+      locale: "pt-BR",
+    })
   })
 
   it("refuses a slug the server would refuse, before sending it", async () => {
     const { sent } = setup()
     await fill()
-    fireEvent.change(screen.getByLabelText("Slug"), { target: { value: "Billing Dunning" } })
-    expect(screen.getByText(/lower-case letters, digits, dots, dashes or underscores/)).toBeTruthy()
-    expect((screen.getByRole("button", { name: "Create template" }) as HTMLButtonElement).disabled).toBe(true)
+    fireEvent.change(screen.getByLabelText("Slug"), {
+      target: { value: "Billing Dunning" },
+    })
+    expect(
+      screen.getByText(
+        /lower-case letters, digits, dots, dashes or underscores/
+      )
+    ).toBeTruthy()
+    expect(
+      (
+        screen.getByRole("button", {
+          name: "Create template",
+        }) as HTMLButtonElement
+      ).disabled
+    ).toBe(true)
     expect(sent).toEqual([])
   })
 
   it("explains a duplicate slug on the same channel", async () => {
-    setup(() => new ContractError("CONFLICT", "a template with this slug already exists on this channel"))
+    setup(
+      () =>
+        new ContractError(
+          "CONFLICT",
+          "a template with this slug already exists on this channel"
+        )
+    )
     await fill()
     fireEvent.click(screen.getByRole("button", { name: "Create template" }))
-    expect((await screen.findByRole("alert")).textContent).toMatch(/billing\.dunning already exists on email/)
+    expect((await screen.findByRole("alert")).textContent).toMatch(
+      /billing\.dunning already exists on email/
+    )
   })
 
   it("names the app before the channels have loaded", async () => {
     setup()
-    expect(screen.getByRole("heading", { level: 1, name: "New template" })).toBeTruthy()
+    expect(
+      screen.getByRole("heading", { level: 1, name: "New template" })
+    ).toBeTruthy()
     expect(screen.getByText(/App: loading/)).toBeTruthy()
     await screen.findByLabelText("Name")
     expect(screen.getByText("app_demo")).toBeTruthy()
@@ -63,21 +113,33 @@ describe("TemplateCreatePage", () => {
 
   it("does not mistake the default locale for the empty fallback", async () => {
     setup()
-    const input = (await screen.findByLabelText("First version's locale")) as HTMLInputElement
+    const input = (await screen.findByLabelText(
+      "First version's locale"
+    )) as HTMLInputElement
     expect(input.placeholder).toBe("")
     expect(screen.getByText(/default locale is en\./)).toBeTruthy()
   })
 
   it("drops the duplicate-slug alert once you edit the slug or the channel", async () => {
-    setup(() => new ContractError("CONFLICT", "a template with this slug already exists on this channel"))
+    setup(
+      () =>
+        new ContractError(
+          "CONFLICT",
+          "a template with this slug already exists on this channel"
+        )
+    )
     await fill()
     fireEvent.click(screen.getByRole("button", { name: "Create template" }))
     await screen.findByRole("alert")
-    fireEvent.change(screen.getByLabelText("Slug"), { target: { value: "billing.dunning2" } })
+    fireEvent.change(screen.getByLabelText("Slug"), {
+      target: { value: "billing.dunning2" },
+    })
     await waitFor(() => expect(screen.queryByRole("alert")).toBeNull())
     fireEvent.click(screen.getByRole("button", { name: "Create template" }))
     await screen.findByRole("alert")
-    fireEvent.change(screen.getByLabelText("Channel"), { target: { value: "sms" } })
+    fireEvent.change(screen.getByLabelText("Channel"), {
+      target: { value: "sms" },
+    })
     await waitFor(() => expect(screen.queryByRole("alert")).toBeNull())
   })
 })

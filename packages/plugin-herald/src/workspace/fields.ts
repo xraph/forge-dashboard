@@ -1,6 +1,11 @@
 import type { TemplateField } from "../wire"
 
-export const FIELD_LABEL: Record<TemplateField, string> = { subject: "Subject", html: "HTML", text: "Text", title: "Title" }
+export const FIELD_LABEL: Record<TemplateField, string> = {
+  subject: "Subject",
+  html: "HTML",
+  text: "Text",
+  title: "Title",
+}
 
 export const ALL_FIELDS: TemplateField[] = ["subject", "html", "text", "title"]
 
@@ -15,12 +20,23 @@ const PRIMARY: Record<string, TemplateField[]> = {
 }
 
 /** A channel's own fields first; the fields a channel doesn't send fold away and stay editable. An unknown channel shows them all. */
-export function fieldsFor(channel: string): { primary: TemplateField[]; other: TemplateField[] } {
+export function fieldsFor(channel: string): {
+  primary: TemplateField[]
+  other: TemplateField[]
+} {
   const primary = PRIMARY[channel] ?? ALL_FIELDS
   return { primary, other: ALL_FIELDS.filter((f) => !primary.includes(f)) }
 }
 
 /** Every client shows a subject or a title on one line. */
-export const SINGLE_LINE: ReadonlySet<TemplateField> = new Set<TemplateField>(["subject", "title"])
+export const SINGLE_LINE: ReadonlySet<TemplateField> = new Set<TemplateField>([
+  "subject",
+  "title",
+])
 
-export const FIELD_LANGUAGE: Record<TemplateField, "html" | "text"> = { subject: "text", html: "html", text: "text", title: "text" }
+export const FIELD_LANGUAGE: Record<TemplateField, "html" | "text"> = {
+  subject: "text",
+  html: "html",
+  text: "text",
+  title: "text",
+}

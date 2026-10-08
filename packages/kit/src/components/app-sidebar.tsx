@@ -4,7 +4,11 @@ import type { ReactElement, ReactNode } from "react"
 
 import { NavTree } from "@forge-go/dashboard-kit/components/nav-tree"
 import { NavMain } from "@forge-go/dashboard-kit/components/nav-main"
-import type { NavArea, NavGroup, NavNode } from "@forge-go/dashboard-kit/components/nav-tree"
+import type {
+  NavArea,
+  NavGroup,
+  NavNode,
+} from "@forge-go/dashboard-kit/components/nav-tree"
 import { SectionLabel } from "@forge-go/dashboard-kit/components/section-label"
 import {
   Sidebar,
@@ -47,7 +51,7 @@ export function stackAreas(areas: NavArea[]): NavGroup[] {
         : index === 0
           ? area.label
           : undefined,
-    })),
+    }))
   )
 }
 
@@ -59,13 +63,16 @@ function nodesOf(group: NavGroup): NavNode[] {
  * The one href that owns the current path across every section, by the rule
  * NavMain uses within a section: an exact match or a path prefix, longest wins.
  */
-function activeHref(groups: NavGroup[], currentPath: string): string | undefined {
+function activeHref(
+  groups: NavGroup[],
+  currentPath: string
+): string | undefined {
   return groups
     .flatMap(nodesOf)
     .filter(
       (node) =>
         node.href === currentPath ||
-        (node.href !== "/" && currentPath.startsWith(`${node.href}/`)),
+        (node.href !== "/" && currentPath.startsWith(`${node.href}/`))
     )
     .sort((a, b) => b.href.length - a.href.length)[0]?.href
 }
@@ -80,7 +87,8 @@ function EmptyNotice({
   label,
   search,
   renderLink,
-}: NonNullable<AppSidebarProps["empty"]> & Pick<AppSidebarProps, "search" | "renderLink">) {
+}: NonNullable<AppSidebarProps["empty"]> &
+  Pick<AppSidebarProps, "search" | "renderLink">) {
   return (
     <div
       data-slot="scope-empty"
@@ -121,11 +129,12 @@ export function AppSidebar({
     areas && areas.length > 0
       ? (areas.find((area) => area.id === activeAreaId) ?? areas[0])
       : undefined
-  const shown = areas && areas.length > 0
-    ? isMobile
-      ? stackAreas(areas)
-      : active!.groups
-    : groups
+  const shown =
+    areas && areas.length > 0
+      ? isMobile
+        ? stackAreas(areas)
+        : active!.groups
+      : groups
 
   const winner = activeHref(shown, currentPath)
 
@@ -143,7 +152,9 @@ export function AppSidebar({
         ) : null}
       </SidebarHeader>
       <SidebarContent>
-        {empty ? <EmptyNotice {...empty} search={search} renderLink={renderLink} /> : null}
+        {empty ? (
+          <EmptyNotice {...empty} search={search} renderLink={renderLink} />
+        ) : null}
         {shown.map((group, index) => (
           <Fragment key={`${group.label ?? ""}:${index}`}>
             {group.label ? (
@@ -160,7 +171,9 @@ export function AppSidebar({
           </Fragment>
         ))}
       </SidebarContent>
-      {isMobile && mobileFooter ? <SidebarFooter>{mobileFooter}</SidebarFooter> : null}
+      {isMobile && mobileFooter ? (
+        <SidebarFooter>{mobileFooter}</SidebarFooter>
+      ) : null}
       {navigationLayout === "collapsible" && <SidebarRail />}
     </Sidebar>
   )

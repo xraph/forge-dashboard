@@ -9,7 +9,10 @@ function failure(text: string) {
 
 describe("parseJsonText", () => {
   it("returns the value of text that parses, including null and falsy values", () => {
-    expect(parseJsonText('{"a": [1, 2]}')).toEqual({ ok: true, value: { a: [1, 2] } })
+    expect(parseJsonText('{"a": [1, 2]}')).toEqual({
+      ok: true,
+      value: { a: [1, 2] },
+    })
     expect(parseJsonText("null")).toEqual({ ok: true, value: null })
     expect(parseJsonText(" false ")).toEqual({ ok: true, value: false })
     expect(parseJsonText("0")).toEqual({ ok: true, value: 0 })
@@ -51,7 +54,7 @@ describe("parseJsonText", () => {
   })
 
   it("refuses a number too large to hold, where the number starts", () => {
-    const err = failure('[1, 1e400]')
+    const err = failure("[1, 1e400]")
     expect(err.message).toMatch(/too large/i)
     expect(err.column).toBe(5)
   })

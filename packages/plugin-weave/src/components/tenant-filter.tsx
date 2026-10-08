@@ -1,6 +1,9 @@
 import { useState } from "react"
 import { Input } from "@forge-go/dashboard-kit/components/input"
-import { NativeSelect, NativeSelectOption } from "@forge-go/dashboard-kit/components/native-select"
+import {
+  NativeSelect,
+  NativeSelectOption,
+} from "@forge-go/dashboard-kit/components/native-select"
 
 type Mode = "all" | "none" | "named"
 
@@ -14,7 +17,13 @@ function modeOf(value: string | null): Mode {
  * operator-wide, so the default is every tenant. A named tenant with a blank
  * name is no filter yet, not the untenanted filter.
  */
-export function TenantFilter({ value, onChange }: { value: string | null; onChange: (tenant: string | null) => void }) {
+export function TenantFilter({
+  value,
+  onChange,
+}: {
+  value: string | null
+  onChange: (tenant: string | null) => void
+}) {
   const [mode, setMode] = useState<Mode>(modeOf(value))
   const [name, setName] = useState(value ?? "")
 
@@ -44,7 +53,9 @@ export function TenantFilter({ value, onChange }: { value: string | null; onChan
           spellCheck={false}
           onChange={(e) => {
             setName(e.target.value)
-            onChange(e.target.value.trim() === "" ? null : e.target.value.trim())
+            onChange(
+              e.target.value.trim() === "" ? null : e.target.value.trim()
+            )
           }}
         />
       ) : null}

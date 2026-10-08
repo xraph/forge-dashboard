@@ -28,10 +28,21 @@ export interface StreamSummary {
   checkpointingConfigured: boolean
 }
 
-export interface MineResponse { stream?: StreamSummary }
-export interface StreamListResponse { streams: StreamSummary[]; total: number; hasMore: boolean }
+export interface MineResponse {
+  stream?: StreamSummary
+}
+export interface StreamListResponse {
+  streams: StreamSummary[]
+  total: number
+  hasMore: boolean
+}
 
-export interface CoverageSpan { fromSeq: number; toSeq: number; level: VerifyLevel; note?: string }
+export interface CoverageSpan {
+  fromSeq: number
+  toSeq: number
+  level: VerifyLevel
+  note?: string
+}
 
 export interface CheckpointResult {
   id: string
@@ -76,8 +87,15 @@ export interface VerifyReport {
   retentionPolicies: number
 }
 
-export interface VerifyResponse { report?: VerifyReport; noChain: boolean }
-export interface VerifyEventResponse { valid: boolean; hashScheme: string; keyed: boolean }
+export interface VerifyResponse {
+  report?: VerifyReport
+  noChain: boolean
+}
+export interface VerifyEventResponse {
+  valid: boolean
+  hashScheme: string
+  keyed: boolean
+}
 
 export interface CheckpointListResponse {
   /** null from servers older than chronicle 8d3b2d7 when supported is false. */
@@ -85,8 +103,13 @@ export interface CheckpointListResponse {
   hasMore: boolean
   supported: boolean
 }
-export interface GetCheckpointResponse { checkpoint: CheckpointSummary }
-export interface TakeCheckpointResponse { checkpoint?: CheckpointSummary; upToDate: boolean }
+export interface GetCheckpointResponse {
+  checkpoint: CheckpointSummary
+}
+export interface TakeCheckpointResponse {
+  checkpoint?: CheckpointSummary
+  upToDate: boolean
+}
 
 export interface EventSummary {
   id: string
@@ -127,7 +150,11 @@ export interface EventDetail extends EventSummary {
   encryptionKeyId?: string
 }
 
-export interface EventListResponse { events: EventSummary[]; total: number; hasMore: boolean }
+export interface EventListResponse {
+  events: EventSummary[]
+  total: number
+  hasMore: boolean
+}
 
 export interface AggregateGroup {
   bucket?: string
@@ -138,7 +165,10 @@ export interface AggregateGroup {
   resource?: string
   count: number
 }
-export interface AggregateResponse { groups: AggregateGroup[]; total: number }
+export interface AggregateResponse {
+  groups: AggregateGroup[]
+  total: number
+}
 
 export interface OverviewStats {
   totalEvents: number
@@ -171,8 +201,15 @@ export interface ErasureSummary {
   /** "" for an app-wide erasure, which reaches every tenant. Absent from a server that predates the field, which is not the same. */
   tenantId?: string
 }
-export interface ErasureListResponse { erasures: ErasureSummary[]; total: number; hasMore: boolean }
-export interface ErasurePreviewResponse { subjectId: string; eventsAffected: number }
+export interface ErasureListResponse {
+  erasures: ErasureSummary[]
+  total: number
+  hasMore: boolean
+}
+export interface ErasurePreviewResponse {
+  subjectId: string
+  eventsAffected: number
+}
 export interface ErasureResult {
   id: string
   subjectId: string
@@ -193,8 +230,16 @@ export interface PolicySummary {
   updatedAt: string
   editable: boolean
 }
-export interface PolicyListResponse { policies: PolicySummary[]; total: number }
-export interface PolicyPreview { policyId: string; category: string; eventCount: number; capped: boolean }
+export interface PolicyListResponse {
+  policies: PolicySummary[]
+  total: number
+}
+export interface PolicyPreview {
+  policyId: string
+  category: string
+  eventCount: number
+  capped: boolean
+}
 export interface RetentionPreviewResponse {
   eventCount: number
   capped: boolean
@@ -222,9 +267,15 @@ export interface ArchiveSummary {
   tenantId?: string
   createdAt: string
 }
-export interface ArchiveListResponse { archives: ArchiveSummary[]; hasMore: boolean }
+export interface ArchiveListResponse {
+  archives: ArchiveSummary[]
+  hasMore: boolean
+}
 
-export interface ReportPeriod { from: string; to: string }
+export interface ReportPeriod {
+  from: string
+  to: string
+}
 export interface ReportStats {
   totalEvents: number
   criticalEvents: number
@@ -271,8 +322,14 @@ export interface ReportDetail extends ReportSummary {
   verification?: VerifyReport
   verificationScope?: VerificationScope
 }
-export interface ReportListResponse { reports: ReportSummary[]; hasMore: boolean }
-export interface GenerateReportResponse { id: string; report: ReportSummary }
+export interface ReportListResponse {
+  reports: ReportSummary[]
+  hasMore: boolean
+}
+export interface GenerateReportResponse {
+  id: string
+  report: ReportSummary
+}
 export interface CustomReportSection {
   title: string
   categories?: string[]
@@ -280,7 +337,11 @@ export interface CustomReportSection {
   severity?: string[]
   notes?: string
 }
-export interface ExportReportResponse { filename: string; contentType: string; content: string }
+export interface ExportReportResponse {
+  filename: string
+  contentType: string
+  content: string
+}
 
 export interface SettingsDetail {
   batchSize: number

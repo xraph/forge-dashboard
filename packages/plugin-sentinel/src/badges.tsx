@@ -57,7 +57,13 @@ export function NeedsConfigBadge() {
   return <Badge variant="secondary">Needs config</Badge>
 }
 
-const RUN_STATE: Record<RunState, { label: string; variant: "outline" | "secondary" | "default" | "destructive" }> = {
+const RUN_STATE: Record<
+  RunState,
+  {
+    label: string
+    variant: "outline" | "secondary" | "default" | "destructive"
+  }
+> = {
   completed: { label: "Completed", variant: "outline" },
   cancelled: { label: "Cancelled", variant: "secondary" },
   running: { label: "Running", variant: "default" },
@@ -69,14 +75,20 @@ export function RunStateBadge({ state }: { state: RunState }) {
   return <Badge variant={s.variant}>{s.label}</Badge>
 }
 
-const RESULT_STATUS: Record<ResultStatus, { label: string; variant: "outline" | "default" | "destructive" }> = {
+const RESULT_STATUS: Record<
+  ResultStatus,
+  { label: string; variant: "outline" | "default" | "destructive" }
+> = {
   pass: { label: "Pass", variant: "outline" },
   error: { label: "Error", variant: "default" },
   fail: { label: "Fail", variant: "destructive" },
 }
 
 export function ResultStatusBadge({ status }: { status: ResultStatus }) {
-  const s = RESULT_STATUS[status] ?? { label: status, variant: "default" as const }
+  const s = RESULT_STATUS[status] ?? {
+    label: status,
+    variant: "default" as const,
+  }
   return <Badge variant={s.variant}>{s.label}</Badge>
 }
 
@@ -95,9 +107,14 @@ const VERDICT = {
  */
 export function ScorerVerdicts({ verdicts }: { verdicts: ScorerVerdict[] }) {
   return (
-    <ul role="list" aria-label="Scorer verdicts" className="flex flex-wrap gap-1">
+    <ul
+      role="list"
+      aria-label="Scorer verdicts"
+      className="flex flex-wrap gap-1"
+    >
       {verdicts.map((v, i) => {
-        const s = VERDICT[v.errored ? "errored" : v.passed ? "passed" : "failed"]
+        const s =
+          VERDICT[v.errored ? "errored" : v.passed ? "passed" : "failed"]
         return (
           <li key={`${i}-${v.name}`}>
             <Badge variant={s.variant} className="font-mono">
@@ -129,6 +146,10 @@ export function VerdictBadge({ regression }: { regression: Regression }) {
   const regressed = regression.state === "compared" && regression.hasRegression
   const within = regression.state === "compared" && !regression.hasRegression
   return (
-    <Badge variant={regressed ? "destructive" : within ? "outline" : "secondary"}>{verdictLabel(regression)}</Badge>
+    <Badge
+      variant={regressed ? "destructive" : within ? "outline" : "secondary"}
+    >
+      {verdictLabel(regression)}
+    </Badge>
   )
 }

@@ -12,7 +12,7 @@ const refetch = vi.fn()
 
 vi.mock("@forge-go/dashboard-plugin", async () => {
   const actual = await vi.importActual<Record<string, unknown>>(
-    "@forge-go/dashboard-plugin",
+    "@forge-go/dashboard-plugin"
   )
   return {
     ...actual,
@@ -38,8 +38,13 @@ describe("sign-in when auth.config fails", () => {
     const SignIn = defaultAuthScreens.signIn
     render(
       <MemoryRouter initialEntries={["/login"]}>
-        <SignIn basename="/forge" intents={intents} next="/forge" onAuthenticated={vi.fn()} />
-      </MemoryRouter>,
+        <SignIn
+          basename="/forge"
+          intents={intents}
+          next="/forge"
+          onAuthenticated={vi.fn()}
+        />
+      </MemoryRouter>
     )
 
     expect(screen.getByRole("alert").textContent).toContain("boom")

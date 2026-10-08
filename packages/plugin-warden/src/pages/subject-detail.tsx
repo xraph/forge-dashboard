@@ -11,8 +11,15 @@ import {
   type Column,
 } from "@forge-go/dashboard-kit/components/resource-table"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
-import { checkColumns, type CheckLogList, type CheckSummary } from "../components/check-log"
-import { NamespaceCell, type NamespacesResponse } from "../components/namespace-filter"
+import {
+  checkColumns,
+  type CheckLogList,
+  type CheckSummary,
+} from "../components/check-log"
+import {
+  NamespaceCell,
+  type NamespacesResponse,
+} from "../components/namespace-filter"
 import type { ConfigDetail } from "./config"
 
 /** Mirrors the Go `SubjectPermission`: one grant of a role. */
@@ -258,7 +265,13 @@ function SubjectAccess({ kind, id }: { kind: string; id: string }) {
 }
 
 /** A section heading with the withheld sentence in place of its content. */
-function WithheldNotice({ heading, section }: { heading: string; section: WithheldSection }) {
+function WithheldNotice({
+  heading,
+  section,
+}: {
+  heading: string
+  section: WithheldSection
+}) {
   return (
     <section className="flex flex-col gap-3">
       <Heading>{heading}</Heading>
@@ -272,7 +285,11 @@ function Heading({ children }: { children: string }) {
 }
 
 /** Mono chips, as the role and permission pages draw a permission name. */
-function PermissionChips({ permissions }: { permissions: SubjectPermission[] }) {
+function PermissionChips({
+  permissions,
+}: {
+  permissions: SubjectPermission[]
+}) {
   if (permissions.length === 0) return <NoneCell label="permissions" />
   return (
     <span className="flex flex-wrap gap-1">
@@ -310,7 +327,8 @@ function RolesSection({
   assignmentsTruncated: boolean
   withheld: boolean
 }) {
-  if (withheld) return <WithheldNotice heading={`Roles at ${at}`} section="roles" />
+  if (withheld)
+    return <WithheldNotice heading={`Roles at ${at}`} section="roles" />
   const columns: Column<SubjectRole>[] = [
     {
       id: "role",
@@ -361,12 +379,16 @@ function RolesSection({
         columns={columns}
         rows={roles}
         rowKey={(r) => r.id}
-        caption={roles.length > 0 ? count(roles.length, "role", "roles") : undefined}
+        caption={
+          roles.length > 0 ? count(roles.length, "role", "roles") : undefined
+        }
         emptyMessage={`No role reaches this subject at ${at}. Assignments for a single resource, in another namespace, or already expired are listed below.`}
       />
       <p className={NOTE}>
         {`Roles assigned for one resource only ${
-          assignmentsTruncated ? "are among the assignments" : "are listed under assignments"
+          assignmentsTruncated
+            ? "are among the assignments"
+            : "are listed under assignments"
         }. They grant only for checks on that resource.`}
       </p>
     </section>
@@ -430,17 +452,23 @@ function AssignmentsSection({
         columns={columns}
         rows={rows}
         rowKey={(a) => a.id}
-        caption={rows.length > 0 ? count(rows.length, "assignment", "assignments") : undefined}
+        caption={
+          rows.length > 0
+            ? count(rows.length, "assignment", "assignments")
+            : undefined
+        }
         emptyMessage="This subject has no assignments in any namespace."
       />
       {rows.some((a) => a.expired) && (
         <p className={NOTE}>
-          An expired assignment grants nothing. It stays listed until maintenance removes
-          it.
+          An expired assignment grants nothing. It stays listed until
+          maintenance removes it.
         </p>
       )}
       {truncated && (
-        <p className={NOTE}>{`Showing the first ${SUBJECT_LIST_CAP} assignments.`}</p>
+        <p
+          className={NOTE}
+        >{`Showing the first ${SUBJECT_LIST_CAP} assignments.`}</p>
       )}
     </section>
   )
@@ -459,7 +487,8 @@ function RelationsSection({
   rebacOff: boolean
   withheld: boolean
 }) {
-  if (withheld) return <WithheldNotice heading="Relations" section="relations" />
+  if (withheld)
+    return <WithheldNotice heading="Relations" section="relations" />
   const columns: Column<SubjectRelation>[] = [
     {
       id: "object",
@@ -468,7 +497,12 @@ function RelationsSection({
         <span className="font-mono text-xs">{`${t.objectType}:${t.objectId}`}</span>
       ),
     },
-    { id: "relation", header: "Relation", cell: (t) => t.relation, className: SLUG },
+    {
+      id: "relation",
+      header: "Relation",
+      cell: (t) => t.relation,
+      className: SLUG,
+    },
     {
       id: "subject",
       header: "Subject",
@@ -477,7 +511,9 @@ function RelationsSection({
       cell: (t) => (
         <span className="font-mono text-xs">
           {subject}
-          {t.subjectRelation && <span className="font-mono text-xs">{`#${t.subjectRelation}`}</span>}
+          {t.subjectRelation && (
+            <span className="font-mono text-xs">{`#${t.subjectRelation}`}</span>
+          )}
         </span>
       ),
     },
@@ -494,20 +530,28 @@ function RelationsSection({
         columns={columns}
         rows={rows}
         rowKey={(t) => t.id}
-        caption={rows.length > 0 ? count(rows.length, "relation", "relations") : undefined}
+        caption={
+          rows.length > 0
+            ? count(rows.length, "relation", "relations")
+            : undefined
+        }
         emptyMessage="No relation tuple has this subject as its subject."
       />
       {rebacOff ? (
-        <p className={NOTE}>Relation checks are off, so no relation grants anything.</p>
+        <p className={NOTE}>
+          Relation checks are off, so no relation grants anything.
+        </p>
       ) : (
         <p className={NOTE}>
-          Direct relation tuples only. A relation reached through a group, a parent object or
-          a resource type's permission expression is found by the check itself; try it in the
-          playground.
+          Direct relation tuples only. A relation reached through a group, a
+          parent object or a resource type's permission expression is found by
+          the check itself; try it in the playground.
         </p>
       )}
       {truncated && (
-        <p className={NOTE}>{`Showing the first ${SUBJECT_LIST_CAP} relations.`}</p>
+        <p
+          className={NOTE}
+        >{`Showing the first ${SUBJECT_LIST_CAP} relations.`}</p>
       )}
     </section>
   )
@@ -565,30 +609,41 @@ function PoliciesSection({
       header: "Namespace",
       cell: (p) => <NamespaceCell path={p.namespacePath} />,
     },
-    { id: "selects", header: "How it selects", cell: (p) => selectedBy(p.selectedBy) },
+    {
+      id: "selects",
+      header: "How it selects",
+      cell: (p) => selectedBy(p.selectedBy),
+    },
   ]
   return (
     <section className="flex flex-col gap-3">
       <Heading>{heading}</Heading>
       {abacOff && (
-        <p className={NOTE}>Policy evaluation is off, so no policy applies to any check.</p>
+        <p className={NOTE}>
+          Policy evaluation is off, so no policy applies to any check.
+        </p>
       )}
       <p className={NOTE}>
-        A policy that selects this subject only through a role it holds for one resource
-        selects it only on checks for that resource, and is not listed here.
+        A policy that selects this subject only through a role it holds for one
+        resource selects it only on checks for that resource, and is not listed
+        here.
       </p>
       <ResourceTable<SubjectPolicy>
         columns={columns}
         rows={rows}
         rowKey={(p) => p.id}
-        caption={rows.length > 0 ? count(rows.length, "policy", "policies") : undefined}
+        caption={
+          rows.length > 0 ? count(rows.length, "policy", "policies") : undefined
+        }
         emptyMessage={`No policy in effect at ${at} selects this subject through its kind, its id or a role it holds for every resource.`}
       />
       {/* With policy evaluation off no policy applies, so saying their
           conditions decide would contradict the note above. */}
       {!abacOff && (
         <p className={NOTE}>
-          {"Selecting is not applying. Each policy's actions, resources, window and conditions decide whether it applies to a given check."}
+          {
+            "Selecting is not applying. Each policy's actions, resources, window and conditions decide whether it applies to a given check."
+          }
         </p>
       )}
     </section>
@@ -621,7 +676,11 @@ function RecentChecksSection({ kind, id }: { kind: string; id: string }) {
               columns={checkColumns()}
               rows={rows}
               rowKey={(c) => c.id}
-              caption={rows.length > 0 ? count(rows.length, "check", "checks") : undefined}
+              caption={
+                rows.length > 0
+                  ? count(rows.length, "check", "checks")
+                  : undefined
+              }
               emptyMessage="No logged check names this subject."
             />
           )

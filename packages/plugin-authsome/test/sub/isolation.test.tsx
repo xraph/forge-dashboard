@@ -6,7 +6,11 @@ import {
   defineSubPlugin,
   useHostQuery,
 } from "@forge-go/dashboard-plugin"
-import type { ForgeSubPlugin, SlotContribution, SlotName } from "@forge-go/dashboard-plugin"
+import type {
+  ForgeSubPlugin,
+  SlotContribution,
+  SlotName,
+} from "@forge-go/dashboard-plugin"
 import { organizationSubPlugin } from "../../src/sub/organization"
 import { SETTINGS_INTENTS } from "../../src/sub/settings-panel"
 import { renderSubPage, subStubClient } from "./harness"
@@ -24,12 +28,26 @@ describe("a sub-plugin's query carries its own contributor", () => {
   it("queries under its own extension, never its host's", async () => {
     const own = subStubClient({
       "orgs.list": {
-        organizations: [{ id: "o1", name: "Acme", slug: "acme", createdAt: "2026-01-01T00:00:00Z" }],
+        organizations: [
+          {
+            id: "o1",
+            name: "Acme",
+            slug: "acme",
+            createdAt: "2026-01-01T00:00:00Z",
+          },
+        ],
       },
     })
     const host = subStubClient({
       "orgs.list": {
-        organizations: [{ id: "x", name: "WRONG", slug: "wrong", createdAt: "2026-01-01T00:00:00Z" }],
+        organizations: [
+          {
+            id: "x",
+            name: "WRONG",
+            slug: "wrong",
+            createdAt: "2026-01-01T00:00:00Z",
+          },
+        ],
       },
     })
 
@@ -63,7 +81,7 @@ describe("a host intent outside the allowlist throws at render", () => {
         hostClient: subStubClient({ "users.list": { users: [] } }).client,
         allowed: [...SETTINGS_INTENTS],
         catchErrors: true,
-      }),
+      })
     ).toThrow(/users\.list/)
 
     // And the component genuinely did not render, rather than throwing after
@@ -83,7 +101,7 @@ describe("one sub-plugin throwing loses only its own slot entry", () => {
    */
   function fakeSub(
     extension: string,
-    contributions: Partial<Record<SlotName, SlotContribution[]>>,
+    contributions: Partial<Record<SlotName, SlotContribution[]>>
   ): ForgeSubPlugin {
     return defineSubPlugin({ extension, host: "authsome", contributions })
   }
@@ -101,12 +119,16 @@ describe("one sub-plugin throwing loses only its own slot entry", () => {
 
     const entries = [
       {
-        subPlugin: fakeSub("alpha", { "user.detail.sections": [{ id: "a", render: Boom }] }),
+        subPlugin: fakeSub("alpha", {
+          "user.detail.sections": [{ id: "a", render: Boom }],
+        }),
         client,
         hostClient,
       },
       {
-        subPlugin: fakeSub("beta", { "user.detail.sections": [{ id: "b", render: Fine }] }),
+        subPlugin: fakeSub("beta", {
+          "user.detail.sections": [{ id: "b", render: Fine }],
+        }),
         client,
         hostClient,
       },
@@ -121,7 +143,7 @@ describe("one sub-plugin throwing loses only its own slot entry", () => {
         <SubPluginProvider entries={entries}>
           <h1>host page</h1>
           <PluginSlot name="user.detail.sections" params={{ userId: "u1" }} />
-        </SubPluginProvider>,
+        </SubPluginProvider>
       )
 
       // Three separate claims, and the middle one is the one that usually

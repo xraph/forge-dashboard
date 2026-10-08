@@ -27,7 +27,12 @@ export function toLocalInput(iso: string | undefined): string {
 export function formatDay(iso: string): string {
   const at = new Date(iso)
   if (Number.isNaN(at.getTime())) return iso
-  return at.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric", timeZone: "UTC" })
+  return at.toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC",
+  })
 }
 
 /**
@@ -40,7 +45,11 @@ export function formatDay(iso: string): string {
 export function formatLocalDay(iso: string): string {
   const at = new Date(iso)
   if (Number.isNaN(at.getTime())) return iso
-  return at.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })
+  return at.toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  })
 }
 
 export function formatPeriod(start: string, end: string): string {
@@ -59,5 +68,9 @@ export function formatUTCInstant(iso: string | undefined): string | undefined {
   if (!iso) return undefined
   const at = new Date(iso)
   if (Number.isNaN(at.getTime())) return undefined
-  return at.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "medium", timeZone: "UTC" })
+  return at.toLocaleString(undefined, {
+    dateStyle: "medium",
+    timeStyle: "medium",
+    timeZone: "UTC",
+  })
 }

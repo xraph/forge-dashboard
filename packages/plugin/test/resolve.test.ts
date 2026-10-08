@@ -15,23 +15,37 @@ function plugin(overrides: Partial<ForgePlugin> = {}): ForgePlugin {
   }
 }
 
-function capabilities(contributors: Capabilities["contributors"]): Capabilities {
+function capabilities(
+  contributors: Capabilities["contributors"]
+): Capabilities {
   return { shellEnvelopes: ["v1"], contributors }
 }
 
 describe("resolvePluginState", () => {
   it("hides the plugin when no contributor matches its extension name", () => {
-    const caps = capabilities([{ name: "other", envelopes: ["v1"], configured: true }])
+    const caps = capabilities([
+      { name: "other", envelopes: ["v1"], configured: true },
+    ])
 
-    expect(resolvePluginState(plugin({ extension: "billing" }), caps)).toEqual({ kind: "hidden" })
+    expect(resolvePluginState(plugin({ extension: "billing" }), caps)).toEqual({
+      kind: "hidden",
+    })
   })
 
   it("does not mismatch when the plugin declares no requires, even though the contributor reports a version", () => {
     const caps = capabilities([
-      { name: "billing", envelopes: ["v1"], configured: true, version: "1.9.0" },
+      {
+        name: "billing",
+        envelopes: ["v1"],
+        configured: true,
+        version: "1.9.0",
+      },
     ])
 
-    const state = resolvePluginState(plugin({ extension: "billing", requires: undefined }), caps)
+    const state = resolvePluginState(
+      plugin({ extension: "billing", requires: undefined }),
+      caps
+    )
 
     expect(state.kind).not.toBe("mismatch")
     expect(state).toEqual({ kind: "ready" })
@@ -39,15 +53,24 @@ describe("resolvePluginState", () => {
 
   it("reports mismatch, carrying both versions, when the reported version is out of the required range", () => {
     const caps = capabilities([
-      { name: "billing", envelopes: ["v1"], configured: true, version: "1.9.0" },
+      {
+        name: "billing",
+        envelopes: ["v1"],
+        configured: true,
+        version: "1.9.0",
+      },
     ])
 
     const state = resolvePluginState(
       plugin({ extension: "billing", requires: "^2.0.0" }),
-      caps,
+      caps
     )
 
-    expect(state).toEqual({ kind: "mismatch", required: "^2.0.0", reported: "1.9.0" })
+    expect(state).toEqual({
+      kind: "mismatch",
+      required: "^2.0.0",
+      reported: "1.9.0",
+    })
   })
 
   it("does not mismatch when the contributor's version is unreported, even with a requires range", () => {
@@ -57,7 +80,7 @@ describe("resolvePluginState", () => {
 
     const state = resolvePluginState(
       plugin({ extension: "billing", requires: "^2.0.0" }),
-      caps,
+      caps
     )
 
     expect(state.kind).not.toBe("mismatch")
@@ -75,9 +98,15 @@ describe("resolvePluginState", () => {
       },
     ])
 
-    const state = resolvePluginState(plugin({ extension: "billing", requires: "^2.0.0" }), caps)
+    const state = resolvePluginState(
+      plugin({ extension: "billing", requires: "^2.0.0" }),
+      caps
+    )
 
-    expect(state).toEqual({ kind: "setup", message: "connect a Stripe account" })
+    expect(state).toEqual({
+      kind: "setup",
+      message: "connect a Stripe account",
+    })
   })
 
   // The intersection of the two failing states, and the only case that pins
@@ -96,18 +125,33 @@ describe("resolvePluginState", () => {
       },
     ])
 
-    const state = resolvePluginState(plugin({ extension: "billing", requires: "^2.0.0" }), caps)
+    const state = resolvePluginState(
+      plugin({ extension: "billing", requires: "^2.0.0" }),
+      caps
+    )
 
     expect(state.kind).toBe("mismatch")
-    expect(state).toEqual({ kind: "mismatch", required: "^2.0.0", reported: "1.9.0" })
+    expect(state).toEqual({
+      kind: "mismatch",
+      required: "^2.0.0",
+      reported: "1.9.0",
+    })
   })
 
   it("is ready when the version is fine and the contributor is configured", () => {
     const caps = capabilities([
-      { name: "billing", envelopes: ["v1"], configured: true, version: "2.1.0" },
+      {
+        name: "billing",
+        envelopes: ["v1"],
+        configured: true,
+        version: "2.1.0",
+      },
     ])
 
-    const state = resolvePluginState(plugin({ extension: "billing", requires: "^2.0.0" }), caps)
+    const state = resolvePluginState(
+      plugin({ extension: "billing", requires: "^2.0.0" }),
+      caps
+    )
 
     expect(state).toEqual({ kind: "ready" })
   })

@@ -20,10 +20,23 @@ export function credentialSummary(creds: CredentialStatus[]): string | null {
 }
 
 /** Column and filter order: the common outcome first, then what needs a look. */
-export const STATUS_ORDER: MessageStatus[] = ["sent", "sending", "suppressed", "failed", "queued", "delivered", "bounced"]
+export const STATUS_ORDER: MessageStatus[] = [
+  "sent",
+  "sending",
+  "suppressed",
+  "failed",
+  "queued",
+  "delivered",
+  "bounced",
+]
 
 /** The four statuses Herald writes today. The other three never occur. */
-export const WRITTEN_STATUSES: MessageStatus[] = ["sending", "sent", "failed", "suppressed"]
+export const WRITTEN_STATUSES: MessageStatus[] = [
+  "sending",
+  "sent",
+  "failed",
+  "suppressed",
+]
 
 const STATUS_LABELS: Record<MessageStatus, string> = {
   sent: "Accepted by provider",
@@ -41,11 +54,23 @@ export function statusLabel(status: MessageStatus): string {
 }
 
 /** Said wherever a single send is shown. */
-export const NO_RECEIPTS = "Herald doesn't receive delivery receipts, so delivery isn't confirmed."
+export const NO_RECEIPTS =
+  "Herald doesn't receive delivery receipts, so delivery isn't confirmed."
 
 export const PREF_CHANNELS = ["email", "sms", "push", "inapp"] as const
-export const ROUTED_CHANNELS = ["email", "sms", "push", "webhook", "chat"] as const
-export const CATEGORIES = ["auth", "transactional", "marketing", "system"] as const
+export const ROUTED_CHANNELS = [
+  "email",
+  "sms",
+  "push",
+  "webhook",
+  "chat",
+] as const
+export const CATEGORIES = [
+  "auth",
+  "transactional",
+  "marketing",
+  "system",
+] as const
 
 /** Herald's own patterns (extension/contract/handlers_templates.go), so a refusal shows before the round trip. */
 export const SLUG_PATTERN = /^[a-z0-9][a-z0-9._-]{0,127}$/

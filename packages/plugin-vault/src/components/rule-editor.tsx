@@ -9,7 +9,11 @@ import {
   useSensor,
   useSensors,
 } from "@dnd-kit/core"
-import type { DragEndEvent, DragOverEvent, UniqueIdentifier } from "@dnd-kit/core"
+import type {
+  DragEndEvent,
+  DragOverEvent,
+  UniqueIdentifier,
+} from "@dnd-kit/core"
 import { restrictToVerticalAxis } from "@dnd-kit/modifiers"
 import {
   SortableContext,
@@ -94,8 +98,15 @@ interface RowProps {
  */
 function RuleRow({ rule, number, flagType, onChange, onRemove }: RowProps) {
   const [open, setOpen] = useState(rule.isNew)
-  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } =
-    useSortable({ id: rule.uid })
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    setActivatorNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: rule.uid })
   const style: CSSProperties = {
     transform: CSS.Translate.toString(transform),
     transition,
@@ -111,7 +122,7 @@ function RuleRow({ rule, number, flagType, onChange, onRemove }: RowProps) {
       className={cn(
         "relative rounded-md border bg-background text-sm",
         isDragging && "z-10 shadow-md ring-1 ring-ring",
-        problem !== undefined && "border-destructive/50",
+        problem !== undefined && "border-destructive/50"
       )}
     >
       <Collapsible open={open} onOpenChange={setOpen}>
@@ -122,13 +133,13 @@ function RuleRow({ rule, number, flagType, onChange, onRemove }: RowProps) {
             {...attributes}
             {...listeners}
             aria-label={`Drag to reorder rule ${number}`}
-            className="-ml-1 mt-0.5 flex size-5 shrink-0 cursor-grab touch-none items-center justify-center rounded text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-hidden active:cursor-grabbing"
+            className="mt-0.5 -ml-1 flex size-5 shrink-0 cursor-grab touch-none items-center justify-center rounded text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-hidden active:cursor-grabbing"
           >
             <GripIcon />
           </button>
           <span
             data-slot="row-lead"
-            className="w-5 shrink-0 font-mono text-xs font-medium tabular-nums text-muted-foreground"
+            className="w-5 shrink-0 font-mono text-xs font-medium text-muted-foreground tabular-nums"
           >
             {number}
           </span>
@@ -160,7 +171,12 @@ function RuleRow({ rule, number, flagType, onChange, onRemove }: RowProps) {
             >
               {open ? "Done" : "Edit"}
             </CollapsibleTrigger>
-            <IconButton type="button" variant="ghost" onClick={() => onRemove(rule.uid)} label={`Remove rule ${number}`} />
+            <IconButton
+              type="button"
+              variant="ghost"
+              onClick={() => onRemove(rule.uid)}
+              label={`Remove rule ${number}`}
+            />
           </div>
         </div>
         <CollapsibleContent keepMounted className="border-t px-3 py-3">
@@ -195,11 +211,18 @@ export interface RuleEditorProps {
  * A failed save leaves the draft exactly as it was, with the error above the
  * list, so the operator can fix it or retry without redoing anything.
  */
-export function RuleEditor({ flagKey, flagType, rules, onClose }: RuleEditorProps) {
+export function RuleEditor({
+  flagKey,
+  flagType,
+  rules,
+  onClose,
+}: RuleEditorProps) {
   const [draft, setDraft] = useState<DraftRule[]>(() => draftFromSaved(rules))
   const [confirmingDiscard, setConfirmingDiscard] = useState(false)
   // What the drag would do if it ended now, so the numbers move as the row does.
-  const [preview, setPreview] = useState<{ from: number; to: number } | null>(null)
+  const [preview, setPreview] = useState<{ from: number; to: number } | null>(
+    null
+  )
   const [announcement, setAnnouncement] = useState("")
   const setRules = useCommand<SetRulesResponse>("flags.setRules")
 
@@ -210,15 +233,18 @@ export function RuleEditor({ flagKey, flagType, rules, onClose }: RuleEditorProp
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   )
 
   const ids = draft.map((r) => r.uid)
-  const shownOrder = preview === null ? ids : arrayMove(ids, preview.from, preview.to)
+  const shownOrder =
+    preview === null ? ids : arrayMove(ids, preview.from, preview.to)
   const numberOf = (id: UniqueIdentifier) => shownOrder.indexOf(String(id)) + 1
 
   function update(uid: string, patch: Partial<DraftRule>) {
-    setDraft((current) => current.map((r) => (r.uid === uid ? { ...r, ...patch } : r)))
+    setDraft((current) =>
+      current.map((r) => (r.uid === uid ? { ...r, ...patch } : r))
+    )
   }
 
   function remove(uid: string) {
@@ -229,7 +255,9 @@ export function RuleEditor({ flagKey, flagType, rules, onClose }: RuleEditorProp
 
   function add(type: AddableRuleType) {
     setDraft((current) => [...current, newRule(type)])
-    setAnnouncement(`Added rule ${draft.length + 1}, ${RULE_TYPE_LABELS[type]}.`)
+    setAnnouncement(
+      `Added rule ${draft.length + 1}, ${RULE_TYPE_LABELS[type]}.`
+    )
   }
 
   function dragOver({ active, over }: DragOverEvent) {
@@ -251,7 +279,10 @@ export function RuleEditor({ flagKey, flagType, rules, onClose }: RuleEditorProp
   async function save() {
     // Enter and a double click both get here while a save is in flight.
     if (saving || problem !== undefined) return
-    const result = await setRules.execute({ key: flagKey, rules: payloadOfAll(draft) })
+    const result = await setRules.execute({
+      key: flagKey,
+      rules: payloadOfAll(draft),
+    })
     // undefined means the client threw. The draft stays for a retry.
     if (result === undefined) return
     onClose(true)
@@ -280,9 +311,12 @@ export function RuleEditor({ flagKey, flagType, rules, onClose }: RuleEditorProp
               "To reorder a rule, press Space to pick it up, the up and down arrow keys to move it, and Space again to drop it. Escape cancels.",
           },
           announcements: {
-            onDragStart: ({ active }) => `Picked up rule ${numberOf(active.id)}.`,
+            onDragStart: ({ active }) =>
+              `Picked up rule ${numberOf(active.id)}.`,
             onDragOver: ({ active, over }) =>
-              over ? `Rule ${numberOf(active.id)} is now at position ${numberOf(over.id)}.` : undefined,
+              over
+                ? `Rule ${numberOf(active.id)} is now at position ${numberOf(over.id)}.`
+                : undefined,
             onDragEnd: ({ active, over }) =>
               over
                 ? `Rule ${numberOf(active.id)} was dropped at position ${numberOf(over.id)}.`
@@ -298,7 +332,8 @@ export function RuleEditor({ flagKey, flagType, rules, onClose }: RuleEditorProp
           <fieldset disabled={saving} className="contents">
             {draft.length === 0 ? (
               <p className="text-sm text-muted-foreground">
-                No rules. Whatever reaches this rung falls through to the default.
+                No rules. Whatever reaches this rung falls through to the
+                default.
               </p>
             ) : (
               <LadderRows label="Rules">
@@ -331,7 +366,14 @@ export function RuleEditor({ flagKey, flagType, rules, onClose }: RuleEditorProp
       <div className="flex flex-wrap items-center gap-2">
         <DropdownMenu>
           <DropdownMenuTrigger
-            render={<Button type="button" variant="outline" size="sm" disabled={saving} />}
+            render={
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={saving}
+              />
+            }
           >
             Add rule
           </DropdownMenuTrigger>
@@ -344,12 +386,20 @@ export function RuleEditor({ flagKey, flagType, rules, onClose }: RuleEditorProp
           </DropdownMenuContent>
         </DropdownMenu>
         <span className="flex-1" />
-        <IconButton type="button" variant="outline" disabled={saving} onClick={discard} label="Discard" />
+        <IconButton
+          type="button"
+          variant="outline"
+          disabled={saving}
+          onClick={discard}
+          label="Discard"
+        />
         <Button
           type="button"
           size="sm"
           disabled={saving || problem !== undefined}
-          aria-describedby={problem === undefined ? undefined : "rule-editor-problem"}
+          aria-describedby={
+            problem === undefined ? undefined : "rule-editor-problem"
+          }
           onClick={() => void save()}
         >
           {saving ? "Saving…" : "Save rules"}

@@ -50,19 +50,28 @@ import type { ErasureSummary, VerifyLevel } from "./types"
  */
 
 export function OutcomeBadge({ outcome }: { outcome: string }) {
-  const variant = outcome === "failure" || outcome === "denied" ? "destructive" : "outline"
+  const variant =
+    outcome === "failure" || outcome === "denied" ? "destructive" : "outline"
   return <Badge variant={variant}>{outcome}</Badge>
 }
 
 export function SeverityBadge({ severity }: { severity: string }) {
   const variant =
-    severity === "critical" ? "destructive" : severity === "warning" ? "secondary" : "outline"
+    severity === "critical"
+      ? "destructive"
+      : severity === "warning"
+        ? "secondary"
+        : "outline"
   return <Badge variant={variant}>{severity}</Badge>
 }
 
 export function CoverageBadge({ level }: { level: VerifyLevel }) {
   const variant =
-    level === "signed" || level === "anchored" ? "default" : level === "unkeyed" ? "secondary" : "outline"
+    level === "signed" || level === "anchored"
+      ? "default"
+      : level === "unkeyed"
+        ? "secondary"
+        : "outline"
   return <Badge variant={variant}>{level}</Badge>
 }
 
@@ -76,13 +85,20 @@ export function isPending(e: Pick<ErasureSummary, "status">): boolean {
 }
 
 export function ErasureStatusBadge({ erasure }: { erasure: ErasureSummary }) {
-  return isPending(erasure) ? <Badge variant="destructive">Pending</Badge> : <Badge variant="outline">Completed</Badge>
+  return isPending(erasure) ? (
+    <Badge variant="destructive">Pending</Badge>
+  ) : (
+    <Badge variant="outline">Completed</Badge>
+  )
 }
 
 export function KeyBadge({ erasure }: { erasure: ErasureSummary }) {
-  if (isPending(erasure)) return <Badge variant="secondary">Not confirmed</Badge>
-  if (erasure.keyDestroyed) return <Badge variant="outline">Key destroyed</Badge>
-  if (erasure.legacyKeyRetained) return <Badge variant="secondary">Legacy key retained</Badge>
+  if (isPending(erasure))
+    return <Badge variant="secondary">Not confirmed</Badge>
+  if (erasure.keyDestroyed)
+    return <Badge variant="outline">Key destroyed</Badge>
+  if (erasure.legacyKeyRetained)
+    return <Badge variant="secondary">Legacy key retained</Badge>
   return <Badge variant="secondary">Key intact</Badge>
 }
 

@@ -40,12 +40,16 @@ function contractStub() {
       // A 401 here, not a 200 with authenticated: false, is what resolves the
       // session to "signedOut" (see session.tsx). That is what puts PluginHost
       // on AuthRoutes instead of the ordinary shell.
-      return Promise.resolve(Response.json({ authenticated: false }, { status: 401 }))
+      return Promise.resolve(
+        Response.json({ authenticated: false }, { status: 401 })
+      )
     }
     if (url.endsWith("/capabilities")) {
       return Promise.resolve(Response.json({ contributors: [] }))
     }
-    return Promise.resolve(Response.json({ ok: true, data: { passwordEnabled: true } }))
+    return Promise.resolve(
+      Response.json({ ok: true, data: { passwordEnabled: true } })
+    )
   }) as unknown as typeof fetch
 }
 
@@ -61,13 +65,19 @@ describe("authScreens override", () => {
       <ForgeDashboard
         authScreens={{ signIn: CustomSignIn }}
         basename="/forge"
-        config={{ basePath: "/api/forge", shellBase: "/forge", authEnabled: true }}
+        config={{
+          basePath: "/api/forge",
+          shellBase: "/forge",
+          authEnabled: true,
+        }}
         fetchImpl={contractStub()}
         plugins={[authPlugin]}
-      />,
+      />
     )
 
-    await waitFor(() => expect(screen.getByTestId("custom-sign-in")).toBeDefined())
+    await waitFor(() =>
+      expect(screen.getByTestId("custom-sign-in")).toBeDefined()
+    )
     // Proof this is the override and not the default rendering alongside it:
     // the default sign-in screen's own heading must not be on the page.
     expect(screen.queryByRole("heading", { name: /^sign in$/i })).toBeNull()

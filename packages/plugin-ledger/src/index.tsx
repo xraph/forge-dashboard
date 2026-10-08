@@ -1,7 +1,18 @@
 import { lazy } from "react"
 import { definePlugin } from "@forge-go/dashboard-plugin"
 import type { PluginNavItem, PluginRoute } from "@forge-go/dashboard-plugin"
-import { ChartColumnIcon, CreditCardIcon, HouseIcon, ListChecksIcon, PackageIcon, ReceiptIcon, RepeatIcon, SettingsIcon, TicketPercentIcon, WalletIcon } from "@forge-go/dashboard-kit/icons"
+import {
+  ChartColumnIcon,
+  CreditCardIcon,
+  HouseIcon,
+  ListChecksIcon,
+  PackageIcon,
+  ReceiptIcon,
+  RepeatIcon,
+  SettingsIcon,
+  TicketPercentIcon,
+  WalletIcon,
+} from "@forge-go/dashboard-kit/icons"
 import { LedgerCouponCreatePage } from "./pages/coupon-create"
 import { LedgerCouponDetailPage } from "./pages/coupon-detail"
 import { LedgerCouponEditPage } from "./pages/coupon-edit"
@@ -60,15 +71,69 @@ export function inGroupOrder(items: PluginNavItem[]): PluginNavItem[] {
  * nowhere else, so recharts and the table code stay out of the entry chunk.
  */
 const navItems: PluginNavItem[] = [
-  { label: "Overview", to: "/", priority: 0, icon: <HouseIcon />, group: "Overview" },
-  { label: "Plans", to: "/plans", priority: 0, icon: <PackageIcon />, group: "Catalog" },
-  { label: "Features", to: "/features", priority: 10, icon: <ListChecksIcon />, group: "Catalog" },
-  { label: "Coupons", to: "/coupons", priority: 20, icon: <TicketPercentIcon />, group: "Catalog" },
-  { label: "Subscriptions", to: "/subscriptions", priority: 0, icon: <RepeatIcon />, group: "Billing" },
-  { label: "Invoices", to: "/invoices", priority: 10, icon: <ReceiptIcon />, group: "Billing" },
-  { label: "Usage", to: "/usage", priority: 20, icon: <ChartColumnIcon />, group: "Billing" },
-  { label: "Payment methods", to: "/payment-methods", priority: 40, icon: <CreditCardIcon />, group: "Billing" },
-  { label: "Settings", to: "/settings", priority: 0, icon: <SettingsIcon />, group: "Configuration" },
+  {
+    label: "Overview",
+    to: "/",
+    priority: 0,
+    icon: <HouseIcon />,
+    group: "Overview",
+  },
+  {
+    label: "Plans",
+    to: "/plans",
+    priority: 0,
+    icon: <PackageIcon />,
+    group: "Catalog",
+  },
+  {
+    label: "Features",
+    to: "/features",
+    priority: 10,
+    icon: <ListChecksIcon />,
+    group: "Catalog",
+  },
+  {
+    label: "Coupons",
+    to: "/coupons",
+    priority: 20,
+    icon: <TicketPercentIcon />,
+    group: "Catalog",
+  },
+  {
+    label: "Subscriptions",
+    to: "/subscriptions",
+    priority: 0,
+    icon: <RepeatIcon />,
+    group: "Billing",
+  },
+  {
+    label: "Invoices",
+    to: "/invoices",
+    priority: 10,
+    icon: <ReceiptIcon />,
+    group: "Billing",
+  },
+  {
+    label: "Usage",
+    to: "/usage",
+    priority: 20,
+    icon: <ChartColumnIcon />,
+    group: "Billing",
+  },
+  {
+    label: "Payment methods",
+    to: "/payment-methods",
+    priority: 40,
+    icon: <CreditCardIcon />,
+    group: "Billing",
+  },
+  {
+    label: "Settings",
+    to: "/settings",
+    priority: 0,
+    icon: <SettingsIcon />,
+    group: "Configuration",
+  },
 ]
 const routes: PluginRoute[] = [
   { path: "/", element: LedgerOverviewPage },

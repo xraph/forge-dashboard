@@ -4,10 +4,16 @@ import type { Capabilities } from "@forge-go/dashboard-plugin"
 import type { PluginNavItem } from "@forge-go/dashboard-plugin"
 import ledgerPlugin, { inGroupOrder, ledgerPlugin as named } from "../src/index"
 
-function capabilities(...contributors: { name: string; configured?: boolean }[]): Capabilities {
+function capabilities(
+  ...contributors: { name: string; configured?: boolean }[]
+): Capabilities {
   return {
     shellEnvelopes: ["v1"],
-    contributors: contributors.map((c) => ({ name: c.name, envelopes: ["v1"], configured: c.configured ?? true })),
+    contributors: contributors.map((c) => ({
+      name: c.name,
+      envelopes: ["v1"],
+      configured: c.configured ?? true,
+    })),
   }
 }
 
@@ -19,11 +25,15 @@ describe("ledgerPlugin", () => {
   // The join key, checked by what the host does with it: the Go manifest's
   // contributor.name is "ledger" (forgery/ledger/extension/contract/manifest.yaml).
   it("resolves to ready against a host reporting ledger's contributor", () => {
-    expect(resolvePluginState(ledgerPlugin, capabilities({ name: "ledger" }))).toEqual({ kind: "ready" })
+    expect(
+      resolvePluginState(ledgerPlugin, capabilities({ name: "ledger" }))
+    ).toEqual({ kind: "ready" })
   })
 
   it("is hidden when the host does not report ledger", () => {
-    expect(resolvePluginState(ledgerPlugin, capabilities({ name: "vault" })).kind).toBe("hidden")
+    expect(
+      resolvePluginState(ledgerPlugin, capabilities({ name: "vault" })).kind
+    ).toBe("hidden")
   })
 
   it("mounts under /@ledger and is labelled Billing", () => {
@@ -34,16 +44,24 @@ describe("ledgerPlugin", () => {
   it("names a route for every nav entry", () => {
     const paths = new Set(ledgerPlugin.routes.map((r) => r.path))
     for (const item of ledgerPlugin.nav) {
-      expect(paths, `nav "${item.label}" points at ${item.to}`).toContain(item.to)
+      expect(paths, `nav "${item.label}" points at ${item.to}`).toContain(
+        item.to
+      )
     }
   })
 
   it("loads the heavy routes lazily", () => {
     const lazyPaths = ledgerPlugin.routes
-      .filter((r) => (r.element as unknown as { $$typeof?: symbol }).$$typeof === Symbol.for("react.lazy"))
+      .filter(
+        (r) =>
+          (r.element as unknown as { $$typeof?: symbol }).$$typeof ===
+          Symbol.for("react.lazy")
+      )
       .map((r) => r.path)
       .sort()
-    const expected = ["/invoices/:id", "/plans/:id", "/usage"].filter((p) => ledgerPlugin.routes.some((r) => r.path === p))
+    const expected = ["/invoices/:id", "/plans/:id", "/usage"].filter((p) =>
+      ledgerPlugin.routes.some((r) => r.path === p)
+    )
     expect(lazyPaths).toContain("/plans/:id")
     expect(lazyPaths).toContain("/invoices/:id")
     expect(lazyPaths).toContain("/usage")
@@ -52,19 +70,32 @@ describe("ledgerPlugin", () => {
 
   it("lists Usage in Billing, between Invoices and Payment methods", () => {
     const billing = ledgerPlugin.nav.filter((n) => n.group === "Billing")
-    const order = [...billing].sort((a, b) => (a.priority ?? 0) - (b.priority ?? 0)).map((n) => n.label)
-    expect(order).toEqual(["Subscriptions", "Invoices", "Usage", "Payment methods"])
+    const order = [...billing]
+      .sort((a, b) => (a.priority ?? 0) - (b.priority ?? 0))
+      .map((n) => n.label)
+    expect(order).toEqual([
+      "Subscriptions",
+      "Invoices",
+      "Usage",
+      "Payment methods",
+    ])
     expect(ledgerPlugin.nav.find((n) => n.label === "Usage")?.to).toBe("/usage")
   })
 
   it("orders sidebar groups Overview, Catalog, Billing, Configuration", () => {
     const order = ["Overview", "Catalog", "Billing", "Configuration"]
-    const seen = ledgerPlugin.nav.map((n) => n.group as string).filter((g, i, all) => all.indexOf(g) === i)
+    const seen = ledgerPlugin.nav
+      .map((n) => n.group as string)
+      .filter((g, i, all) => all.indexOf(g) === i)
     expect(seen).toEqual(order.filter((g) => seen.includes(g)))
   })
 
   it("sorts out-of-order entries into group order, and puts an unknown group first", () => {
-    const item = (label: string, group: string): PluginNavItem => ({ label, to: `/${label}`, group })
+    const item = (label: string, group: string): PluginNavItem => ({
+      label,
+      to: `/${label}`,
+      group,
+    })
     const sorted = inGroupOrder([
       item("settings", "Configuration"),
       item("invoices", "Billing"),
@@ -75,6 +106,13 @@ describe("ledgerPlugin", () => {
     ])
     // The unknown group ranks -1 and so leads the sidebar. It is not dropped,
     // and entries within a group keep the order they were given in.
-    expect(sorted.map((n) => n.label)).toEqual(["mystery", "overview", "plans", "invoices", "usage", "settings"])
+    expect(sorted.map((n) => n.label)).toEqual([
+      "mystery",
+      "overview",
+      "plans",
+      "invoices",
+      "usage",
+      "settings",
+    ])
   })
 })

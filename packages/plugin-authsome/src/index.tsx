@@ -49,11 +49,7 @@ export type {
   LogoutResult,
   SocialProvider,
 } from "@forge-go/dashboard-plugin"
-export type {
-  AckResponse,
-  UserSummary,
-  UsersList,
-} from "./pages/users"
+export type { AckResponse, UserSummary, UsersList } from "./pages/users"
 export { displayName } from "./pages/users"
 export type { UserDetail } from "./pages/user-detail"
 export type {
@@ -74,11 +70,12 @@ export type { AppSummary, AppsList } from "./pages/apps"
 export type { AppDetail } from "./pages/app-detail"
 export type { EnvSummary, EnvironmentsList } from "./pages/environments"
 export type { EnvDetail } from "./pages/environment-detail"
-export type { WebhookDetail, WebhookSummary, WebhooksList } from "./pages/webhooks"
 export type {
-  FormConfigSummary,
-  FormConfigsList,
-} from "./pages/signup-forms"
+  WebhookDetail,
+  WebhookSummary,
+  WebhooksList,
+} from "./pages/webhooks"
+export type { FormConfigSummary, FormConfigsList } from "./pages/signup-forms"
 export type {
   FormField,
   SelectOption,
@@ -138,9 +135,17 @@ const APP_DIMENSION: ContextDimension = {
     }
     return {
       current: d.currentApp
-        ? { id: d.currentApp.id, label: d.currentApp.name, slug: d.currentApp.slug }
+        ? {
+            id: d.currentApp.id,
+            label: d.currentApp.name,
+            slug: d.currentApp.slug,
+          }
         : undefined,
-      options: (d.availableApps ?? []).map((a) => ({ id: a.id, label: a.name, slug: a.slug })),
+      options: (d.availableApps ?? []).map((a) => ({
+        id: a.id,
+        label: a.name,
+        slug: a.slug,
+      })),
     }
   },
   payload: (appId) => ({ appId }),
@@ -149,7 +154,12 @@ const APP_DIMENSION: ContextDimension = {
   // no segment in the URL at all, AuthAppPicker renders in place of every
   // page this plugin has, rather than thirty-seven links that would each
   // answer about an app nobody picked.
-  routed: { placement: "path", param: "app", by: "slug", picker: AuthAppPicker },
+  routed: {
+    placement: "path",
+    param: "app",
+    by: "slug",
+    picker: AuthAppPicker,
+  },
 }
 
 const ENV_DIMENSION: ContextDimension = {
@@ -164,9 +174,17 @@ const ENV_DIMENSION: ContextDimension = {
     }
     return {
       current: d.currentEnv
-        ? { id: d.currentEnv.id, label: d.currentEnv.name, slug: d.currentEnv.slug }
+        ? {
+            id: d.currentEnv.id,
+            label: d.currentEnv.name,
+            slug: d.currentEnv.slug,
+          }
         : undefined,
-      options: (d.availableEnvs ?? []).map((e) => ({ id: e.id, label: e.name, slug: e.slug })),
+      options: (d.availableEnvs ?? []).map((e) => ({
+        id: e.id,
+        label: e.name,
+        slug: e.slug,
+      })),
     }
   },
   payload: (envId) => ({ envId }),
@@ -226,12 +244,42 @@ export const authsomePlugin = definePlugin({
   },
   nav: [
     // Identity
-    { label: "Users", to: "/users", priority: 10, icon: <UsersIcon />, group: "Identity" },
-    { label: "Sessions", to: "/sessions", priority: 20, icon: <ClockIcon />, group: "Identity" },
-    { label: "Devices", to: "/devices", priority: 30, icon: <SmartphoneIcon />, group: "Identity" },
-    { label: "App roles", to: "/roles", priority: 40, icon: <UserCogIcon />, group: "Identity" },
+    {
+      label: "Users",
+      to: "/users",
+      priority: 10,
+      icon: <UsersIcon />,
+      group: "Identity",
+    },
+    {
+      label: "Sessions",
+      to: "/sessions",
+      priority: 20,
+      icon: <ClockIcon />,
+      group: "Identity",
+    },
+    {
+      label: "Devices",
+      to: "/devices",
+      priority: 30,
+      icon: <SmartphoneIcon />,
+      group: "Identity",
+    },
+    {
+      label: "App roles",
+      to: "/roles",
+      priority: 40,
+      icon: <UserCogIcon />,
+      group: "Identity",
+    },
     // Configuration
-    { label: "Apps", to: "/apps", priority: 10, icon: <AppWindowIcon />, group: "Configuration" },
+    {
+      label: "Apps",
+      to: "/apps",
+      priority: 10,
+      icon: <AppWindowIcon />,
+      group: "Configuration",
+    },
     {
       label: "Environments",
       to: "/environments",
@@ -239,7 +287,13 @@ export const authsomePlugin = definePlugin({
       icon: <LayersIcon />,
       group: "Configuration",
     },
-    { label: "Webhooks", to: "/webhooks", priority: 30, icon: <WebhookIcon />, group: "Configuration" },
+    {
+      label: "Webhooks",
+      to: "/webhooks",
+      priority: 30,
+      icon: <WebhookIcon />,
+      group: "Configuration",
+    },
     {
       label: "Signup forms",
       to: "/signup-forms",
@@ -247,13 +301,43 @@ export const authsomePlugin = definePlugin({
       icon: <ClipboardListIcon />,
       group: "Configuration",
     },
-    { label: "Settings", to: "/settings", priority: 50, icon: <SettingsIcon />, group: "Configuration" },
+    {
+      label: "Settings",
+      to: "/settings",
+      priority: 50,
+      icon: <SettingsIcon />,
+      group: "Configuration",
+    },
     // Security
-    { label: "Credentials", to: "/credentials", priority: 10, icon: <KeyIcon />, group: "Security" },
-    { label: "Features", to: "/features", priority: 20, icon: <ToggleLeftIcon />, group: "Security" },
+    {
+      label: "Credentials",
+      to: "/credentials",
+      priority: 10,
+      icon: <KeyIcon />,
+      group: "Security",
+    },
+    {
+      label: "Features",
+      to: "/features",
+      priority: 20,
+      icon: <ToggleLeftIcon />,
+      group: "Security",
+    },
     // System
-    { label: "Overview", to: "/", priority: 10, icon: <HomeIcon />, group: "System" },
-    { label: "Plugins", to: "/plugins", priority: 20, icon: <PuzzleIcon />, group: "System" },
+    {
+      label: "Overview",
+      to: "/",
+      priority: 10,
+      icon: <HomeIcon />,
+      group: "System",
+    },
+    {
+      label: "Plugins",
+      to: "/plugins",
+      priority: 20,
+      icon: <PuzzleIcon />,
+      group: "System",
+    },
   ],
   routes: [
     { path: "/", element: AuthOverviewPage },

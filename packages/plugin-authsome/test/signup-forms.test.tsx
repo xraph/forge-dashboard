@@ -2,11 +2,20 @@ import { describe, expect, it } from "vitest"
 import { fireEvent, screen, waitFor } from "@testing-library/react"
 import { ContractError } from "@forge-go/dashboard-plugin"
 import { recordingCommandClient, renderPage, stubClient } from "./harness"
-import { AuthSignupFormEditorPage, AuthSignupFormsPage } from "../src/pages/signup-forms"
+import {
+  AuthSignupFormEditorPage,
+  AuthSignupFormsPage,
+} from "../src/pages/signup-forms"
 
 const listAnswer = {
   formConfigs: [
-    { id: "f1", formType: "signup", version: 3, active: true, createdAt: "2026-01-01T00:00:00Z" },
+    {
+      id: "f1",
+      formType: "signup",
+      version: 3,
+      active: true,
+      createdAt: "2026-01-01T00:00:00Z",
+    },
   ],
 }
 
@@ -91,7 +100,7 @@ describe("AuthSignupFormEditorPage", () => {
   it("sends the whole fields array on save", async () => {
     const { client, sent } = recordingCommandClient(
       { "formConfigs.signup": signupAnswer },
-      { "formConfigs.saveSignup": { ok: true } },
+      { "formConfigs.saveSignup": { ok: true } }
     )
     renderPage(AuthSignupFormEditorPage, client)
     await waitFor(() => expect(screen.getByDisplayValue("email")).toBeTruthy())
@@ -108,7 +117,7 @@ describe("AuthSignupFormEditorPage", () => {
   it("confirms before deleting, then sends an empty payload", async () => {
     const { client, sent } = recordingCommandClient(
       { "formConfigs.signup": signupAnswer },
-      { "formConfigs.deleteSignup": { ok: true } },
+      { "formConfigs.deleteSignup": { ok: true } }
     )
     renderPage(AuthSignupFormEditorPage, client)
     await waitFor(() => expect(screen.getByDisplayValue("email")).toBeTruthy())
@@ -128,7 +137,12 @@ describe("AuthSignupFormEditorPage", () => {
   it("shows the server's reason and leaves the delete dialog open when the delete fails", async () => {
     const { client } = recordingCommandClient(
       { "formConfigs.signup": signupAnswer },
-      { "formConfigs.deleteSignup": new ContractError("VALIDATION", "no signup form to delete") },
+      {
+        "formConfigs.deleteSignup": new ContractError(
+          "VALIDATION",
+          "no signup form to delete"
+        ),
+      }
     )
     renderPage(AuthSignupFormEditorPage, client)
     await waitFor(() => expect(screen.getByDisplayValue("email")).toBeTruthy())

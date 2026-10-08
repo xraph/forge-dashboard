@@ -1,7 +1,12 @@
 import { describe, expect, it, vi } from "vitest"
 import { screen, within } from "@testing-library/react"
 import { KeyDetailPage } from "../src/pages/key-detail"
-import type { KeyDetail, RotationsList, Settings, UsageSeries } from "../src/types"
+import type {
+  KeyDetail,
+  RotationsList,
+  Settings,
+  UsageSeries,
+} from "../src/types"
 import { renderPage, stubClient } from "./harness"
 
 // The chart's chunk fails to load, as it does when a deploy has replaced the
@@ -10,7 +15,7 @@ import { renderPage, stubClient } from "./harness"
 // would leave key-detail.test.tsx's chart test unable to draw, and its chart
 // would leave this one nothing to reject.
 vi.mock("../src/components/usage-chart", () =>
-  Promise.reject(new Error("Failed to fetch dynamically imported module")),
+  Promise.reject(new Error("Failed to fetch dynamically imported module"))
 )
 
 const DETAIL: KeyDetail = {
@@ -85,7 +90,7 @@ describe("KeyDetailPage usage when the chart cannot load", () => {
         "usage.series": RECORDED,
         settings: SETTINGS,
       }),
-      { id: "akey_billing" },
+      { id: "akey_billing" }
     )
     await screen.findByRole("heading", { level: 1, name: "Billing service" })
     const s = section("Usage")
@@ -93,14 +98,20 @@ describe("KeyDetailPage usage when the chart cannot load", () => {
     const line = await within(s).findByText(/^Chart unavailable\./)
     const link = within(line).getByRole("link")
     // This key's usage, absolute like the section's own Open usage link.
-    expect(link.getAttribute("href")).toBe("/@keysmith/usage?keyId=akey_billing")
+    expect(link.getAttribute("href")).toBe(
+      "/@keysmith/usage?keyId=akey_billing"
+    )
 
-    expect(within(s).queryByRole("status", { name: "Loading the usage chart" })).toBeNull()
+    expect(
+      within(s).queryByRole("status", { name: "Loading the usage chart" })
+    ).toBeNull()
     expect(s.querySelector("[data-chart]")).toBeNull()
     expect(
-      within(s).getByText("70 requests over 7 UTC days, today included."),
+      within(s).getByText("70 requests over 7 UTC days, today included.")
     ).toBeTruthy()
     // The rest of the page is untouched.
-    expect(screen.getByRole("heading", { level: 2, name: "Validity" })).toBeTruthy()
+    expect(
+      screen.getByRole("heading", { level: 2, name: "Validity" })
+    ).toBeTruthy()
   })
 })

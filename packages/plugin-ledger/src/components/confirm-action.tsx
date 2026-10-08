@@ -57,7 +57,10 @@ export function ConfirmAction<T>({
       onConfirm={() => void confirm()}
     >
       {children}
-      <CommandAlert title={`Could not ${confirmLabel.toLowerCase()}`} error={command.error} />
+      <CommandAlert
+        title={`Could not ${confirmLabel.toLowerCase()}`}
+        error={command.error}
+      />
     </ConfirmDialog>
   )
 }

@@ -1,7 +1,10 @@
 import type { ComponentType } from "react"
 import { useHostCommand, useHostQuery } from "@forge-go/dashboard-plugin"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
-import { QueryBoundary, CommandAlert } from "@forge-go/dashboard-kit/components/query-boundary"
+import {
+  QueryBoundary,
+  CommandAlert,
+} from "@forge-go/dashboard-kit/components/query-boundary"
 import { SettingsForm } from "@forge-go/dashboard-kit/components/settings-form"
 import { flattenCategories, toDescriptors } from "../settings-fields"
 import type { SettingsNamespaceResponse } from "../settings-fields"
@@ -36,12 +39,17 @@ export const SETTINGS_INTENTS = [
  * The panel does not read `params` -- a namespace is fixed at module scope --
  * but it has to declare the prop to be usable where every other page is.
  */
-export function settingsPanelFor(namespace: string): ComponentType<PluginPageProps> {
+export function settingsPanelFor(
+  namespace: string
+): ComponentType<PluginPageProps> {
   function SettingsPanel() {
-    const query = useHostQuery<SettingsNamespaceResponse>("settings.namespace", {
-      namespace,
-      scope: "app",
-    })
+    const query = useHostQuery<SettingsNamespaceResponse>(
+      "settings.namespace",
+      {
+        namespace,
+        scope: "app",
+      }
+    )
     const update = useHostCommand<{ ok: boolean }>("settings.update")
 
     async function save(changed: Record<string, unknown>) {

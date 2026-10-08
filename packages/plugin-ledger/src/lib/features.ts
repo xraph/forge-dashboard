@@ -3,10 +3,18 @@ import type { FeatureType } from "../types"
 const number = new Intl.NumberFormat()
 
 /** How a reset period reads. `none` is "Never": every page and both forms use this one word. */
-export const PERIOD_LABEL: Record<string, string> = { monthly: "Monthly", yearly: "Yearly", none: "Never" }
+export const PERIOD_LABEL: Record<string, string> = {
+  monthly: "Monthly",
+  yearly: "Yearly",
+  none: "Never",
+}
 
 /** How a feature type reads. */
-export const TYPE_LABEL: Record<string, string> = { metered: "Metered", seat: "Seats", boolean: "On or off" }
+export const TYPE_LABEL: Record<string, string> = {
+  metered: "Metered",
+  seat: "Seats",
+  boolean: "On or off",
+}
 
 /**
  * A reset period for display, or undefined when there is none to show.

@@ -1,5 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react"
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react"
 import {
   ContractError,
   NavigationProvider,
@@ -17,7 +24,10 @@ import {
   type PolicyUpdatePayload,
   type PolicyValidateResponse,
 } from "../src/components/policy-editor"
-import { OPERATOR_WORDS, type PolicyDetail } from "../src/components/policy-rule"
+import {
+  OPERATOR_WORDS,
+  type PolicyDetail,
+} from "../src/components/policy-rule"
 // For its beforeEach, which clears the module-level query store.
 import "./harness"
 
@@ -41,7 +51,12 @@ const POLICY: PolicyDetail = {
   actions: ["document:delete"],
   resources: ["document:*"],
   conditions: [
-    { id: "cond_a", field: "context.ip", operator: "not_in", value: ["10.0.0.0/8"] },
+    {
+      id: "cond_a",
+      field: "context.ip",
+      operator: "not_in",
+      value: ["10.0.0.0/8"],
+    },
     { id: "cond_b", field: "subject.mfa", operator: "exists" },
   ],
   obligations: ["notify-security"],
@@ -68,7 +83,12 @@ const LOADED_DRAFT: PolicyDraft = {
   actions: ["document:delete"],
   resources: ["document:*"],
   conditions: [
-    { id: "cond_a", field: "context.ip", operator: "not_in", value: ["10.0.0.0/8"] },
+    {
+      id: "cond_a",
+      field: "context.ip",
+      operator: "not_in",
+      value: ["10.0.0.0/8"],
+    },
     { id: "cond_b", field: "subject.mfa", operator: "exists" },
   ],
   obligations: ["notify-security"],
@@ -94,7 +114,9 @@ const ALLOW_FROM =
   "This allow will grant every check in its namespace and below that no deny policy refuses, from 15 Oct 2026, 09:00 UTC."
 
 interface Options {
-  validate?: (draft: PolicyDraft) => PolicyValidateResponse | Promise<PolicyValidateResponse>
+  validate?: (
+    draft: PolicyDraft
+  ) => PolicyValidateResponse | Promise<PolicyValidateResponse>
   update?: unknown
 }
 
@@ -111,18 +133,23 @@ function editorClient(opts: Options = {}) {
     query: async (intent: string, params?: Record<string, unknown>) => {
       queries.push({ intent, params })
       if (intent === "policies.validate") {
-        return (opts.validate ?? (() => VALID))(params as unknown as PolicyDraft)
+        return (opts.validate ?? (() => VALID))(
+          params as unknown as PolicyDraft
+        )
       }
       throw new ContractError("NOT_FOUND", `no handler for intent "${intent}"`)
     },
     command: (intent: string, payload?: unknown) => {
       commands.push({ intent, payload })
       if (intent !== "policies.update") {
-        return Promise.reject(new ContractError("NOT_FOUND", `no handler for "${intent}"`))
+        return Promise.reject(
+          new ContractError("NOT_FOUND", `no handler for "${intent}"`)
+        )
       }
       if (typeof opts.update === "function") return opts.update(payload)
       if (opts.update === "never") return new Promise<never>(() => {})
-      if (opts.update instanceof ContractError) return Promise.reject(opts.update)
+      if (opts.update instanceof ContractError)
+        return Promise.reject(opts.update)
       return Promise.resolve(opts.update ?? {})
     },
   } as unknown as ScopedClient
@@ -157,9 +184,12 @@ function renderEditor(
   /** The editor's parent handing it a refetched policy, as a detail query would. */
   const refetch = (next: Partial<PolicyDetail>) =>
     utils.rerender(tree({ ...POLICY, ...over, ...next }))
-  const validates = () => queries.filter((q) => q.intent === "policies.validate")
+  const validates = () =>
+    queries.filter((q) => q.intent === "policies.validate")
   const wire = () =>
-    commands.filter((c) => c.intent === "policies.update").map((c) => c.payload as PolicyUpdatePayload)
+    commands
+      .filter((c) => c.intent === "policies.update")
+      .map((c) => c.payload as PolicyUpdatePayload)
   // The patch each update carried. Every update also carries the version
   // the editor loaded, which "the version it loaded" pins on the whole wire
   // body; leaving it out here keeps each patch test about its patch.
@@ -186,12 +216,18 @@ async function save() {
 }
 
 const dialog = () => within(screen.getByRole("alertdialog"))
-const input = (name: string) => screen.getByRole("textbox", { name }) as HTMLInputElement
-const labelled = (name: string) => screen.getByLabelText(name) as HTMLInputElement
-const change = (el: Element, value: string) => fireEvent.change(el, { target: { value } })
-const row = (i: number) => document.querySelector(`[data-condition="${i}"]`) as HTMLElement
+const input = (name: string) =>
+  screen.getByRole("textbox", { name }) as HTMLInputElement
+const labelled = (name: string) =>
+  screen.getByLabelText(name) as HTMLInputElement
+const change = (el: Element, value: string) =>
+  fireEvent.change(el, { target: { value } })
+const row = (i: number) =>
+  document.querySelector(`[data-condition="${i}"]`) as HTMLElement
 const issues = (part: string) =>
-  Array.from(document.querySelectorAll(`[data-issue="${part}"]`)).map((e) => e.textContent)
+  Array.from(document.querySelectorAll(`[data-issue="${part}"]`)).map(
+    (e) => e.textContent
+  )
 
 function addEntry(noun: string, value: string) {
   change(input(`New ${noun}`), value)
@@ -218,44 +254,142 @@ describe("PolicyEditor", () => {
       act: () => void
       want: Omit<PolicyUpdatePayload, "id">
     }[] = [
-      { name: "name changed", act: () => change(labelled("Name"), "office-hours"), want: { name: "office-hours" } },
-      { name: "description changed", act: () => change(labelled("Description"), "New words."), want: { description: "New words." } },
-      { name: "description cleared", act: () => change(labelled("Description"), ""), want: { description: "" } },
-      { name: "effect changed", act: () => fireEvent.click(screen.getByRole("button", { name: "Allow" })), want: { effect: "allow" } },
-      { name: "priority changed", act: () => change(labelled("Priority"), "25"), want: { priority: 25 } },
-      { name: "start changed", act: () => change(input("In effect from"), "2026-07-01T00:00:00Z"), want: { notBefore: "2026-07-01T00:00:00Z" } },
-      { name: "start cleared", act: () => fireEvent.click(screen.getByRole("button", { name: "Clear start" })), want: { notBefore: "" } },
-      { name: "end changed", act: () => change(input("In effect until"), "2027-01-31T00:00:00Z"), want: { notAfter: "2027-01-31T00:00:00Z" } },
-      { name: "end cleared", act: () => fireEvent.click(screen.getByRole("button", { name: "Clear end" })), want: { notAfter: "" } },
+      {
+        name: "name changed",
+        act: () => change(labelled("Name"), "office-hours"),
+        want: { name: "office-hours" },
+      },
+      {
+        name: "description changed",
+        act: () => change(labelled("Description"), "New words."),
+        want: { description: "New words." },
+      },
+      {
+        name: "description cleared",
+        act: () => change(labelled("Description"), ""),
+        want: { description: "" },
+      },
+      {
+        name: "effect changed",
+        act: () =>
+          fireEvent.click(screen.getByRole("button", { name: "Allow" })),
+        want: { effect: "allow" },
+      },
+      {
+        name: "priority changed",
+        act: () => change(labelled("Priority"), "25"),
+        want: { priority: 25 },
+      },
+      {
+        name: "start changed",
+        act: () => change(input("In effect from"), "2026-07-01T00:00:00Z"),
+        want: { notBefore: "2026-07-01T00:00:00Z" },
+      },
+      {
+        name: "start cleared",
+        act: () =>
+          fireEvent.click(screen.getByRole("button", { name: "Clear start" })),
+        want: { notBefore: "" },
+      },
+      {
+        name: "end changed",
+        act: () => change(input("In effect until"), "2027-01-31T00:00:00Z"),
+        want: { notAfter: "2027-01-31T00:00:00Z" },
+      },
+      {
+        name: "end cleared",
+        act: () =>
+          fireEvent.click(screen.getByRole("button", { name: "Clear end" })),
+        want: { notAfter: "" },
+      },
       {
         name: "subjects changed",
         act: () => {
-          change(screen.getByRole("combobox", { name: "New subject kind" }), "service")
+          change(
+            screen.getByRole("combobox", { name: "New subject kind" }),
+            "service"
+          )
           change(input("New subject id"), "svc_1")
           fireEvent.click(screen.getByRole("button", { name: "Add subject" }))
         },
-        want: { subjects: [{ role: "contractor" }, { kind: "user", id: "usr_2f8a" }, { kind: "service", id: "svc_1" }] },
+        want: {
+          subjects: [
+            { role: "contractor" },
+            { kind: "user", id: "usr_2f8a" },
+            { kind: "service", id: "svc_1" },
+          ],
+        },
       },
       {
         name: "subjects cleared",
         act: () => {
-          fireEvent.click(screen.getByRole("button", { name: "Remove subject role: contractor" }))
-          fireEvent.click(screen.getByRole("button", { name: "Remove subject user: usr_2f8a" }))
+          fireEvent.click(
+            screen.getByRole("button", {
+              name: "Remove subject role: contractor",
+            })
+          )
+          fireEvent.click(
+            screen.getByRole("button", {
+              name: "Remove subject user: usr_2f8a",
+            })
+          )
         },
         want: { subjects: [] },
       },
-      { name: "actions changed", act: () => addEntry("action", "document:read"), want: { actions: ["document:delete", "document:read"] } },
-      { name: "actions cleared", act: () => fireEvent.click(screen.getByRole("button", { name: "Remove action document:delete" })), want: { actions: [] } },
-      { name: "resources changed", act: () => addEntry("resource", "report:*"), want: { resources: ["document:*", "report:*"] } },
-      { name: "resources cleared", act: () => fireEvent.click(screen.getByRole("button", { name: "Remove resource document:*" })), want: { resources: [] } },
-      { name: "obligations changed", act: () => addEntry("obligation", "page-oncall"), want: { obligations: ["notify-security", "page-oncall"] } },
-      { name: "obligations cleared", act: () => fireEvent.click(screen.getByRole("button", { name: "Remove obligation notify-security" })), want: { obligations: [] } },
+      {
+        name: "actions changed",
+        act: () => addEntry("action", "document:read"),
+        want: { actions: ["document:delete", "document:read"] },
+      },
+      {
+        name: "actions cleared",
+        act: () =>
+          fireEvent.click(
+            screen.getByRole("button", {
+              name: "Remove action document:delete",
+            })
+          ),
+        want: { actions: [] },
+      },
+      {
+        name: "resources changed",
+        act: () => addEntry("resource", "report:*"),
+        want: { resources: ["document:*", "report:*"] },
+      },
+      {
+        name: "resources cleared",
+        act: () =>
+          fireEvent.click(
+            screen.getByRole("button", { name: "Remove resource document:*" })
+          ),
+        want: { resources: [] },
+      },
+      {
+        name: "obligations changed",
+        act: () => addEntry("obligation", "page-oncall"),
+        want: { obligations: ["notify-security", "page-oncall"] },
+      },
+      {
+        name: "obligations cleared",
+        act: () =>
+          fireEvent.click(
+            screen.getByRole("button", {
+              name: "Remove obligation notify-security",
+            })
+          ),
+        want: { obligations: [] },
+      },
       {
         name: "conditions changed",
         act: () => change(input("Condition 2 field"), "subject.otp"),
         want: {
           conditions: [
-            { id: "cond_a", field: "context.ip", operator: "not_in", value: ["10.0.0.0/8"] },
+            {
+              id: "cond_a",
+              field: "context.ip",
+              operator: "not_in",
+              value: ["10.0.0.0/8"],
+            },
             { id: "cond_b", field: "subject.otp", operator: "exists" },
           ],
         },
@@ -263,36 +397,52 @@ describe("PolicyEditor", () => {
       {
         name: "conditions cleared",
         act: () => {
-          fireEvent.click(screen.getByRole("button", { name: "Remove condition 2" }))
-          fireEvent.click(screen.getByRole("button", { name: "Remove condition 1" }))
+          fireEvent.click(
+            screen.getByRole("button", { name: "Remove condition 2" })
+          )
+          fireEvent.click(
+            screen.getByRole("button", { name: "Remove condition 1" })
+          )
         },
         want: { conditions: [] },
       },
     ]
 
-    it.each(cases)("sends only the id and the part: $name", async ({ act: doIt, want }) => {
-      const { updates } = renderEditor()
-      doIt()
-      await save()
-      expect(updates()).toEqual([{ id: "pol_01", ...want }])
-      expect(Object.keys(updates()[0])).toEqual(["id", ...Object.keys(want)])
-    })
+    it.each(cases)(
+      "sends only the id and the part: $name",
+      async ({ act: doIt, want }) => {
+        const { updates } = renderEditor()
+        doIt()
+        await save()
+        expect(updates()).toEqual([{ id: "pol_01", ...want }])
+        expect(Object.keys(updates()[0])).toEqual(["id", ...Object.keys(want)])
+      }
+    )
 
     it("sends every changed part together, and still leaves the untouched ones out", async () => {
       const { updates } = renderEditor()
       change(labelled("Name"), "office-hours")
-      fireEvent.click(screen.getByRole("button", { name: "Remove action document:delete" }))
+      fireEvent.click(
+        screen.getByRole("button", { name: "Remove action document:delete" })
+      )
       fireEvent.click(screen.getByRole("button", { name: "Clear end" }))
       await save()
       expect(updates()).toEqual([
         { id: "pol_01", name: "office-hours", notAfter: "", actions: [] },
       ])
-      expect(Object.keys(updates()[0]).sort()).toEqual(["actions", "id", "name", "notAfter"])
+      expect(Object.keys(updates()[0]).sort()).toEqual([
+        "actions",
+        "id",
+        "name",
+        "notAfter",
+      ])
     })
 
     it("cannot save a policy nothing has changed on", async () => {
       renderEditor()
-      const button = screen.getByRole("button", { name: "Save changes" }) as HTMLButtonElement
+      const button = screen.getByRole("button", {
+        name: "Save changes",
+      }) as HTMLButtonElement
       expect(button.disabled).toBe(true)
       change(labelled("Name"), "office-hours")
       change(labelled("Name"), "office-only")
@@ -305,7 +455,9 @@ describe("PolicyEditor", () => {
       const { updates } = renderEditor({ notBefore, notAfter })
       expect(input("In effect from").value).toBe(notBefore)
       expect(input("In effect until").value).toBe(notAfter)
-      const button = screen.getByRole("button", { name: "Save changes" }) as HTMLButtonElement
+      const button = screen.getByRole("button", {
+        name: "Save changes",
+      }) as HTMLButtonElement
       expect(button.disabled).toBe(true)
       change(labelled("Name"), "office-hours")
       await save()
@@ -316,7 +468,9 @@ describe("PolicyEditor", () => {
       const { updates } = renderEditor()
       change(labelled("Priority"), "2.5")
       expect(issues("priority")).toEqual(["Priority must be a whole number."])
-      const button = screen.getByRole("button", { name: "Save changes" }) as HTMLButtonElement
+      const button = screen.getByRole("button", {
+        name: "Save changes",
+      }) as HTMLButtonElement
       expect(button.disabled).toBe(true)
       await save()
       expect(updates()).toEqual([])
@@ -326,11 +480,19 @@ describe("PolicyEditor", () => {
   describe("condition values", () => {
     it("sends a number as a JSON number", async () => {
       const { updates } = renderEditor()
-      change(screen.getByRole("combobox", { name: "Condition 1 operator" }), "gt")
+      change(
+        screen.getByRole("combobox", { name: "Condition 1 operator" }),
+        "gt"
+      )
       change(labelled("Condition 1 value"), "5")
       await save()
       const sent = updates()[0].conditions!
-      expect(sent[0]).toEqual({ id: "cond_a", field: "context.ip", operator: "gt", value: 5 })
+      expect(sent[0]).toEqual({
+        id: "cond_a",
+        field: "context.ip",
+        operator: "gt",
+        value: 5,
+      })
       expect(typeof sent[0].value).toBe("number")
     })
 
@@ -338,18 +500,28 @@ describe("PolicyEditor", () => {
       const { updates } = renderEditor()
       fireEvent.click(screen.getByRole("button", { name: "Add condition" }))
       change(input("Condition 3 field"), "subject.dept")
-      change(screen.getByRole("combobox", { name: "Condition 3 operator" }), "in")
+      change(
+        screen.getByRole("combobox", { name: "Condition 3 operator" }),
+        "in"
+      )
       addEntry("value for condition 3", "eng")
       addEntry("value for condition 3", "ops")
       await save()
       const sent = updates()[0].conditions!
-      expect(sent[2]).toEqual({ field: "subject.dept", operator: "in", value: ["eng", "ops"] })
+      expect(sent[2]).toEqual({
+        field: "subject.dept",
+        operator: "in",
+        value: ["eng", "ops"],
+      })
       expect(Array.isArray(sent[2].value)).toBe(true)
     })
 
     it("sends one or more networks as a JSON array", async () => {
       const { updates } = renderEditor()
-      change(screen.getByRole("combobox", { name: "Condition 1 operator" }), "ip_in_cidr")
+      change(
+        screen.getByRole("combobox", { name: "Condition 1 operator" }),
+        "ip_in_cidr"
+      )
       addEntry("network for condition 1", "192.168.0.0/16")
       await save()
       expect(updates()[0].conditions![0]).toEqual({
@@ -364,7 +536,10 @@ describe("PolicyEditor", () => {
       const { updates } = renderEditor()
       fireEvent.click(screen.getByRole("button", { name: "Add condition" }))
       change(input("Condition 3 field"), "subject.otp")
-      change(screen.getByRole("combobox", { name: "Condition 3 operator" }), "not_exists")
+      change(
+        screen.getByRole("combobox", { name: "Condition 3 operator" }),
+        "not_exists"
+      )
       await save()
       const sent = updates()[0].conditions!
       expect(Object.keys(sent[1])).toEqual(["id", "field", "operator"])
@@ -374,14 +549,21 @@ describe("PolicyEditor", () => {
 
     it("drops the value when an operator changes to exists", async () => {
       const { updates } = renderEditor()
-      change(screen.getByRole("combobox", { name: "Condition 1 operator" }), "exists")
+      change(
+        screen.getByRole("combobox", { name: "Condition 1 operator" }),
+        "exists"
+      )
       await save()
       expect(updates()[0].conditions![0]).toEqual({
         id: "cond_a",
         field: "context.ip",
         operator: "exists",
       })
-      expect(Object.keys(updates()[0].conditions![0])).toEqual(["id", "field", "operator"])
+      expect(Object.keys(updates()[0].conditions![0])).toEqual([
+        "id",
+        "field",
+        "operator",
+      ])
     })
 
     it("keeps each stored condition's id and sends none for a new row", async () => {
@@ -392,16 +574,27 @@ describe("PolicyEditor", () => {
       change(input("Condition 3 value"), "usr_1")
       await save()
       expect(updates()[0].conditions).toEqual([
-        { id: "cond_a", field: "context.client_ip", operator: "not_in", value: ["10.0.0.0/8"] },
+        {
+          id: "cond_a",
+          field: "context.client_ip",
+          operator: "not_in",
+          value: ["10.0.0.0/8"],
+        },
         { id: "cond_b", field: "subject.mfa", operator: "exists" },
         { field: "resource.owner", operator: "eq", value: "usr_1" },
       ])
-      expect(Object.keys(updates()[0].conditions![2])).toEqual(["field", "operator", "value"])
+      expect(Object.keys(updates()[0].conditions![2])).toEqual([
+        "field",
+        "operator",
+        "value",
+      ])
     })
 
     it("keeps a remaining row's id when an earlier row is removed", async () => {
       const { updates } = renderEditor()
-      fireEvent.click(screen.getByRole("button", { name: "Remove condition 1" }))
+      fireEvent.click(
+        screen.getByRole("button", { name: "Remove condition 1" })
+      )
       await save()
       expect(updates()[0].conditions).toEqual([
         { id: "cond_b", field: "subject.mfa", operator: "exists" },
@@ -425,11 +618,25 @@ describe("PolicyEditor", () => {
 
     it("clears a list when the operator changes from in to greater than", async () => {
       const { updates } = renderEditor({
-        conditions: [{ id: "cond_a", field: "subject.level", operator: "in", value: ["1", "2"] }],
+        conditions: [
+          {
+            id: "cond_a",
+            field: "subject.level",
+            operator: "in",
+            value: ["1", "2"],
+          },
+        ],
       })
-      expect(screen.getByRole("button", { name: "Remove value for condition 1 1" })).toBeTruthy()
-      change(screen.getByRole("combobox", { name: "Condition 1 operator" }), "gt")
-      expect(screen.queryByRole("button", { name: "Remove value for condition 1 1" })).toBeNull()
+      expect(
+        screen.getByRole("button", { name: "Remove value for condition 1 1" })
+      ).toBeTruthy()
+      change(
+        screen.getByRole("combobox", { name: "Condition 1 operator" }),
+        "gt"
+      )
+      expect(
+        screen.queryByRole("button", { name: "Remove value for condition 1 1" })
+      ).toBeNull()
       const value = labelled("Condition 1 value")
       expect(value.type).toBe("number")
       expect(value.value).toBe("")
@@ -442,23 +649,37 @@ describe("PolicyEditor", () => {
 
     it("clears text when the operator changes from equals to at least", () => {
       renderEditor({
-        conditions: [{ id: "cond_a", field: "subject.dept", operator: "eq", value: "eng" }],
+        conditions: [
+          { id: "cond_a", field: "subject.dept", operator: "eq", value: "eng" },
+        ],
       })
       expect(input("Condition 1 value").value).toBe("eng")
-      change(screen.getByRole("combobox", { name: "Condition 1 operator" }), "gte")
+      change(
+        screen.getByRole("combobox", { name: "Condition 1 operator" }),
+        "gte"
+      )
       expect(labelled("Condition 1 value").value).toBe("")
     })
 
     it("keeps a list when the operator changes between two that read one", () => {
       renderEditor()
-      change(screen.getByRole("combobox", { name: "Condition 1 operator" }), "in")
-      expect(screen.getByRole("button", { name: "Remove value for condition 1 10.0.0.0/8" })).toBeTruthy()
+      change(
+        screen.getByRole("combobox", { name: "Condition 1 operator" }),
+        "in"
+      )
+      expect(
+        screen.getByRole("button", {
+          name: "Remove value for condition 1 10.0.0.0/8",
+        })
+      ).toBeTruthy()
     })
 
     it("offers exactly the 17 operators, by their words", () => {
       renderEditor()
       const options = Array.from(
-        screen.getByRole("combobox", { name: "Condition 1 operator" }).querySelectorAll("option")
+        screen
+          .getByRole("combobox", { name: "Condition 1 operator" })
+          .querySelectorAll("option")
       )
       expect(options.map((o) => o.value)).toEqual(Object.keys(OPERATOR_WORDS))
       expect(options.map((o) => o.textContent)).toEqual([
@@ -501,24 +722,42 @@ describe("PolicyEditor", () => {
       ["exists", null, "none"],
       ["not_exists", null, "none"],
     ]
-    it.each(kinds)("gives %s the value input for its type", (op, kind, shape) => {
-      renderEditor({ conditions: [{ id: "cond_a", field: "subject.x", operator: op }] })
-      const el = row(0).querySelector("[data-value-kind]") as HTMLElement | null
-      if (kind === null) {
-        expect(el).toBeNull()
-        return
+    it.each(kinds)(
+      "gives %s the value input for its type",
+      (op, kind, shape) => {
+        renderEditor({
+          conditions: [{ id: "cond_a", field: "subject.x", operator: op }],
+        })
+        const el = row(0).querySelector(
+          "[data-value-kind]"
+        ) as HTMLElement | null
+        if (kind === null) {
+          expect(el).toBeNull()
+          return
+        }
+        expect(el!.getAttribute("data-value-kind")).toBe(kind)
+        if (shape === "number")
+          expect((el as HTMLInputElement).type).toBe("number")
+        if (shape === "text") expect((el as HTMLInputElement).type).toBe("text")
+        if (shape === "chips") expect(el!.tagName).toBe("SPAN")
       }
-      expect(el!.getAttribute("data-value-kind")).toBe(kind)
-      if (shape === "number") expect((el as HTMLInputElement).type).toBe("number")
-      if (shape === "text") expect((el as HTMLInputElement).type).toBe("text")
-      if (shape === "chips") expect(el!.tagName).toBe("SPAN")
-    })
+    )
 
     it("shows the RFC3339 shape for a time and a pattern for matches", () => {
       renderEditor({
         conditions: [
-          { id: "cond_a", field: "context.time", operator: "time_after", value: "2026-06-01T09:00:00Z" },
-          { id: "cond_b", field: "subject.dept", operator: "regex", value: "^eng-" },
+          {
+            id: "cond_a",
+            field: "context.time",
+            operator: "time_after",
+            value: "2026-06-01T09:00:00Z",
+          },
+          {
+            id: "cond_b",
+            field: "subject.dept",
+            operator: "regex",
+            value: "^eng-",
+          },
         ],
       })
       expect(input("Condition 1 value").placeholder).toBe("RFC3339 time")
@@ -531,35 +770,59 @@ describe("PolicyEditor", () => {
   describe("the matcher rows", () => {
     it("shows any action once every action chip is removed", () => {
       renderEditor()
-      const actionRow = document.querySelector('[data-row="action"]') as HTMLElement
+      const actionRow = document.querySelector(
+        '[data-row="action"]'
+      ) as HTMLElement
       expect(actionRow.textContent).not.toContain("any action")
-      fireEvent.click(screen.getByRole("button", { name: "Remove action document:delete" }))
+      fireEvent.click(
+        screen.getByRole("button", { name: "Remove action document:delete" })
+      )
       expect(within(actionRow).getByText("any action")).toBeTruthy()
     })
 
     it("shows anyone and any resource once every chip is removed", () => {
       renderEditor()
-      fireEvent.click(screen.getByRole("button", { name: "Remove subject role: contractor" }))
-      fireEvent.click(screen.getByRole("button", { name: "Remove subject user: usr_2f8a" }))
-      fireEvent.click(screen.getByRole("button", { name: "Remove resource document:*" }))
-      const subjectRow = document.querySelector('[data-row="subject"]') as HTMLElement
-      const resourceRow = document.querySelector('[data-row="resource"]') as HTMLElement
+      fireEvent.click(
+        screen.getByRole("button", { name: "Remove subject role: contractor" })
+      )
+      fireEvent.click(
+        screen.getByRole("button", { name: "Remove subject user: usr_2f8a" })
+      )
+      fireEvent.click(
+        screen.getByRole("button", { name: "Remove resource document:*" })
+      )
+      const subjectRow = document.querySelector(
+        '[data-row="subject"]'
+      ) as HTMLElement
+      const resourceRow = document.querySelector(
+        '[data-row="resource"]'
+      ) as HTMLElement
       expect(within(subjectRow).getByText("anyone")).toBeTruthy()
       expect(within(resourceRow).getByText("any resource")).toBeTruthy()
     })
 
     it("puts or between chips", () => {
       renderEditor()
-      const subjectRow = document.querySelector('[data-row="subject"]') as HTMLElement
+      const subjectRow = document.querySelector(
+        '[data-row="subject"]'
+      ) as HTMLElement
       expect(subjectRow.textContent).toContain("role: contractoror")
     })
 
     it("offers exactly warden's four subject kinds", () => {
       renderEditor()
       const options = Array.from(
-        screen.getByRole("combobox", { name: "New subject kind" }).querySelectorAll("option")
+        screen
+          .getByRole("combobox", { name: "New subject kind" })
+          .querySelectorAll("option")
       )
-      expect(options.map((o) => o.value)).toEqual(["", "user", "api_key", "service", "service_acct"])
+      expect(options.map((o) => o.value)).toEqual([
+        "",
+        "user",
+        "api_key",
+        "service",
+        "service_acct",
+      ])
     })
 
     it("refuses an empty subject matcher with the server's sentence, and adds nothing", async () => {
@@ -570,7 +833,13 @@ describe("PolicyEditor", () => {
       expect(EMPTY_SUBJECT).toBe(
         "An empty subject matcher matches everyone. To mean everyone, remove every subject instead."
       )
-      expect((screen.getByRole("button", { name: "Save changes" }) as HTMLButtonElement).disabled).toBe(true)
+      expect(
+        (
+          screen.getByRole("button", {
+            name: "Save changes",
+          }) as HTMLButtonElement
+        ).disabled
+      ).toBe(true)
       await save()
       expect(updates()).toEqual([])
     })
@@ -580,7 +849,11 @@ describe("PolicyEditor", () => {
       change(screen.getByRole("combobox", { name: "New subject kind" }), "user")
       change(input("New subject role"), "editor")
       fireEvent.click(screen.getByRole("button", { name: "Add subject" }))
-      expect(screen.getByRole("button", { name: "Remove subject user with role editor" })).toBeTruthy()
+      expect(
+        screen.getByRole("button", {
+          name: "Remove subject user with role editor",
+        })
+      ).toBeTruthy()
     })
 
     it("colours only a chosen Deny", () => {
@@ -597,7 +870,11 @@ describe("PolicyEditor", () => {
 
     it("reads an effect that is not exactly allow as Deny", () => {
       renderEditor({ effect: "block" })
-      expect(screen.getByRole("button", { name: "Deny" }).getAttribute("aria-pressed")).toBe("true")
+      expect(
+        screen
+          .getByRole("button", { name: "Deny" })
+          .getAttribute("aria-pressed")
+      ).toBe("true")
     })
   })
 
@@ -626,7 +903,10 @@ describe("PolicyEditor", () => {
         vi.advanceTimersByTime(1)
       })
       expect(validates()).toEqual([
-        { intent: "policies.validate", params: { ...LOADED_DRAFT, description: "abc" } },
+        {
+          intent: "policies.validate",
+          params: { ...LOADED_DRAFT, description: "abc" },
+        },
       ])
     })
 
@@ -636,16 +916,27 @@ describe("PolicyEditor", () => {
           conditions: [
             { id: "c0", field: "action.verb", operator: "neq", value: "x" },
             { id: "c1", field: "subject.dept", operator: "eq", value: "eng" },
-            { id: "c2", field: "context.ip", operator: "in", value: "10.0.0.0/8" },
+            {
+              id: "c2",
+              field: "context.ip",
+              operator: "in",
+              value: "10.0.0.0/8",
+            },
           ],
         },
         {
           validate: () => ({
             valid: false,
             matchesEverything: false,
-            fields: { actions: "An entry is empty.", window: "The end must be after the start." },
+            fields: {
+              actions: "An entry is empty.",
+              window: "The end must be after the start.",
+            },
             conditions: [
-              { index: 0, message: 'Warden never gives "action.verb" a value.' },
+              {
+                index: 0,
+                message: 'Warden never gives "action.verb" a value.',
+              },
               { index: 2, message: "This operator needs a list of values." },
             ],
           }),
@@ -655,9 +946,13 @@ describe("PolicyEditor", () => {
       expect(row(0).getAttribute("data-invalid")).toBe("true")
       expect(row(1).getAttribute("data-invalid")).toBeNull()
       expect(row(2).getAttribute("data-invalid")).toBe("true")
-      expect(issues("condition-0")).toEqual(['Warden never gives "action.verb" a value.'])
+      expect(issues("condition-0")).toEqual([
+        'Warden never gives "action.verb" a value.',
+      ])
       expect(issues("condition-1")).toEqual([])
-      expect(issues("condition-2")).toEqual(["This operator needs a list of values."])
+      expect(issues("condition-2")).toEqual([
+        "This operator needs a list of values.",
+      ])
       expect(issues("actions")).toEqual(["An entry is empty."])
       expect(issues("window")).toEqual(["The end must be after the start."])
       expect(issues("name")).toEqual([])
@@ -689,7 +984,13 @@ describe("PolicyEditor", () => {
       "This policy cannot be saved: 1 condition(s) and 1 field(s) need fixing.",
       {
         fields: { window: "The end must be after the start." },
-        conditions: [{ index: 1, message: "The value must be an RFC3339 time, like 2026-06-01T09:00:00Z." }],
+        conditions: [
+          {
+            index: 1,
+            message:
+              "The value must be an RFC3339 time, like 2026-06-01T09:00:00Z.",
+          },
+        ],
       }
     )
 
@@ -698,7 +999,10 @@ describe("PolicyEditor", () => {
       change(labelled("Description"), "typed description")
       change(input("In effect until"), "2026-05-01T00:00:00Z")
       change(input("Condition 2 field"), "context.time")
-      change(screen.getByRole("combobox", { name: "Condition 2 operator" }), "time_after")
+      change(
+        screen.getByRole("combobox", { name: "Condition 2 operator" }),
+        "time_after"
+      )
       change(input("Condition 2 value"), "tomorrow")
       await save()
       expect(updates()).toHaveLength(1)
@@ -717,7 +1021,11 @@ describe("PolicyEditor", () => {
       expect(input("In effect until").value).toBe("2026-05-01T00:00:00Z")
       expect(input("Condition 2 field").value).toBe("context.time")
       expect(
-        (screen.getByRole("combobox", { name: "Condition 2 operator" }) as HTMLSelectElement).value
+        (
+          screen.getByRole("combobox", {
+            name: "Condition 2 operator",
+          }) as HTMLSelectElement
+        ).value
       ).toBe("time_after")
       expect(input("Condition 2 value").value).toBe("tomorrow")
     })
@@ -740,8 +1048,14 @@ describe("PolicyEditor", () => {
       const { wire } = renderEditor()
       change(labelled("Description"), "x")
       await save()
-      expect(wire()).toEqual([{ id: "pol_01", description: "x", expectedVersion: 3 }])
-      expect(Object.keys(wire()[0]).sort()).toEqual(["description", "expectedVersion", "id"])
+      expect(wire()).toEqual([
+        { id: "pol_01", description: "x", expectedVersion: 3 },
+      ])
+      expect(Object.keys(wire()[0]).sort()).toEqual([
+        "description",
+        "expectedVersion",
+        "id",
+      ])
     })
 
     it("sends the version it loaded, not one a refetch brings in under the draft", async () => {
@@ -749,7 +1063,9 @@ describe("PolicyEditor", () => {
       change(labelled("Description"), "x")
       refetch({ version: 4, description: "Someone else's words." })
       await save()
-      expect(wire()).toEqual([{ id: "pol_01", description: "x", expectedVersion: 3 }])
+      expect(wire()).toEqual([
+        { id: "pol_01", description: "x", expectedVersion: 3 },
+      ])
     })
 
     it("sends the version it loaded through the save confirmation too", async () => {
@@ -760,7 +1076,9 @@ describe("PolicyEditor", () => {
       await screen.findByRole("alertdialog")
       fireEvent.click(dialog().getByRole("button", { name: "Save changes" }))
       await act(async () => {})
-      expect(wire()).toEqual([{ id: "pol_01", description: "x", expectedVersion: 3 }])
+      expect(wire()).toEqual([
+        { id: "pol_01", description: "x", expectedVersion: 3 },
+      ])
     })
 
     it("explains a stale refusal, keeps the draft on screen and stays put", async () => {
@@ -784,7 +1102,9 @@ describe("PolicyEditor", () => {
       const { navigated, wire } = renderEditor({}, { update: stale })
       change(labelled("Description"), "x")
       await save()
-      const button = screen.getByRole("button", { name: "Save changes" }) as HTMLButtonElement
+      const button = screen.getByRole("button", {
+        name: "Save changes",
+      }) as HTMLButtonElement
       expect(button.disabled).toBe(false)
       await save()
       expect(wire()).toEqual([
@@ -796,7 +1116,10 @@ describe("PolicyEditor", () => {
     })
 
     it("explains a stale refusal inside the save confirmation, which stays open", async () => {
-      const { navigated } = renderEditor({}, { validate: () => EVERYTHING, update: stale })
+      const { navigated } = renderEditor(
+        {},
+        { validate: () => EVERYTHING, update: stale }
+      )
       change(labelled("Description"), "x")
       await settle()
       await save()
@@ -810,20 +1133,27 @@ describe("PolicyEditor", () => {
     })
 
     it("shows the server's own message for a CONFLICT that is a taken name", async () => {
-      const taken = new ContractError("CONFLICT", 'policy "office-hours" already exists')
+      const taken = new ContractError(
+        "CONFLICT",
+        'policy "office-hours" already exists'
+      )
       const { navigated } = renderEditor({}, { update: taken })
       change(labelled("Name"), "office-hours")
       await save()
       expect(navigated).toEqual([])
       const alert = screen.getByRole("alert")
       expect(alert.textContent).toContain("Could not save the policy")
-      expect(alert.textContent).toContain('policy "office-hours" already exists')
+      expect(alert.textContent).toContain(
+        'policy "office-hours" already exists'
+      )
       expect(alert.textContent).toContain("CONFLICT")
       expect(alert.textContent).not.toContain(STALE_EDIT)
     })
 
     it("shows the server's own message for a CONFLICT with some other reason", async () => {
-      const other = new ContractError("CONFLICT", "something else collided", { reason: "other" })
+      const other = new ContractError("CONFLICT", "something else collided", {
+        reason: "other",
+      })
       renderEditor({}, { update: other })
       change(labelled("Description"), "x")
       await save()
@@ -838,9 +1168,14 @@ describe("PolicyEditor", () => {
       renderEditor({}, { update: "never" })
       change(labelled("Description"), "x")
       await save()
-      const saving = screen.getByRole("button", { name: "Saving…" }) as HTMLButtonElement
+      const saving = screen.getByRole("button", {
+        name: "Saving…",
+      }) as HTMLButtonElement
       expect(saving.disabled).toBe(true)
-      expect((screen.getByRole("button", { name: "Cancel" }) as HTMLButtonElement).disabled).toBe(true)
+      expect(
+        (screen.getByRole("button", { name: "Cancel" }) as HTMLButtonElement)
+          .disabled
+      ).toBe(true)
     })
 
     it("shows the confirm dialog as pending while the update is in flight", async () => {
@@ -850,16 +1185,26 @@ describe("PolicyEditor", () => {
       await save()
       await screen.findByRole("alertdialog")
       fireEvent.click(dialog().getByRole("button", { name: "Save changes" }))
-      const working = (await dialog().findByRole("button", { name: "Working…" })) as HTMLButtonElement
+      const working = (await dialog().findByRole("button", {
+        name: "Working…",
+      })) as HTMLButtonElement
       expect(working.disabled).toBe(true)
-      expect((dialog().getByRole("button", { name: "Cancel" }) as HTMLButtonElement).disabled).toBe(true)
+      expect(
+        (dialog().getByRole("button", { name: "Cancel" }) as HTMLButtonElement)
+          .disabled
+      ).toBe(true)
     })
   })
 
   describe("the save confirmation", () => {
     it("confirms an active deny the server says matches every check, and sends nothing until confirmed", async () => {
-      const { updates, navigated } = renderEditor({}, { validate: () => EVERYTHING })
-      fireEvent.click(screen.getByRole("button", { name: "Remove action document:delete" }))
+      const { updates, navigated } = renderEditor(
+        {},
+        { validate: () => EVERYTHING }
+      )
+      fireEvent.click(
+        screen.getByRole("button", { name: "Remove action document:delete" })
+      )
       await settle()
       await save()
       await screen.findByRole("alertdialog")
@@ -903,12 +1248,18 @@ describe("PolicyEditor", () => {
           "This deny will apply to every check in its namespace and below from 15 Oct 2026, 09:00 UTC."
         )
       ).toBeTruthy()
-      expect(screen.getByRole("alertdialog").textContent).not.toContain("as soon as you save")
+      expect(screen.getByRole("alertdialog").textContent).not.toContain(
+        "as soon as you save"
+      )
     })
 
     it("names the start for an allow whose saved window has not opened", async () => {
       renderEditor(
-        { effect: "allow", state: "scheduled", notBefore: "2026-10-15T09:00:00Z" },
+        {
+          effect: "allow",
+          state: "scheduled",
+          notBefore: "2026-10-15T09:00:00Z",
+        },
         { validate: () => EVERYTHING }
       )
       change(labelled("Description"), "x")
@@ -916,7 +1267,9 @@ describe("PolicyEditor", () => {
       await save()
       await screen.findByRole("alertdialog")
       expect(dialog().getByText(ALLOW_FROM)).toBeTruthy()
-      expect(screen.getByRole("alertdialog").textContent).not.toContain("as soon as you save")
+      expect(screen.getByRole("alertdialog").textContent).not.toContain(
+        "as soon as you save"
+      )
     })
 
     it("names the start when the edit moves it into the future", async () => {
@@ -969,7 +1322,9 @@ describe("PolicyEditor", () => {
       await settle()
       await save()
       expect(screen.queryByRole("alertdialog")).toBeNull()
-      expect(updates()).toEqual([{ id: "pol_01", notBefore: "2026-09-30 11:00:00Z" }])
+      expect(updates()).toEqual([
+        { id: "pol_01", notBefore: "2026-09-30 11:00:00Z" },
+      ])
     })
 
     it("judges the window again on confirm, and asks again when the sentence changed", async () => {
@@ -1017,7 +1372,9 @@ describe("PolicyEditor", () => {
         { isActive: false, state: "inactive" },
         { validate: () => EVERYTHING }
       )
-      fireEvent.click(screen.getByRole("button", { name: "Remove action document:delete" }))
+      fireEvent.click(
+        screen.getByRole("button", { name: "Remove action document:delete" })
+      )
       await settle()
       await save()
       expect(screen.queryByRole("alertdialog")).toBeNull()
@@ -1042,12 +1399,18 @@ describe("PolicyEditor", () => {
       await settle()
       await save()
       expect(screen.queryByRole("alertdialog")).toBeNull()
-      expect(updates()).toEqual([{ id: "pol_01", notAfter: "2026-09-01T00:00:00Z" }])
+      expect(updates()).toEqual([
+        { id: "pol_01", notAfter: "2026-09-01T00:00:00Z" },
+      ])
     })
 
     it("does not confirm when the stored window ends before it starts", async () => {
       const { updates } = renderEditor(
-        { state: "never", notBefore: "2026-12-01T00:00:00Z", notAfter: "2026-11-01T00:00:00Z" },
+        {
+          state: "never",
+          notBefore: "2026-12-01T00:00:00Z",
+          notAfter: "2026-11-01T00:00:00Z",
+        },
         { validate: () => EVERYTHING }
       )
       change(labelled("Description"), "x")
@@ -1078,15 +1441,28 @@ describe("PolicyEditor", () => {
     })
 
     it("reads the server's flag, not its own count, when every matcher is empty", async () => {
-      const { updates } = renderEditor({ conditions: [] }, { validate: () => VALID })
-      fireEvent.click(screen.getByRole("button", { name: "Remove subject role: contractor" }))
-      fireEvent.click(screen.getByRole("button", { name: "Remove subject user: usr_2f8a" }))
-      fireEvent.click(screen.getByRole("button", { name: "Remove action document:delete" }))
-      fireEvent.click(screen.getByRole("button", { name: "Remove resource document:*" }))
+      const { updates } = renderEditor(
+        { conditions: [] },
+        { validate: () => VALID }
+      )
+      fireEvent.click(
+        screen.getByRole("button", { name: "Remove subject role: contractor" })
+      )
+      fireEvent.click(
+        screen.getByRole("button", { name: "Remove subject user: usr_2f8a" })
+      )
+      fireEvent.click(
+        screen.getByRole("button", { name: "Remove action document:delete" })
+      )
+      fireEvent.click(
+        screen.getByRole("button", { name: "Remove resource document:*" })
+      )
       await settle()
       await save()
       expect(screen.queryByRole("alertdialog")).toBeNull()
-      expect(updates()).toEqual([{ id: "pol_01", subjects: [], actions: [], resources: [] }])
+      expect(updates()).toEqual([
+        { id: "pol_01", subjects: [], actions: [], resources: [] },
+      ])
     })
 
     it("asks validate about the exact draft when Save beats the debounce", async () => {
@@ -1098,12 +1474,17 @@ describe("PolicyEditor", () => {
       const { validates, updates } = renderEditor(
         {},
         {
-          validate: (d) => ({ ...VALID, matchesEverything: (d.actions ?? []).length === 0 }),
+          validate: (d) => ({
+            ...VALID,
+            matchesEverything: (d.actions ?? []).length === 0,
+          }),
         }
       )
       await settle()
       expect(validates()).toHaveLength(1)
-      fireEvent.click(screen.getByRole("button", { name: "Remove action document:delete" }))
+      fireEvent.click(
+        screen.getByRole("button", { name: "Remove action document:delete" })
+      )
       await save()
       await act(async () => {})
       expect(validates()).toHaveLength(2)
@@ -1124,10 +1505,16 @@ describe("PolicyEditor", () => {
     })
 
     it("closes the dialog on a refusal that names rows, and marks them on the form", async () => {
-      const refusal = new ContractError("BAD_REQUEST", "This policy cannot be saved.", {
-        fields: {},
-        conditions: [{ index: 0, message: "This operator needs a list of values." }],
-      })
+      const refusal = new ContractError(
+        "BAD_REQUEST",
+        "This policy cannot be saved.",
+        {
+          fields: {},
+          conditions: [
+            { index: 0, message: "This operator needs a list of values." },
+          ],
+        }
+      )
       renderEditor({}, { validate: () => EVERYTHING, update: refusal })
       change(labelled("Description"), "x")
       await settle()
@@ -1135,8 +1522,12 @@ describe("PolicyEditor", () => {
       await screen.findByRole("alertdialog")
       fireEvent.click(dialog().getByRole("button", { name: "Save changes" }))
       await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull())
-      expect(issues("condition-0")).toEqual(["This operator needs a list of values."])
-      expect(screen.getByRole("alert").textContent).toContain("This policy cannot be saved.")
+      expect(issues("condition-0")).toEqual([
+        "This operator needs a list of values.",
+      ])
+      expect(screen.getByRole("alert").textContent).toContain(
+        "This policy cannot be saved."
+      )
     })
 
     it("keeps any other refusal inside the dialog", async () => {
@@ -1144,7 +1535,10 @@ describe("PolicyEditor", () => {
         {},
         {
           validate: () => EVERYTHING,
-          update: new ContractError("FORBIDDEN", "not allowed to change policies"),
+          update: new ContractError(
+            "FORBIDDEN",
+            "not allowed to change policies"
+          ),
         }
       )
       change(labelled("Description"), "x")
@@ -1170,7 +1564,9 @@ describe("PolicyEditor", () => {
       return () => {
         const r = results[call++]
         if (r === "never") return new Promise<never>(() => {})
-        return r instanceof ContractError ? Promise.reject(r) : Promise.resolve(r ?? {})
+        return r instanceof ContractError
+          ? Promise.reject(r)
+          : Promise.resolve(r ?? {})
       }
     }
 
@@ -1181,7 +1577,10 @@ describe("PolicyEditor", () => {
         {},
         {
           validate: (d) => ({ ...VALID, matchesEverything: d.name === "bad" }),
-          update: inTurn([marked("That name is taken."), marked("Still refused.")]),
+          update: inTurn([
+            marked("That name is taken."),
+            marked("Still refused."),
+          ]),
         }
       )
       change(labelled("Name"), "bad")
@@ -1210,7 +1609,10 @@ describe("PolicyEditor", () => {
       // confirmation, and the draft is the same one the first was for.
       const { updates } = renderEditor(
         { notAfter: "2026-09-30T12:01:00Z" },
-        { validate: () => EVERYTHING, update: inTurn([marked("Refused once."), "never"]) }
+        {
+          validate: () => EVERYTHING,
+          update: inTurn([marked("Refused once."), "never"]),
+        }
       )
       change(labelled("Description"), "x")
       await settle()
@@ -1290,17 +1692,29 @@ describe("PolicyEditor", () => {
       expect(saveConfirmation(base)).toBe(DENY_NOW)
       expect(saveConfirmation({ ...base, effect: "allow" })).toBe(ALLOW_NOW)
       expect(
-        saveConfirmation({ ...base, effect: "allow", notBefore: "2026-10-15T09:00:00Z" })
+        saveConfirmation({
+          ...base,
+          effect: "allow",
+          notBefore: "2026-10-15T09:00:00Z",
+        })
       ).toBe(ALLOW_FROM)
       expect(saveConfirmation({ ...base, matchesEverything: false })).toBeNull()
       expect(saveConfirmation({ ...base, evaluationOff: true })).toBeNull()
-      expect(saveConfirmation({ ...base, loaded: { ...POLICY, isActive: false } })).toBeNull()
-      expect(saveConfirmation({ ...base, notAfter: "2026-09-29T00:00:00Z" })).toBeNull()
+      expect(
+        saveConfirmation({ ...base, loaded: { ...POLICY, isActive: false } })
+      ).toBeNull()
+      expect(
+        saveConfirmation({ ...base, notAfter: "2026-09-29T00:00:00Z" })
+      ).toBeNull()
     })
 
     it("returns nothing for a patched window the server's answer refuses", () => {
       expect(
-        saveConfirmation({ ...base, notBefore: "2026-11-01T00:00:00Z", windowRefused: true })
+        saveConfirmation({
+          ...base,
+          notBefore: "2026-11-01T00:00:00Z",
+          windowRefused: true,
+        })
       ).toBeNull()
     })
 
@@ -1310,49 +1724,77 @@ describe("PolicyEditor", () => {
     })
 
     it("confirms without naming a time when it cannot place a bound the server accepts", () => {
-      expect(saveConfirmation({ ...base, notBefore: "not a time the page reads" })).toBe(
-        DENY_WHENEVER
-      )
       expect(
-        saveConfirmation({ ...base, effect: "allow", notAfter: "not a time the page reads" })
+        saveConfirmation({ ...base, notBefore: "not a time the page reads" })
+      ).toBe(DENY_WHENEVER)
+      expect(
+        saveConfirmation({
+          ...base,
+          effect: "allow",
+          notAfter: "not a time the page reads",
+        })
       ).toBe(ALLOW_WHENEVER)
     })
 
     it("still returns nothing for a known end that has passed, whatever the start", () => {
       expect(
-        saveConfirmation({ ...base, notBefore: "not a time", notAfter: "2026-09-29T00:00:00Z" })
+        saveConfirmation({
+          ...base,
+          notBefore: "not a time",
+          notAfter: "2026-09-29T00:00:00Z",
+        })
       ).toBeNull()
     })
 
     it("places a comma-decimal time as Go does", () => {
-      expect(boundTime("2026-09-30T11:00:00,5Z")).toBe(Date.parse("2026-09-30T11:00:00.5Z"))
-      expect(saveConfirmation({ ...base, notBefore: "2026-09-30T11:00:00,5Z" })).toBe(DENY_NOW)
+      expect(boundTime("2026-09-30T11:00:00,5Z")).toBe(
+        Date.parse("2026-09-30T11:00:00.5Z")
+      )
+      expect(
+        saveConfirmation({ ...base, notBefore: "2026-09-30T11:00:00,5Z" })
+      ).toBe(DENY_NOW)
     })
 
     it("counts no bound as open", () => {
-      expect(saveConfirmation({ ...base, notBefore: "", notAfter: "" })).toBe(DENY_NOW)
+      expect(saveConfirmation({ ...base, notBefore: "", notAfter: "" })).toBe(
+        DENY_NOW
+      )
     })
 
     it("treats a start equal to now as open", () => {
       expect(
-        saveConfirmation({ ...base, notBefore: "2026-09-30T12:00:00Z", notAfter: "" })
+        saveConfirmation({
+          ...base,
+          notBefore: "2026-09-30T12:00:00Z",
+          notAfter: "",
+        })
       ).toBe(DENY_NOW)
       expect(
-        saveConfirmation({ ...base, notBefore: "2026-09-30T12:00:01Z", notAfter: "" })
+        saveConfirmation({
+          ...base,
+          notBefore: "2026-09-30T12:00:01Z",
+          notAfter: "",
+        })
       ).toBe(
         "This deny will apply to every check in its namespace and below from 30 Sept 2026, 12:00:01 UTC."
       )
     })
 
     it("treats an end equal to now as not yet ended", () => {
-      expect(saveConfirmation({ ...base, notAfter: "2026-09-30T12:00:00Z" })).toBe(DENY_NOW)
-      expect(saveConfirmation({ ...base, notAfter: "2026-09-30T11:59:59Z" })).toBeNull()
+      expect(
+        saveConfirmation({ ...base, notAfter: "2026-09-30T12:00:00Z" })
+      ).toBe(DENY_NOW)
+      expect(
+        saveConfirmation({ ...base, notAfter: "2026-09-30T11:59:59Z" })
+      ).toBeNull()
     })
 
     it("treats a stored start equal to its end as a window, not an inverted one", () => {
       const at = "2026-10-01T00:00:00Z"
       const loaded = { ...POLICY, notBefore: at, notAfter: at }
-      expect(saveConfirmation({ ...base, loaded, notBefore: at, notAfter: at })).toBe(
+      expect(
+        saveConfirmation({ ...base, loaded, notBefore: at, notAfter: at })
+      ).toBe(
         "This deny will apply to every check in its namespace and below from 1 Oct 2026, 00:00 UTC."
       )
     })
@@ -1383,7 +1825,9 @@ describe("PolicyEditor", () => {
       change(labelled("Description"), "x")
       await save()
       expect(screen.getByRole("button", { name: "Checking…" })).toBeTruthy()
-      const cancel = screen.getByRole("button", { name: "Cancel" }) as HTMLButtonElement
+      const cancel = screen.getByRole("button", {
+        name: "Cancel",
+      }) as HTMLButtonElement
       expect(cancel.disabled).toBe(true)
       fireEvent.click(cancel)
       expect(navigated).toEqual([])
@@ -1391,7 +1835,10 @@ describe("PolicyEditor", () => {
 
     it("sends nothing and navigates nowhere when the editor is left mid-check", async () => {
       const check = deferred()
-      const { navigated, updates, unmount } = renderEditor({}, { validate: () => check.promise })
+      const { navigated, updates, unmount } = renderEditor(
+        {},
+        { validate: () => check.promise }
+      )
       change(labelled("Description"), "x")
       await save()
       unmount()

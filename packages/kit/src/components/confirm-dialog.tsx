@@ -94,12 +94,17 @@ export function ConfirmDialog({
           and an empty grid row would still take the content's gap.
         */}
         {children != null && (
-          <div data-slot="confirm-dialog-body" className="flex flex-col gap-2 empty:hidden">
+          <div
+            data-slot="confirm-dialog-body"
+            className="flex flex-col gap-2 empty:hidden"
+          >
             {children}
           </div>
         )}
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={pending}>{cancelLabel}</AlertDialogCancel>
+          <AlertDialogCancel disabled={pending}>
+            {cancelLabel}
+          </AlertDialogCancel>
           <AlertDialogAction
             variant={destructive ? "destructive" : "default"}
             disabled={pending || confirmDisabled}

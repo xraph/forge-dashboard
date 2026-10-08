@@ -251,7 +251,9 @@ describe("CreateKeyDialog form", () => {
     const { client, sent } = standard()
     mount(client)
     await dialog()
-    fireEvent.click(await screen.findByRole("checkbox", { name: "billing:write" }))
+    fireEvent.click(
+      await screen.findByRole("checkbox", { name: "billing:write" })
+    )
     fireEvent.click(screen.getByRole("checkbox", { name: "billing:read" }))
     fill("Policy", "kpol_narrow")
     fill("Name", "Narrow key")
@@ -314,9 +316,9 @@ describe("CreateKeyDialog submit", () => {
     await dialog()
 
     fireEvent.click(createButton())
-    expect(within(screen.getByRole("dialog")).getByRole("alert").textContent).toBe(
-      "name is required"
-    )
+    expect(
+      within(screen.getByRole("dialog")).getByRole("alert").textContent
+    ).toBe("name is required")
 
     fill("Name", "x".repeat(201))
     fireEvent.click(createButton())
@@ -374,7 +376,9 @@ describe("CreateKeyDialog submit", () => {
     const prefix = screen.getByLabelText("Prefix")
     expect(prefix.getAttribute("aria-invalid")).toBe("true")
     expect(prefix.getAttribute("aria-describedby")).toBe(alert.id)
-    expect(screen.getByLabelText("Name").getAttribute("aria-invalid")).toBeNull()
+    expect(
+      screen.getByLabelText("Name").getAttribute("aria-invalid")
+    ).toBeNull()
   })
 
   it("marks the name invalid for the name messages", async () => {
@@ -386,7 +390,9 @@ describe("CreateKeyDialog submit", () => {
     const name = screen.getByLabelText("Name")
     expect(name.getAttribute("aria-invalid")).toBe("true")
     expect(name.getAttribute("aria-describedby")).toBe(alert.id)
-    expect(screen.getByLabelText("Prefix").getAttribute("aria-invalid")).toBeNull()
+    expect(
+      screen.getByLabelText("Prefix").getAttribute("aria-invalid")
+    ).toBeNull()
   })
 
   it("sends one command however many times Create is pressed while pending", async () => {
@@ -465,7 +471,9 @@ describe("CreateKeyDialog across a context switch", () => {
     const host = switchingClient()
     mount(host.client)
     await dialog()
-    fireEvent.click(await screen.findByRole("checkbox", { name: "billing:write" }))
+    fireEvent.click(
+      await screen.findByRole("checkbox", { name: "billing:write" })
+    )
     fireEvent.click(screen.getByRole("checkbox", { name: "reports:read" }))
     fill("Policy", "kpol_standard")
     fill("Name", "Billing service")
@@ -497,12 +505,18 @@ describe("CreateKeyDialog across a context switch", () => {
       )
     ).toBeTruthy()
     expect(
-      screen.getByRole("checkbox", { name: "reports:read" }).getAttribute("aria-checked")
+      screen
+        .getByRole("checkbox", { name: "reports:read" })
+        .getAttribute("aria-checked")
     ).toBe("true")
     expect(
-      screen.getByRole("checkbox", { name: "billing:read" }).getAttribute("aria-checked")
+      screen
+        .getByRole("checkbox", { name: "billing:read" })
+        .getAttribute("aria-checked")
     ).toBe("false")
-    expect((screen.getByLabelText("Policy") as HTMLSelectElement).value).toBe("")
+    expect((screen.getByLabelText("Policy") as HTMLSelectElement).value).toBe(
+      ""
+    )
     expect(createButton().disabled).toBe(false)
 
     // Having read that, the operator creates with what is left.
@@ -593,7 +607,9 @@ describe("CreateKeyDialog expiry", () => {
     // with no clock change this test would pass without testing anything.
     const winter = new Date(2026, 0, 15).getTimezoneOffset()
     const summer = new Date(2026, 6, 15).getTimezoneOffset()
-    expect(winter, "the test zone must observe daylight saving").not.toBe(summer)
+    expect(winter, "the test zone must observe daylight saving").not.toBe(
+      summer
+    )
 
     // 90 days from 3 Aug 10:00 lands on 1 Nov, the fall-back day in the US
     // (25 hours long); the same arithmetic also crosses spring and autumn
@@ -760,7 +776,9 @@ describe("CreateKeyDialog pickers", () => {
     await screen.findByRole("option", { name: "Narrow" })
     fill("Policy", "kpol_narrow")
     expect(
-      screen.getByText("None of the first 200 scopes are allowed by this policy.")
+      screen.getByText(
+        "None of the first 200 scopes are allowed by this policy."
+      )
     ).toBeTruthy()
     expect(
       screen.queryByText("This policy allows none of the scopes that exist.")
@@ -953,7 +971,9 @@ describe("CreateKeyDialog idempotency", () => {
     expect(server.sent[0].idempotencyKey).toBeTruthy()
     expect(server.sent[1].idempotencyKey).toBe(server.sent[0].idempotencyKey)
     expect(server.ran["keys.create"]).toBe(1)
-    await waitFor(() => expect(screen.getByRole("alert").textContent).toBe(SPENT))
+    await waitFor(() =>
+      expect(screen.getByRole("alert").textContent).toBe(SPENT)
+    )
   })
 
   it("counts a fetch that failed outright as a lost answer", async () => {
@@ -983,7 +1003,9 @@ describe("CreateKeyDialog idempotency", () => {
     fireEvent.click(createButton())
     await screen.findByText("This is the only time Keysmith will show it.")
     expect(server.sent).toHaveLength(2)
-    expect(server.sent[1].idempotencyKey).not.toBe(server.sent[0].idempotencyKey)
+    expect(server.sent[1].idempotencyKey).not.toBe(
+      server.sent[0].idempotencyKey
+    )
     expect(server.ran["keys.create"]).toBe(2)
   })
 
@@ -998,7 +1020,9 @@ describe("CreateKeyDialog idempotency", () => {
     fill("Name", "Billing worker")
     fill("Name", "Billing service")
     fireEvent.click(createButton())
-    await waitFor(() => expect(screen.getByRole("alert").textContent).toBe(SPENT))
+    await waitFor(() =>
+      expect(screen.getByRole("alert").textContent).toBe(SPENT)
+    )
     expect(server.sent[1].idempotencyKey).toBe(server.sent[0].idempotencyKey)
   })
 
@@ -1011,7 +1035,9 @@ describe("CreateKeyDialog idempotency", () => {
     await screen.findByRole("alert")
     fireEvent.click(createButton())
 
-    await waitFor(() => expect(screen.getByRole("alert").textContent).toBe(SPENT))
+    await waitFor(() =>
+      expect(screen.getByRole("alert").textContent).toBe(SPENT)
+    )
     const alert = screen.getByRole("alert")
     expect(alert.textContent).not.toContain("CONFLICT")
     expect(alert.textContent).not.toContain("idempotency")
@@ -1031,13 +1057,17 @@ describe("CreateKeyDialog idempotency", () => {
     await submitNamed()
     await screen.findByRole("alert")
     fireEvent.click(createButton())
-    await waitFor(() => expect(screen.getByRole("alert").textContent).toBe(SPENT))
+    await waitFor(() =>
+      expect(screen.getByRole("alert").textContent).toBe(SPENT)
+    )
 
     // Read, revoked, and now asked for on purpose.
     fireEvent.click(createButton())
     await screen.findByText("This is the only time Keysmith will show it.")
     expect(server.sent).toHaveLength(3)
-    expect(server.sent[2].idempotencyKey).not.toBe(server.sent[0].idempotencyKey)
+    expect(server.sent[2].idempotencyKey).not.toBe(
+      server.sent[0].idempotencyKey
+    )
     expect(server.ran["keys.create"]).toBe(2)
   })
 
@@ -1083,7 +1113,9 @@ describe("CreateKeyDialog idempotency", () => {
     await waitFor(() => expect(createButton().disabled).toBe(false))
     fireEvent.click(createButton())
     await screen.findByText("This is the only time Keysmith will show it.")
-    expect(server.sent[1].idempotencyKey).not.toBe(server.sent[0].idempotencyKey)
+    expect(server.sent[1].idempotencyKey).not.toBe(
+      server.sent[0].idempotencyKey
+    )
   })
 
   it("mints a new key once the dialog is closed and opened again", async () => {
@@ -1104,7 +1136,9 @@ describe("CreateKeyDialog idempotency", () => {
     await screen.findByRole("checkbox", { name: "billing:read" })
     await submitNamed()
     await screen.findByText("This is the only time Keysmith will show it.")
-    expect(server.sent[1].idempotencyKey).not.toBe(server.sent[0].idempotencyKey)
+    expect(server.sent[1].idempotencyKey).not.toBe(
+      server.sent[0].idempotencyKey
+    )
   })
 
   it("closes on Escape pressed as soon as an error shows", async () => {
@@ -1168,7 +1202,9 @@ describe("CreateKeyDialog idempotency", () => {
     await screen.findByRole("checkbox", { name: "billing:read" })
     await submitNamed()
     await screen.findByText("This is the only time Keysmith will show it.")
-    expect(server.sent[1].idempotencyKey).not.toBe(server.sent[0].idempotencyKey)
+    expect(server.sent[1].idempotencyKey).not.toBe(
+      server.sent[0].idempotencyKey
+    )
     expect(server.ran["keys.create"]).toBe(2)
   })
 
@@ -1180,7 +1216,9 @@ describe("CreateKeyDialog idempotency", () => {
     await submitNamed()
     const alert = await screen.findByRole("alert")
     // The stand-in Link is a bare anchor, and jsdom cannot navigate.
-    document.addEventListener("click", (e) => e.preventDefault(), { once: true })
+    document.addEventListener("click", (e) => e.preventDefault(), {
+      once: true,
+    })
     fireEvent.click(within(alert).getByRole("link", { name: "key list" }))
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull())
   })
@@ -1203,7 +1241,9 @@ describe("CreateKeyDialog idempotency", () => {
     )
     server.finishRuns()
     fireEvent.click(createButton())
-    await waitFor(() => expect(screen.getByRole("alert").textContent).toBe(SPENT))
+    await waitFor(() =>
+      expect(screen.getByRole("alert").textContent).toBe(SPENT)
+    )
     expect(server.sent.map((s) => s.idempotencyKey)).toEqual([
       server.sent[0].idempotencyKey,
       server.sent[0].idempotencyKey,
@@ -1226,7 +1266,10 @@ describe("CreateKeyDialog idempotency", () => {
       ) => {
         keys.push(opts?.idempotencyKey)
         if (keys.length === 1) {
-          throw new ContractError("UNAVAILABLE", "could not claim the idempotency key")
+          throw new ContractError(
+            "UNAVAILABLE",
+            "could not claim the idempotency key"
+          )
         }
         return base.client.command(intent, payload, opts)
       },
@@ -1300,7 +1343,9 @@ describe("CreateKeyDialog idempotency across list reloads", () => {
     await waitFor(() => expect(createButton().disabled).toBe(false))
 
     fireEvent.click(createButton())
-    await waitFor(() => expect(screen.getByRole("alert").textContent).toBe(SPENT))
+    await waitFor(() =>
+      expect(screen.getByRole("alert").textContent).toBe(SPENT)
+    )
     expect(server.sent[1].idempotencyKey).toBe(server.sent[0].idempotencyKey)
     expect(server.ran["keys.create"]).toBe(1)
   })
@@ -1308,7 +1353,9 @@ describe("CreateKeyDialog idempotency across list reloads", () => {
   it("keeps the key when the scopes come back in another order", async () => {
     const server = listServer()
     mount(server.client)
-    fireEvent.click(await screen.findByRole("checkbox", { name: "billing:read" }))
+    fireEvent.click(
+      await screen.findByRole("checkbox", { name: "billing:read" })
+    )
     fireEvent.click(screen.getByRole("checkbox", { name: "reports:read" }))
     server.loseNextAnswer()
     await submitNamed()
@@ -1318,12 +1365,16 @@ describe("CreateKeyDialog idempotency across list reloads", () => {
     await act(async () => queryStore.revalidate())
     await waitFor(() =>
       expect(
-        screen.getAllByRole("checkbox").map((c) => c.closest("label")?.textContent)
+        screen
+          .getAllByRole("checkbox")
+          .map((c) => c.closest("label")?.textContent)
       ).toEqual(["reports:read", "billing:write", "billing:read"])
     )
 
     fireEvent.click(createButton())
-    await waitFor(() => expect(screen.getByRole("alert").textContent).toBe(SPENT))
+    await waitFor(() =>
+      expect(screen.getByRole("alert").textContent).toBe(SPENT)
+    )
     expect(server.sent[1].idempotencyKey).toBe(server.sent[0].idempotencyKey)
   })
 
@@ -1395,7 +1446,9 @@ describe("CreateKeyDialog picks across a failed list read", () => {
     it(`keeps the picks and the key when the ${list} read fails after a lost answer`, async () => {
       const server = listServer()
       mount(server.client)
-      fireEvent.click(await screen.findByRole("checkbox", { name: "billing:write" }))
+      fireEvent.click(
+        await screen.findByRole("checkbox", { name: "billing:write" })
+      )
       fireEvent.click(screen.getByRole("checkbox", { name: "reports:read" }))
       fill("Policy", "kpol_standard")
       server.loseNextAnswer()
@@ -1413,11 +1466,15 @@ describe("CreateKeyDialog picks across a failed list read", () => {
         "kpol_standard"
       )
       expect(
-        screen.getByRole("checkbox", { name: "billing:write" }).getAttribute("aria-checked")
+        screen
+          .getByRole("checkbox", { name: "billing:write" })
+          .getAttribute("aria-checked")
       ).toBe("true")
 
       fireEvent.click(createButton())
-      await waitFor(() => expect(screen.getByRole("alert").textContent).toBe(SPENT))
+      await waitFor(() =>
+        expect(screen.getByRole("alert").textContent).toBe(SPENT)
+      )
       expect(server.sent).toHaveLength(2)
       expect(server.sent[1].payload).toEqual(server.sent[0].payload)
       expect(server.sent[1].idempotencyKey).toBe(server.sent[0].idempotencyKey)
@@ -1455,7 +1512,9 @@ describe("CreateKeyDialog picks across a context switch and a failed read", () =
   it("keeps the payload and the key under a narrowing policy when the policies read fails", async () => {
     const server = listServer()
     mount(server.client)
-    fireEvent.click(await screen.findByRole("checkbox", { name: "billing:read" }))
+    fireEvent.click(
+      await screen.findByRole("checkbox", { name: "billing:read" })
+    )
     fireEvent.click(screen.getByRole("checkbox", { name: "billing:write" }))
     // Narrow allows billing:read only, so billing:write stays ticked but unsent.
     fill("Policy", "kpol_narrow")
@@ -1473,7 +1532,9 @@ describe("CreateKeyDialog picks across a context switch and a failed read", () =
     expect(screen.getAllByRole("checkbox")).toHaveLength(1)
 
     fireEvent.click(createButton())
-    await waitFor(() => expect(screen.getByRole("alert").textContent).toBe(SPENT))
+    await waitFor(() =>
+      expect(screen.getByRole("alert").textContent).toBe(SPENT)
+    )
     expect(server.sent[1].payload).toEqual(server.sent[0].payload)
     expect(server.sent[1].idempotencyKey).toBe(server.sent[0].idempotencyKey)
     expect(server.ran["keys.create"]).toBe(1)
@@ -1482,7 +1543,9 @@ describe("CreateKeyDialog picks across a context switch and a failed read", () =
   it("takes the old context's picks off when the new context's scopes read fails", async () => {
     const server = listServer()
     mount(server.client)
-    fireEvent.click(await screen.findByRole("checkbox", { name: "billing:write" }))
+    fireEvent.click(
+      await screen.findByRole("checkbox", { name: "billing:write" })
+    )
     fireEvent.click(screen.getByRole("checkbox", { name: "reports:read" }))
     fill("Name", "Billing service")
 
@@ -1503,7 +1566,9 @@ describe("CreateKeyDialog picks across a context switch and a failed read", () =
   it("shows no list from the old context when the new context's reads fail", async () => {
     const server = listServer()
     mount(server.client)
-    fireEvent.click(await screen.findByRole("checkbox", { name: "billing:write" }))
+    fireEvent.click(
+      await screen.findByRole("checkbox", { name: "billing:write" })
+    )
     fill("Policy", "kpol_standard")
 
     server.answerScopes(FAILED)
@@ -1515,7 +1580,9 @@ describe("CreateKeyDialog picks across a context switch and a failed read", () =
       )
     ).toBeTruthy()
     expect(
-      screen.getByText("Policies could not be loaded, so none can be chosen right now.")
+      screen.getByText(
+        "Policies could not be loaded, so none can be chosen right now."
+      )
     ).toBeTruthy()
     expect(screen.queryAllByRole("checkbox")).toHaveLength(0)
     expect(
@@ -1523,7 +1590,9 @@ describe("CreateKeyDialog picks across a context switch and a failed read", () =
         .getAllByRole("option")
         .map((o) => o.textContent)
     ).toEqual(["No policy"])
-    expect((screen.getByLabelText("Policy") as HTMLSelectElement).value).toBe("")
+    expect((screen.getByLabelText("Policy") as HTMLSelectElement).value).toBe(
+      ""
+    )
     expect(screen.queryByText(/from the last time they loaded/)).toBeNull()
     expect(
       screen.getByText(

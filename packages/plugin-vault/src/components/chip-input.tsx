@@ -82,12 +82,24 @@ export function ChipInput({
   return (
     <div className="flex flex-col gap-2">
       {values.length > 0 ? (
-        <ul role="list" aria-label={`${noun}s`} className="flex flex-wrap gap-1">
+        <ul
+          role="list"
+          aria-label={`${noun}s`}
+          className="flex flex-wrap gap-1"
+        >
           {values.map((value) => (
             <li key={value}>
-              <Badge variant="outline" className="gap-1 pr-0.5 font-mono text-xs">
+              <Badge
+                variant="outline"
+                className="gap-1 pr-0.5 font-mono text-xs"
+              >
                 {value}
-                <IconButton type="button" variant="ghost" onClick={() => onChange(values.filter((v) => v !== value))} label={`Remove ${noun} ${value}`} />
+                <IconButton
+                  type="button"
+                  variant="ghost"
+                  onClick={() => onChange(values.filter((v) => v !== value))}
+                  label={`Remove ${noun} ${value}`}
+                />
               </Badge>
             </li>
           ))}

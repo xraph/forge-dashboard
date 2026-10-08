@@ -38,7 +38,13 @@ export {
   BastionTrafficPage,
   BastionUpstreamsPage,
 }
-export { CircuitBadge, EnabledBadge, HealthBadge, ProtocolBadge, SourceBadge } from "./badges"
+export {
+  CircuitBadge,
+  EnabledBadge,
+  HealthBadge,
+  ProtocolBadge,
+  SourceBadge,
+} from "./badges"
 export { routeEditPath, routePath } from "./keys"
 export type * from "./types"
 
@@ -56,15 +62,69 @@ export const bastionPlugin = definePlugin({
   label: "Bastion",
   icon: <ShieldIcon />,
   nav: [
-    { label: "Overview", to: "/", priority: 0, icon: <HouseIcon />, group: "Gateway" },
-    { label: "Routes", to: "/routes", priority: 10, icon: <RouteIcon />, group: "Routing" },
-    { label: "Upstreams", to: "/upstreams", priority: 11, icon: <ServerIcon />, group: "Routing" },
-    { label: "Services", to: "/services", priority: 12, icon: <NetworkIcon />, group: "Routing" },
-    { label: "Traffic", to: "/traffic", priority: 20, icon: <ActivityIcon />, group: "Traffic" },
-    { label: "Health", to: "/health", priority: 30, icon: <HeartPulseIcon />, group: "Resilience" },
-    { label: "Circuits", to: "/circuits", priority: 31, icon: <ToggleLeftIcon />, group: "Resilience" },
-    { label: "API explorer", to: "/api-explorer", priority: 40, icon: <CodeIcon />, group: "API" },
-    { label: "Config", to: "/config", priority: 50, icon: <SettingsIcon />, group: "Settings" },
+    {
+      label: "Overview",
+      to: "/",
+      priority: 0,
+      icon: <HouseIcon />,
+      group: "Gateway",
+    },
+    {
+      label: "Routes",
+      to: "/routes",
+      priority: 10,
+      icon: <RouteIcon />,
+      group: "Routing",
+    },
+    {
+      label: "Upstreams",
+      to: "/upstreams",
+      priority: 11,
+      icon: <ServerIcon />,
+      group: "Routing",
+    },
+    {
+      label: "Services",
+      to: "/services",
+      priority: 12,
+      icon: <NetworkIcon />,
+      group: "Routing",
+    },
+    {
+      label: "Traffic",
+      to: "/traffic",
+      priority: 20,
+      icon: <ActivityIcon />,
+      group: "Traffic",
+    },
+    {
+      label: "Health",
+      to: "/health",
+      priority: 30,
+      icon: <HeartPulseIcon />,
+      group: "Resilience",
+    },
+    {
+      label: "Circuits",
+      to: "/circuits",
+      priority: 31,
+      icon: <ToggleLeftIcon />,
+      group: "Resilience",
+    },
+    {
+      label: "API explorer",
+      to: "/api-explorer",
+      priority: 40,
+      icon: <CodeIcon />,
+      group: "API",
+    },
+    {
+      label: "Config",
+      to: "/config",
+      priority: 50,
+      icon: <SettingsIcon />,
+      group: "Settings",
+    },
   ],
   routes: [
     { path: "/", element: BastionOverviewPage },

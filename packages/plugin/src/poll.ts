@@ -33,7 +33,10 @@ const DEFAULT_INTERVAL_MS = 10_000
  * handler ever fires, so `latest.current` is never stale by the time
  * anything reads it.
  */
-export function usePoll(refetch: () => void, intervalMs: number = DEFAULT_INTERVAL_MS): void {
+export function usePoll(
+  refetch: () => void,
+  intervalMs: number = DEFAULT_INTERVAL_MS
+): void {
   const latest = useRef(refetch)
 
   useEffect(() => {

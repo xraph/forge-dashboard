@@ -25,7 +25,7 @@ export function useSecretFields() {
       if (el) inputs.current.set(name, el)
       else inputs.current.delete(name)
     },
-    [],
+    []
   )
 
   const onInput = useCallback((name: string, value: string) => {
@@ -40,7 +40,8 @@ export function useSecretFields() {
   /** Called from submit handlers only, never while rendering. */
   const read = useCallback((): Record<string, string> => {
     const out: Record<string, string> = {}
-    for (const [name, el] of inputs.current) if (el.value !== "") out[name] = el.value
+    for (const [name, el] of inputs.current)
+      if (el.value !== "") out[name] = el.value
     return out
   }, [])
 
@@ -65,7 +66,14 @@ export function useSecretFields() {
 export type SecretFields = ReturnType<typeof useSecretFields>
 
 /** "new-password" rather than "off": browsers ignore "off" on password fields. */
-export function SecretInput({ name, secrets, ...rest }: { name: string; secrets: SecretFields } & Omit<ComponentProps<"input">, "type" | "value" | "defaultValue" | "ref" | "onChange" | "name">) {
+export function SecretInput({
+  name,
+  secrets,
+  ...rest
+}: { name: string; secrets: SecretFields } & Omit<
+  ComponentProps<"input">,
+  "type" | "value" | "defaultValue" | "ref" | "onChange" | "name"
+>) {
   const { forget } = secrets
   // An input that unmounts (Keep, Remove, a driver change) takes its typed
   // value with it, so it must stop counting as filled. Otherwise Save would

@@ -29,7 +29,7 @@ function at(path: string) {
         onAuthenticated={vi.fn()}
         screens={screens}
       />
-    </MemoryRouter>,
+    </MemoryRouter>
   )
 }
 
@@ -64,7 +64,7 @@ describe("rule 3: signed in, still on an auth path", () => {
           <Route element={<SignedInRedirect basename="" />} path="/login" />
           <Route element={<div data-testid="apps" />} path="/apps" />
         </Routes>
-      </MemoryRouter>,
+      </MemoryRouter>
     )
     expect(screen.getByTestId("apps")).toBeDefined()
   })
@@ -76,7 +76,7 @@ describe("rule 3: signed in, still on an auth path", () => {
           <Route element={<SignedInRedirect basename="" />} path="/login" />
           <Route element={<div data-testid="root" />} path="/" />
         </Routes>
-      </MemoryRouter>,
+      </MemoryRouter>
     )
     expect(screen.getByTestId("root")).toBeDefined()
   })
@@ -88,7 +88,7 @@ describe("rule 3: signed in, still on an auth path", () => {
           <Route element={<SignedInRedirect basename="" />} path="/login" />
           <Route element={<div data-testid="root" />} path="/" />
         </Routes>
-      </MemoryRouter>,
+      </MemoryRouter>
     )
     expect(screen.getByTestId("root")).toBeDefined()
   })

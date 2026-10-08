@@ -16,7 +16,7 @@ describe("badges", () => {
         <CircuitBadge state="half_open" />
         <CircuitBadge state="open" />
         <EnabledBadge enabled={false} />
-      </>,
+      </>
     )
     expect(variantOf("Healthy")).toBe("outline")
     expect(variantOf("Unhealthy")).toBe("destructive")

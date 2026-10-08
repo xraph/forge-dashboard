@@ -28,7 +28,12 @@ const RULE: PolicyDetail = {
   actions: ["document:delete"],
   resources: ["document:*"],
   conditions: [
-    { id: "c1", field: "context.ip", operator: "not_in", value: ["10.0.0.0/8"] },
+    {
+      id: "c1",
+      field: "context.ip",
+      operator: "not_in",
+      value: ["10.0.0.0/8"],
+    },
     { id: "c2", field: "subject.mfa", operator: "exists" },
   ],
   obligations: ["notify-security"],
@@ -55,7 +60,8 @@ const row = (container: HTMLElement, name: string) =>
   container.querySelector<HTMLElement>(`[data-row="${name}"]`)!
 const conditionRow = (container: HTMLElement, i: number) =>
   container.querySelector<HTMLElement>(`[data-condition="${i}"]`)!
-const chipsIn = (el: HTMLElement) => Array.from(el.querySelectorAll('[data-slot="badge"]'))
+const chipsIn = (el: HTMLElement) =>
+  Array.from(el.querySelectorAll('[data-slot="badge"]'))
 /** The row's line: field, operator and value, as separate texts. */
 const lineOf = (el: HTMLElement) =>
   Array.from(el.firstElementChild!.children).map((c) => c.textContent)
@@ -89,12 +95,19 @@ describe("PolicyRule", () => {
       const { container } = show({
         effect: "deny",
         conditions: [
-          { field: "context.ip", operator: "bogus", problem: "throws", reason: "unknownOperator" },
+          {
+            field: "context.ip",
+            operator: "bogus",
+            problem: "throws",
+            reason: "unknownOperator",
+          },
         ],
         failsClosed: true,
         decidingCondition: 0,
       })
-      expect(destructiveElements(container)).toEqual([screen.getByRole("heading", { name: "Deny" })])
+      expect(destructiveElements(container)).toEqual([
+        screen.getByRole("heading", { name: "Deny" }),
+      ])
     })
 
     it("reads Deny for any effect but exactly allow, as the evaluator treats it", () => {
@@ -137,7 +150,9 @@ describe("PolicyRule", () => {
       const el = row(container, "subject")
       expect(el.firstElementChild!.textContent).toBe("anyone")
       expect(chipsIn(el)).toEqual([])
-      expect(noteOf(el)).toBe("One of its subject matchers is empty, which matches every subject.")
+      expect(noteOf(el)).toBe(
+        "One of its subject matchers is empty, which matches every subject."
+      )
     })
 
     it("reads a *:* action as any action, never a chip, and names the entry", () => {
@@ -152,7 +167,10 @@ describe("PolicyRule", () => {
     })
 
     it("reads a * resource as any resource, and names the entry", () => {
-      const { container } = show({ resources: ["*"], resourcesUnrestricted: true })
+      const { container } = show({
+        resources: ["*"],
+        resourcesUnrestricted: true,
+      })
       const el = row(container, "resource")
       expect(el.firstElementChild!.textContent).toBe("any resource")
       expect(chipsIn(el)).toEqual([])
@@ -162,7 +180,10 @@ describe("PolicyRule", () => {
     it("takes unrestrictedness from the server's flag, not from the list", () => {
       // A pattern the page might think is a wildcard, with the flag false:
       // the chip shows and no any-word does.
-      const { container } = show({ actions: ["*.*"], actionsUnrestricted: false })
+      const { container } = show({
+        actions: ["*.*"],
+        actionsUnrestricted: false,
+      })
       const el = row(container, "action")
       expect(chipsIn(el).map((c) => c.textContent)).toEqual(["*.*"])
       expect(el.textContent).not.toContain("any action")
@@ -196,7 +217,9 @@ describe("PolicyRule", () => {
       expect(subjectText({ kind: "user", id: "u1" })).toBe("user: u1")
       expect(subjectText({ kind: "user" })).toBe("any user")
       expect(subjectText({ role: "editor" })).toBe("role: editor")
-      expect(subjectText({ kind: "user", role: "editor" })).toBe("user with role editor")
+      expect(subjectText({ kind: "user", role: "editor" })).toBe(
+        "user with role editor"
+      )
       expect(subjectText({ id: "u1" })).toBe("id: u1")
       expect(subjectText({ kind: "user", id: "u1", role: "editor" })).toBe(
         "user: u1 with role editor"
@@ -205,7 +228,12 @@ describe("PolicyRule", () => {
 
     it("renders the subject chips it is sent, joined by or", () => {
       const { container } = show({
-        subjects: [{ kind: "user", id: "u1" }, { kind: "user" }, { role: "editor" }, { kind: "user", role: "editor" }],
+        subjects: [
+          { kind: "user", id: "u1" },
+          { kind: "user" },
+          { role: "editor" },
+          { kind: "user", role: "editor" },
+        ],
       })
       const line = row(container, "subject").firstElementChild!
       expect(Array.from(line.children).map((c) => c.textContent)).toEqual([
@@ -229,7 +257,9 @@ describe("PolicyRule", () => {
           { field: "c.x", operator: "eq", value: "3" },
         ],
       })
-      expect(Array.from(container.querySelectorAll("dt")).map((d) => d.textContent)).toEqual([
+      expect(
+        Array.from(container.querySelectorAll("dt")).map((d) => d.textContent)
+      ).toEqual([
         "subject",
         "action",
         "resource",
@@ -271,20 +301,31 @@ describe("PolicyRule", () => {
           conditions: [{ field: "subject.dept", operator: op, value }],
         })
         const el = conditionRow(container, 0)
-        expect(lineOf(el)).toEqual(shown === null ? ["subject.dept", word] : ["subject.dept", word, shown])
+        expect(lineOf(el)).toEqual(
+          shown === null
+            ? ["subject.dept", word]
+            : ["subject.dept", word, shown]
+        )
       })
     }
 
     it("renders no value for exists even when one is stored", () => {
       const { container } = show({
-        conditions: [{ field: "subject.mfa", operator: "exists", value: "yes" }],
+        conditions: [
+          { field: "subject.mfa", operator: "exists", value: "yes" },
+        ],
       })
-      expect(lineOf(conditionRow(container, 0))).toEqual(["subject.mfa", "exists"])
+      expect(lineOf(conditionRow(container, 0))).toEqual([
+        "subject.mfa",
+        "exists",
+      ])
     })
 
     it("sets field and value in monospace and the operator in words", () => {
       const { container } = show()
-      const [field, op, value] = Array.from(conditionRow(container, 0).firstElementChild!.children)
+      const [field, op, value] = Array.from(
+        conditionRow(container, 0).firstElementChild!.children
+      )
       expect(field.className).toContain("font-mono")
       expect(value.className).toContain("font-mono")
       expect(op.className).not.toContain("font-mono")
@@ -305,37 +346,139 @@ describe("PolicyRule", () => {
 
     it("shows an empty string value as a pair of quotes rather than nothing", () => {
       const { container } = show({
-        conditions: [{ field: "context.ip", operator: "starts_with", value: "" }],
+        conditions: [
+          { field: "context.ip", operator: "starts_with", value: "" },
+        ],
       })
       expect(lineOf(conditionRow(container, 0))[2]).toBe('""')
     })
 
     it("labels an absent value as none", () => {
       render(
-        <PolicyRule policy={ruleOf({ conditions: [{ field: "subject.dept", operator: "eq" }] })} />
+        <PolicyRule
+          policy={ruleOf({
+            conditions: [{ field: "subject.dept", operator: "eq" }],
+          })}
+        />
       )
       expect(screen.getByLabelText("no value")).toBeTruthy()
     })
   })
 
   describe("condition notes", () => {
-    const NOTES: [ConditionProblem, ConditionReason, string, unknown, string][] = [
-      ["throws", "unknownOperator", "context.ip", "x", "This is not an operator warden knows, so it cannot be evaluated."],
-      ["throws", "invalidRegex", "subject.email", "(", "This pattern does not compile, so it cannot be evaluated."],
-      ["throws", "notAList", "context.ip", "10.0.0.0/8", "This needs a list of values, not one, so it cannot be evaluated."],
+    const NOTES: [
+      ConditionProblem,
+      ConditionReason,
+      string,
+      unknown,
+      string,
+    ][] = [
+      [
+        "throws",
+        "unknownOperator",
+        "context.ip",
+        "x",
+        "This is not an operator warden knows, so it cannot be evaluated.",
+      ],
+      [
+        "throws",
+        "invalidRegex",
+        "subject.email",
+        "(",
+        "This pattern does not compile, so it cannot be evaluated.",
+      ],
+      [
+        "throws",
+        "notAList",
+        "context.ip",
+        "10.0.0.0/8",
+        "This needs a list of values, not one, so it cannot be evaluated.",
+      ],
       // An older warden, which read a non-list as an empty list, sends these two.
-      ["alwaysTrue", "matchesAnything", "context.ip", "", "This is always true, so it restricts nothing. This value matches every string."],
-      ["alwaysTrue", "alwaysPresent", "subject.id", undefined, "This is always true, so it restricts nothing. Warden always gives subject.id a value, even an empty one."],
-      ["alwaysFalse", "alwaysPresent", "subject.id", undefined, "This is always false. Warden always gives subject.id a value, even an empty one."],
-      ["alwaysTrue", "unresolvableField", "action.verb", "delete", "This is always true, so it restricts nothing. Warden never gives action.verb a value."],
-      ["alwaysFalse", "unresolvableField", "action.verb", "delete", "This is always false. Warden never gives action.verb a value."],
-      ["alwaysTrue", "notAList", "context.ip", "10.0.0.0/8", "This is always true, so it restricts nothing. It needs a list of values, not one."],
-      ["alwaysFalse", "notAList", "context.ip", "10.0.0.0/8", "This is always false. It needs a list of values, not one."],
-      ["alwaysTrue", "emptyList", "context.ip", [], "This is always true, so it restricts nothing. The list is empty."],
-      ["alwaysFalse", "emptyList", "context.ip", [], "This is always false. The list is empty."],
-      ["alwaysFalse", "notANumber", "subject.level", "high", "This is always false. It compares numbers, and the value is not one."],
-      ["alwaysFalse", "noValidCIDR", "context.ip", "10.0.0/33", "This is always false. None of these parse as a network."],
-      ["alwaysFalse", "notATime", "context.at", "2026-06-01", "This is always false. The value is not an RFC3339 time."],
+      [
+        "alwaysTrue",
+        "matchesAnything",
+        "context.ip",
+        "",
+        "This is always true, so it restricts nothing. This value matches every string.",
+      ],
+      [
+        "alwaysTrue",
+        "alwaysPresent",
+        "subject.id",
+        undefined,
+        "This is always true, so it restricts nothing. Warden always gives subject.id a value, even an empty one.",
+      ],
+      [
+        "alwaysFalse",
+        "alwaysPresent",
+        "subject.id",
+        undefined,
+        "This is always false. Warden always gives subject.id a value, even an empty one.",
+      ],
+      [
+        "alwaysTrue",
+        "unresolvableField",
+        "action.verb",
+        "delete",
+        "This is always true, so it restricts nothing. Warden never gives action.verb a value.",
+      ],
+      [
+        "alwaysFalse",
+        "unresolvableField",
+        "action.verb",
+        "delete",
+        "This is always false. Warden never gives action.verb a value.",
+      ],
+      [
+        "alwaysTrue",
+        "notAList",
+        "context.ip",
+        "10.0.0.0/8",
+        "This is always true, so it restricts nothing. It needs a list of values, not one.",
+      ],
+      [
+        "alwaysFalse",
+        "notAList",
+        "context.ip",
+        "10.0.0.0/8",
+        "This is always false. It needs a list of values, not one.",
+      ],
+      [
+        "alwaysTrue",
+        "emptyList",
+        "context.ip",
+        [],
+        "This is always true, so it restricts nothing. The list is empty.",
+      ],
+      [
+        "alwaysFalse",
+        "emptyList",
+        "context.ip",
+        [],
+        "This is always false. The list is empty.",
+      ],
+      [
+        "alwaysFalse",
+        "notANumber",
+        "subject.level",
+        "high",
+        "This is always false. It compares numbers, and the value is not one.",
+      ],
+      [
+        "alwaysFalse",
+        "noValidCIDR",
+        "context.ip",
+        "10.0.0/33",
+        "This is always false. None of these parse as a network.",
+      ],
+      [
+        "alwaysFalse",
+        "notATime",
+        "context.at",
+        "2026-06-01",
+        "This is always false. The value is not an RFC3339 time.",
+      ],
     ]
 
     for (const [problem, reason, field, value, text] of NOTES) {
@@ -357,13 +500,21 @@ describe("PolicyRule", () => {
     it("puts each note under its own row and no other", () => {
       const conditions: PolicyConditionView[] = [
         { field: "subject.dept", operator: "eq", value: "eng" },
-        { field: "context.ip", operator: "in", value: "10.0.0.0/8", problem: "throws", reason: "notAList" },
+        {
+          field: "context.ip",
+          operator: "in",
+          value: "10.0.0.0/8",
+          problem: "throws",
+          reason: "notAList",
+        },
         { field: "subject.level", operator: "gt", value: 3 },
       ]
       const { container } = show({ conditions })
       const marked = conditionRow(container, 1)
       expect(lineOf(marked)[0]).toBe("context.ip")
-      expect(noteOf(marked)).toBe("This needs a list of values, not one, so it cannot be evaluated.")
+      expect(noteOf(marked)).toBe(
+        "This needs a list of values, not one, so it cannot be evaluated."
+      )
       expect(noteOf(conditionRow(container, 0))).toBeNull()
       expect(noteOf(conditionRow(container, 2))).toBeNull()
     })
@@ -373,7 +524,13 @@ describe("PolicyRule", () => {
       // never marks a real list notAList. The page does not second-guess it.
       const { container } = show({
         conditions: [
-          { field: "context.ip", operator: "in", value: ["10.0.0.0/8"], problem: "alwaysFalse", reason: "notAList" },
+          {
+            field: "context.ip",
+            operator: "in",
+            value: ["10.0.0.0/8"],
+            problem: "alwaysFalse",
+            reason: "notAList",
+          },
         ],
       })
       expect(noteOf(conditionRow(container, 0))).toBe(
@@ -395,12 +552,22 @@ describe("PolicyRule", () => {
         decidingCondition: 1,
         conditions: [
           { field: "subject.dept", operator: "eq", value: "eng" },
-          { field: "context.ip", operator: "bogus", value: "x", problem: "throws", reason: "unknownOperator" },
+          {
+            field: "context.ip",
+            operator: "bogus",
+            value: "x",
+            problem: "throws",
+            reason: "unknownOperator",
+          },
         ],
       })
-      expect(conditionRow(container, 1).getAttribute("data-deciding")).toBe("true")
+      expect(conditionRow(container, 1).getAttribute("data-deciding")).toBe(
+        "true"
+      )
       expect(conditionRow(container, 1).textContent).toContain("condition 2")
-      expect(conditionRow(container, 0).getAttribute("data-deciding")).toBeNull()
+      expect(
+        conditionRow(container, 0).getAttribute("data-deciding")
+      ).toBeNull()
       expect(conditionRow(container, 0).textContent).not.toContain("condition")
     })
   })
@@ -415,10 +582,14 @@ describe("PolicyRule", () => {
 
     it("reads an open end as from X, and an open start as until Y", () => {
       const a = show({ notAfter: undefined })
-      expect(row(a.container, "window").textContent).toBe("from 1 Jun 2026, 00:00 UTC")
+      expect(row(a.container, "window").textContent).toBe(
+        "from 1 Jun 2026, 00:00 UTC"
+      )
       a.unmount()
       const b = show({ notBefore: undefined, notAfter: "2026-06-30T12:30:15Z" })
-      expect(row(b.container, "window").textContent).toBe("until 30 Jun 2026, 12:30:15 UTC")
+      expect(row(b.container, "window").textContent).toBe(
+        "until 30 Jun 2026, 12:30:15 UTC"
+      )
     })
 
     it("omits in effect when there is no window", () => {
@@ -429,10 +600,9 @@ describe("PolicyRule", () => {
 
     it("emits each obligation as a chip", () => {
       const { container } = show({ obligations: ["notify-security", "log"] })
-      expect(chipsIn(row(container, "emits")).map((c) => c.textContent)).toEqual([
-        "notify-security",
-        "log",
-      ])
+      expect(
+        chipsIn(row(container, "emits")).map((c) => c.textContent)
+      ).toEqual(["notify-security", "log"])
     })
 
     it("omits emits when there are none", () => {
@@ -443,9 +613,15 @@ describe("PolicyRule", () => {
   })
 
   describe("visual weight", () => {
-    const block = (container: HTMLElement) => container.querySelector("section")!
+    const block = (container: HTMLElement) =>
+      container.querySelector("section")!
 
-    for (const state of ["inactive", "scheduled", "expired", "never"] as const) {
+    for (const state of [
+      "inactive",
+      "scheduled",
+      "expired",
+      "never",
+    ] as const) {
       it(`dims the block for ${state}`, () => {
         const { container } = show({ state, isActive: state !== "inactive" })
         expect(block(container).className).toContain("opacity-60")
@@ -464,7 +640,10 @@ describe("PolicyRule", () => {
 
     it("dims even an active fail-closed deny while policy evaluation is off", () => {
       const { container } = render(
-        <PolicyRule policy={ruleOf({ failsClosed: true, decidingCondition: 0 })} evaluationOff />
+        <PolicyRule
+          policy={ruleOf({ failsClosed: true, decidingCondition: 0 })}
+          evaluationOff
+        />
       )
       expect(block(container).className).toContain("opacity-60")
     })
@@ -474,7 +653,12 @@ describe("PolicyRule", () => {
       expect(block(container).className).not.toContain("opacity")
     })
 
-    for (const state of ["inactive", "scheduled", "expired", "never"] as const) {
+    for (const state of [
+      "inactive",
+      "scheduled",
+      "expired",
+      "never",
+    ] as const) {
       it(`dims a fail-closed deny that is ${state}, since it has no effect now`, () => {
         const { container } = show({
           failsClosed: true,

@@ -31,9 +31,11 @@ export type Period = "monthly" | "yearly" | "none"
 export type TierType = "graduated" | "volume" | "flat"
 export type PlanStatus = "active" | "draft" | "archived"
 export type CatalogFeatureStatus = "active" | "draft" | "archived"
-export type SubscriptionStatus = "active" | "trialing" | "past_due" | "canceled" | "expired" | "paused"
+export type SubscriptionStatus =
+  "active" | "trialing" | "past_due" | "canceled" | "expired" | "paused"
 export type InvoiceStatus = "draft" | "pending" | "paid" | "past_due" | "voided"
-export type LineItemType = "base" | "usage" | "overage" | "seat" | "discount" | "tax"
+export type LineItemType =
+  "base" | "usage" | "overage" | "seat" | "discount" | "tax"
 export type CouponType = "percentage" | "amount"
 
 /** plan.Feature: a feature as one plan grants it. `limit` -1 is unlimited. */

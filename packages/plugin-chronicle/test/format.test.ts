@@ -19,9 +19,13 @@ describe("shortHash", () => {
 })
 
 describe("durationLabel", () => {
-  it("reads whole days", () => expect(durationLabel("720h0m0s")).toBe("30 days"))
+  it("reads whole days", () =>
+    expect(durationLabel("720h0m0s")).toBe("30 days"))
   it("reads one day", () => expect(durationLabel("24h0m0s")).toBe("1 day"))
-  it("reads hours that are not whole days", () => expect(durationLabel("36h0m0s")).toBe("36 hours"))
-  it("reads minutes and seconds as written", () => expect(durationLabel("1m30s")).toBe("1m30s"))
-  it("returns an unparseable value unchanged", () => expect(durationLabel("soon")).toBe("soon"))
+  it("reads hours that are not whole days", () =>
+    expect(durationLabel("36h0m0s")).toBe("36 hours"))
+  it("reads minutes and seconds as written", () =>
+    expect(durationLabel("1m30s")).toBe("1m30s"))
+  it("returns an unparseable value unchanged", () =>
+    expect(durationLabel("soon")).toBe("soon"))
 })

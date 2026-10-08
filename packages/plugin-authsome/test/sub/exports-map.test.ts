@@ -6,11 +6,13 @@ import { describe, expect, it } from "vitest"
 // imported by the subpath the plan promises.
 describe("exports map", () => {
   it("resolves a .ts sub-plugin through the subpath", async () => {
-    const mod = await import("@forge-go/dashboard-plugin-authsome/sub/settings-only")
+    const mod =
+      await import("@forge-go/dashboard-plugin-authsome/sub/settings-only")
     expect(Array.isArray(mod.settingsOnlySubPlugins)).toBe(true)
   })
   it("resolves a .tsx sub-plugin through the subpath", async () => {
-    const mod = await import("@forge-go/dashboard-plugin-authsome/sub/settings-panel")
+    const mod =
+      await import("@forge-go/dashboard-plugin-authsome/sub/settings-panel")
     expect(typeof mod.settingsPanelFor).toBe("function")
   })
 })

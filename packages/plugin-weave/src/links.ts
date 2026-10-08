@@ -13,7 +13,8 @@ const seg = (id: string) => encodeURIComponent(id)
 // Scope-relative: no query, so the host's resolver can place them.
 export const collectionPath = (id: string) => `/collections/${seg(id)}`
 export const collectionEditPath = (id: string) => `/collections/${seg(id)}/edit`
-export const collectionIngestPath = (id: string) => `/collections/${seg(id)}/ingest`
+export const collectionIngestPath = (id: string) =>
+  `/collections/${seg(id)}/ingest`
 export const documentPath = (id: string) => `/documents/${seg(id)}`
 export const chunkPath = (id: string) => `/chunks/${seg(id)}`
 
@@ -68,7 +69,7 @@ export function useSearchParam(name: string): string {
   return useSyncExternalStore(
     subscribe,
     () => (new URLSearchParams(window.location.search).get(name) ?? "").trim(),
-    () => "",
+    () => ""
   )
 }
 
@@ -78,7 +79,9 @@ export function useSearchParam(name: string): string {
  * filter tidies the page you are on, so Back leaves the page rather than
  * stepping back through every filter you tried. Other parameters stay.
  */
-export function useSetSearchParams(path: "/documents" | "/chunks"): (changes: Record<string, string>) => void {
+export function useSetSearchParams(
+  path: "/documents" | "/chunks"
+): (changes: Record<string, string>) => void {
   const navigateTo = useNavigateTo()
   return (changes) => {
     const search = new URLSearchParams(window.location.search)

@@ -65,7 +65,7 @@ export function FakeHost({
       },
       resolve: (to: string) => `/@keysmith${to}`,
     }),
-    [onNavigate],
+    [onNavigate]
   )
   return (
     <NavigationProvider value={nav}>

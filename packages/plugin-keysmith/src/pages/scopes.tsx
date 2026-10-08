@@ -52,7 +52,7 @@ export const ScopesPage: ComponentType<PluginPageProps> = () => {
   // Taken when Delete is pressed, so the question keeps its wording if a
   // refetch under the open dialog no longer lists the scope.
   const [target, setTarget] = useState<{ id: string; name: string } | null>(
-    null,
+    null
   )
 
   function startDeleting(s: ScopeSummary) {
@@ -60,9 +60,7 @@ export const ScopesPage: ComponentType<PluginPageProps> = () => {
     setDeleting(true)
   }
 
-  const create = (
-    <Button onClick={() => setCreating(true)}>Create scope</Button>
-  )
+  const create = <Button onClick={() => setCreating(true)}>Create scope</Button>
 
   return (
     <section className="flex flex-col gap-4">
@@ -94,7 +92,11 @@ export const ScopesPage: ComponentType<PluginPageProps> = () => {
                 emptyMessage="No scopes yet."
                 emptyAction={create}
                 rowActions={(s) => (
-                  <IconButton variant="outline" onClick={() => startDeleting(s)} label={`Delete ${s.name}`} />
+                  <IconButton
+                    variant="outline"
+                    onClick={() => startDeleting(s)}
+                    label={`Delete ${s.name}`}
+                  />
                 )}
               />
               {data.hasMore && (

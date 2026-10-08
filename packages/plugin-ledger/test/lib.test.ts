@@ -1,8 +1,25 @@
 import { describe, expect, it } from "vitest"
-import { currencyDigits, formatMinor, formatMoney, parseMajor, toMajorInput } from "../src/lib/money"
+import {
+  currencyDigits,
+  formatMinor,
+  formatMoney,
+  parseMajor,
+  toMajorInput,
+} from "../src/lib/money"
 import { pageCaption, pageParams, PAGE_SIZE } from "../src/lib/paging"
-import { couponPath, invoicePath, planEditPath, planPath, subscriptionPath } from "../src/lib/paths"
-import { formatDay, formatPeriod, toLocalInput, toRFC3339 } from "../src/lib/datetime"
+import {
+  couponPath,
+  invoicePath,
+  planEditPath,
+  planPath,
+  subscriptionPath,
+} from "../src/lib/paths"
+import {
+  formatDay,
+  formatPeriod,
+  toLocalInput,
+  toRFC3339,
+} from "../src/lib/datetime"
 import { couponState, describeDiscount } from "../src/lib/coupons"
 import { aCoupon, usd } from "./fixtures"
 
@@ -55,15 +72,63 @@ describe("paging", () => {
   })
 
   it("states an exact count only when everything is on the first page", () => {
-    expect(pageCaption({ page: 1, shown: 3, hasMore: false, singular: "plan", plural: "plans" })).toBe("3 plans")
-    expect(pageCaption({ page: 1, shown: 1, hasMore: false, singular: "plan", plural: "plans" })).toBe("1 plan")
-    expect(pageCaption({ page: 1, shown: 0, hasMore: false, singular: "plan", plural: "plans" })).toBe("0 plans")
+    expect(
+      pageCaption({
+        page: 1,
+        shown: 3,
+        hasMore: false,
+        singular: "plan",
+        plural: "plans",
+      })
+    ).toBe("3 plans")
+    expect(
+      pageCaption({
+        page: 1,
+        shown: 1,
+        hasMore: false,
+        singular: "plan",
+        plural: "plans",
+      })
+    ).toBe("1 plan")
+    expect(
+      pageCaption({
+        page: 1,
+        shown: 0,
+        hasMore: false,
+        singular: "plan",
+        plural: "plans",
+      })
+    ).toBe("0 plans")
   })
 
   it("states a range, and says when there is more, once paging starts", () => {
-    expect(pageCaption({ page: 1, shown: 50, hasMore: true, singular: "plan", plural: "plans" })).toBe("Plans 1–50, more on the next page")
-    expect(pageCaption({ page: 2, shown: 7, hasMore: false, singular: "plan", plural: "plans" })).toBe("Plans 51–57")
-    expect(pageCaption({ page: 4, shown: 0, hasMore: false, singular: "plan", plural: "plans" })).toBe("No plans on page 4")
+    expect(
+      pageCaption({
+        page: 1,
+        shown: 50,
+        hasMore: true,
+        singular: "plan",
+        plural: "plans",
+      })
+    ).toBe("Plans 1–50, more on the next page")
+    expect(
+      pageCaption({
+        page: 2,
+        shown: 7,
+        hasMore: false,
+        singular: "plan",
+        plural: "plans",
+      })
+    ).toBe("Plans 51–57")
+    expect(
+      pageCaption({
+        page: 4,
+        shown: 0,
+        hasMore: false,
+        singular: "plan",
+        plural: "plans",
+      })
+    ).toBe("No plans on page 4")
   })
 })
 
@@ -101,7 +166,9 @@ describe("datetime", () => {
   })
 
   it("prints a period as two dates", () => {
-    expect(formatPeriod("2026-09-01T00:00:00Z", "2026-10-01T00:00:00Z")).toMatch(/2026.*–.*2026/)
+    expect(
+      formatPeriod("2026-09-01T00:00:00Z", "2026-10-01T00:00:00Z")
+    ).toMatch(/2026.*–.*2026/)
   })
 })
 
@@ -110,14 +177,28 @@ describe("coupons", () => {
 
   it("reads a coupon's state from its window and cap", () => {
     expect(couponState(aCoupon(), now)).toBe("active")
-    expect(couponState(aCoupon({ valid_from: "2026-10-01T00:00:00Z" }), now)).toBe("scheduled")
-    expect(couponState(aCoupon({ valid_until: "2026-09-01T00:00:00Z" }), now)).toBe("expired")
-    expect(couponState(aCoupon({ max_redemptions: 5, times_redeemed: 5 }), now)).toBe("exhausted")
-    expect(couponState(aCoupon({ max_redemptions: 0, times_redeemed: 500 }), now)).toBe("active")
+    expect(
+      couponState(aCoupon({ valid_from: "2026-10-01T00:00:00Z" }), now)
+    ).toBe("scheduled")
+    expect(
+      couponState(aCoupon({ valid_until: "2026-09-01T00:00:00Z" }), now)
+    ).toBe("expired")
+    expect(
+      couponState(aCoupon({ max_redemptions: 5, times_redeemed: 5 }), now)
+    ).toBe("exhausted")
+    expect(
+      couponState(aCoupon({ max_redemptions: 0, times_redeemed: 500 }), now)
+    ).toBe("active")
   })
 
   it("describes the discount a coupon gives", () => {
-    expect(describeDiscount(aCoupon({ type: "percentage", percentage: 20 }))).toBe("20% off")
-    expect(describeDiscount(aCoupon({ type: "amount", amount: usd(1000), percentage: undefined }))).toMatch(/10\.00 off$/)
+    expect(
+      describeDiscount(aCoupon({ type: "percentage", percentage: 20 }))
+    ).toBe("20% off")
+    expect(
+      describeDiscount(
+        aCoupon({ type: "amount", amount: usd(1000), percentage: undefined })
+      )
+    ).toMatch(/10\.00 off$/)
   })
 })

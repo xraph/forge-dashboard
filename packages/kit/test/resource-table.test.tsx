@@ -30,7 +30,7 @@ function renderTable(props: Partial<ResourceTableProps<User>> = {}) {
       rowKey={(u) => u.id}
       emptyMessage="No users yet."
       {...props}
-    />,
+    />
   )
 }
 
@@ -65,7 +65,10 @@ describe("ResourceTable", () => {
     const onSortChange = vi.fn()
     const { rerender } = renderTable({ onSortChange })
     fireEvent.click(screen.getByRole("button", { name: /Email/ }))
-    expect(onSortChange).toHaveBeenCalledWith({ columnId: "email", direction: "asc" })
+    expect(onSortChange).toHaveBeenCalledWith({
+      columnId: "email",
+      direction: "asc",
+    })
 
     rerender(
       <ResourceTable<User>
@@ -75,39 +78,64 @@ describe("ResourceTable", () => {
         emptyMessage="No users yet."
         sort={{ columnId: "email", direction: "asc" }}
         onSortChange={onSortChange}
-      />,
+      />
     )
     fireEvent.click(screen.getByRole("button", { name: /Email/ }))
-    expect(onSortChange).toHaveBeenLastCalledWith({ columnId: "email", direction: "desc" })
+    expect(onSortChange).toHaveBeenLastCalledWith({
+      columnId: "email",
+      direction: "desc",
+    })
   })
 
   it("tells assistive tech which column is sorted and which way", () => {
-    renderTable({ sort: { columnId: "email", direction: "desc" }, onSortChange: () => {} })
+    renderTable({
+      sort: { columnId: "email", direction: "desc" },
+      onSortChange: () => {},
+    })
     const header = screen.getByRole("columnheader", { name: /Email/ })
     expect(header.getAttribute("aria-sort")).toBe("descending")
   })
 
   it("renders row actions when given them", () => {
     renderTable({ rowActions: (u) => <button>Ban {u.email}</button> })
-    expect(screen.getByRole("button", { name: "Ban ada@example.com" })).toBeTruthy()
+    expect(
+      screen.getByRole("button", { name: "Ban ada@example.com" })
+    ).toBeTruthy()
   })
 
   it("does not sort the rows it was handed", () => {
-    renderTable({ sort: { columnId: "email", direction: "desc" }, onSortChange: () => {} })
+    renderTable({
+      sort: { columnId: "email", direction: "desc" },
+      onSortChange: () => {},
+    })
     const cells = screen.getAllByRole("cell").map((c) => c.textContent)
-    expect(cells.indexOf("ada@example.com")).toBeLessThan(cells.indexOf("grace@example.com"))
+    expect(cells.indexOf("ada@example.com")).toBeLessThan(
+      cells.indexOf("grace@example.com")
+    )
   })
 
   it("disables previous on the first page and next on the last", () => {
     const onPageChange = vi.fn()
-    renderTable({ pagination: { page: 1, pageSize: 2, total: 4 }, onPageChange })
-    expect((screen.getByRole("button", { name: "Previous page" }) as HTMLButtonElement).disabled).toBe(true)
+    renderTable({
+      pagination: { page: 1, pageSize: 2, total: 4 },
+      onPageChange,
+    })
+    expect(
+      (
+        screen.getByRole("button", {
+          name: "Previous page",
+        }) as HTMLButtonElement
+      ).disabled
+    ).toBe(true)
     fireEvent.click(screen.getByRole("button", { name: "Next page" }))
     expect(onPageChange).toHaveBeenCalledWith(2)
   })
 
   it("renders no pagination controls when there is only one page", () => {
-    renderTable({ pagination: { page: 1, pageSize: 10, total: 2 }, onPageChange: () => {} })
+    renderTable({
+      pagination: { page: 1, pageSize: 10, total: 2 },
+      onPageChange: () => {},
+    })
     expect(screen.queryByRole("button", { name: "Next page" })).toBeNull()
   })
 

@@ -79,7 +79,9 @@ describe("authsomePlugin", () => {
   // covered by test/auth-intents.test.ts.
   it("declares no /login entry, in the nav or in the route table", () => {
     expect(authsomePlugin.nav.map((item) => item.to)).not.toContain("/login")
-    expect(authsomePlugin.routes.map((route) => route.path)).not.toContain("/login")
+    expect(authsomePlugin.routes.map((route) => route.path)).not.toContain(
+      "/login"
+    )
   })
 
   it("mounts each route's element, and each one reads its own intent", async () => {
@@ -104,7 +106,13 @@ describe("authsomePlugin", () => {
       },
       "apps.list": {
         apps: [
-          { id: "app_1", name: "Acme", slug: "acme", isPlatform: false, createdAt: "2026-09-06T09:00:00.000Z" },
+          {
+            id: "app_1",
+            name: "Acme",
+            slug: "acme",
+            isPlatform: false,
+            createdAt: "2026-09-06T09:00:00.000Z",
+          },
         ],
       },
       "credentials.detail": {
@@ -141,7 +149,14 @@ describe("authsomePlugin", () => {
         toggles: [{ key: "mfa", label: "MFA", enabled: true, available: true }],
       },
       "roles.list": {
-        roles: [{ id: "role_1", name: "Admin", slug: "admin", createdAt: "2026-09-06T09:00:00.000Z" }],
+        roles: [
+          {
+            id: "role_1",
+            name: "Admin",
+            slug: "admin",
+            createdAt: "2026-09-06T09:00:00.000Z",
+          },
+        ],
       },
       "sessions.list": {
         sessions: [
@@ -157,10 +172,20 @@ describe("authsomePlugin", () => {
         ],
       },
       "settings.namespaces": {
-        namespaces: [{ name: "general", displayName: "General", settingCount: 3 }],
+        namespaces: [
+          { name: "general", displayName: "General", settingCount: 3 },
+        ],
       },
       "formConfigs.list": {
-        formConfigs: [{ id: "f1", formType: "signup", version: 1, active: true, createdAt: "2026-09-06T09:00:00.000Z" }],
+        formConfigs: [
+          {
+            id: "f1",
+            formType: "signup",
+            version: 1,
+            active: true,
+            createdAt: "2026-09-06T09:00:00.000Z",
+          },
+        ],
       },
       "formConfigs.signup": {
         appId: "app_1",
@@ -227,7 +252,7 @@ describe("authsomePlugin", () => {
       const { unmount } = renderPage(route.element, client)
       expect(
         await screen.findByText(expected[route.path]),
-        `route "${route.path}" did not render the expected text`,
+        `route "${route.path}" did not render the expected text`
       ).toBeDefined()
       unmount()
     }
@@ -257,15 +282,31 @@ describe("the finished plugin", () => {
     const paths = authsomePlugin.routes.map((r) => r.path).sort()
     expect(paths).toEqual(
       [
-        "/", "/apps", "/apps/create", "/apps/:id",
-        "/credentials", "/devices", "/devices/:id",
-        "/environments", "/environments/:id", "/features",
-        "/plugins", "/roles", "/roles/:id",
-        "/sessions", "/sessions/:id",
-        "/settings", "/settings/:namespace",
-        "/signup-forms", "/signup-forms/edit", "/signup-forms/dynamic",
-        "/users", "/users/create", "/users/:id", "/webhooks",
-      ].sort(),
+        "/",
+        "/apps",
+        "/apps/create",
+        "/apps/:id",
+        "/credentials",
+        "/devices",
+        "/devices/:id",
+        "/environments",
+        "/environments/:id",
+        "/features",
+        "/plugins",
+        "/roles",
+        "/roles/:id",
+        "/sessions",
+        "/sessions/:id",
+        "/settings",
+        "/settings/:namespace",
+        "/signup-forms",
+        "/signup-forms/edit",
+        "/signup-forms/dynamic",
+        "/users",
+        "/users/create",
+        "/users/:id",
+        "/webhooks",
+      ].sort()
     )
   })
 
@@ -325,14 +366,22 @@ describe("the finished plugin", () => {
     }
 
     const appResult = app.select(data)
-    expect(appResult.current).toEqual({ id: "app_1", label: "Acme", slug: "acme" })
+    expect(appResult.current).toEqual({
+      id: "app_1",
+      label: "Acme",
+      slug: "acme",
+    })
     expect(appResult.options).toEqual([
       { id: "app_1", label: "Acme", slug: "acme" },
       { id: "app_2", label: "Globex", slug: "globex" },
     ])
 
     const envResult = env.select(data)
-    expect(envResult.current).toEqual({ id: "env_1", label: "Production", slug: "prod" })
+    expect(envResult.current).toEqual({
+      id: "env_1",
+      label: "Production",
+      slug: "prod",
+    })
     expect(envResult.options).toEqual([
       { id: "env_1", label: "Production", slug: "prod" },
       { id: "env_2", label: "Staging", slug: "staging" },
@@ -368,7 +417,7 @@ describe("the finished plugin", () => {
     for (const item of authsomePlugin.nav) {
       expect(
         routePaths.has(item.to),
-        `nav item "${item.label}" points at undeclared route "${item.to}"`,
+        `nav item "${item.label}" points at undeclared route "${item.to}"`
       ).toBe(true)
     }
   })
@@ -379,21 +428,43 @@ describe("the finished plugin", () => {
   it("gives every list route a nav entry, and no detail, create or edit route one", () => {
     const navTargets = new Set(authsomePlugin.nav.map((n) => n.to))
     const listRoutes = [
-      "/", "/apps", "/credentials", "/devices", "/environments", "/features",
-      "/plugins", "/roles", "/sessions", "/settings", "/signup-forms", "/users", "/webhooks",
+      "/",
+      "/apps",
+      "/credentials",
+      "/devices",
+      "/environments",
+      "/features",
+      "/plugins",
+      "/roles",
+      "/sessions",
+      "/settings",
+      "/signup-forms",
+      "/users",
+      "/webhooks",
     ]
     const detailCreateOrEditRoutes = [
-      "/apps/create", "/apps/:id", "/devices/:id", "/environments/:id",
-      "/roles/:id", "/sessions/:id", "/settings/:namespace",
-      "/signup-forms/edit", "/signup-forms/dynamic", "/users/create", "/users/:id",
+      "/apps/create",
+      "/apps/:id",
+      "/devices/:id",
+      "/environments/:id",
+      "/roles/:id",
+      "/sessions/:id",
+      "/settings/:namespace",
+      "/signup-forms/edit",
+      "/signup-forms/dynamic",
+      "/users/create",
+      "/users/:id",
     ]
     for (const path of listRoutes) {
-      expect(navTargets.has(path), `list route "${path}" has no nav entry`).toBe(true)
+      expect(
+        navTargets.has(path),
+        `list route "${path}" has no nav entry`
+      ).toBe(true)
     }
     for (const path of detailCreateOrEditRoutes) {
       expect(
         navTargets.has(path),
-        `route "${path}" should not have a nav entry`,
+        `route "${path}" should not have a nav entry`
       ).toBe(false)
     }
   })
@@ -408,7 +479,10 @@ describe("the finished plugin", () => {
     }
     for (const [group, priorities] of byGroup) {
       const sorted = [...priorities].sort((a, b) => a - b)
-      expect(priorities, `nav group "${group}" is not ordered by priority`).toEqual(sorted)
+      expect(
+        priorities,
+        `nav group "${group}" is not ordered by priority`
+      ).toEqual(sorted)
     }
   })
 })

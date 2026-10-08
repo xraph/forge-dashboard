@@ -11,11 +11,20 @@ import { StartRunDialog } from "./start-run-dialog"
  * a run could start: a target is registered and the suite has a case.
  * Otherwise the tab says which of the two is missing, in place of the button.
  */
-export function RunsTab({ suiteId, suite }: { suiteId: string; suite: Suite | undefined }) {
+export function RunsTab({
+  suiteId,
+  suite,
+}: {
+  suiteId: string
+  suite: Suite | undefined
+}) {
   const config = useQuery<SentinelConfig>("config.get")
   const [starting, setStarting] = useState(false)
   // Taken when the dialog opens, so its wording holds through a refetch.
-  const [chosen, setChosen] = useState<{ suite: Suite; config: SentinelConfig } | null>(null)
+  const [chosen, setChosen] = useState<{
+    suite: Suite
+    config: SentinelConfig
+  } | null>(null)
   const cfg = config.data
   const noTarget = cfg !== undefined && cfg.targets.length === 0
   const noCase = suite !== undefined && suite.caseCount === 0
@@ -53,7 +62,12 @@ export function RunsTab({ suiteId, suite }: { suiteId: string; suite: Suite | un
       <RunTrend suiteId={suiteId} />
       <RunsList suiteId={suiteId} />
       {chosen && (
-        <StartRunDialog open={starting} onOpenChange={setStarting} suite={chosen.suite} config={chosen.config} />
+        <StartRunDialog
+          open={starting}
+          onOpenChange={setStarting}
+          suite={chosen.suite}
+          config={chosen.config}
+        />
       )}
     </div>
   )

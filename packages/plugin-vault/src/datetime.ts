@@ -52,7 +52,10 @@ export function toUTCInput(iso: string): string {
  * change (the control cannot show fractions of a second, the instant may
  * carry them). Empty text is an open end.
  */
-export function scheduleTime(text: string, original: string | undefined): string | undefined {
+export function scheduleTime(
+  text: string,
+  original: string | undefined
+): string | undefined {
   if (text === "") return undefined
   if (original !== undefined && text === toUTCInput(original)) return original
   return utcInputToRFC3339(text)

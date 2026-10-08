@@ -69,12 +69,18 @@ describe("FlagsPage", () => {
     }
     const first = row("checkout/new-flow")
     // Type badge, mono.
-    const type = within(first).getByText("bool", { selector: '[data-slot="badge"]' })
+    const type = within(first).getByText("bool", {
+      selector: '[data-slot="badge"]',
+    })
     expect(type.className).toMatch(/font-mono/)
     // Status badge.
-    expect(within(first).getByText("On", { selector: '[data-slot="badge"]' })).toBeTruthy()
     expect(
-      within(row("banner-text")).getByText("Off", { selector: '[data-slot="badge"]' }),
+      within(first).getByText("On", { selector: '[data-slot="badge"]' })
+    ).toBeTruthy()
+    expect(
+      within(row("banner-text")).getByText("Off", {
+        selector: '[data-slot="badge"]',
+      })
     ).toBeTruthy()
     // Default, through FlagValue.
     expect(within(first).getByText("false")).toBeTruthy()
@@ -86,7 +92,7 @@ describe("FlagsPage", () => {
     expect(within(first).queryByLabelText(/no update/i)).toBeNull()
   })
 
-  it("shows a string default quoted, so \"true\" is not read as true", async () => {
+  it('shows a string default quoted, so "true" is not read as true', async () => {
     renderPage(FlagsPage, stubClient({ "flags.list": FLAGS }))
     await screen.findByText("banner-text")
     expect(within(row("banner-text")).getByText('"true"')).toBeTruthy()
@@ -106,7 +112,9 @@ describe("FlagsPage", () => {
     renderPage(FlagsPage, stubClient({ "flags.list": FLAGS }))
     await screen.findByText("banner-text")
     expect(within(row("banner-text")).getByLabelText("no tags")).toBeTruthy()
-    expect(within(row("checkout/new-flow")).queryByLabelText("no tags")).toBeNull()
+    expect(
+      within(row("checkout/new-flow")).queryByLabelText("no tags")
+    ).toBeNull()
   })
 
   it("links each key through flagPath in mono, medium weight", async () => {
@@ -114,13 +122,15 @@ describe("FlagsPage", () => {
     const link = await screen.findByRole("link", { name: "checkout/new-flow" })
     expect(link.getAttribute("href")).toBe(flagPath("checkout/new-flow"))
     expect(link.getAttribute("href")).toBe("/flags/checkout%2Fnew-flow")
-    expect(link.closest("td")?.className).toMatch(/font-mono text-xs font-medium/)
+    expect(link.closest("td")?.className).toMatch(
+      /font-mono text-xs font-medium/
+    )
   })
 
   it("shows the server total in the caption, singular for one", async () => {
     renderPage(
       FlagsPage,
-      stubClient({ "flags.list": { flags: FLAGS.flags, total: 31 } }),
+      stubClient({ "flags.list": { flags: FLAGS.flags, total: 31 } })
     )
     await screen.findByText("banner-text")
     expect(screen.getByText("31 flags")).toBeTruthy()
@@ -129,7 +139,7 @@ describe("FlagsPage", () => {
   it("uses the singular for a total of one", async () => {
     renderPage(
       FlagsPage,
-      stubClient({ "flags.list": { flags: [flag()], total: 1 } }),
+      stubClient({ "flags.list": { flags: [flag()], total: 1 } })
     )
     await screen.findByText("checkout/new-flow")
     expect(screen.getByText("1 flag")).toBeTruthy()
@@ -153,14 +163,16 @@ describe("FlagsPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Next page" }))
     await screen.findByText(/Page 2 of 3/)
     expect(
-      sent.filter((i) => i.intent === "flags.list").map((i) => i.params),
+      sent.filter((i) => i.intent === "flags.list").map((i) => i.params)
     ).toContainEqual({ limit: 25, offset: 25 })
 
-    fireEvent.change(screen.getByLabelText("Type"), { target: { value: "int" } })
+    fireEvent.change(screen.getByLabelText("Type"), {
+      target: { value: "int" },
+    })
     await waitFor(() =>
       expect(
-        sent.filter((i) => i.intent === "flags.list").map((i) => i.params),
-      ).toContainEqual({ type: "int", limit: 25, offset: 0 }),
+        sent.filter((i) => i.intent === "flags.list").map((i) => i.params)
+      ).toContainEqual({ type: "int", limit: 25, offset: 0 })
     )
     await screen.findByText(/Page 1 of 3/)
   })
@@ -183,7 +195,9 @@ describe("FlagsPage", () => {
   it("names the filter in the empty state when a type is chosen", async () => {
     renderPage(FlagsPage, stubClient({ "flags.list": { flags: [], total: 0 } }))
     await screen.findByText("No flags yet.")
-    fireEvent.change(screen.getByLabelText("Type"), { target: { value: "float" } })
+    fireEvent.change(screen.getByLabelText("Type"), {
+      target: { value: "float" },
+    })
     expect(await screen.findByText("No float flags.")).toBeTruthy()
     expect(screen.queryByText("No flags yet.")).toBeNull()
   })
@@ -191,23 +205,27 @@ describe("FlagsPage", () => {
   it("keeps the filter on screen after choosing a type", async () => {
     renderPage(FlagsPage, stubClient({ "flags.list": FLAGS }))
     await screen.findByText("banner-text")
-    fireEvent.change(screen.getByLabelText("Type"), { target: { value: "bool" } })
+    fireEvent.change(screen.getByLabelText("Type"), {
+      target: { value: "bool" },
+    })
     await screen.findByText("banner-text")
-    expect((screen.getByLabelText("Type") as HTMLSelectElement).value).toBe("bool")
+    expect((screen.getByLabelText("Type") as HTMLSelectElement).value).toBe(
+      "bool"
+    )
   })
 
   it("sends New flag to /new-flag from the header", async () => {
     renderPage(FlagsPage, stubClient({ "flags.list": FLAGS }))
     await screen.findByText("banner-text")
     expect(
-      screen.getByRole("link", { name: "New flag" }).getAttribute("href"),
+      screen.getByRole("link", { name: "New flag" }).getAttribute("href")
     ).toBe("/new-flag")
   })
 
   it("renders the error card, not an empty table, when the list fails", async () => {
     renderPage(
       FlagsPage,
-      failingClient(new ContractError("INTERNAL", "vault store is down")),
+      failingClient(new ContractError("INTERNAL", "vault store is down"))
     )
     expect(await screen.findByText(/Flags unavailable/i)).toBeTruthy()
     expect(screen.getByText(/vault store is down/)).toBeTruthy()

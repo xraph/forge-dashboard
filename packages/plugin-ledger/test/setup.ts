@@ -14,10 +14,26 @@ class SizedResizeObserver {
     this.callback = callback
   }
   observe(target: Element) {
-    const entry = { target, contentRect: { x: 0, y: 0, top: 0, left: 0, width: 640, height: 240, right: 640, bottom: 240 } }
-    this.callback([entry as unknown as ResizeObserverEntry], this as unknown as ResizeObserver)
+    const entry = {
+      target,
+      contentRect: {
+        x: 0,
+        y: 0,
+        top: 0,
+        left: 0,
+        width: 640,
+        height: 240,
+        right: 640,
+        bottom: 240,
+      },
+    }
+    this.callback(
+      [entry as unknown as ResizeObserverEntry],
+      this as unknown as ResizeObserver
+    )
   }
   unobserve() {}
   disconnect() {}
 }
-;(globalThis as { ResizeObserver?: unknown }).ResizeObserver = SizedResizeObserver
+;(globalThis as { ResizeObserver?: unknown }).ResizeObserver =
+  SizedResizeObserver

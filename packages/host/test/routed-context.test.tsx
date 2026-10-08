@@ -1,8 +1,22 @@
 import { describe, expect, it, vi } from "vitest"
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react"
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react"
 import { MemoryRouter } from "react-router"
-import { ForgeDashboardProvider, SessionProvider } from "@forge-go/dashboard-runtime"
-import { PluginProvider, createScopedClient, definePlugin, queryStore } from "@forge-go/dashboard-plugin"
+import {
+  ForgeDashboardProvider,
+  SessionProvider,
+} from "@forge-go/dashboard-runtime"
+import {
+  PluginProvider,
+  createScopedClient,
+  definePlugin,
+  queryStore,
+} from "@forge-go/dashboard-plugin"
 import type { ContextDimension } from "@forge-go/dashboard-plugin"
 import { PluginHost } from "../src/host/PluginHost"
 import { ContextControl } from "../src/host/ContextControl"
@@ -59,13 +73,28 @@ function fixtureServer() {
     { id: "app_storefront", name: "Storefront", slug: "storefront" },
   ]
   const envs: EnvRow[] = [
-    { id: "env_platform_prod", name: "Production", slug: "production", appId: "app_platform" },
-    { id: "env_demo_prod", name: "Production", slug: "production", appId: "app_demo" },
+    {
+      id: "env_platform_prod",
+      name: "Production",
+      slug: "production",
+      appId: "app_platform",
+    },
+    {
+      id: "env_demo_prod",
+      name: "Production",
+      slug: "production",
+      appId: "app_demo",
+    },
     // "staging" belongs to demo-app only. That asymmetry is deliberate: it
     // is what lets a test prove "?env=staging" is refused for platform
     // rather than silently accepted because the slug happens to exist
     // somewhere.
-    { id: "env_demo_staging", name: "Staging", slug: "staging", appId: "app_demo" },
+    {
+      id: "env_demo_staging",
+      name: "Staging",
+      slug: "staging",
+      appId: "app_demo",
+    },
   ]
 
   let contextFails = false
@@ -76,79 +105,99 @@ function fixtureServer() {
 
   function contextData() {
     const currentApp = apps.find((a) => a.id === currentAppId)
-    const availableEnvs = currentAppId ? envs.filter((e) => e.appId === currentAppId) : []
+    const availableEnvs = currentAppId
+      ? envs.filter((e) => e.appId === currentAppId)
+      : []
     const currentEnv = availableEnvs.find((e) => e.id === currentEnvId)
     return {
       currentApp: currentApp
         ? { id: currentApp.id, name: currentApp.name, slug: currentApp.slug }
         : undefined,
-      availableApps: apps.map((a) => ({ id: a.id, name: a.name, slug: a.slug })),
+      availableApps: apps.map((a) => ({
+        id: a.id,
+        name: a.name,
+        slug: a.slug,
+      })),
       currentEnv: currentEnv
         ? { id: currentEnv.id, name: currentEnv.name, slug: currentEnv.slug }
         : undefined,
-      availableEnvs: availableEnvs.map((e) => ({ id: e.id, name: e.name, slug: e.slug })),
+      availableEnvs: availableEnvs.map((e) => ({
+        id: e.id,
+        name: e.name,
+        slug: e.slug,
+      })),
     }
   }
 
-  const fetchImpl = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
-    const url = String(input)
-    if (url.endsWith("/principal")) {
-      return jsonOk({ authenticated: true, subject: "usr_test", email: "test@example.com" })
-    }
-    if (url.endsWith("/capabilities")) {
-      return jsonOk({
-        shellEnvelopes: ["v1"],
-        contributors: [{ name: "auth", envelopes: ["v1"], configured: true }],
-      })
-    }
-    if (url.endsWith("/csrf")) {
-      return jsonOk({ token: "t" })
-    }
-
-    const body = JSON.parse(String(init?.body ?? "{}")) as {
-      intent?: string
-      payload?: Record<string, unknown>
-    }
-
-    if (body.intent === "apps.context") {
-      if (contextFails) {
+  const fetchImpl = vi.fn(
+    async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url.endsWith("/principal")) {
         return jsonOk({
-          ok: false,
-          envelope: "v1",
-          error: { code: "INTERNAL", message: "context unavailable" },
+          authenticated: true,
+          subject: "usr_test",
+          email: "test@example.com",
         })
       }
-      return jsonOk({ ok: true, data: contextData() })
-    }
-    if (body.intent === "apps.switch") {
-      commandOrder.push("apps.switch")
-      if (ignoreSwitch) {
-        // Accepted, and nothing changes. Authsome writes a cookie here that
-        // nothing reads back, so the next apps.context answers exactly as it
-        // did before.
+      if (url.endsWith("/capabilities")) {
+        return jsonOk({
+          shellEnvelopes: ["v1"],
+          contributors: [{ name: "auth", envelopes: ["v1"], configured: true }],
+        })
+      }
+      if (url.endsWith("/csrf")) {
+        return jsonOk({ token: "t" })
+      }
+
+      const body = JSON.parse(String(init?.body ?? "{}")) as {
+        intent?: string
+        payload?: Record<string, unknown>
+      }
+
+      if (body.intent === "apps.context") {
+        if (contextFails) {
+          return jsonOk({
+            ok: false,
+            envelope: "v1",
+            error: { code: "INTERNAL", message: "context unavailable" },
+          })
+        }
+        return jsonOk({ ok: true, data: contextData() })
+      }
+      if (body.intent === "apps.switch") {
+        commandOrder.push("apps.switch")
+        if (ignoreSwitch) {
+          // Accepted, and nothing changes. Authsome writes a cookie here that
+          // nothing reads back, so the next apps.context answers exactly as it
+          // did before.
+          return jsonOk({ ok: true, data: { ok: true } })
+        }
+        const appId = (body.payload as { appId?: string } | undefined)?.appId
+        currentAppId = apps.some((a) => a.id === appId) ? appId : undefined
+        // handlers_context.go: appsSwitchHandler clears the env cookie right
+        // after setting the app cookie, because the new app has a different
+        // environment list.
+        currentEnvId = undefined
         return jsonOk({ ok: true, data: { ok: true } })
       }
-      const appId = (body.payload as { appId?: string } | undefined)?.appId
-      currentAppId = apps.some((a) => a.id === appId) ? appId : undefined
-      // handlers_context.go: appsSwitchHandler clears the env cookie right
-      // after setting the app cookie, because the new app has a different
-      // environment list.
-      currentEnvId = undefined
-      return jsonOk({ ok: true, data: { ok: true } })
-    }
-    if (body.intent === "environments.switch") {
-      commandOrder.push("environments.switch")
-      const envId = (body.payload as { envId?: string } | undefined)?.envId
-      const env = envs.find((e) => e.id === envId)
-      if (!env || env.appId !== currentAppId) {
-        return jsonError(400, "BAD_REQUEST", "environment does not belong to the current app")
+      if (body.intent === "environments.switch") {
+        commandOrder.push("environments.switch")
+        const envId = (body.payload as { envId?: string } | undefined)?.envId
+        const env = envs.find((e) => e.id === envId)
+        if (!env || env.appId !== currentAppId) {
+          return jsonError(
+            400,
+            "BAD_REQUEST",
+            "environment does not belong to the current app"
+          )
+        }
+        currentEnvId = envId
+        return jsonOk({ ok: true, data: { ok: true } })
       }
-      currentEnvId = envId
-      return jsonOk({ ok: true, data: { ok: true } })
-    }
 
-    throw new Error(`fixtureServer: unexpected intent "${body.intent}"`)
-  }) as unknown as typeof fetch
+      throw new Error(`fixtureServer: unexpected intent "${body.intent}"`)
+    }
+  ) as unknown as typeof fetch
 
   return {
     fetchImpl,
@@ -181,9 +230,17 @@ const appDimension: ContextDimension = {
     const d = data as { currentApp?: AppRow; availableApps: AppRow[] }
     return {
       current: d.currentApp
-        ? { id: d.currentApp.id, label: d.currentApp.name, slug: d.currentApp.slug }
+        ? {
+            id: d.currentApp.id,
+            label: d.currentApp.name,
+            slug: d.currentApp.slug,
+          }
         : undefined,
-      options: d.availableApps.map((a) => ({ id: a.id, label: a.name, slug: a.slug })),
+      options: d.availableApps.map((a) => ({
+        id: a.id,
+        label: a.name,
+        slug: a.slug,
+      })),
     }
   },
   payload: (appId) => ({ appId }),
@@ -199,9 +256,17 @@ const envDimension: ContextDimension = {
     const d = data as { currentEnv?: EnvRow; availableEnvs: EnvRow[] }
     return {
       current: d.currentEnv
-        ? { id: d.currentEnv.id, label: d.currentEnv.name, slug: d.currentEnv.slug }
+        ? {
+            id: d.currentEnv.id,
+            label: d.currentEnv.name,
+            slug: d.currentEnv.slug,
+          }
         : undefined,
-      options: (d.availableEnvs ?? []).map((e) => ({ id: e.id, label: e.name, slug: e.slug })),
+      options: (d.availableEnvs ?? []).map((e) => ({
+        id: e.id,
+        label: e.name,
+        slug: e.slug,
+      })),
     }
   },
   payload: (envId) => ({ envId }),
@@ -235,7 +300,11 @@ function plainPlugin() {
   })
 }
 
-function renderAt(plugin: ReturnType<typeof routedAuthPlugin>, fetchImpl: typeof fetch, path: string) {
+function renderAt(
+  plugin: ReturnType<typeof routedAuthPlugin>,
+  fetchImpl: typeof fetch,
+  path: string
+) {
   return render(
     <MemoryRouter initialEntries={[path]}>
       <ForgeDashboardProvider config={config}>
@@ -253,12 +322,18 @@ describe("a plugin with no routed dimension", () => {
     const fetchImpl = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input)
       if (url.endsWith("/principal")) {
-        return jsonOk({ authenticated: true, subject: "usr_test", email: "t@example.com" })
+        return jsonOk({
+          authenticated: true,
+          subject: "usr_test",
+          email: "t@example.com",
+        })
       }
       if (url.endsWith("/capabilities")) {
         return jsonOk({
           shellEnvelopes: ["v1"],
-          contributors: [{ name: "streaming", envelopes: ["v1"], configured: true }],
+          contributors: [
+            { name: "streaming", envelopes: ["v1"], configured: true },
+          ],
         })
       }
       throw new Error(`unexpected request to ${url}`)
@@ -275,7 +350,9 @@ describe("a plugin with no routed dimension", () => {
     )
 
     await waitFor(() => expect(screen.getByText("rooms list")).toBeTruthy())
-    expect(screen.getByRole("link", { name: "Rooms" }).getAttribute("href")).toBe("/@streaming/rooms")
+    expect(
+      screen.getByRole("link", { name: "Rooms" }).getAttribute("href")
+    ).toBe("/@streaming/rooms")
   })
 })
 
@@ -291,9 +368,9 @@ describe("a plugin with a path-routed dimension", () => {
     renderAt(routedAuthPlugin(), server.fetchImpl, "/@auth/demo-app/users")
 
     await waitFor(() => expect(screen.getByText("users page")).toBeTruthy())
-    expect(screen.getByRole("link", { name: "Overview" }).getAttribute("href")).toBe(
-      "/@auth/demo-app/overview"
-    )
+    expect(
+      screen.getByRole("link", { name: "Overview" }).getAttribute("href")
+    ).toBe("/@auth/demo-app/overview")
     // Already agreeing with the server: no switch should have been sent.
     expect(server.commandOrder).toEqual([])
   })
@@ -344,7 +421,9 @@ describe("a plugin with a path-routed dimension", () => {
     const overview = within(rail).getByRole("link", { name: "Overview" })
     expect(overview.getAttribute("href")).toBe("/@auth/platform/overview")
     expect(overview.getAttribute("aria-current")).toBeNull()
-    expect(await within(rail).findByRole("button", { name: /^Platform \/ / })).toBeTruthy()
+    expect(
+      await within(rail).findByRole("button", { name: /^Platform \/ / })
+    ).toBeTruthy()
   })
 
   it("redirects a bare namespace root to the server's known current app", async () => {
@@ -398,7 +477,9 @@ describe("a plugin with a path-routed dimension", () => {
     renderAt(routedAuthPlugin(), server.fetchImpl, "/@auth/demo-app/users")
 
     await waitFor(() => expect(clearSpy).toHaveBeenCalled())
-    await waitFor(() => expect(queryStore.snapshot(staleKey).data).toBeUndefined())
+    await waitFor(() =>
+      expect(queryStore.snapshot(staleKey).data).toBeUndefined()
+    )
 
     expect(server.commandOrder).toEqual(["apps.switch", "clear"])
     clearSpy.mockRestore()
@@ -412,12 +493,16 @@ describe("the ?env query dimension", () => {
     server.setCurrentApp("app_demo")
     server.setCurrentEnv("env_demo_staging")
 
-    renderAt(routedAuthPlugin(), server.fetchImpl, "/@auth/demo-app/users?env=staging")
+    renderAt(
+      routedAuthPlugin(),
+      server.fetchImpl,
+      "/@auth/demo-app/users?env=staging"
+    )
 
     await waitFor(() => expect(screen.getByText("users page")).toBeTruthy())
-    expect(screen.getByRole("link", { name: "Overview" }).getAttribute("href")).toBe(
-      "/@auth/demo-app/overview?env=staging"
-    )
+    expect(
+      screen.getByRole("link", { name: "Overview" }).getAttribute("href")
+    ).toBe("/@auth/demo-app/overview?env=staging")
   })
 
   it("shows an error rather than silently switching when the value names another app's environment", async () => {
@@ -429,9 +514,15 @@ describe("the ?env query dimension", () => {
     // "staging" exists, but only for demo-app, not for the current app
     // (platform). The server would reject environments.switch for it (400),
     // so this must not be sent at all -- it has to be surfaced as an error.
-    renderAt(routedAuthPlugin(), server.fetchImpl, "/@auth/platform/users?env=staging")
+    renderAt(
+      routedAuthPlugin(),
+      server.fetchImpl,
+      "/@auth/platform/users?env=staging"
+    )
 
-    await waitFor(() => expect(screen.getByText(/Unknown environment/i)).toBeTruthy())
+    await waitFor(() =>
+      expect(screen.getByText(/Unknown environment/i)).toBeTruthy()
+    )
     expect(server.commandOrder).not.toContain("environments.switch")
   })
 
@@ -458,13 +549,15 @@ describe("the ?env query dimension", () => {
 
     await waitFor(() => expect(screen.getByText("users page")).toBeTruthy())
     await waitFor(() =>
-      expect(view.getByRole("link", { name: "Overview" }).getAttribute("href")).toBe(
-        "/@auth/demo-app/overview?env=production"
-      )
+      expect(
+        view.getByRole("link", { name: "Overview" }).getAttribute("href")
+      ).toBe("/@auth/demo-app/overview?env=production")
     )
     // Not merely left in the address: actually applied. The app switch runs
     // first, then the environment, which is the order the server requires.
-    await waitFor(() => expect(server.commandOrder).toContain("environments.switch"))
+    await waitFor(() =>
+      expect(server.commandOrder).toContain("environments.switch")
+    )
     expect(server.commandOrder.indexOf("apps.switch")).toBeLessThan(
       server.commandOrder.indexOf("environments.switch")
     )
@@ -504,7 +597,9 @@ describe("when the dimension's own query cannot be read", () => {
 
     renderAt(routedAuthPlugin(), server.fetchImpl, "/@auth")
 
-    await waitFor(() => expect(screen.getByText(/cannot read the current app/i)).toBeTruthy())
+    await waitFor(() =>
+      expect(screen.getByText(/cannot read the current app/i)).toBeTruthy()
+    )
     expect(screen.queryByText("Loading…")).toBeNull()
   })
 })
@@ -553,17 +648,24 @@ describe("a server that accepts a switch and ignores it", () => {
 })
 
 describe("ContextControl", () => {
-  function renderControl(fetchImpl: typeof fetch, dimensions = [appDimension, envDimension]) {
+  function renderControl(
+    fetchImpl: typeof fetch,
+    dimensions = [appDimension, envDimension]
+  ) {
     // The fixture answers the contract POST at any base and matches only the
     // "/csrf" suffix, so the base PluginHost would derive from this file's
     // config is used as is.
-    const client = createScopedClient("/dashboard/api/dashboard/v1", "auth", fetchImpl)
+    const client = createScopedClient(
+      "/dashboard/api/dashboard/v1",
+      "auth",
+      fetchImpl
+    )
     return render(
       <MemoryRouter initialEntries={["/@auth/platform/users"]}>
         <PluginProvider client={client}>
           <ContextControl dimensions={dimensions} plugin={routedAuthPlugin()} />
         </PluginProvider>
-      </MemoryRouter>,
+      </MemoryRouter>
     )
   }
 
@@ -572,7 +674,9 @@ describe("ContextControl", () => {
     const server = fixtureServer()
     server.setCurrentApp("app_platform")
     renderControl(server.fetchImpl)
-    expect(await screen.findByRole("button", { name: /^Platform \/ / })).toBeTruthy()
+    expect(
+      await screen.findByRole("button", { name: /^Platform \/ / })
+    ).toBeTruthy()
   })
 
   it("opens a popover holding the App and Environment selects", async () => {
@@ -580,7 +684,9 @@ describe("ContextControl", () => {
     const server = fixtureServer()
     server.setCurrentApp("app_platform")
     renderControl(server.fetchImpl)
-    fireEvent.click(await screen.findByRole("button", { name: /^Platform \/ / }))
+    fireEvent.click(
+      await screen.findByRole("button", { name: /^Platform \/ / })
+    )
     expect(await screen.findByLabelText("App")).toBeTruthy()
     expect(screen.getByLabelText("Environment")).toBeTruthy()
   })

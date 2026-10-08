@@ -25,7 +25,10 @@ export interface BrowserLocation {
  * scope sigil is passed through untouched, by PluginLink and useNavigateTo
  * alike.
  */
-export function browserHref(bucket: string, loc: Partial<BrowserLocation> = {}): string {
+export function browserHref(
+  bucket: string,
+  loc: Partial<BrowserLocation> = {}
+): string {
   const query = new URLSearchParams()
   if (loc.store) query.set("store", loc.store)
   if (loc.prefix) query.set("prefix", loc.prefix)
@@ -60,7 +63,7 @@ export function useBrowserLocation(): BrowserLocation {
   const search = useSyncExternalStore(
     subscribe,
     () => window.location.search,
-    () => "",
+    () => ""
   )
   return useMemo(() => parseBrowserSearch(search), [search])
 }
@@ -72,5 +75,7 @@ export function folderOf(prefix: string): string {
 
 /** A key as shown under `folder`: the folder part dropped, nothing else changed. */
 export function displayName(key: string, folder: string): string {
-  return folder !== "" && key.startsWith(folder) ? key.slice(folder.length) : key
+  return folder !== "" && key.startsWith(folder)
+    ? key.slice(folder.length)
+    : key
 }

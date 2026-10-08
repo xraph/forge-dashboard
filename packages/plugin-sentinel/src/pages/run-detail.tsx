@@ -34,7 +34,8 @@ import { useSettled } from "../use-settled"
 /** /runs/:id. Guards the id, then keys the body on it. */
 export const RunDetailPage: ComponentType<PluginPageProps> = ({ params }) => {
   const id = params.id
-  if (!id) return <p className="text-sm text-muted-foreground">No run selected.</p>
+  if (!id)
+    return <p className="text-sm text-muted-foreground">No run selected.</p>
   return <RunDetailBody key={id} runId={id} />
 }
 
@@ -56,17 +57,29 @@ function RunDetailBody({ runId }: { runId: string }) {
   // Another baseline or threshold, for this view only. The run's own answer
   // stays in runs.detail; runs.regression answers the chosen one.
   const [choice, setChoice] = useState<ViewChoice | null>(null)
-  const chosen = useQuery<Regression>("runs.regression", { runId, ...choice }, { enabled: choice !== null })
+  const chosen = useQuery<Regression>(
+    "runs.regression",
+    { runId, ...choice },
+    { enabled: choice !== null }
+  )
   const own = detail.data?.regression
   // While the chosen answer loads, or if it was refused, the run's own
   // stands, and the band names whichever baseline is actually on screen.
   const viewed = choice !== null ? chosen.data : undefined
   const regression = viewed ?? own
   const baselineNote =
-    viewed?.baseline && viewed.baseline.id !== own?.baseline?.id ? "chosen for this view" : "current baseline"
+    viewed?.baseline && viewed.baseline.id !== own?.baseline?.id
+      ? "chosen for this view"
+      : "current baseline"
   return (
     <section className="flex flex-col gap-6">
-      {detail.stale && <StaleNotice what="this run" error={detail.error} onRetry={detail.refetch} />}
+      {detail.stale && (
+        <StaleNotice
+          what="this run"
+          error={detail.error}
+          onRetry={detail.refetch}
+        />
+      )}
       <SettledBoundary title="Run" query={detail} skeletonRows={6}>
         {({ run, regression: ownAnswer }) => {
           const answer = regression ?? ownAnswer
@@ -89,16 +102,24 @@ function RunDetailBody({ runId }: { runId: string }) {
                   title={`Run ${shortRunId(run.id)}`}
                   actions={
                     <>
-                      <IconButton variant="outline" onClick={() => {
+                      <IconButton
+                        variant="outline"
+                        onClick={() => {
                           setTarget(run)
                           setComparing(true)
-                        }} label="Compare with…" />
+                        }}
+                        label="Compare with…"
+                      />
                       {answer.state !== "noBaseline" && saveButton}
                       {run.state === "running" && (
-                        <IconButton variant="outline" onClick={() => {
+                        <IconButton
+                          variant="outline"
+                          onClick={() => {
                             setTarget(run)
                             setCancelling(true)
-                          }} label="Cancel run" />
+                          }}
+                          label="Cancel run"
+                        />
                       )}
                     </>
                   }
@@ -128,23 +149,43 @@ function RunDetailBody({ runId }: { runId: string }) {
               error={choice !== null ? chosen.error?.message : undefined}
             />
           )}
-          <RunCharts runId={runId} run={detail.data.run} regression={regression} />
+          <RunCharts
+            runId={runId}
+            run={detail.data.run}
+            regression={regression}
+          />
           <RedTeamReportSection runId={runId} running={running} />
           <ResultsSection
             runId={runId}
             status={status}
             onStatusChange={setStatus}
             running={running}
-            baselineId={regression.state === "compared" ? regression.baseline?.id : undefined}
+            baselineId={
+              regression.state === "compared"
+                ? regression.baseline?.id
+                : undefined
+            }
             threshold={regression.threshold}
           />
         </>
       )}
       {target && (
         <>
-          <SaveBaselineDialog open={saving} onOpenChange={setSaving} runId={target.id} />
-          <CancelRunDialog open={cancelling} onOpenChange={setCancelling} run={target} />
-          <CompareDialog open={comparing} onOpenChange={setComparing} run={target} />
+          <SaveBaselineDialog
+            open={saving}
+            onOpenChange={setSaving}
+            runId={target.id}
+          />
+          <CancelRunDialog
+            open={cancelling}
+            onOpenChange={setCancelling}
+            run={target}
+          />
+          <CompareDialog
+            open={comparing}
+            onOpenChange={setComparing}
+            run={target}
+          />
         </>
       )}
     </section>
@@ -158,17 +199,27 @@ function RunMeta({ run }: { run: Run }) {
     <div className="flex flex-col gap-1 text-sm text-muted-foreground">
       <p className="flex flex-wrap items-center gap-x-3 gap-y-1">
         <RunStateBadge state={run.state} />
-        <PluginLink to={suitePath(run.suiteId)}>{run.suiteName || "Suite"}</PluginLink>
+        <PluginLink to={suitePath(run.suiteId)}>
+          {run.suiteName || "Suite"}
+        </PluginLink>
         <span>
           {"Target "}
-          {s.target ? <span className="font-mono text-xs text-foreground">{s.target}</span> : "not recorded"}
+          {s.target ? (
+            <span className="font-mono text-xs text-foreground">
+              {s.target}
+            </span>
+          ) : (
+            "not recorded"
+          )}
         </span>
         <span>
           {"Model "}
           <span className="font-mono text-xs text-foreground">{run.model}</span>
         </span>
         {s.promptVersionId ? (
-          <PluginLink to={versionPath(run.suiteId, s.promptVersionId)}>The prompt version it used</PluginLink>
+          <PluginLink to={versionPath(run.suiteId, s.promptVersionId)}>
+            The prompt version it used
+          </PluginLink>
         ) : (
           <span>The suite's own prompt</span>
         )}
@@ -178,7 +229,9 @@ function RunMeta({ run }: { run: Run }) {
           {"Started "}
           <Timestamp value={run.createdAt} label="start time" />
         </span>
-        {run.completedAt && <span>{`Took ${formatDuration(run.createdAt, run.completedAt)}`}</span>}
+        {run.completedAt && (
+          <span>{`Took ${formatDuration(run.createdAt, run.completedAt)}`}</span>
+        )}
       </p>
       <p className="font-mono text-xs">{run.id}</p>
     </div>
@@ -195,14 +248,29 @@ function stats(run: Run) {
         ? `So far: ${run.passed} of ${run.completedCases} scored`
         : `${run.passed} of ${run.completedCases} passed`,
     },
-    { label: "Avg score", value: formatScore(run.avgScore), hint: partial ? "So far" : undefined },
-    { label: "Errored", value: run.errored, hint: "Cases that could not be judged" },
-    { label: "Tokens", value: formatCount(run.totalTokens), hint: partial ? "So far" : undefined },
+    {
+      label: "Avg score",
+      value: formatScore(run.avgScore),
+      hint: partial ? "So far" : undefined,
+    },
+    {
+      label: "Errored",
+      value: run.errored,
+      hint: "Cases that could not be judged",
+    },
+    {
+      label: "Tokens",
+      value: formatCount(run.totalTokens),
+      hint: partial ? "So far" : undefined,
+    },
     {
       label: "Cost reported by target",
       value: formatCost(run.totalCost),
       // A target that reports nothing reads as $0.0000, which is not free.
-      hint: run.totalCost === 0 ? "The target reported none; LLM judge calls are not metered" : "LLM judge calls are not metered",
+      hint:
+        run.totalCost === 0
+          ? "The target reported none; LLM judge calls are not metered"
+          : "LLM judge calls are not metered",
     },
   ]
 }
@@ -211,18 +279,25 @@ function stats(run: Run) {
 function ScoredWith({ run }: { run: Run }) {
   const s = run.settings
   const recorded =
-    s.passThreshold !== undefined || s.regressionThreshold !== undefined || (s.scorers !== undefined && s.scorers.length > 0)
+    s.passThreshold !== undefined ||
+    s.regressionThreshold !== undefined ||
+    (s.scorers !== undefined && s.scorers.length > 0)
   if (!recorded) {
     return (
       <p className="text-sm text-muted-foreground">
-        This run did not record its settings, so its regression threshold comes from the engine's configuration.
+        This run did not record its settings, so its regression threshold comes
+        from the engine's configuration.
       </p>
     )
   }
   // Each setting is recorded on its own, so any of them may be the only one.
   const clauses: ReactNode[] = [
-    s.passThreshold !== undefined ? `pass threshold ${formatThreshold(s.passThreshold)}` : null,
-    s.regressionThreshold !== undefined ? `regression threshold ${formatThreshold(s.regressionThreshold)}` : null,
+    s.passThreshold !== undefined
+      ? `pass threshold ${formatThreshold(s.passThreshold)}`
+      : null,
+    s.regressionThreshold !== undefined
+      ? `regression threshold ${formatThreshold(s.regressionThreshold)}`
+      : null,
     s.concurrency !== undefined ? `concurrency ${s.concurrency}` : null,
     s.scorers && s.scorers.length > 0 ? (
       <>

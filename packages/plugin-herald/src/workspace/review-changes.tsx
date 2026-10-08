@@ -1,6 +1,13 @@
 import { ContractError } from "@forge-go/dashboard-plugin"
 import { Button } from "@forge-go/dashboard-kit/components/button"
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@forge-go/dashboard-kit/components/dialog"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@forge-go/dashboard-kit/components/dialog"
 import { CommandAlert } from "@forge-go/dashboard-kit/components/query-boundary"
 import { FieldDiff } from "../components/editor/lazy"
 import { plural } from "../format"
@@ -25,15 +32,40 @@ export interface ReviewChangesProps {
   errorTitle?: string
 }
 
-const SETTING_LABEL: Record<keyof Settings, string> = { name: "Name", category: "Category", enabled: "Enabled" }
+const SETTING_LABEL: Record<keyof Settings, string> = {
+  name: "Name",
+  category: "Category",
+  enabled: "Enabled",
+}
 
-const settingText = (key: keyof Settings, value: Settings[keyof Settings]) => (key === "enabled" ? (value ? "on" : "off") : String(value) === "" ? "empty" : String(value))
+const settingText = (key: keyof Settings, value: Settings[keyof Settings]) =>
+  key === "enabled"
+    ? value
+      ? "on"
+      : "off"
+    : String(value) === ""
+      ? "empty"
+      : String(value)
 
-const variablesText = (draft: Draft["variables"]) => JSON.stringify(normaliseVariables(draft), null, 2)
+const variablesText = (draft: Draft["variables"]) =>
+  JSON.stringify(normaliseVariables(draft), null, 2)
 
 /** One section per change, so the operator reads exactly what Save will write. */
-export function ReviewChanges({ open, onOpenChange, template, saved, draft, changes, saving, canSave, onSave, error, errorTitle }: ReviewChangesProps) {
-  const localeOf = (versionId: string) => template.versions.find((v) => v.id === versionId)?.locale ?? ""
+export function ReviewChanges({
+  open,
+  onOpenChange,
+  template,
+  saved,
+  draft,
+  changes,
+  saving,
+  canSave,
+  onSave,
+  error,
+  errorTitle,
+}: ReviewChangesProps) {
+  const localeOf = (versionId: string) =>
+    template.versions.find((v) => v.id === versionId)?.locale ?? ""
   /** The plain title, for a diff's label. */
   const titleOf = (c: Change) => {
     if (c.kind === "variables") return "Variables"
@@ -44,9 +76,12 @@ export function ReviewChanges({ open, onOpenChange, template, saved, draft, chan
   const headingOf = (c: Change) => {
     if (c.kind !== "field") return titleOf(c)
     const locale = localeOf(c.versionId)
-    return locale === "" ? titleOf(c) : (
+    return locale === "" ? (
+      titleOf(c)
+    ) : (
       <>
-        {FIELD_LABEL[c.field]}, the <span className="font-mono text-xs">{locale}</span> version
+        {FIELD_LABEL[c.field]}, the{" "}
+        <span className="font-mono text-xs">{locale}</span> version
       </>
     )
   }
@@ -62,7 +97,11 @@ export function ReviewChanges({ open, onOpenChange, template, saved, draft, chan
       <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-3xl">
         <DialogHeader>
           <DialogTitle>Review changes</DialogTitle>
-          <DialogDescription>{changes.length === 0 ? "Nothing to review: the page matches what's saved." : `${plural(changes.length, "change")} against what's saved.`}</DialogDescription>
+          <DialogDescription>
+            {changes.length === 0
+              ? "Nothing to review: the page matches what's saved."
+              : `${plural(changes.length, "change")} against what's saved.`}
+          </DialogDescription>
         </DialogHeader>
         <div className="flex flex-col gap-5">
           {changes.map((c) => {
@@ -71,12 +110,23 @@ export function ReviewChanges({ open, onOpenChange, template, saved, draft, chan
               <section key={title} className="flex flex-col gap-1.5">
                 <h3 className="text-sm font-medium">{headingOf(c)}</h3>
                 {c.kind === "field" ? (
-                  <FieldDiff was={saved.versions[c.versionId][c.field]} now={draft.versions[c.versionId][c.field]} label={title} language={FIELD_LANGUAGE[c.field]} />
+                  <FieldDiff
+                    was={saved.versions[c.versionId][c.field]}
+                    now={draft.versions[c.versionId][c.field]}
+                    label={title}
+                    language={FIELD_LANGUAGE[c.field]}
+                  />
                 ) : c.kind === "variables" ? (
-                  <FieldDiff was={variablesText(saved.variables)} now={variablesText(draft.variables)} label={title} language="json" />
+                  <FieldDiff
+                    was={variablesText(saved.variables)}
+                    now={variablesText(draft.variables)}
+                    label={title}
+                    language="json"
+                  />
                 ) : (
                   <p className="text-sm">
-                    Was {settingText(c.key, saved.settings[c.key])}, now {settingText(c.key, draft.settings[c.key])}.
+                    Was {settingText(c.key, saved.settings[c.key])}, now{" "}
+                    {settingText(c.key, draft.settings[c.key])}.
                   </p>
                 )}
               </section>
@@ -85,7 +135,12 @@ export function ReviewChanges({ open, onOpenChange, template, saved, draft, chan
         </div>
         <CommandAlert error={error} title={errorTitle ?? ""} />
         <DialogFooter>
-          <Button type="button" variant="outline" disabled={saving} onClick={() => onOpenChange(false)}>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={saving}
+            onClick={() => onOpenChange(false)}
+          >
             Close
           </Button>
           <Button type="button" disabled={!canSave || saving} onClick={onSave}>

@@ -164,8 +164,16 @@ describe("query sync across tabs", () => {
     let w1Front = true
     const w1 = fakeStore()
     const w2 = fakeStore()
-    const one = sync({ store: w1, transport: channel.factory, inFront: () => w1Front })
-    const two = sync({ store: w2, transport: channel.factory, inFront: () => !w1Front })
+    const one = sync({
+      store: w1,
+      transport: channel.factory,
+      inFront: () => w1Front,
+    })
+    const two = sync({
+      store: w2,
+      transport: channel.factory,
+      inFront: () => !w1Front,
+    })
 
     one.clear()
     w1Front = false
@@ -188,8 +196,16 @@ describe("query sync across tabs", () => {
     let w1Front = true
     const w1 = fakeStore()
     const w2 = fakeStore()
-    const one = sync({ store: w1, transport: channel.factory, inFront: () => w1Front })
-    const two = sync({ store: w2, transport: channel.factory, inFront: () => !w1Front })
+    const one = sync({
+      store: w1,
+      transport: channel.factory,
+      inFront: () => w1Front,
+    })
+    const two = sync({
+      store: w2,
+      transport: channel.factory,
+      inFront: () => !w1Front,
+    })
 
     // The operator switches the server to A in window 1. Window 2 is behind
     // and must not touch the server, so it must not even refetch.
@@ -221,11 +237,16 @@ describe("query sync across tabs", () => {
     const clearsSeenByKey: number[] = []
     render(
       <>
-        <button onClick={() => clearsSeenByClick.push(there.clear.mock.calls.length)}>
+        <button
+          onClick={() => clearsSeenByClick.push(there.clear.mock.calls.length)}
+        >
           revoke
         </button>
-        <input onKeyDown={() => clearsSeenByKey.push(there.clear.mock.calls.length)} aria-label="name" />
-      </>,
+        <input
+          onKeyDown={() => clearsSeenByKey.push(there.clear.mock.calls.length)}
+          aria-label="name"
+        />
+      </>
     )
 
     // jsdom never moves window focus on a click, which makes it the worst
@@ -241,7 +262,9 @@ describe("query sync across tabs", () => {
     expect(clearsSeenByClick).toEqual([1])
 
     sender.clear()
-    fireEvent.keyDown(screen.getByRole("textbox", { name: "name" }), { key: "a" })
+    fireEvent.keyDown(screen.getByRole("textbox", { name: "name" }), {
+      key: "a",
+    })
     expect(clearsSeenByKey).toEqual([2])
   })
 
@@ -289,15 +312,30 @@ describe("query sync across tabs", () => {
     // so jsdom never delivers one for our own write. Hand it over by hand,
     // which also reaches the sender's listener and proves it ignores itself.
     window.dispatchEvent(
-      new StorageEvent("storage", { key: QUERY_SYNC_STORAGE_KEY, newValue: written[0] }),
+      new StorageEvent("storage", {
+        key: QUERY_SYNC_STORAGE_KEY,
+        newValue: written[0],
+      })
     )
     expect(there.clear).toHaveBeenCalledOnce()
     expect(here.clear).toHaveBeenCalledOnce()
 
     // The removal that follows every write, and anything that is not ours.
-    window.dispatchEvent(new StorageEvent("storage", { key: QUERY_SYNC_STORAGE_KEY, newValue: null }))
-    window.dispatchEvent(new StorageEvent("storage", { key: "other", newValue: written[0] }))
-    window.dispatchEvent(new StorageEvent("storage", { key: QUERY_SYNC_STORAGE_KEY, newValue: "{" }))
+    window.dispatchEvent(
+      new StorageEvent("storage", {
+        key: QUERY_SYNC_STORAGE_KEY,
+        newValue: null,
+      })
+    )
+    window.dispatchEvent(
+      new StorageEvent("storage", { key: "other", newValue: written[0] })
+    )
+    window.dispatchEvent(
+      new StorageEvent("storage", {
+        key: QUERY_SYNC_STORAGE_KEY,
+        newValue: "{",
+      })
+    )
     expect(there.clear).toHaveBeenCalledOnce()
   })
 
@@ -409,7 +447,11 @@ describe("revalidating when a tab comes back", () => {
   it("applies a held clear on return instead of revalidating", () => {
     const channel = bus()
     const there = fakeStore()
-    const sender = sync({ store: fakeStore(), transport: channel.factory, now: () => Date.now() })
+    const sender = sync({
+      store: fakeStore(),
+      transport: channel.factory,
+      now: () => Date.now(),
+    })
     sync({ store: there, transport: channel.factory, now: () => Date.now() })
 
     setHidden(true)

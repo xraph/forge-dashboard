@@ -4,11 +4,30 @@ import { queryStore } from "@forge-go/dashboard-plugin"
 import { TransfersPage } from "../src/pages/transfers"
 import { renderPage, stubClient } from "./harness"
 
-const SINGLE = { mode: "single", stores: [{ name: "default", driver: "local", isDefault: true }] }
+const SINGLE = {
+  mode: "single",
+  stores: [{ name: "default", driver: "local", isDefault: true }],
+}
 const LIST = {
   streams: [
-    { id: "str_01", direction: "upload", bucket: "reports", key: "2026/09/big.csv", state: "active", offset: 3145728, totalSize: 10485760 },
-    { id: "str_02", direction: "download", bucket: "assets", key: "logo.png", state: "paused", offset: 2048, totalSize: null },
+    {
+      id: "str_01",
+      direction: "upload",
+      bucket: "reports",
+      key: "2026/09/big.csv",
+      state: "active",
+      offset: 3145728,
+      totalSize: 10485760,
+    },
+    {
+      id: "str_02",
+      direction: "download",
+      bucket: "assets",
+      key: "logo.png",
+      state: "paused",
+      offset: 2048,
+      totalSize: null,
+    },
   ],
   active: 2,
   max: 16,
@@ -20,23 +39,38 @@ function rowFor(text: string): HTMLElement {
 
 describe("TransfersPage", () => {
   it("says the streams are not saved", async () => {
-    renderPage(TransfersPage, stubClient({ "streams.list": LIST, "stores.list": SINGLE }))
-    expect(await screen.findByText(/not saved and are lost on restart/)).toBeTruthy()
+    renderPage(
+      TransfersPage,
+      stubClient({ "streams.list": LIST, "stores.list": SINGLE })
+    )
+    expect(
+      await screen.findByText(/not saved and are lost on restart/)
+    ).toBeTruthy()
   })
 
   it("lists each stream with its state, target and progress", async () => {
-    renderPage(TransfersPage, stubClient({ "streams.list": LIST, "stores.list": SINGLE }))
-    expect((await screen.findByText("reports/2026/09/big.csv")).className).toContain("font-mono")
+    renderPage(
+      TransfersPage,
+      stubClient({ "streams.list": LIST, "stores.list": SINGLE })
+    )
+    expect(
+      (await screen.findByText("reports/2026/09/big.csv")).className
+    ).toContain("font-mono")
     const up = rowFor("reports/2026/09/big.csv")
     expect(within(up).getByText("active")).toBeTruthy()
     expect(within(up).getByText("3,145,728 B")).toBeTruthy()
     expect(within(up).getByText("10,485,760 B")).toBeTruthy()
-    expect(within(rowFor("assets/logo.png")).getByLabelText("no total size")).toBeTruthy()
+    expect(
+      within(rowFor("assets/logo.png")).getByLabelText("no total size")
+    ).toBeTruthy()
     expect(screen.getByText("2 open streams, 16 allowed")).toBeTruthy()
   })
 
   it("truncates a long object path and keeps it whole in the title", async () => {
-    renderPage(TransfersPage, stubClient({ "streams.list": LIST, "stores.list": SINGLE }))
+    renderPage(
+      TransfersPage,
+      stubClient({ "streams.list": LIST, "stores.list": SINGLE })
+    )
     const cell = await screen.findByText("reports/2026/09/big.csv")
     expect(cell.className).toContain("truncate")
     expect(cell.className).toContain("max-w-sm")
@@ -44,7 +78,13 @@ describe("TransfersPage", () => {
   })
 
   it("counts zero and says so", async () => {
-    renderPage(TransfersPage, stubClient({ "streams.list": { streams: [], active: 0, max: 16 }, "stores.list": SINGLE }))
+    renderPage(
+      TransfersPage,
+      stubClient({
+        "streams.list": { streams: [], active: 0, max: 16 },
+        "stores.list": SINGLE,
+      })
+    )
     expect(await screen.findByText("0 open streams, 16 allowed")).toBeTruthy()
     expect(screen.getByText("No streams open.")).toBeTruthy()
   })
@@ -53,13 +93,18 @@ describe("TransfersPage", () => {
   // a skeleton while `loading` is true, so a page on QueryBoundary would blank
   // the table on every tick.
   it("keeps the table on screen while the list refetches", async () => {
-    renderPage(TransfersPage, stubClient({ "streams.list": LIST, "stores.list": SINGLE }))
+    renderPage(
+      TransfersPage,
+      stubClient({ "streams.list": LIST, "stores.list": SINGLE })
+    )
     expect(await screen.findByText("reports/2026/09/big.csv")).toBeTruthy()
 
     act(() => queryStore.invalidate("trove", ["streams.list"]))
 
     expect(screen.getByText("reports/2026/09/big.csv")).toBeTruthy()
     expect(screen.getByText("assets/logo.png")).toBeTruthy()
-    expect(screen.queryByRole("status", { name: /Loading Transfers/ })).toBeNull()
+    expect(
+      screen.queryByRole("status", { name: /Loading Transfers/ })
+    ).toBeNull()
   })
 })

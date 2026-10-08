@@ -77,11 +77,19 @@ function CreateRoleForm({ onDone }: { onDone: () => void }) {
       <CommandAlert error={create.error} title="Could not create the role" />
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="role-name">Name</Label>
-        <Input id="role-name" value={name} onChange={(e) => setName(e.target.value)} />
+        <Input
+          id="role-name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+        />
       </div>
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="role-slug">Slug</Label>
-        <Input id="role-slug" value={slug} onChange={(e) => setSlug(e.target.value)} />
+        <Input
+          id="role-slug"
+          value={slug}
+          onChange={(e) => setSlug(e.target.value)}
+        />
       </div>
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="role-description">Description</Label>
@@ -128,14 +136,28 @@ export function AuthRolesPage() {
   }
 
   const columns: Column<RoleSummary>[] = [
-    { id: "name", header: "Name", cell: (r) => r.name, className: "font-medium" },
-    { id: "slug", header: "Slug", cell: (r) => r.slug, className: "font-mono text-xs" },
+    {
+      id: "name",
+      header: "Name",
+      cell: (r) => r.name,
+      className: "font-medium",
+    },
+    {
+      id: "slug",
+      header: "Slug",
+      cell: (r) => r.slug,
+      className: "font-mono text-xs",
+    },
     {
       id: "description",
       header: "Description",
       cell: (r) => r.description || <NoneCell label="description" />,
     },
-    { id: "createdAt", header: "Created", cell: (r) => formatTimestamp(r.createdAt) },
+    {
+      id: "createdAt",
+      header: "Created",
+      cell: (r) => formatTimestamp(r.createdAt),
+    },
   ]
 
   return (
@@ -143,7 +165,11 @@ export function AuthRolesPage() {
       <PageHeader
         title="App roles"
         description="Authsome keeps these roles in Warden, scoped to this app. Warden's dashboard, where it is installed, also shows each role's namespace, the role it inherits from, its member cap, and whether it is a system or default role."
-        actions={!creating && <Button onClick={() => setCreating(true)}>New role</Button>}
+        actions={
+          !creating && (
+            <Button onClick={() => setCreating(true)}>New role</Button>
+          )
+        }
       />
 
       {creating && <CreateRoleForm onDone={() => setCreating(false)} />}

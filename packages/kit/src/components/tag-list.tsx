@@ -26,13 +26,22 @@ export interface TagListProps {
  * in it is a real thing to see rather than a layout problem to hide, and a
  * "+37 more" control in a table cell is a control nobody clicks.
  */
-export function TagList({ values, label, mono = true, className }: TagListProps) {
+export function TagList({
+  values,
+  label,
+  mono = true,
+  className,
+}: TagListProps) {
   if (values.length === 0) return <NoneCell label={label} />
 
   return (
     <span className={cn("flex flex-wrap gap-1", className)}>
       {values.map((value) => (
-        <Badge key={value} variant="outline" className={cn(mono && "font-mono text-xs")}>
+        <Badge
+          key={value}
+          variant="outline"
+          className={cn(mono && "font-mono text-xs")}
+        >
           {value}
         </Badge>
       ))}

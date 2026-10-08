@@ -6,7 +6,13 @@ import { AuthRoleDetailPage, AuthRolesPage } from "../src/pages/roles"
 
 const rolesAnswer = {
   roles: [
-    { id: "r1", name: "Admin", slug: "admin", description: "Everything", createdAt: "2026-01-01T00:00:00Z" },
+    {
+      id: "r1",
+      name: "Admin",
+      slug: "admin",
+      description: "Everything",
+      createdAt: "2026-01-01T00:00:00Z",
+    },
   ],
 }
 
@@ -25,7 +31,9 @@ describe("AuthRolesPage", () => {
     const { client } = stubClient({ "roles.list": rolesAnswer })
     renderPage(AuthRolesPage, client)
     await waitFor(() => expect(screen.getByText("Admin")).toBeTruthy())
-    expect(screen.getByRole("heading", { level: 1, name: "App roles" })).toBeTruthy()
+    expect(
+      screen.getByRole("heading", { level: 1, name: "App roles" })
+    ).toBeTruthy()
     expect(
       screen.getByText(
         "Authsome keeps these roles in Warden, scoped to this app. Warden's dashboard, where it is installed, also shows each role's namespace, the role it inherits from, its member cap, and whether it is a system or default role."
@@ -39,7 +47,14 @@ describe("AuthRolesPage", () => {
   it("labels a role with no description instead of a bare unlabelled dash", async () => {
     const { client } = stubClient({
       "roles.list": {
-        roles: [{ id: "r2", name: "Viewer", slug: "viewer", createdAt: "2026-01-01T00:00:00Z" }],
+        roles: [
+          {
+            id: "r2",
+            name: "Viewer",
+            slug: "viewer",
+            createdAt: "2026-01-01T00:00:00Z",
+          },
+        ],
       },
     })
     renderPage(AuthRolesPage, client)
@@ -52,15 +67,21 @@ describe("AuthRolesPage", () => {
   it("creates a role with name, slug and description", async () => {
     const { client, sent } = recordingCommandClient(
       { "roles.list": rolesAnswer },
-      { "roles.create": { ok: true, id: "r2" } },
+      { "roles.create": { ok: true, id: "r2" } }
     )
     renderPage(AuthRolesPage, client)
     await waitFor(() => expect(screen.getByText("Admin")).toBeTruthy())
 
     fireEvent.click(screen.getByRole("button", { name: "New role" }))
-    fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Auditor" } })
-    fireEvent.change(screen.getByLabelText("Slug"), { target: { value: "auditor" } })
-    fireEvent.change(screen.getByLabelText("Description"), { target: { value: "Read only" } })
+    fireEvent.change(screen.getByLabelText("Name"), {
+      target: { value: "Auditor" },
+    })
+    fireEvent.change(screen.getByLabelText("Slug"), {
+      target: { value: "auditor" },
+    })
+    fireEvent.change(screen.getByLabelText("Description"), {
+      target: { value: "Read only" },
+    })
     fireEvent.click(screen.getByRole("button", { name: "Create role" }))
 
     await waitFor(() => expect(sent).toHaveLength(1))
@@ -73,19 +94,22 @@ describe("AuthRolesPage", () => {
   it("will not create a role without a name and a slug", async () => {
     const { client, sent } = recordingCommandClient(
       { "roles.list": rolesAnswer },
-      { "roles.create": { ok: true } },
+      { "roles.create": { ok: true } }
     )
     renderPage(AuthRolesPage, client)
     await waitFor(() => expect(screen.getByText("Admin")).toBeTruthy())
     fireEvent.click(screen.getByRole("button", { name: "New role" }))
-    expect((screen.getByRole("button", { name: "Create role" }) as HTMLButtonElement).disabled).toBe(true)
+    expect(
+      (screen.getByRole("button", { name: "Create role" }) as HTMLButtonElement)
+        .disabled
+    ).toBe(true)
     expect(sent).toHaveLength(0)
   })
 
   it("confirms before deleting, warning that assignments go with it", async () => {
     const { client, sent } = recordingCommandClient(
       { "roles.list": rolesAnswer },
-      { "roles.delete": { ok: true } },
+      { "roles.delete": { ok: true } }
     )
     renderPage(AuthRolesPage, client)
     await waitFor(() => expect(screen.getByText("Admin")).toBeTruthy())
@@ -101,7 +125,9 @@ describe("AuthRolesPage", () => {
   it("shows the server's reason and leaves the delete dialog open when the delete fails", async () => {
     const { client } = recordingCommandClient(
       { "roles.list": rolesAnswer },
-      { "roles.delete": new ContractError("VALIDATION", "role is still in use") },
+      {
+        "roles.delete": new ContractError("VALIDATION", "role is still in use"),
+      }
     )
     renderPage(AuthRolesPage, client)
     await waitFor(() => expect(screen.getByText("Admin")).toBeTruthy())
@@ -123,8 +149,12 @@ describe("AuthRolesPage", () => {
 describe("AuthRoleDetailPage", () => {
   const detail = {
     "roles.detail": {
-      id: "r1", name: "Admin", slug: "admin", description: "Everything",
-      createdAt: "2026-01-01T00:00:00Z", updatedAt: "2026-02-01T00:00:00Z",
+      id: "r1",
+      name: "Admin",
+      slug: "admin",
+      description: "Everything",
+      createdAt: "2026-01-01T00:00:00Z",
+      updatedAt: "2026-02-01T00:00:00Z",
       permissions: [
         { id: "p1", action: "read", resource: "users" },
         { id: "p2", action: "write", resource: "users" },
@@ -137,9 +167,11 @@ describe("AuthRoleDetailPage", () => {
     render(
       <PluginProvider client={client}>
         <AuthRoleDetailPage params={{ id: "r1" }} />
-      </PluginProvider>,
+      </PluginProvider>
     )
-    await waitFor(() => expect(screen.getByRole("heading", { name: "Admin" })).toBeTruthy())
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: "Admin" })).toBeTruthy()
+    )
     expect(screen.getByText("read")).toBeTruthy()
     expect(screen.getAllByText("users").length).toBeGreaterThan(0)
   })
@@ -149,9 +181,11 @@ describe("AuthRoleDetailPage", () => {
     render(
       <PluginProvider client={client}>
         <AuthRoleDetailPage params={{ id: "r1" }} />
-      </PluginProvider>,
+      </PluginProvider>
     )
-    await waitFor(() => expect(screen.getByRole("heading", { name: "Admin" })).toBeTruthy())
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: "Admin" })).toBeTruthy()
+    )
     // Three absent identifiers (parent, app, environment) each render as a
     // dash carrying its own `aria-label`, naming the field it belongs to
     // rather than all three announcing the same bare "None".
@@ -161,15 +195,19 @@ describe("AuthRoleDetailPage", () => {
   })
 
   it("sends only what changed when renaming, never a blank description", async () => {
-    const { client, sent } = recordingCommandClient(detail, { "roles.update": { ok: true } })
+    const { client, sent } = recordingCommandClient(detail, {
+      "roles.update": { ok: true },
+    })
     render(
       <PluginProvider client={client}>
         <AuthRoleDetailPage params={{ id: "r1" }} />
-      </PluginProvider>,
+      </PluginProvider>
     )
     await waitFor(() => expect(screen.getByLabelText("Name")).toBeTruthy())
 
-    fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Administrator" } })
+    fireEvent.change(screen.getByLabelText("Name"), {
+      target: { value: "Administrator" },
+    })
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }))
 
     await waitFor(() => expect(sent).toHaveLength(1))
@@ -181,15 +219,21 @@ describe("AuthRoleDetailPage", () => {
   })
 
   it("assigns a role to a user with the input shape the Go handler expects", async () => {
-    const { client, sent } = recordingCommandClient(detail, { "roles.assign": { ok: true } })
+    const { client, sent } = recordingCommandClient(detail, {
+      "roles.assign": { ok: true },
+    })
     render(
       <PluginProvider client={client}>
         <AuthRoleDetailPage params={{ id: "r1" }} />
-      </PluginProvider>,
+      </PluginProvider>
     )
-    await waitFor(() => expect(screen.getAllByLabelText("User ID")).toHaveLength(2))
+    await waitFor(() =>
+      expect(screen.getAllByLabelText("User ID")).toHaveLength(2)
+    )
 
-    fireEvent.change(screen.getAllByLabelText("User ID")[0], { target: { value: "usr_9" } })
+    fireEvent.change(screen.getAllByLabelText("User ID")[0], {
+      target: { value: "usr_9" },
+    })
     fireEvent.click(screen.getByRole("button", { name: "Assign" }))
 
     await waitFor(() => expect(sent).toHaveLength(1))
@@ -201,16 +245,22 @@ describe("AuthRoleDetailPage", () => {
   })
 
   it("unassigns a role from a user with the input shape the Go handler expects", async () => {
-    const { client, sent } = recordingCommandClient(detail, { "roles.unassign": { ok: true } })
+    const { client, sent } = recordingCommandClient(detail, {
+      "roles.unassign": { ok: true },
+    })
     render(
       <PluginProvider client={client}>
         <AuthRoleDetailPage params={{ id: "r1" }} />
-      </PluginProvider>,
+      </PluginProvider>
     )
-    await waitFor(() => expect(screen.getAllByLabelText("User ID")).toHaveLength(2))
+    await waitFor(() =>
+      expect(screen.getAllByLabelText("User ID")).toHaveLength(2)
+    )
 
     // Two "User ID" fields exist in the aside: assign, then unassign.
-    fireEvent.change(screen.getAllByLabelText("User ID")[1], { target: { value: "usr_9" } })
+    fireEvent.change(screen.getAllByLabelText("User ID")[1], {
+      target: { value: "usr_9" },
+    })
     fireEvent.click(screen.getByRole("button", { name: "Remove" }))
 
     await waitFor(() => expect(sent).toHaveLength(1))
@@ -226,7 +276,7 @@ describe("AuthRoleDetailPage", () => {
     render(
       <PluginProvider client={client}>
         <AuthRoleDetailPage params={{}} />
-      </PluginProvider>,
+      </PluginProvider>
     )
     expect(screen.getByText("No role selected.")).toBeTruthy()
   })

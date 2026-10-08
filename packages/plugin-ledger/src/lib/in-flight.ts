@@ -10,15 +10,20 @@ import { useCallback, useRef } from "react"
  * own: a second subscriptions.create for one tenant and plan is a second
  * billed subscription. Resolves undefined when it refused to start.
  */
-export function useInFlight(): <T>(run: () => Promise<T>) => Promise<T | undefined> {
+export function useInFlight(): <T>(
+  run: () => Promise<T>
+) => Promise<T | undefined> {
   const busy = useRef(false)
-  return useCallback(async <T,>(run: () => Promise<T>): Promise<T | undefined> => {
-    if (busy.current) return undefined
-    busy.current = true
-    try {
-      return await run()
-    } finally {
-      busy.current = false
-    }
-  }, [])
+  return useCallback(
+    async <T>(run: () => Promise<T>): Promise<T | undefined> => {
+      if (busy.current) return undefined
+      busy.current = true
+      try {
+        return await run()
+      } finally {
+        busy.current = false
+      }
+    },
+    []
+  )
 }

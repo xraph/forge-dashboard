@@ -1,4 +1,7 @@
-import { NativeSelect, NativeSelectOption } from "@forge-go/dashboard-kit/components/native-select"
+import {
+  NativeSelect,
+  NativeSelectOption,
+} from "@forge-go/dashboard-kit/components/native-select"
 import { useNavigateTo } from "@forge-go/dashboard-plugin"
 import type { StreamListResponse, StreamSummary } from "../types"
 import { LIMITS } from "../types"
@@ -42,9 +45,13 @@ export function ChainPicker({
         <NativeSelect
           aria-label="Chain"
           value={selectedId ?? ""}
-          onChange={(e) => navigate(`${basePath}/${encodeURIComponent(e.target.value)}`)}
+          onChange={(e) =>
+            navigate(`${basePath}/${encodeURIComponent(e.target.value)}`)
+          }
         >
-          {selectedId === undefined && <NativeSelectOption value="">Choose a chain</NativeSelectOption>}
+          {selectedId === undefined && (
+            <NativeSelectOption value="">Choose a chain</NativeSelectOption>
+          )}
           {streams.map((s) => (
             <NativeSelectOption key={s.id} value={s.id}>
               {`${chainLabel(s)}, head ${formatSeq(s.headSeq)}`}
@@ -52,7 +59,9 @@ export function ChainPicker({
           ))}
         </NativeSelect>
       </label>
-      {truncated && <span className="text-muted-foreground">{`Showing the first ${formatSeq(LIMITS.pageMaxStreamsCheckpoints)} chains.`}</span>}
+      {truncated && (
+        <span className="text-muted-foreground">{`Showing the first ${formatSeq(LIMITS.pageMaxStreamsCheckpoints)} chains.`}</span>
+      )}
     </span>
   )
 }

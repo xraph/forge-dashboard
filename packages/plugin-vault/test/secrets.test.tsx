@@ -10,7 +10,8 @@ import {
   stubClient,
 } from "./harness"
 
-const NOTE = /Secrets marked Not encrypted were stored while this vault had no encryption key/
+const NOTE =
+  /Secrets marked Not encrypted were stored while this vault had no encryption key/
 
 function secret(over: Record<string, unknown> = {}) {
   return {
@@ -39,7 +40,10 @@ const ENCRYPTED = {
 }
 
 const MIXED = {
-  secrets: [secret(), secret({ id: "sec_03", key: "legacy", encryptionAlg: "" })],
+  secrets: [
+    secret(),
+    secret({ id: "sec_03", key: "legacy", encryptionAlg: "" }),
+  ],
   total: 2,
 }
 
@@ -83,7 +87,10 @@ describe("SecretsPage", () => {
   })
 
   it("says so and still counts when there are no secrets", async () => {
-    renderPage(SecretsPage, stubClient({ "secrets.list": { secrets: [], total: 0 } }))
+    renderPage(
+      SecretsPage,
+      stubClient({ "secrets.list": { secrets: [], total: 0 } })
+    )
     expect(await screen.findByText("No secrets yet.")).toBeTruthy()
     expect(screen.getByText("0 secrets")).toBeTruthy()
     // One in the header, one as the empty state's action.
@@ -116,28 +123,38 @@ describe("SecretsPage", () => {
     expect(badge.className).toMatch(/destructive/)
     expect(screen.getByText(NOTE)).toBeTruthy()
     // The note says nothing about a row being safe.
-    expect(screen.getByText(NOTE).textContent).not.toMatch(/\bsecure|\bprotected/i)
+    expect(screen.getByText(NOTE).textContent).not.toMatch(
+      /\bsecure|\bprotected/i
+    )
   })
 
   it("shows no note when every row on the page is encrypted", async () => {
     renderPage(SecretsPage, stubClient({ "secrets.list": ENCRYPTED }))
     await screen.findByText("api-token")
     expect(screen.queryByText(NOTE)).toBeNull()
-    expect(screen.getAllByText("AES-256-GCM", { selector: '[data-slot="badge"]' })).toHaveLength(2)
+    expect(
+      screen.getAllByText("AES-256-GCM", { selector: '[data-slot="badge"]' })
+    ).toHaveLength(2)
   })
 
   it("links each key through secretPath, encoding slashes and dots", async () => {
     renderPage(SecretsPage, stubClient({ "secrets.list": ENCRYPTED }))
-    const link = await screen.findByRole("link", { name: "db/primary.password" })
+    const link = await screen.findByRole("link", {
+      name: "db/primary.password",
+    })
     expect(link.getAttribute("href")).toBe(secretPath("db/primary.password"))
     expect(link.getAttribute("href")).toBe("/secrets/db%2Fprimary.password")
-    expect(link.closest("td")?.className).toMatch(/font-mono text-xs font-medium/)
+    expect(link.closest("td")?.className).toMatch(
+      /font-mono text-xs font-medium/
+    )
   })
 
   it("links a key that is literally new to its detail path", async () => {
     renderPage(
       SecretsPage,
-      stubClient({ "secrets.list": { secrets: [secret({ key: "new" })], total: 1 } })
+      stubClient({
+        "secrets.list": { secrets: [secret({ key: "new" })], total: 1 },
+      })
     )
     const link = await screen.findByRole("link", { name: "new" })
     expect(link.getAttribute("href")).toBe("/secrets/new")
@@ -154,7 +171,9 @@ describe("SecretsPage", () => {
     renderPage(SecretsPage, stubClient({ "secrets.list": ENCRYPTED }))
     await screen.findByText("api-token")
     const rows = screen.getAllByRole("row")
-    const primary = rows.find((r) => within(r).queryByText("db/primary.password"))!
+    const primary = rows.find((r) =>
+      within(r).queryByText("db/primary.password")
+    )!
     const token = rows.find((r) => within(r).queryByText("api-token"))!
     expect(within(primary).getByLabelText(/no expiry/i)).toBeTruthy()
     expect(within(token).queryByLabelText(/no expiry/i)).toBeNull()
@@ -186,7 +205,10 @@ describe("SecretsPage expiry filter", () => {
   it("offers All, Expired and the two windows, on All", async () => {
     renderPage(SecretsPage, stubClient({ "secrets.list": ENCRYPTED }))
     await screen.findByText("api-token")
-    const options = Array.from(select().options).map((o) => [o.value, o.textContent])
+    const options = Array.from(select().options).map((o) => [
+      o.value,
+      o.textContent,
+    ])
     expect(options).toEqual([
       ["", "All"],
       ["expired", "Expired"],
@@ -207,11 +229,15 @@ describe("SecretsPage expiry filter", () => {
     expect(lastParams(sent)).toEqual({ limit: 25, offset: 25 })
 
     fireEvent.change(select(), { target: { value: "7d" } })
-    await waitFor(() => expect(lastParams(sent)).toEqual({ expiry: "7d", limit: 25, offset: 0 }))
+    await waitFor(() =>
+      expect(lastParams(sent)).toEqual({ expiry: "7d", limit: 25, offset: 0 })
+    )
     await screen.findByText(/Page 1 of 2/)
 
     fireEvent.change(select(), { target: { value: "" } })
-    await waitFor(() => expect(lastParams(sent)).toEqual({ limit: 25, offset: 0 }))
+    await waitFor(() =>
+      expect(lastParams(sent)).toEqual({ limit: 25, offset: 0 })
+    )
   })
 
   it("seeds the select and the query from ?expiry= in the URL", async () => {
@@ -244,15 +270,22 @@ describe("SecretsPage expiry filter", () => {
     renderPage(SecretsPage, stubClient({ "secrets.list": ENCRYPTED }))
     await screen.findByText("api-token")
     fireEvent.change(select(), { target: { value: "30d" } })
-    await waitFor(() => expect(window.location.search).toBe("?tab=x&expiry=30d"))
+    await waitFor(() =>
+      expect(window.location.search).toBe("?tab=x&expiry=30d")
+    )
     fireEvent.change(select(), { target: { value: "" } })
     await waitFor(() => expect(window.location.search).toBe("?tab=x"))
   })
 
   it("says no secret matches under a filter, and offers no New secret there", async () => {
     window.history.replaceState(null, "", "/secrets?expiry=expired")
-    renderPage(SecretsPage, stubClient({ "secrets.list": { secrets: [], total: 0 } }))
-    expect(await screen.findByText("No secrets match this expiry filter.")).toBeTruthy()
+    renderPage(
+      SecretsPage,
+      stubClient({ "secrets.list": { secrets: [], total: 0 } })
+    )
+    expect(
+      await screen.findByText("No secrets match this expiry filter.")
+    ).toBeTruthy()
     expect(screen.queryByText("No secrets yet.")).toBeNull()
     expect(screen.getByText("0 secrets")).toBeTruthy()
     // Only the header's link: the empty state does not push creating one.
@@ -260,7 +293,10 @@ describe("SecretsPage expiry filter", () => {
   })
 
   it("keeps the control while the filtered list is empty", async () => {
-    renderPage(SecretsPage, stubClient({ "secrets.list": { secrets: [], total: 0 } }))
+    renderPage(
+      SecretsPage,
+      stubClient({ "secrets.list": { secrets: [], total: 0 } })
+    )
     await screen.findByText("No secrets yet.")
     expect(select()).toBeTruthy()
   })

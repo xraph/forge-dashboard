@@ -251,7 +251,7 @@ export function contractHarness(
 export function renderPage(
   Page: ComponentType<PluginPageProps>,
   client: ScopedClient,
-  params: PluginPageProps["params"] = {},
+  params: PluginPageProps["params"] = {}
 ) {
   return render(
     <PluginProvider client={client}>

@@ -31,7 +31,14 @@ function hasFiles(event: { dataTransfer?: DataTransfer | null }): boolean {
  * folders refused, since a folder entry would need a recursive walk the
  * contract has no batch for.
  */
-export function UploadDropZone({ store, bucket, folder, maxBytes, disabled, children }: Destination & { disabled: boolean; children: ReactNode }) {
+export function UploadDropZone({
+  store,
+  bucket,
+  folder,
+  maxBytes,
+  disabled,
+  children,
+}: Destination & { disabled: boolean; children: ReactNode }) {
   const client = usePluginClient()
   const [dragging, setDragging] = useState(false)
   const [refusal, setRefusal] = useState<string | null>(null)
@@ -46,7 +53,8 @@ export function UploadDropZone({ store, bucket, folder, maxBytes, disabled, chil
       // it would never send `drop`.
       if (event.defaultPrevented || !hasFiles(event)) return
       event.preventDefault()
-      if (event.type === "dragover" && event.dataTransfer) event.dataTransfer.dropEffect = "none"
+      if (event.type === "dragover" && event.dataTransfer)
+        event.dataTransfer.dropEffect = "none"
     }
     window.addEventListener("dragover", guard)
     window.addEventListener("drop", guard)
@@ -84,8 +92,13 @@ export function UploadDropZone({ store, bucket, folder, maxBytes, disabled, chil
       const f = item.getAsFile()
       if (f) files.push(f)
     }
-    setRefusal(folders > 0 ? "Folders can't be uploaded here. Drop the files inside them instead." : null)
-    if (files.length > 0) enqueueUploads(client, { store, bucket, folder, maxBytes }, files)
+    setRefusal(
+      folders > 0
+        ? "Folders can't be uploaded here. Drop the files inside them instead."
+        : null
+    )
+    if (files.length > 0)
+      enqueueUploads(client, { store, bucket, folder, maxBytes }, files)
   }
 
   return (
@@ -96,7 +109,8 @@ export function UploadDropZone({ store, bucket, folder, maxBytes, disabled, chil
       onDragLeave={(e) => {
         // relatedTarget is where the drag went. Null means it left the window
         // (or Escape was pressed); inside the zone means it only crossed a child.
-        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDragging(false)
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null))
+          setDragging(false)
       }}
       onDragEnd={() => setDragging(false)}
       onDrop={onDrop}
@@ -107,14 +121,22 @@ export function UploadDropZone({ store, bucket, folder, maxBytes, disabled, chil
         <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-1 rounded-md border-2 border-dashed bg-background/90 text-sm">
           <span>Drop files to upload to</span>
           <span className="font-mono text-xs">{`${bucket}/${folder}`}</span>
-          {maxBytes !== null ? <span className="text-xs text-muted-foreground">{`Up to ${humanBytes(maxBytes)} per file.`}</span> : null}
+          {maxBytes !== null ? (
+            <span className="text-xs text-muted-foreground">{`Up to ${humanBytes(maxBytes)} per file.`}</span>
+          ) : null}
         </div>
       ) : null}
     </div>
   )
 }
 
-export function UploadButton({ store, bucket, folder, maxBytes, disabled }: Destination & { disabled: boolean }) {
+export function UploadButton({
+  store,
+  bucket,
+  folder,
+  maxBytes,
+  disabled,
+}: Destination & { disabled: boolean }) {
   const client = usePluginClient()
   const input = useRef<HTMLInputElement>(null)
   return (
@@ -127,11 +149,16 @@ export function UploadButton({ store, bucket, folder, maxBytes, disabled }: Dest
         aria-label="Files to upload"
         onChange={(e) => {
           const files = Array.from(e.target.files ?? [])
-          if (files.length > 0) enqueueUploads(client, { store, bucket, folder, maxBytes }, files)
+          if (files.length > 0)
+            enqueueUploads(client, { store, bucket, folder, maxBytes }, files)
           e.target.value = ""
         }}
       />
-      <Button size="sm" disabled={disabled} onClick={() => input.current?.click()}>
+      <Button
+        size="sm"
+        disabled={disabled}
+        onClick={() => input.current?.click()}
+      >
         Upload files
       </Button>
     </>
@@ -153,42 +180,87 @@ const STATE_LABEL: Record<Upload["state"], string> = {
 export function UploadTray() {
   const uploads = useUploads()
   if (uploads.length === 0) return null
-  const finished = uploads.some((u) => ["done", "failed", "cancelled"].includes(u.state))
+  const finished = uploads.some((u) =>
+    ["done", "failed", "cancelled"].includes(u.state)
+  )
   return (
-    <section aria-label="Uploads" className="flex flex-col gap-2 rounded-md border p-3">
+    <section
+      aria-label="Uploads"
+      className="flex flex-col gap-2 rounded-md border p-3"
+    >
       <div className="flex items-center justify-between gap-2">
         <h3 className="text-sm font-medium">{`Uploads (${uploads.length})`}</h3>
         {finished ? (
-          <IconButton variant="ghost" onClick={clearFinishedUploads} label="Clear finished" />
+          <IconButton
+            variant="ghost"
+            onClick={clearFinishedUploads}
+            label="Clear finished"
+          />
         ) : null}
       </div>
-      <ul className="flex flex-col gap-2 overflow-auto" style={{ maxHeight: "12rem" }}>
+      <ul
+        className="flex flex-col gap-2 overflow-auto"
+        style={{ maxHeight: "12rem" }}
+      >
         {uploads.map((u) => {
           const pct = u.size > 0 ? Math.round((u.loaded / u.size) * 100) : 0
           return (
             <li key={u.id} className="flex flex-col gap-1">
               <div className="flex items-center justify-between gap-2">
-                <span className="block max-w-sm truncate font-mono text-xs" title={`${u.bucket}/${u.key}`}>
+                <span
+                  className="block max-w-sm truncate font-mono text-xs"
+                  title={`${u.bucket}/${u.key}`}
+                >
                   {`${u.bucket}/${u.key}`}
                 </span>
-                <span className="text-xs text-muted-foreground">{STATE_LABEL[u.state]}</span>
+                <span className="text-xs text-muted-foreground">
+                  {STATE_LABEL[u.state]}
+                </span>
               </div>
-              {u.state === "uploading" ? <Progress value={pct} aria-label={`Uploading ${u.key}`} /> : null}
-              {u.message ? <p className={u.state === "conflict" ? "text-xs" : "text-xs text-destructive"}>{u.message}</p> : null}
+              {u.state === "uploading" ? (
+                <Progress value={pct} aria-label={`Uploading ${u.key}`} />
+              ) : null}
+              {u.message ? (
+                <p
+                  className={
+                    u.state === "conflict"
+                      ? "text-xs"
+                      : "text-xs text-destructive"
+                  }
+                >
+                  {u.message}
+                </p>
+              ) : null}
               <div className="flex gap-2">
                 {["waiting", "starting", "uploading"].includes(u.state) ? (
-                  <Button size="sm" variant="ghost" onClick={() => cancelUpload(u.id)}>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => cancelUpload(u.id)}
+                  >
                     Cancel
                   </Button>
                 ) : null}
                 {u.state === "conflict" ? (
                   <>
-                    <IconButton variant="outline" onClick={() => replaceUpload(u.id)} label="Replace" />
-                    <IconButton variant="ghost" onClick={() => dismissUpload(u.id)} label="Skip" />
+                    <IconButton
+                      variant="outline"
+                      onClick={() => replaceUpload(u.id)}
+                      label="Replace"
+                    />
+                    <IconButton
+                      variant="ghost"
+                      onClick={() => dismissUpload(u.id)}
+                      label="Skip"
+                    />
                   </>
                 ) : null}
                 {["done", "failed", "cancelled"].includes(u.state) ? (
-                  <IconButton variant="ghost" onClick={() => dismissUpload(u.id)} label="Dismiss" />
+                  <IconButton
+                    variant="ghost"
+                    onClick={() => dismissUpload(u.id)}
+                    label="Dismiss"
+                  />
                 ) : null}
               </div>
             </li>

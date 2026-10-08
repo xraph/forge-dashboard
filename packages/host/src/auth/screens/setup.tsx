@@ -32,7 +32,11 @@ export function SetupScreen({ intents, onAuthenticated }: AuthScreenProps) {
       serverHost={currentServerHost()}
       title="Create the first administrator"
     >
-      <CommandAlert error={complete.error} showCode={false} title="Setup failed" />
+      <CommandAlert
+        error={complete.error}
+        showCode={false}
+        title="Setup failed"
+      />
       <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor={emailId}>Email</Label>
@@ -56,7 +60,11 @@ export function SetupScreen({ intents, onAuthenticated }: AuthScreenProps) {
             value={password}
           />
         </div>
-        <button className={buttonVariants({ className: "w-full" })} disabled={complete.loading} type="submit">
+        <button
+          className={buttonVariants({ className: "w-full" })}
+          disabled={complete.loading}
+          type="submit"
+        >
           {complete.loading ? "Creating…" : "Create and continue"}
         </button>
       </form>

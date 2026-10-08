@@ -78,7 +78,7 @@ export function useKeyIdParam(): string {
  * query parameter stays as it was.
  */
 export function useSetKeyIdParam(
-  path: "/rotations" | "/usage",
+  path: "/rotations" | "/usage"
 ): (id: string) => void {
   const navigateTo = useNavigateTo()
   return (id: string) => {
@@ -102,7 +102,7 @@ export function useKeyName(id: string, enabled: boolean): string | undefined {
   const detail = useQuery<KeyDetail>(
     "keys.detail",
     { id },
-    { enabled: enabled && id !== "" },
+    { enabled: enabled && id !== "" }
   )
   return detail.data?.key.name
 }

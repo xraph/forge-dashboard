@@ -3,7 +3,11 @@ import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { useInFlight } from "../lib/in-flight"
 import { featurePath } from "../lib/paths"
 import type { CatalogFeature } from "../types"
-import { emptyFeatureForm, FeatureForm, type ParsedFeature } from "./feature-form"
+import {
+  emptyFeatureForm,
+  FeatureForm,
+  type ParsedFeature,
+} from "./feature-form"
 
 export function LedgerFeatureCreatePage() {
   const create = useCommand<CatalogFeature>("features.create")
@@ -16,7 +20,10 @@ export function LedgerFeatureCreatePage() {
   }
   return (
     <section className="flex flex-col gap-4">
-      <PageHeader title="New feature" description="A reusable feature plans can grant. With no app selected it is created in the shared catalog." />
+      <PageHeader
+        title="New feature"
+        description="A reusable feature plans can grant. With no app selected it is created in the shared catalog."
+      />
       <FeatureForm
         mode="create"
         initial={emptyFeatureForm()}

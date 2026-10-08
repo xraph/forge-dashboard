@@ -4,7 +4,15 @@ import { humanBytes } from "./format"
 import { withStore } from "./store"
 import type { UploadTicket } from "./types"
 
-export type UploadState = "waiting" | "starting" | "uploading" | "completing" | "done" | "conflict" | "failed" | "cancelled"
+export type UploadState =
+  | "waiting"
+  | "starting"
+  | "uploading"
+  | "completing"
+  | "done"
+  | "conflict"
+  | "failed"
+  | "cancelled"
 
 export interface Upload {
   id: string
@@ -31,7 +39,18 @@ let counter = 0
 const listeners = new Set<() => void>()
 
 function publish() {
-  snapshot = items.map(({ id, store, bucket, key, size, state, loaded, message }) => ({ id, store, bucket, key, size, state, loaded, message }))
+  snapshot = items.map(
+    ({ id, store, bucket, key, size, state, loaded, message }) => ({
+      id,
+      store,
+      bucket,
+      key,
+      size,
+      state,
+      loaded,
+      message,
+    })
+  )
   for (const listener of listeners) listener()
 }
 
@@ -55,7 +74,11 @@ function subscribe(listener: () => void) {
  * another prefix or leaves the browser and comes back.
  */
 export function useUploads(): Upload[] {
-  return useSyncExternalStore(subscribe, () => snapshot, () => snapshot)
+  return useSyncExternalStore(
+    subscribe,
+    () => snapshot,
+    () => snapshot
+  )
 }
 
 const ACTIVE: UploadState[] = ["starting", "uploading", "completing"]
@@ -70,7 +93,10 @@ function pump() {
   }
 }
 
-function putFailure(status: number, body: string): { state: UploadState; message: string } {
+function putFailure(
+  status: number,
+  body: string
+): { state: UploadState; message: string } {
   let message = ""
   try {
     const parsed = JSON.parse(body) as { error?: unknown }
@@ -78,11 +104,32 @@ function putFailure(status: number, body: string): { state: UploadState; message
   } catch {
     // Not JSON.
   }
-  if (status === 409) return { state: "conflict", message: message || "An object with this key already exists." }
-  if (status === 413) return { state: "failed", message: message || "The file is larger than the size the upload was started with." }
-  if (status === 422) return { state: "failed", message: message || "A content scan blocked this upload." }
-  if (status === 403) return { state: "failed", message: `The upload ticket was refused. ${message}`.trim() }
-  return { state: "failed", message: message || `The content route answered ${status}.` }
+  if (status === 409)
+    return {
+      state: "conflict",
+      message: message || "An object with this key already exists.",
+    }
+  if (status === 413)
+    return {
+      state: "failed",
+      message:
+        message ||
+        "The file is larger than the size the upload was started with.",
+    }
+  if (status === 422)
+    return {
+      state: "failed",
+      message: message || "A content scan blocked this upload.",
+    }
+  if (status === 403)
+    return {
+      state: "failed",
+      message: `The upload ticket was refused. ${message}`.trim(),
+    }
+  return {
+    state: "failed",
+    message: message || `The content route answered ${status}.`,
+  }
 }
 
 function put(id: string, ticket: UploadTicket, file: File): Promise<void> {
@@ -100,7 +147,8 @@ function put(id: string, ticket: UploadTicket, file: File): Promise<void> {
       if (xhr.status >= 200 && xhr.status < 300) resolve()
       else reject(putFailure(xhr.status, xhr.responseText))
     }
-    xhr.onerror = () => reject({ state: "failed", message: "The upload connection failed." })
+    xhr.onerror = () =>
+      reject({ state: "failed", message: "The upload connection failed." })
     xhr.onabort = () => reject({ state: "cancelled", message: undefined })
     xhr.send(file)
   })
@@ -121,7 +169,13 @@ async function run(id: string) {
   try {
     ticket = await client.command<UploadTicket>(
       "objects.beginUpload",
-      withStore(store, { bucket, key, size: file.size, ...(file.type !== "" ? { contentType: file.type } : {}), overwrite }),
+      withStore(store, {
+        bucket,
+        key,
+        size: file.size,
+        ...(file.type !== "" ? { contentType: file.type } : {}),
+        overwrite,
+      })
     )
   } catch (error) {
     const e = error as ContractError
@@ -129,7 +183,11 @@ async function run(id: string) {
       pump()
       return
     }
-    if (e.code === "CONFLICT" && e.details?.exists === true) update(id, { state: "conflict", message: "An object with this key already exists." })
+    if (e.code === "CONFLICT" && e.details?.exists === true)
+      update(id, {
+        state: "conflict",
+        message: "An object with this key already exists.",
+      })
     else update(id, { state: "failed", message: e.message })
     pump()
     return
@@ -157,10 +215,16 @@ async function run(id: string) {
   update(id, { state: "completing", loaded: file.size, xhr: undefined })
   try {
     // completeUpload is a command, so its invalidates refresh the listing.
-    await client.command("objects.completeUpload", withStore(store, { bucket, key }))
+    await client.command(
+      "objects.completeUpload",
+      withStore(store, { bucket, key })
+    )
     update(id, { state: "done" })
   } catch (error) {
-    update(id, { state: "failed", message: `Uploaded, but confirming it failed: ${(error as ContractError).message}. Refresh the listing to check.` })
+    update(id, {
+      state: "failed",
+      message: `Uploaded, but confirming it failed: ${(error as ContractError).message}. Refresh the listing to check.`,
+    })
   }
   pump()
 }
@@ -168,8 +232,13 @@ async function run(id: string) {
 /** Queues files for `bucket`, each under `folder` + its name. */
 export function enqueueUploads(
   client: ScopedClient,
-  dest: { store: string; bucket: string; folder: string; maxBytes: number | null },
-  files: File[],
+  dest: {
+    store: string
+    bucket: string
+    folder: string
+    maxBytes: number | null
+  },
+  files: File[]
 ): void {
   for (const file of files) {
     counter += 1
@@ -184,7 +253,9 @@ export function enqueueUploads(
         size: file.size,
         state: tooBig ? "failed" : "waiting",
         loaded: 0,
-        message: tooBig ? `This file is larger than the ${humanBytes(dest.maxBytes ?? 0)} upload limit.` : undefined,
+        message: tooBig
+          ? `This file is larger than the ${humanBytes(dest.maxBytes ?? 0)} upload limit.`
+          : undefined,
         file,
         client,
         overwrite: false,
@@ -219,7 +290,9 @@ export function dismissUpload(id: string): void {
 }
 
 export function clearFinishedUploads(): void {
-  items = items.filter((item) => !["done", "failed", "cancelled"].includes(item.state))
+  items = items.filter(
+    (item) => !["done", "failed", "cancelled"].includes(item.state)
+  )
   publish()
 }
 

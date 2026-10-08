@@ -66,7 +66,9 @@ describe("USAGE_CHART_CONFIG", () => {
 
 describe("UsageChart", () => {
   it("hands the three colours to the chart container for light and dark alike", () => {
-    const { container } = render(<UsageChart buckets={BUCKETS} period="hourly" />)
+    const { container } = render(
+      <UsageChart buckets={BUCKETS} period="hourly" />
+    )
     const css = chartCss(container)
     // One block per theme, each carrying the same fixed hex.
     expect(css.match(/--color-succeeded:\s*#71717b;/g)).toHaveLength(2)
@@ -75,24 +77,28 @@ describe("UsageChart", () => {
   })
 
   it("draws three stacked series, filled from those colours", () => {
-    const { container } = render(<UsageChart buckets={BUCKETS} period="hourly" />)
+    const { container } = render(
+      <UsageChart buckets={BUCKETS} period="hourly" />
+    )
     expect(container.querySelectorAll(".recharts-bar")).toHaveLength(3)
     const fills = new Set(
       [...container.querySelectorAll("path[data-series]")].map((p) =>
-        p.getAttribute("fill"),
-      ),
+        p.getAttribute("fill")
+      )
     )
     expect(fills).toEqual(
       new Set([
         "var(--color-succeeded)",
         "var(--color-clientErrors)",
         "var(--color-serverErrors)",
-      ]),
+      ])
     )
   })
 
   it("keeps every column at most 24px wide", () => {
-    const { container } = render(<UsageChart buckets={BUCKETS} period="hourly" />)
+    const { container } = render(
+      <UsageChart buckets={BUCKETS} period="hourly" />
+    )
     const segments = [...container.querySelectorAll("path[data-series]")]
     expect(segments.length).toBeGreaterThan(0)
     for (const s of segments) {
@@ -101,19 +107,27 @@ describe("UsageChart", () => {
   })
 
   it("shows a legend naming all three series, in stack order", () => {
-    const { container } = render(<UsageChart buckets={BUCKETS} period="hourly" />)
+    const { container } = render(
+      <UsageChart buckets={BUCKETS} period="hourly" />
+    )
     const legend = container.querySelector(".recharts-legend-wrapper")
     expect(legend).not.toBeNull()
     expect(legend?.textContent).toBe(
-      "Succeeded4xx client errors5xx server errors",
+      "Succeeded4xx client errors5xx server errors"
     )
   })
 
   it("mounts a tooltip and draws horizontal gridlines only", () => {
-    const { container } = render(<UsageChart buckets={BUCKETS} period="hourly" />)
+    const { container } = render(
+      <UsageChart buckets={BUCKETS} period="hourly" />
+    )
     expect(container.querySelector(".recharts-tooltip-wrapper")).not.toBeNull()
-    expect(container.querySelector(".recharts-cartesian-grid-horizontal")).not.toBeNull()
-    expect(container.querySelector(".recharts-cartesian-grid-vertical")).toBeNull()
+    expect(
+      container.querySelector(".recharts-cartesian-grid-horizontal")
+    ).not.toBeNull()
+    expect(
+      container.querySelector(".recharts-cartesian-grid-vertical")
+    ).toBeNull()
   })
 
   it("names the plot with its period and bucket count", () => {
@@ -121,60 +135,69 @@ describe("UsageChart", () => {
     expect(
       screen.getByRole("group", {
         name: "Requests per hour by outcome, UTC, 3 buckets",
-      }),
+      })
     ).toBeTruthy()
   })
 
   it("names a daily and a monthly plot by their period", () => {
     const { unmount } = render(<UsageChart buckets={BUCKETS} period="daily" />)
     expect(
-      screen.getByRole("group", { name: /^Requests per day by outcome/ }),
+      screen.getByRole("group", { name: /^Requests per day by outcome/ })
     ).toBeTruthy()
     unmount()
     render(<UsageChart buckets={BUCKETS.slice(0, 1)} period="monthly" />)
     expect(
       screen.getByRole("group", {
         name: "Requests per month by outcome, UTC, 1 bucket",
-      }),
+      })
     ).toBeTruthy()
   })
 
   it("labels the value axis with round counts, thousands separated", () => {
     const busy = [
-      bucket("2026-10-05T12:00:00Z", { requests: 1200, succeeded: 1197, serverErrors: 3 }),
+      bucket("2026-10-05T12:00:00Z", {
+        requests: 1200,
+        succeeded: 1197,
+        serverErrors: 3,
+      }),
       bucket("2026-10-05T13:00:00Z"),
     ]
     const { container } = render(<UsageChart buckets={busy} period="hourly" />)
     expect(
       [...container.querySelectorAll(".recharts-yAxis-tick-labels text")].map(
-        (t) => t.textContent,
-      ),
+        (t) => t.textContent
+      )
     ).toEqual(["0", "500", "1,000", "1,500"])
   })
 
   it("labels the time axis per period, in UTC", () => {
     const { container } = render(
       <UsageChart
-        buckets={[bucket("2026-10-03T00:00:00Z"), bucket("2026-10-04T00:00:00Z")]}
+        buckets={[
+          bucket("2026-10-03T00:00:00Z"),
+          bucket("2026-10-04T00:00:00Z"),
+        ]}
         period="daily"
-      />,
+      />
     )
     expect(
       [...container.querySelectorAll(".recharts-xAxis-tick-labels text")].map(
-        (t) => t.textContent,
-      ),
+        (t) => t.textContent
+      )
     ).toEqual(["3 Oct", "4 Oct"])
   })
 
   it("shows axes in the full form", () => {
-    const { container } = render(<UsageChart buckets={BUCKETS} period="hourly" />)
+    const { container } = render(
+      <UsageChart buckets={BUCKETS} period="hourly" />
+    )
     expect(container.querySelector(".recharts-xAxis")).not.toBeNull()
     expect(container.querySelector(".recharts-yAxis")).not.toBeNull()
   })
 
   it("hides the axes, gridlines and legend when compact, and keeps the colours", () => {
     const { container } = render(
-      <UsageChart buckets={BUCKETS} period="hourly" compact />,
+      <UsageChart buckets={BUCKETS} period="hourly" compact />
     )
     expect(container.querySelector(".recharts-xAxis")).toBeNull()
     expect(container.querySelector(".recharts-yAxis")).toBeNull()
@@ -192,7 +215,7 @@ describe("UsageChart", () => {
     const { container } = render(<UsageChart buckets={zeros} period="hourly" />)
     const ticks = (axis: string) =>
       [...container.querySelectorAll(`.recharts-${axis}-tick-labels text`)].map(
-        (t) => t.textContent,
+        (t) => t.textContent
       )
     // One tick per bucket, so a quiet hour is a zero and not a gap.
     expect(ticks("xAxis")).toEqual(["12:00", "13:00"])
@@ -203,7 +226,7 @@ describe("UsageChart", () => {
     expect(
       screen.getByRole("group", {
         name: "Requests per hour by outcome, UTC, 2 buckets",
-      }),
+      })
     ).toBeTruthy()
   })
 })
@@ -263,8 +286,11 @@ describe("segmentShape", () => {
     const shape = segmentShape("clientErrors")
     const { container } = render(
       <svg>
-        {shape({ ...rect, payload: { succeeded: 5, clientErrors: 3, serverErrors: 0 } })}
-      </svg>,
+        {shape({
+          ...rect,
+          payload: { succeeded: 5, clientErrors: 3, serverErrors: 0 },
+        })}
+      </svg>
     )
     const path = container.querySelector("path")!
     expect(path.getAttribute("d")?.match(/A\s*4,4/g)).toHaveLength(2)
@@ -276,8 +302,11 @@ describe("segmentShape", () => {
     const shape = segmentShape("succeeded")
     const { container } = render(
       <svg>
-        {shape({ ...rect, payload: { succeeded: 5, clientErrors: 3, serverErrors: 0 } })}
-      </svg>,
+        {shape({
+          ...rect,
+          payload: { succeeded: 5, clientErrors: 3, serverErrors: 0 },
+        })}
+      </svg>
     )
     const path = container.querySelector("path")!
     expect(path.getAttribute("data-top")).toBe("false")
@@ -290,8 +319,12 @@ describe("segmentShape", () => {
     const shape = segmentShape("serverErrors")
     const { container } = render(
       <svg>
-        {shape({ ...rect, height: 0, payload: { succeeded: 5, clientErrors: 3, serverErrors: 0 } })}
-      </svg>,
+        {shape({
+          ...rect,
+          height: 0,
+          payload: { succeeded: 5, clientErrors: 3, serverErrors: 0 },
+        })}
+      </svg>
     )
     expect(container.querySelector("path")).toBeNull()
   })
@@ -300,9 +333,15 @@ describe("segmentShape", () => {
     const shape = segmentShape("serverErrors")
     const { container } = render(
       <svg>
-        {shape({ ...rect, height: 3, payload: { succeeded: 0, clientErrors: 0, serverErrors: 1 } })}
-      </svg>,
+        {shape({
+          ...rect,
+          height: 3,
+          payload: { succeeded: 0, clientErrors: 0, serverErrors: 1 },
+        })}
+      </svg>
     )
-    expect(container.querySelector("path")?.getAttribute("d")).toMatch(/A\s*3,3/)
+    expect(container.querySelector("path")?.getAttribute("d")).toMatch(
+      /A\s*3,3/
+    )
   })
 })

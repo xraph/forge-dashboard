@@ -86,7 +86,7 @@ export const OverridesPage: ComponentType<PluginPageProps> = () => {
       limit: PAGE_SIZE,
       offset: (page - 1) * PAGE_SIZE,
     },
-    { enabled: choice !== null },
+    { enabled: choice !== null }
   )
 
   // Reverting the last row of a page leaves the page past the end: go to the
@@ -165,14 +165,19 @@ export const OverridesPage: ComponentType<PluginPageProps> = () => {
           onChoose={() => choose("key", keyText)}
         />
         {choice === null ? null : (
-          <IconButton type="button" variant="outline" onClick={clear} label="Clear" />
+          <IconButton
+            type="button"
+            variant="outline"
+            onClick={clear}
+            label="Clear"
+          />
         )}
       </div>
 
       {choice === null ? (
         <p className="text-sm text-muted-foreground">
-          Pick a tenant or a key to see its overrides. The store can only list them one way at a
-          time.
+          Pick a tenant or a key to see its overrides. The store can only list
+          them one way at a time.
         </p>
       ) : (
         <QueryBoundary title="Overrides" query={list} skeletonRows={4}>
@@ -192,25 +197,29 @@ export const OverridesPage: ComponentType<PluginPageProps> = () => {
                     : `No overrides for key ${choice.value}.`
                 }
                 rowActions={(o) => (
-                  <IconButton variant="outline" onClick={() =>
+                  <IconButton
+                    variant="outline"
+                    onClick={() =>
                       o.keyExists
                         ? revert.request(
                             o.key,
                             o.tenantId,
-                            `Tenant ${o.tenantId} goes back to the app default for ${o.key}.`,
+                            `Tenant ${o.tenantId} goes back to the app default for ${o.key}.`
                           )
                         : // The key is gone, so there is no app default to go back to.
                           revert.request(
                             o.key,
                             o.tenantId,
                             `Tenant ${o.tenantId}'s override of ${o.key} is removed. That key no longer exists, so apps reading it fall back to their own default.`,
-                            true,
+                            true
                           )
-                    } label={
+                    }
+                    label={
                       o.keyExists
                         ? `Revert to app default for tenant ${o.tenantId} of ${o.key}`
                         : `Remove leftover override for tenant ${o.tenantId} of ${o.key}`
-                    } />
+                    }
+                  />
                 )}
                 pagination={{ page, pageSize: PAGE_SIZE, total: data.total }}
                 onPageChange={setPage}
@@ -247,7 +256,11 @@ function ChoiceForm({
     if (text.trim() !== "") onChoose()
   }
   return (
-    <form onSubmit={submit} aria-label={button} className="flex items-end gap-2">
+    <form
+      onSubmit={submit}
+      aria-label={button}
+      className="flex items-end gap-2"
+    >
       <div className="flex flex-col gap-1">
         <Label htmlFor={id} className="text-xs text-muted-foreground">
           {label}
@@ -261,7 +274,11 @@ function ChoiceForm({
           onChange={(e) => onText(e.target.value)}
         />
       </div>
-      <Button type="submit" variant={active ? "default" : "outline"} disabled={text.trim() === ""}>
+      <Button
+        type="submit"
+        variant={active ? "default" : "outline"}
+        disabled={text.trim() === ""}
+      >
         {button}
       </Button>
     </form>

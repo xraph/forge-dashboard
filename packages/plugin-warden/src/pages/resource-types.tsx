@@ -154,7 +154,12 @@ export function WardenResourceTypesPage() {
   }
 
   const columns: Column<ResourceTypeSummary>[] = [
-    { id: "name", header: "Name", cell: (r) => r.name, className: "font-medium" },
+    {
+      id: "name",
+      header: "Name",
+      cell: (r) => r.name,
+      className: "font-medium",
+    },
     {
       id: "namespace",
       header: "Namespace",
@@ -240,12 +245,16 @@ export function WardenResourceTypesPage() {
                     >
                       Details
                     </PluginLink>
-                    <IconButton variant="destructive" onClick={() => {
+                    <IconButton
+                      variant="destructive"
+                      onClick={() => {
                         // Reset at open, not at close: the operator is about
                         // to read whatever this dialog shows for THIS type.
                         remove.reset()
                         setDeleting(r)
-                      }} label={`Delete ${r.name}`} />
+                      }}
+                      label={`Delete ${r.name}`}
+                    />
                   </>
                 )}
               />

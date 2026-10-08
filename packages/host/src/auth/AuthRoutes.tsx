@@ -1,4 +1,10 @@
-import { Navigate, Route, Routes, useLocation, useSearchParams } from "react-router"
+import {
+  Navigate,
+  Route,
+  Routes,
+  useLocation,
+  useSearchParams,
+} from "react-router"
 import type { AuthIntents } from "@forge-go/dashboard-plugin"
 import { authRoutesFor } from "./routes"
 import type { AuthScreens } from "./routes"
@@ -57,7 +63,10 @@ export function AuthRoutes({
       ))}
       <Route
         element={
-          <Navigate replace to={`/login?next=${encodeURIComponent(attempted)}`} />
+          <Navigate
+            replace
+            to={`/login?next=${encodeURIComponent(attempted)}`}
+          />
         }
         path="*"
       />

@@ -1,5 +1,10 @@
 import { useState } from "react"
-import { PluginSlot, useCommand, useQuery, useSlotCount } from "@forge-go/dashboard-plugin"
+import {
+  PluginSlot,
+  useCommand,
+  useQuery,
+  useSlotCount,
+} from "@forge-go/dashboard-plugin"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
 import { Badge } from "@forge-go/dashboard-kit/components/badge"
 import { Button } from "@forge-go/dashboard-kit/components/button"
@@ -66,8 +71,16 @@ const sessionColumns: Column<SessionRow>[] = [
     header: "IP",
     cell: (s) => s.ipAddress || <NoneCell label="ip address" />,
   },
-  { id: "createdAt", header: "Started", cell: (s) => formatTimestamp(s.createdAt) },
-  { id: "expiresAt", header: "Expires", cell: (s) => formatTimestamp(s.expiresAt) },
+  {
+    id: "createdAt",
+    header: "Started",
+    cell: (s) => formatTimestamp(s.createdAt),
+  },
+  {
+    id: "expiresAt",
+    header: "Expires",
+    cell: (s) => formatTimestamp(s.expiresAt),
+  },
 ]
 
 const deviceColumns: Column<DeviceRow>[] = [
@@ -80,7 +93,11 @@ const deviceColumns: Column<DeviceRow>[] = [
     cell: (d) => d.name || d.type || d.id,
     className: "font-medium",
   },
-  { id: "browser", header: "Browser", cell: (d) => d.browser || <NoneCell label="browser" /> },
+  {
+    id: "browser",
+    header: "Browser",
+    cell: (d) => d.browser || <NoneCell label="browser" />,
+  },
   {
     id: "trusted",
     header: "Trusted",
@@ -90,11 +107,17 @@ const deviceColumns: Column<DeviceRow>[] = [
       </Badge>
     ),
   },
-  { id: "lastSeenAt", header: "Last seen", cell: (d) => formatTimestamp(d.lastSeenAt) },
+  {
+    id: "lastSeenAt",
+    header: "Last seen",
+    cell: (d) => formatTimestamp(d.lastSeenAt),
+  },
 ]
 
 function UserSessions({ userId }: { userId: string }) {
-  const query = useQuery<{ sessions: SessionRow[] }>("sessions.list", { userId })
+  const query = useQuery<{ sessions: SessionRow[] }>("sessions.list", {
+    userId,
+  })
   return (
     <QueryBoundary title="Sessions" query={query} skeletonRows={2}>
       {(data) => {
@@ -152,7 +175,8 @@ function EditUser({ user }: { user: UserDetail }) {
   if (firstName !== (user.firstName ?? "")) changed.firstName = firstName
   if (lastName !== (user.lastName ?? "")) changed.lastName = lastName
   if (username !== (user.username ?? "")) changed.username = username
-  if (emailVerified !== user.emailVerified) changed.emailVerified = emailVerified
+  if (emailVerified !== user.emailVerified)
+    changed.emailVerified = emailVerified
   const dirty = Object.keys(changed).length > 1
 
   return (
@@ -161,15 +185,27 @@ function EditUser({ user }: { user: UserDetail }) {
       <CommandAlert error={update.error} title="Could not save" />
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="user-first">First name</Label>
-        <Input id="user-first" value={firstName} onChange={(e) => setFirstName(e.target.value)} />
+        <Input
+          id="user-first"
+          value={firstName}
+          onChange={(e) => setFirstName(e.target.value)}
+        />
       </div>
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="user-last">Last name</Label>
-        <Input id="user-last" value={lastName} onChange={(e) => setLastName(e.target.value)} />
+        <Input
+          id="user-last"
+          value={lastName}
+          onChange={(e) => setLastName(e.target.value)}
+        />
       </div>
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="user-username">Username</Label>
-        <Input id="user-username" value={username} onChange={(e) => setUsername(e.target.value)} />
+        <Input
+          id="user-username"
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
+        />
       </div>
       <div className="flex items-center gap-2">
         {/*
@@ -229,36 +265,61 @@ function UserDetailBody({ userId }: { userId: string }) {
                       {
                         term: "Verified",
                         value: (
-                          <Badge variant={user.emailVerified ? "outline" : "secondary"}>
+                          <Badge
+                            variant={
+                              user.emailVerified ? "outline" : "secondary"
+                            }
+                          >
                             {user.emailVerified ? "verified" : "unverified"}
                           </Badge>
                         ),
                       },
-                      { term: "Phone", value: user.phone || <NoneCell label="phone" /> },
+                      {
+                        term: "Phone",
+                        value: user.phone || <NoneCell label="phone" />,
+                      },
                       {
                         term: "Status",
                         value: (
-                          <Badge variant={user.banned ? "destructive" : "outline"}>
+                          <Badge
+                            variant={user.banned ? "destructive" : "outline"}
+                          >
                             {user.banned ? "banned" : "active"}
                           </Badge>
                         ),
                       },
                       {
                         term: "Ban reason",
-                        value: user.banReason || <NoneCell label="ban reason" />,
+                        value: user.banReason || (
+                          <NoneCell label="ban reason" />
+                        ),
                       },
                       {
                         term: "Ban expires",
-                        value: <Timestamp value={user.banExpiresAt} label="ban expiry" />,
+                        value: (
+                          <Timestamp
+                            value={user.banExpiresAt}
+                            label="ban expiry"
+                          />
+                        ),
                       },
                       {
                         term: "Password changed",
                         value: (
-                          <Timestamp value={user.passwordChangedAt} label="password change" />
+                          <Timestamp
+                            value={user.passwordChangedAt}
+                            label="password change"
+                          />
                         ),
                       },
-                      { term: "Created", value: formatTimestamp(user.createdAt) },
-                      { term: "Updated", value: formatTimestamp(user.updatedAt) },
+                      {
+                        term: "Created",
+                        value: formatTimestamp(user.createdAt),
+                      },
+                      {
+                        term: "Updated",
+                        value: formatTimestamp(user.updatedAt),
+                      },
                     ]}
                   />
                   <UserSessions userId={userId} />
@@ -270,7 +331,9 @@ function UserDetailBody({ userId }: { userId: string }) {
                     and a bare heading over nothing is worse than no heading.
                   */}
                   {contributed > 0 && (
-                    <h2 className="text-sm font-medium">From installed plugins</h2>
+                    <h2 className="text-sm font-medium">
+                      From installed plugins
+                    </h2>
                   )}
                   <PluginSlot name="user.detail.sections" params={{ userId }} />
                 </>

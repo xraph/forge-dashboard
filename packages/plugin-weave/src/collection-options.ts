@@ -17,20 +17,37 @@ export interface CollectionOptions {
  * read failed, or it isn't there. A failed read and a list longer than the
  * first page both come back as a note, so neither passes for "no collections".
  */
-export function useCollectionOptions(selected: string, emptyLabel: string): CollectionOptions {
-  const query = useQuery<ListOutput<Collection>>("collections.list", { limit: 100 })
+export function useCollectionOptions(
+  selected: string,
+  emptyLabel: string
+): CollectionOptions {
+  const query = useQuery<ListOutput<Collection>>("collections.list", {
+    limit: 100,
+  })
   const items = query.data?.items ?? []
   const failed = query.error !== undefined
   const loading = query.data === undefined && !failed
 
-  const options = [{ label: emptyLabel, value: "" }, ...items.map((c) => ({ label: c.name, value: c.id }))]
+  const options = [
+    { label: emptyLabel, value: "" },
+    ...items.map((c) => ({ label: c.name, value: c.id })),
+  ]
   if (selected !== "" && !items.some((c) => c.id === selected)) {
-    options.push({ label: loading ? "Loading collections…" : failed ? selected : `${selected} (not found)`, value: selected })
+    options.push({
+      label: loading
+        ? "Loading collections…"
+        : failed
+          ? selected
+          : `${selected} (not found)`,
+      value: selected,
+    })
   }
 
   let note: string | null = null
-  if (query.error) note = `Couldn't load the collection list: ${query.error.message}`
-  else if (query.data && query.data.total > items.length) note = `The picker lists the first ${items.length} of ${query.data.total} collections.`
+  if (query.error)
+    note = `Couldn't load the collection list: ${query.error.message}`
+  else if (query.data && query.data.total > items.length)
+    note = `The picker lists the first ${items.length} of ${query.data.total} collections.`
 
   return { options, note, loading, error: failed }
 }

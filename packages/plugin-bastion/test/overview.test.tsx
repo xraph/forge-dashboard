@@ -7,12 +7,34 @@ import { failingClient, renderPage, stubClient } from "./harness"
 
 function stats(over: Partial<OverviewStats> = {}): OverviewStats {
   return {
-    totalRequests: 1840, totalErrors: 46, errorRate: 2.5, avgLatencyMs: 48.3, p99LatencyMs: 212,
-    latencySamples: 1024, cacheLookups: 0, cacheHitRate: null, rateLimited: 0, circuitBreaks: 3,
-    totalRoutes: 4, enabledRoutes: 3, healthyUpstreams: 4, totalUpstreams: 5,
-    openCircuits: 1, halfOpenCircuits: 1, circuitBreakerEnabled: true, discoveryEnabled: true,
-    startedAt: "2026-09-30T08:00:00Z", uptimeSeconds: 7500,
-    topRoutes: [{ routeId: "manual-/users", path: "/gw/users", totalRequests: 920, totalErrors: 3 }],
+    totalRequests: 1840,
+    totalErrors: 46,
+    errorRate: 2.5,
+    avgLatencyMs: 48.3,
+    p99LatencyMs: 212,
+    latencySamples: 1024,
+    cacheLookups: 0,
+    cacheHitRate: null,
+    rateLimited: 0,
+    circuitBreaks: 3,
+    totalRoutes: 4,
+    enabledRoutes: 3,
+    healthyUpstreams: 4,
+    totalUpstreams: 5,
+    openCircuits: 1,
+    halfOpenCircuits: 1,
+    circuitBreakerEnabled: true,
+    discoveryEnabled: true,
+    startedAt: "2026-09-30T08:00:00Z",
+    uptimeSeconds: 7500,
+    topRoutes: [
+      {
+        routeId: "manual-/users",
+        path: "/gw/users",
+        totalRequests: 920,
+        totalErrors: 3,
+      },
+    ],
     ...over,
   }
 }
@@ -36,10 +58,17 @@ describe("BastionOverviewPage", () => {
       BastionOverviewPage,
       stubClient({
         "overview.stats": stats({
-          totalRequests: 0, totalErrors: 0, errorRate: null, avgLatencyMs: null, p99LatencyMs: null,
-          latencySamples: 0, startedAt: null, uptimeSeconds: 0, topRoutes: [],
+          totalRequests: 0,
+          totalErrors: 0,
+          errorRate: null,
+          avgLatencyMs: null,
+          p99LatencyMs: null,
+          latencySamples: 0,
+          startedAt: null,
+          uptimeSeconds: 0,
+          topRoutes: [],
         }),
-      }),
+      })
     )
     await screen.findByText("No requests yet")
     expect(screen.getAllByText("Not measured").length).toBe(3)
@@ -50,7 +79,15 @@ describe("BastionOverviewPage", () => {
   })
 
   it("says circuit breaking is off rather than reporting no open circuits", async () => {
-    renderPage(BastionOverviewPage, stubClient({ "overview.stats": stats({ circuitBreakerEnabled: false, openCircuits: 0 }) }))
+    renderPage(
+      BastionOverviewPage,
+      stubClient({
+        "overview.stats": stats({
+          circuitBreakerEnabled: false,
+          openCircuits: 0,
+        }),
+      })
+    )
     await screen.findByText("Circuit breaking is disabled")
     expect(within(stat("Open circuits")).getByText("Off")).toBeTruthy()
   })
@@ -62,7 +99,10 @@ describe("BastionOverviewPage", () => {
   })
 
   it("renders the error card when the query fails", async () => {
-    renderPage(BastionOverviewPage, failingClient(new ContractError("INTERNAL", "gateway down")))
+    renderPage(
+      BastionOverviewPage,
+      failingClient(new ContractError("INTERNAL", "gateway down"))
+    )
     expect(await screen.findByText(/Gateway overview unavailable/)).toBeTruthy()
   })
 })

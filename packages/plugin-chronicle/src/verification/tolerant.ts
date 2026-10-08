@@ -21,8 +21,12 @@ export function tolerantRowsOf(r: VerifyReport): TolerantRow[] {
   const tampered = new Set(r.tampered ?? [])
   const tolerant = r.tolerant ?? []
   const rows: TolerantRow[] = [
-    ...runs(tolerant.filter((s) => !tampered.has(s))).map(([fromSeq, toSeq]) => ({ fromSeq, toSeq, altered: false })),
-    ...runs(tolerant.filter((s) => tampered.has(s))).map(([fromSeq, toSeq]) => ({ fromSeq, toSeq, altered: true })),
+    ...runs(tolerant.filter((s) => !tampered.has(s))).map(
+      ([fromSeq, toSeq]) => ({ fromSeq, toSeq, altered: false })
+    ),
+    ...runs(tolerant.filter((s) => tampered.has(s))).map(
+      ([fromSeq, toSeq]) => ({ fromSeq, toSeq, altered: true })
+    ),
   ]
   return rows.sort((a, b) => a.fromSeq - b.fromSeq)
 }

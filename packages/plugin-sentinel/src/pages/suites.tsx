@@ -27,7 +27,12 @@ const columns: Column<Suite>[] = [
     header: "Model",
     className: "font-mono text-xs",
     // Empty means the engine's model decides, said as the detail page says it.
-    cell: (s) => s.model || <span className="font-sans text-sm text-muted-foreground">Engine default</span>,
+    cell: (s) =>
+      s.model || (
+        <span className="font-sans text-sm text-muted-foreground">
+          Engine default
+        </span>
+      ),
   },
   {
     id: "cases",
@@ -40,12 +45,15 @@ const columns: Column<Suite>[] = [
     id: "prompt",
     header: "Prompt",
     cell: (s) =>
-      s.currentPromptVersion ? `Version ${s.currentPromptVersion.version}` : "The suite's own prompt",
+      s.currentPromptVersion
+        ? `Version ${s.currentPromptVersion.version}`
+        : "The suite's own prompt",
   },
   {
     id: "baseline",
     header: "Current baseline",
-    cell: (s) => s.currentBaseline?.name ?? <NoneCell label="current baseline" />,
+    cell: (s) =>
+      s.currentBaseline?.name ?? <NoneCell label="current baseline" />,
   },
   {
     id: "updated",

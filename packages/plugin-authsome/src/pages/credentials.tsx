@@ -79,7 +79,12 @@ export function AuthCredentialsPage() {
                   </span>
                 ),
               },
-              { term: "Slug", value: <span className="font-mono text-xs">{data.appSlug}</span> },
+              {
+                term: "Slug",
+                value: (
+                  <span className="font-mono text-xs">{data.appSlug}</span>
+                ),
+              },
               {
                 term: "Environment",
                 value: data.envName ? (

@@ -107,13 +107,16 @@ const POLICIES = {
 
 /** A client whose keys.list answer depends on the params it was sent. */
 function stubClientByParams(
-  answer: (params: Record<string, unknown>) => unknown,
+  answer: (params: Record<string, unknown>) => unknown
 ): ScopedClient {
   return {
     extension: "keysmith",
     query: async (intent: string, params?: Record<string, unknown>) => {
       if (intent !== "keys.list") {
-        throw new ContractError("NOT_FOUND", `no handler for intent "${intent}"`)
+        throw new ContractError(
+          "NOT_FOUND",
+          `no handler for intent "${intent}"`
+        )
       }
       return answer(params ?? {})
     },
@@ -146,7 +149,7 @@ describe("KeysPage", () => {
   it("reads the server total in the caption", async () => {
     renderPage(
       KeysPage,
-      stubClient({ "keys.list": { keys: LIST.keys, total: 5 } }),
+      stubClient({ "keys.list": { keys: LIST.keys, total: 5 } })
     )
     await screen.findByText("Reporting export")
     expect(screen.getByText("5 keys")).toBeTruthy()
@@ -155,7 +158,7 @@ describe("KeysPage", () => {
   it("uses the singular for one key", async () => {
     renderPage(
       KeysPage,
-      stubClient({ "keys.list": { keys: [BILLING], total: 1 } }),
+      stubClient({ "keys.list": { keys: [BILLING], total: 1 } })
     )
     await screen.findByText("Billing service")
     expect(screen.getByText("1 key")).toBeTruthy()
@@ -167,20 +170,24 @@ describe("KeysPage", () => {
     expect(screen.getByText("0 keys")).toBeTruthy()
     expect(screen.queryByRole("link")).toBeNull()
     // The header's action and the empty state's own.
-    expect(screen.getAllByRole("button", { name: "Create key" })).toHaveLength(2)
+    expect(screen.getAllByRole("button", { name: "Create key" })).toHaveLength(
+      2
+    )
   })
 
   it("offers a single Create key in the header when there are keys", async () => {
     renderPage(KeysPage, stubClient({ "keys.list": LIST }))
     await screen.findByText("Reporting export")
-    expect(screen.getAllByRole("button", { name: "Create key" })).toHaveLength(1)
+    expect(screen.getAllByRole("button", { name: "Create key" })).toHaveLength(
+      1
+    )
   })
 
   it("does not offer a second Create key when a filter matches nothing", async () => {
     const client = stubClientByParams((params) =>
       params.state === "revoked"
         ? { keys: [], total: 0 }
-        : { keys: LIST.keys, total: 5 },
+        : { keys: LIST.keys, total: 5 }
     )
     renderPage(KeysPage, client)
     await screen.findByText("Reporting export")
@@ -188,7 +195,9 @@ describe("KeysPage", () => {
       target: { value: "revoked" },
     })
     await screen.findByText("No keys match these filters.")
-    expect(screen.getAllByRole("button", { name: "Create key" })).toHaveLength(1)
+    expect(screen.getAllByRole("button", { name: "Create key" })).toHaveLength(
+      1
+    )
   })
 
   it("opens the create dialog from the header action", async () => {
@@ -198,7 +207,7 @@ describe("KeysPage", () => {
         "keys.list": LIST,
         "policies.list": { policies: [], hasMore: false },
         "scopes.list": { scopes: [], hasMore: false },
-      }),
+      })
     )
     await screen.findByText("Reporting export")
     expect(screen.queryByRole("dialog")).toBeNull()
@@ -232,7 +241,9 @@ describe("KeysPage", () => {
     const policy = billing.getByText("kpol_standard")
     expect(policy.className).toMatch(/font-mono text-xs/)
     expect(billing.queryByLabelText("no policy")).toBeNull()
-    expect(within(rowFor("Reporting export")).getByLabelText("no policy")).toBeTruthy()
+    expect(
+      within(rowFor("Reporting export")).getByLabelText("no policy")
+    ).toBeTruthy()
   })
 
   it("names the policy and links to its page, reading policies.list for up to 200", async () => {
@@ -258,8 +269,12 @@ describe("KeysPage", () => {
       name: "Standard",
     })
     expect(link.getAttribute("href")).toBe(policyPath("kpol_standard"))
-    expect(within(rowFor("Billing service")).queryByText("kpol_standard")).toBeNull()
-    expect(within(rowFor("Reporting export")).getByLabelText("no policy")).toBeTruthy()
+    expect(
+      within(rowFor("Billing service")).queryByText("kpol_standard")
+    ).toBeNull()
+    expect(
+      within(rowFor("Reporting export")).getByLabelText("no policy")
+    ).toBeTruthy()
     const policies = sent.find((s) => s.intent === "policies.list")
     expect(policies?.params).toEqual({ limit: 200 })
   })
@@ -283,11 +298,13 @@ describe("KeysPage", () => {
           hasMore: true,
           rateLimiterConfigured: false,
         },
-      }),
+      })
     )
     await screen.findByText("Billing service")
     // policies.list has settled once the key it does name shows a link.
-    await within(rowFor("Reporting export")).findByRole("link", { name: "Other" })
+    await within(rowFor("Reporting export")).findByRole("link", {
+      name: "Other",
+    })
     const id = within(rowFor("Billing service")).getByText("kpol_standard")
     expect(id.className).toMatch(/font-mono text-xs/)
     expect(id.closest("a")).toBeNull()
@@ -304,8 +321,8 @@ describe("KeysPage", () => {
     })
     await waitFor(() =>
       expect(queryStore.snapshot(policiesKey).error?.message).toMatch(
-        /no handler for intent "policies.list"/,
-      ),
+        /no handler for intent "policies.list"/
+      )
     )
     const id = within(rowFor("Billing service")).getByText("kpol_standard")
     expect(id.className).toMatch(/font-mono text-xs/)
@@ -315,16 +332,26 @@ describe("KeysPage", () => {
   it("shows scopes as tags, and says so when a key has none", async () => {
     renderPage(KeysPage, stubClient({ "keys.list": LIST }))
     await screen.findByText("Billing service")
-    expect(within(rowFor("Billing service")).getByText("billing:write")).toBeTruthy()
-    expect(within(rowFor("Legacy webhook signer")).getByLabelText("no scopes")).toBeTruthy()
-    expect(within(rowFor("Billing service")).queryByLabelText("no scopes")).toBeNull()
+    expect(
+      within(rowFor("Billing service")).getByText("billing:write")
+    ).toBeTruthy()
+    expect(
+      within(rowFor("Legacy webhook signer")).getByLabelText("no scopes")
+    ).toBeTruthy()
+    expect(
+      within(rowFor("Billing service")).queryByLabelText("no scopes")
+    ).toBeNull()
   })
 
   it("says so when a key has never been used or never expires", async () => {
     renderPage(KeysPage, stubClient({ "keys.list": LIST }))
     await screen.findByText("Billing service")
-    expect(within(rowFor("Reporting export")).getByLabelText("no recorded use")).toBeTruthy()
-    expect(within(rowFor("Old mobile app")).getByLabelText("no expiry")).toBeTruthy()
+    expect(
+      within(rowFor("Reporting export")).getByLabelText("no recorded use")
+    ).toBeTruthy()
+    expect(
+      within(rowFor("Old mobile app")).getByLabelText("no expiry")
+    ).toBeTruthy()
     const billing = within(rowFor("Billing service"))
     expect(billing.queryByLabelText("no recorded use")).toBeNull()
     expect(billing.queryByLabelText("no expiry")).toBeNull()
@@ -352,7 +379,9 @@ describe("KeysPage", () => {
       target: { value: "test" },
     })
     await screen.findByText(/Page 1 of 3/)
-    const calls = sent.filter((s) => s.intent === "keys.list").map((s) => s.params)
+    const calls = sent
+      .filter((s) => s.intent === "keys.list")
+      .map((s) => s.params)
     expect(calls).toContainEqual({ limit: 25, offset: 0, environment: "test" })
 
     // Back to All: no environment key at all, not an empty string.
@@ -373,13 +402,15 @@ describe("KeysPage", () => {
       target: { value: "suspended" },
     })
     await screen.findByText("Reporting export")
-    const params = sent.filter((s) => s.intent === "keys.list").map((s) => s.params)
+    const params = sent
+      .filter((s) => s.intent === "keys.list")
+      .map((s) => s.params)
     expect(params).toContainEqual({ limit: 25, offset: 0, state: "suspended" })
 
     expect(
       screen.getByText(
-        "State filters match the recorded state. A key past its expiry is marked expired the next time it is used.",
-      ),
+        "State filters match the recorded state. A key past its expiry is marked expired the next time it is used."
+      )
     ).toBeTruthy()
   })
 
@@ -387,10 +418,16 @@ describe("KeysPage", () => {
     const { client, sent } = recordingQueryClient({ "keys.list": LIST })
     renderPage(KeysPage, client)
     await screen.findByText("Reporting export")
-    fireEvent.change(screen.getByLabelText("Environment"), { target: { value: "live" } })
-    fireEvent.change(screen.getByLabelText("State"), { target: { value: "revoked" } })
+    fireEvent.change(screen.getByLabelText("Environment"), {
+      target: { value: "live" },
+    })
+    fireEvent.change(screen.getByLabelText("State"), {
+      target: { value: "revoked" },
+    })
     await screen.findByText("Reporting export")
-    const params = sent.filter((s) => s.intent === "keys.list").map((s) => s.params)
+    const params = sent
+      .filter((s) => s.intent === "keys.list")
+      .map((s) => s.params)
     expect(params).toContainEqual({
       limit: 25,
       offset: 0,
@@ -407,7 +444,13 @@ describe("KeysPage", () => {
         .getAllByRole("option")
         .map((o) => o.textContent)
     expect(options("Environment")).toEqual(["All", "Live", "Test", "Staging"])
-    expect(options("State")).toEqual(["All", "Active", "Suspended", "Revoked", "Expired"])
+    expect(options("State")).toEqual([
+      "All",
+      "Active",
+      "Suspended",
+      "Revoked",
+      "Expired",
+    ])
   })
 
   it("filters by policy, offering each by name, sending its id and resetting to page one", async () => {
@@ -433,8 +476,14 @@ describe("KeysPage", () => {
       target: { value: "kpol_strict" },
     })
     await screen.findByText(/Page 1 of 3/)
-    const calls = sent.filter((s) => s.intent === "keys.list").map((s) => s.params)
-    expect(calls).toContainEqual({ limit: 25, offset: 0, policyId: "kpol_strict" })
+    const calls = sent
+      .filter((s) => s.intent === "keys.list")
+      .map((s) => s.params)
+    expect(calls).toContainEqual({
+      limit: 25,
+      offset: 0,
+      policyId: "kpol_strict",
+    })
 
     // Back to All: no policyId at all, not an empty string.
     fireEvent.change(screen.getByLabelText("Policy"), { target: { value: "" } })
@@ -450,10 +499,16 @@ describe("KeysPage", () => {
     })
     renderPage(KeysPage, client)
     await screen.findByText("Strict", { selector: "option" })
-    fireEvent.change(screen.getByLabelText("Environment"), { target: { value: "live" } })
-    fireEvent.change(screen.getByLabelText("Policy"), { target: { value: "kpol_standard" } })
+    fireEvent.change(screen.getByLabelText("Environment"), {
+      target: { value: "live" },
+    })
+    fireEvent.change(screen.getByLabelText("Policy"), {
+      target: { value: "kpol_standard" },
+    })
     await screen.findByText("Reporting export")
-    const params = sent.filter((s) => s.intent === "keys.list").map((s) => s.params)
+    const params = sent
+      .filter((s) => s.intent === "keys.list")
+      .map((s) => s.params)
     expect(params).toContainEqual({
       limit: 25,
       offset: 0,
@@ -469,12 +524,12 @@ describe("KeysPage", () => {
       limit: 200,
     })
     await waitFor(() =>
-      expect(queryStore.snapshot(policiesKey).error).toBeTruthy(),
+      expect(queryStore.snapshot(policiesKey).error).toBeTruthy()
     )
     expect(
       within(screen.getByLabelText("Policy"))
         .getAllByRole("option")
-        .map((o) => o.textContent),
+        .map((o) => o.textContent)
     ).toEqual(["All"])
   })
 
@@ -484,7 +539,10 @@ describe("KeysPage", () => {
       query: async (intent: string, params?: Record<string, unknown>) => {
         if (intent === "policies.list") return POLICIES
         if (intent !== "keys.list") {
-          throw new ContractError("NOT_FOUND", `no handler for intent "${intent}"`)
+          throw new ContractError(
+            "NOT_FOUND",
+            `no handler for intent "${intent}"`
+          )
         }
         return params?.policyId === "kpol_strict"
           ? { keys: [], total: 0 }
@@ -502,9 +560,11 @@ describe("KeysPage", () => {
     expect(await screen.findByText("No keys match these filters.")).toBeTruthy()
     expect(screen.queryByText("No API keys yet.")).toBeNull()
     // A filter that matches nothing is not the moment to offer a key.
-    expect(screen.getAllByRole("button", { name: "Create key" })).toHaveLength(1)
+    expect(screen.getAllByRole("button", { name: "Create key" })).toHaveLength(
+      1
+    )
     expect((screen.getByLabelText("Policy") as HTMLSelectElement).value).toBe(
-      "kpol_strict",
+      "kpol_strict"
     )
   })
 
@@ -516,7 +576,9 @@ describe("KeysPage", () => {
     await screen.findByText("Reporting export")
     fireEvent.click(screen.getByRole("button", { name: "Next page" }))
     await screen.findByText(/Page 2 of 2/)
-    const params = sent.filter((s) => s.intent === "keys.list").map((s) => s.params)
+    const params = sent
+      .filter((s) => s.intent === "keys.list")
+      .map((s) => s.params)
     expect(params).toContainEqual({ limit: 25, offset: 25 })
   })
 
@@ -524,7 +586,7 @@ describe("KeysPage", () => {
     const client = stubClientByParams((params) =>
       params.state === "revoked"
         ? { keys: [], total: 0 }
-        : { keys: LIST.keys, total: 5 },
+        : { keys: LIST.keys, total: 5 }
     )
     renderPage(KeysPage, client)
     await screen.findByText("Reporting export")
@@ -538,7 +600,9 @@ describe("KeysPage", () => {
     expect(screen.getByText("0 keys")).toBeTruthy()
     expect(screen.queryByRole("link")).toBeNull()
     expect(screen.getByLabelText("Environment")).toBeTruthy()
-    expect((screen.getByLabelText("State") as HTMLSelectElement).value).toBe("revoked")
+    expect((screen.getByLabelText("State") as HTMLSelectElement).value).toBe(
+      "revoked"
+    )
   })
 
   it("keeps saying no API keys yet when nothing is filtered", async () => {
@@ -555,7 +619,11 @@ describe("KeysPage", () => {
       sent.push(params)
       // 60 keys until the viewer reaches page 3, then only 30 remain.
       if (params.offset === 50) return { keys: [], total: 30 }
-      if (params.offset === 25) return { keys: LIST.keys, total: sent.some((p) => p.offset === 50) ? 30 : 60 }
+      if (params.offset === 25)
+        return {
+          keys: LIST.keys,
+          total: sent.some((p) => p.offset === 50) ? 30 : 60,
+        }
       return { keys: LIST.keys, total: 60 }
     })
     renderPage(KeysPage, client)
@@ -591,7 +659,7 @@ describe("KeysPage", () => {
   it("shows the error state with the message when the list fails", async () => {
     renderPage(
       KeysPage,
-      failingClient(new ContractError("INTERNAL", "keys store is down")),
+      failingClient(new ContractError("INTERNAL", "keys store is down"))
     )
     expect(await screen.findByText(/keys store is down/)).toBeTruthy()
     expect(screen.queryByRole("table")).toBeNull()
@@ -605,9 +673,12 @@ describe("KeysPage while a page loads", () => {
       extension: "keysmith",
       query: (intent: string, params?: Record<string, unknown>) => {
         if (intent !== "keys.list") {
-          return Promise.reject(new ContractError("NOT_FOUND", `no handler for intent "${intent}"`))
+          return Promise.reject(
+            new ContractError("NOT_FOUND", `no handler for intent "${intent}"`)
+          )
         }
-        if (params?.offset === 0) return Promise.resolve({ keys: [BILLING], total: 30 })
+        if (params?.offset === 0)
+          return Promise.resolve({ keys: [BILLING], total: 30 })
         return new Promise((resolve) => waiting.push(resolve))
       },
       command: async () => {
@@ -619,9 +690,13 @@ describe("KeysPage while a page loads", () => {
     next.focus()
     fireEvent.click(next)
 
-    await waitFor(() => expect(document.querySelector('[aria-busy="true"]')).not.toBeNull())
+    await waitFor(() =>
+      expect(document.querySelector('[aria-busy="true"]')).not.toBeNull()
+    )
     expect(screen.getByText("Billing service")).toBeTruthy()
-    expect(screen.queryByRole("status", { name: "Loading API keys" })).toBeNull()
+    expect(
+      screen.queryByRole("status", { name: "Loading API keys" })
+    ).toBeNull()
     expect(screen.getByRole("button", { name: "Next page" })).toBe(next)
     expect(document.activeElement).toBe(next)
 
@@ -637,7 +712,9 @@ describe("KeysPage while a page loads", () => {
       extension: "keysmith",
       query: (intent: string) => {
         if (intent !== "keys.list") {
-          return Promise.reject(new ContractError("NOT_FOUND", `no handler for intent "${intent}"`))
+          return Promise.reject(
+            new ContractError("NOT_FOUND", `no handler for intent "${intent}"`)
+          )
         }
         calls += 1
         if (calls === 1) return Promise.resolve({ keys: [BILLING], total: 30 })
@@ -651,11 +728,15 @@ describe("KeysPage while a page loads", () => {
     const next = await screen.findByRole("button", { name: "Next page" })
 
     act(() => queryStore.invalidate("keysmith", ["keys.list"]))
-    await waitFor(() => expect(document.querySelector('[aria-busy="true"]')).not.toBeNull())
+    await waitFor(() =>
+      expect(document.querySelector('[aria-busy="true"]')).not.toBeNull()
+    )
     expect(screen.getByText("Billing service")).toBeTruthy()
     expect(screen.getByRole("button", { name: "Next page" })).toBe(next)
 
-    await act(async () => waiting.shift()!({ keys: [BILLING, REPORTING], total: 31 }))
+    await act(async () =>
+      waiting.shift()!({ keys: [BILLING, REPORTING], total: 31 })
+    )
     await screen.findByText("Reporting export")
   })
 })

@@ -29,7 +29,7 @@ describe("QueryStore", () => {
 
   it("keys the same regardless of the order params were written in", () => {
     expect(store.keyOf("auth", "users.list", { a: 1, b: 2 })).toBe(
-      store.keyOf("auth", "users.list", { b: 2, a: 1 }),
+      store.keyOf("auth", "users.list", { b: 2, a: 1 })
     )
   })
 
@@ -38,10 +38,10 @@ describe("QueryStore", () => {
     // { a: undefined } and {} are the same request and must share a key.
     // null survives onto the wire, so it is a different request.
     expect(store.keyOf("auth", "users.list", { a: undefined })).toBe(
-      store.keyOf("auth", "users.list", {}),
+      store.keyOf("auth", "users.list", {})
     )
     expect(store.keyOf("auth", "users.list", { a: null })).not.toBe(
-      store.keyOf("auth", "users.list", {}),
+      store.keyOf("auth", "users.list", {})
     )
   })
 
@@ -111,7 +111,9 @@ describe("QueryStore", () => {
 
     // The older request settles last and must not win.
     second.resolve({ tag: "second" })
-    await vi.waitFor(() => expect(store.snapshot(key).data).toEqual({ tag: "second" }))
+    await vi.waitFor(() =>
+      expect(store.snapshot(key).data).toEqual({ tag: "second" })
+    )
     first.resolve({ tag: "first" })
     await Promise.resolve()
     expect(store.snapshot(key).data).toEqual({ tag: "second" })
@@ -218,7 +220,9 @@ describe("QueryStore", () => {
     // record's current one rather than checking whether a record exists.
     store.invalidate("auth", ["users.list"])
     fresh.resolve({ tag: "fresh" })
-    await vi.waitFor(() => expect(store.snapshot(key).data).toEqual({ tag: "fresh" }))
+    await vi.waitFor(() =>
+      expect(store.snapshot(key).data).toEqual({ tag: "fresh" })
+    )
 
     stale.resolve({ tag: "stale" })
     await Promise.resolve()
@@ -239,7 +243,9 @@ describe("QueryStore", () => {
     // A remount issues a fresh request against a recreated record.
     store.read(key, () => second.promise, 0)
     second.resolve({ tag: "second" })
-    await vi.waitFor(() => expect(store.snapshot(key).data).toEqual({ tag: "second" }))
+    await vi.waitFor(() =>
+      expect(store.snapshot(key).data).toEqual({ tag: "second" })
+    )
 
     // The pre-delete request settles last and must lose.
     first.resolve({ tag: "first" })
@@ -252,7 +258,9 @@ describe("QueryStore", () => {
     const key = store.keyOf("auth", "users.list")
     const fetcher = vi.fn().mockReturnValue(new Promise(() => {}))
     store.read(key, () => Promise.resolve({ tag: "app-a" }), 60_000)
-    await vi.waitFor(() => expect(store.snapshot(key).data).toEqual({ tag: "app-a" }))
+    await vi.waitFor(() =>
+      expect(store.snapshot(key).data).toEqual({ tag: "app-a" })
+    )
     store.subscribe(key, () => {})
 
     store.read(key, fetcher, 0, { force: true })

@@ -14,19 +14,45 @@ import {
 import { RedTeamBadge, ResultStatusBadge } from "../badges"
 import { PlainText, RevealText } from "../components/plain-text"
 import { SettledBoundary } from "../components/settled-boundary"
-import { casePath, formatCost, formatCount, formatLatency, formatScore, plural, runPath, shortRunId } from "../format"
-import type { ResultDetail, Run, RunDetail, ScorerResult, TestCase, ToolCall, TraceStep } from "../types"
+import {
+  casePath,
+  formatCost,
+  formatCount,
+  formatLatency,
+  formatScore,
+  plural,
+  runPath,
+  shortRunId,
+} from "../format"
+import type {
+  ResultDetail,
+  Run,
+  RunDetail,
+  ScorerResult,
+  TestCase,
+  ToolCall,
+  TraceStep,
+} from "../types"
 
 /** What a hidden reason or detail shows in its place. */
-const hiddenCell = <span className="text-muted-foreground">Hidden with the output</span>
+const hiddenCell = (
+  <span className="text-muted-foreground">Hidden with the output</span>
+)
 
 /**
  * A red-team result's reasons and details stay hidden with its output: an LLM
  * judge's reason can quote what the target said. The verdicts stay open.
  */
-function scorerColumns(hidden: boolean): Column<ScorerResult & { key: string }>[] {
+function scorerColumns(
+  hidden: boolean
+): Column<ScorerResult & { key: string }>[] {
   return [
-    { id: "scorer", header: "Scorer", className: "font-mono text-xs font-medium", cell: (s) => s.scorerName },
+    {
+      id: "scorer",
+      header: "Scorer",
+      className: "font-mono text-xs font-medium",
+      cell: (s) => s.scorerName,
+    },
     {
       id: "verdict",
       header: "Verdict",
@@ -37,10 +63,18 @@ function scorerColumns(hidden: boolean): Column<ScorerResult & { key: string }>[
         s.errored ? (
           <Badge variant="default">Errored</Badge>
         ) : (
-          <Badge variant={s.passed ? "outline" : "destructive"}>{s.passed ? "Passed" : "Failed"}</Badge>
+          <Badge variant={s.passed ? "outline" : "destructive"}>
+            {s.passed ? "Passed" : "Failed"}
+          </Badge>
         ),
     },
-    { id: "score", header: "Score", align: "end", className: "tabular-nums", cell: (s) => formatScore(s.score) },
+    {
+      id: "score",
+      header: "Score",
+      align: "end",
+      className: "tabular-nums",
+      cell: (s) => formatScore(s.score),
+    },
     {
       id: "dimension",
       header: "Dimension",
@@ -77,41 +111,71 @@ function scorerColumns(hidden: boolean): Column<ScorerResult & { key: string }>[
 }
 
 const toolColumns: Column<ToolCall & { key: string }>[] = [
-  { id: "tool", header: "Tool", className: "font-mono text-xs font-medium", cell: (t) => t.toolName },
+  {
+    id: "tool",
+    header: "Tool",
+    className: "font-mono text-xs font-medium",
+    cell: (t) => t.toolName,
+  },
   {
     id: "arguments",
     header: "Arguments",
     // Bounded, so one long payload cannot stretch the table.
-    cell: (t) => <pre className="max-h-40 overflow-auto font-mono text-xs break-words whitespace-pre-wrap">{t.arguments}</pre>,
+    cell: (t) => (
+      <pre className="max-h-40 overflow-auto font-mono text-xs break-words whitespace-pre-wrap">
+        {t.arguments}
+      </pre>
+    ),
   },
   {
     id: "result",
     header: "Result",
-    cell: (t) => <pre className="max-h-40 overflow-auto font-mono text-xs break-words whitespace-pre-wrap">{t.result}</pre>,
+    cell: (t) => (
+      <pre className="max-h-40 overflow-auto font-mono text-xs break-words whitespace-pre-wrap">
+        {t.result}
+      </pre>
+    ),
   },
   {
     id: "error",
     header: "Error",
     cell: (t) =>
-      t.error ? <span className="break-words whitespace-pre-wrap">{t.error}</span> : <NoneCell label="error" />,
+      t.error ? (
+        <span className="break-words whitespace-pre-wrap">{t.error}</span>
+      ) : (
+        <NoneCell label="error" />
+      ),
   },
 ]
 
 /** /runs/:id/results/:resultId. Guards the ids, then keys the body on them. */
-export const ResultDetailPage: ComponentType<PluginPageProps> = ({ params }) => {
+export const ResultDetailPage: ComponentType<PluginPageProps> = ({
+  params,
+}) => {
   const runId = params.id
   const resultId = params.resultId
-  if (!runId || !resultId) return <p className="text-sm text-muted-foreground">No result selected.</p>
+  if (!runId || !resultId)
+    return <p className="text-sm text-muted-foreground">No result selected.</p>
   return <ResultDetailBody key={resultId} runId={runId} resultId={resultId} />
 }
 
-function ResultDetailBody({ runId, resultId }: { runId: string; resultId: string }) {
+function ResultDetailBody({
+  runId,
+  resultId,
+}: {
+  runId: string
+  resultId: string
+}) {
   const result = useQuery<ResultDetail>("results.detail", { runId, resultId })
   // The run page's own read: the suite name and the run's state, shared.
   const detail = useQuery<RunDetail>("runs.detail", { runId })
   // The case as it is now, for the input. It may have been deleted since.
   const caseId = result.data?.caseId
-  const testCase = useQuery<TestCase>("cases.detail", { caseId }, { enabled: caseId !== undefined })
+  const testCase = useQuery<TestCase>(
+    "cases.detail",
+    { caseId },
+    { enabled: caseId !== undefined }
+  )
   // A red-team result's scorer reasons, revealed for this result only.
   const [showReasons, setShowReasons] = useState(false)
   return (
@@ -123,12 +187,19 @@ function ResultDetailBody({ runId, resultId }: { runId: string; resultId: string
               <PageHeader title={r.caseName} />
               <div className="flex flex-wrap items-center gap-2">
                 <ResultStatusBadge status={r.status} />
-                {r.redTeam && <RedTeamBadge attackType={r.redTeam.attackType} />}
+                {r.redTeam && (
+                  <RedTeamBadge attackType={r.redTeam.attackType} />
+                )}
               </div>
             </div>
-            <DescriptionList items={facts(r, runId, detail.data?.run, testCase.data)} />
+            <DescriptionList
+              items={facts(r, runId, detail.data?.run, testCase.data)}
+            />
             {r.error && (
-              <section aria-labelledby="sentinel-result-error" className="flex flex-col gap-2">
+              <section
+                aria-labelledby="sentinel-result-error"
+                className="flex flex-col gap-2"
+              >
                 <h2 id="sentinel-result-error" className="text-sm font-medium">
                   Why it could not be judged
                 </h2>
@@ -144,7 +215,10 @@ function ResultDetailBody({ runId, resultId }: { runId: string; resultId: string
                 )}
               </section>
             )}
-            <section aria-labelledby="sentinel-result-input" className="flex flex-col gap-2">
+            <section
+              aria-labelledby="sentinel-result-input"
+              className="flex flex-col gap-2"
+            >
               <h2 id="sentinel-result-input" className="text-sm font-medium">
                 Input
               </h2>
@@ -152,7 +226,8 @@ function ResultDetailBody({ runId, resultId }: { runId: string; resultId: string
                 <PlainText value={testCase.data.input} label="Input" />
               ) : testCase.error?.code === "NOT_FOUND" ? (
                 <p className="text-sm text-muted-foreground">
-                  The case has been deleted since this run, so its input is no longer available.
+                  The case has been deleted since this run, so its input is no
+                  longer available.
                 </p>
               ) : testCase.error ? (
                 <p role="alert" className="text-sm text-destructive">
@@ -164,32 +239,52 @@ function ResultDetailBody({ runId, resultId }: { runId: string; resultId: string
                 </p>
               )}
             </section>
-            <section aria-labelledby="sentinel-result-output" className="flex flex-col gap-2">
+            <section
+              aria-labelledby="sentinel-result-output"
+              className="flex flex-col gap-2"
+            >
               <h2 id="sentinel-result-output" className="text-sm font-medium">
                 Output
               </h2>
               {r.output === "" ? (
                 <NoneCell label="output" />
               ) : r.redTeam ? (
-                <RevealText value={r.output} length={r.outputLength} attackType={r.redTeam.attackType} label="Output" />
+                <RevealText
+                  value={r.output}
+                  length={r.outputLength}
+                  attackType={r.redTeam.attackType}
+                  label="Output"
+                />
               ) : (
                 <PlainText value={r.output} label="Output" />
               )}
             </section>
-            <section aria-labelledby="sentinel-result-scorers" className="flex flex-col gap-2">
+            <section
+              aria-labelledby="sentinel-result-scorers"
+              className="flex flex-col gap-2"
+            >
               <h2 id="sentinel-result-scorers" className="text-sm font-medium">
                 How it was scored
               </h2>
-              {r.redTeam && r.scorerResults.some((sr) => sr.reason || sr.details) && (
-                <div className="flex flex-wrap items-center gap-2">
-                  <p className="text-sm text-muted-foreground">
-                    {showReasons
-                      ? "Showing the scorers' reasons."
-                      : "The scorers' reasons can quote the output, so they stay hidden with it."}
-                  </p>
-                  <IconButton variant="outline" onClick={() => setShowReasons((on) => !on)} label={showReasons ? "Hide scorer reasons" : "Show scorer reasons"} />
-                </div>
-              )}
+              {r.redTeam &&
+                r.scorerResults.some((sr) => sr.reason || sr.details) && (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="text-sm text-muted-foreground">
+                      {showReasons
+                        ? "Showing the scorers' reasons."
+                        : "The scorers' reasons can quote the output, so they stay hidden with it."}
+                    </p>
+                    <IconButton
+                      variant="outline"
+                      onClick={() => setShowReasons((on) => !on)}
+                      label={
+                        showReasons
+                          ? "Hide scorer reasons"
+                          : "Show scorer reasons"
+                      }
+                    />
+                  </div>
+                )}
               <ResourceTable<ScorerResult & { key: string }>
                 columns={scorerColumns(r.redTeam !== undefined && !showReasons)}
                 rows={r.scorerResults.map((s, i) => ({ ...s, key: String(i) }))}
@@ -199,7 +294,9 @@ function ResultDetailBody({ runId, resultId }: { runId: string; resultId: string
               />
               <DimensionList scores={r.dimensionScores} />
             </section>
-            {r.runTrace && <Trace trace={r.runTrace} attackType={r.redTeam?.attackType} />}
+            {r.runTrace && (
+              <Trace trace={r.runTrace} attackType={r.redTeam?.attackType} />
+            )}
           </div>
         )}
       </SettledBoundary>
@@ -207,7 +304,12 @@ function ResultDetailBody({ runId, resultId }: { runId: string; resultId: string
   )
 }
 
-function facts(r: ResultDetail, runId: string, run: Run | undefined, testCase: TestCase | undefined) {
+function facts(
+  r: ResultDetail,
+  runId: string,
+  run: Run | undefined,
+  testCase: TestCase | undefined
+) {
   return [
     {
       term: "Run",
@@ -221,7 +323,9 @@ function facts(r: ResultDetail, runId: string, run: Run | undefined, testCase: T
     {
       term: "Case",
       value: testCase ? (
-        <PluginLink to={casePath(testCase.suiteId, testCase.id)}>{testCase.name}</PluginLink>
+        <PluginLink to={casePath(testCase.suiteId, testCase.id)}>
+          {testCase.name}
+        </PluginLink>
       ) : (
         <span className="font-mono text-xs">{r.caseId}</span>
       ),
@@ -237,7 +341,11 @@ function facts(r: ResultDetail, runId: string, run: Run | undefined, testCase: T
 function DimensionList({ scores }: { scores: Record<string, number> }) {
   const entries = Object.entries(scores)
   if (entries.length === 0) {
-    return <p className="text-sm text-muted-foreground">No scorer measured a dimension on this case.</p>
+    return (
+      <p className="text-sm text-muted-foreground">
+        No scorer measured a dimension on this case.
+      </p>
+    )
   }
   return (
     <DescriptionList
@@ -249,13 +357,24 @@ function DimensionList({ scores }: { scores: Record<string, number> }) {
   )
 }
 
-function Trace({ trace, attackType }: { trace: NonNullable<ResultDetail["runTrace"]>; attackType?: string }) {
+function Trace({
+  trace,
+  attackType,
+}: {
+  trace: NonNullable<ResultDetail["runTrace"]>
+  attackType?: string
+}) {
   return (
-    <section aria-labelledby="sentinel-result-trace" className="flex flex-col gap-3">
+    <section
+      aria-labelledby="sentinel-result-trace"
+      className="flex flex-col gap-3"
+    >
       <h2 id="sentinel-result-trace" className="text-sm font-medium">
         Trace
       </h2>
-      {trace.steps.length === 0 && <p className="text-sm text-muted-foreground">No steps recorded.</p>}
+      {trace.steps.length === 0 && (
+        <p className="text-sm text-muted-foreground">No steps recorded.</p>
+      )}
       {trace.steps.map((step: TraceStep) => (
         <div key={step.index} className="flex flex-col gap-1">
           <p className="text-sm">
@@ -271,7 +390,10 @@ function Trace({ trace, attackType }: { trace: NonNullable<ResultDetail["runTrac
               label={`Step ${step.index + 1} output`}
             />
           ) : (
-            <PlainText value={step.output} label={`Step ${step.index + 1} output`} />
+            <PlainText
+              value={step.output}
+              label={`Step ${step.index + 1} output`}
+            />
           )}
         </div>
       ))}
@@ -303,22 +425,40 @@ function ToolCalls({ calls }: { calls: ToolCall[] }) {
  * worked often shows up in what the agent passed to a tool or got back from
  * it. The reveal is this result's alone and is not stored.
  */
-function HiddenToolCalls({ count, attackType, children }: { count: number; attackType: string; children: ReactNode }) {
+function HiddenToolCalls({
+  count,
+  attackType,
+  children,
+}: {
+  count: number
+  attackType: string
+  children: ReactNode
+}) {
   const [shown, setShown] = useState(false)
   if (!shown) {
     return (
       <div className="flex flex-col items-start gap-2 rounded-md border border-dashed p-3">
         <p className="text-sm text-muted-foreground">
-          Tool calls in a red-team trace stay hidden until you ask for them: their arguments and results may carry the attack.
+          Tool calls in a red-team trace stay hidden until you ask for them:
+          their arguments and results may carry the attack.
         </p>
-        <IconButton variant="outline" onClick={() => setShown(true)} label={`Show ${plural(count, "tool call", "tool calls")} (${attackType})`} />
+        <IconButton
+          variant="outline"
+          onClick={() => setShown(true)}
+          label={`Show ${plural(count, "tool call", "tool calls")} (${attackType})`}
+        />
       </div>
     )
   }
   return (
     <div className="flex flex-col gap-2">
       {children}
-      <IconButton variant="ghost" className="self-start" onClick={() => setShown(false)} label="Hide tool calls" />
+      <IconButton
+        variant="ghost"
+        className="self-start"
+        onClick={() => setShown(false)}
+        label="Hide tool calls"
+      />
     </div>
   )
 }

@@ -7,7 +7,11 @@ import { cn } from "@forge-go/dashboard-kit/lib/utils"
 import type { FeatureUsage, SubscriptionUsage } from "../types"
 
 const number = new Intl.NumberFormat()
-const PERIOD: Record<string, string> = { monthly: " this month", yearly: " this year", none: "" }
+const PERIOD: Record<string, string> = {
+  monthly: " this month",
+  yearly: " this year",
+  none: "",
+}
 
 /**
  * One feature's usage against its limit.
@@ -42,7 +46,9 @@ export function EntitlementRow({ feature: f }: { feature: FeatureUsage }) {
     return (
       <li className="flex items-center justify-between gap-4 px-4 py-3">
         {name}
-        <span className={cn("text-sm", !f.enabled && "text-muted-foreground")}>{f.enabled ? "Included" : "Not included"}</span>
+        <span className={cn("text-sm", !f.enabled && "text-muted-foreground")}>
+          {f.enabled ? "Included" : "Not included"}
+        </span>
       </li>
     )
   }
@@ -61,22 +67,33 @@ export function EntitlementRow({ feature: f }: { feature: FeatureUsage }) {
   }
 
   // A limit of 0 is a real limit ("none included"), not a divisor.
-  const percent = f.limit > 0 ? Math.min(100, (f.used / f.limit) * 100) : f.used > 0 ? 100 : 0
+  const percent =
+    f.limit > 0 ? Math.min(100, (f.used / f.limit) * 100) : f.used > 0 ? 100 : 0
   const over = f.over_limit ? f.used - f.limit : 0
   const reached = over === 0 && f.type === "metered" && f.used >= f.limit
   const flagged = over > 0 || reached
   // The fill class is chosen here and spelled out literally below: Tailwind
   // generates only class names it can read in the source, so a name assembled
   // at runtime would never exist in the stylesheet.
-  const fill = flagged ? (f.soft_limit ? "bg-warning" : "bg-destructive") : "bg-primary"
+  const fill = flagged
+    ? f.soft_limit
+      ? "bg-warning"
+      : "bg-destructive"
+    : "bg-primary"
   // Whether overage is priced is not in the result, so the copy says only what
   // is always true: a soft limit does not block use. Seats are not measured by
   // the engine's check, so theirs says how far over and nothing more.
   const unblocked = f.type === "metered" ? ". Use is not blocked" : ""
 
   let note: string | undefined
-  if (over > 0) note = f.soft_limit ? `${number.format(over)} over the soft limit${unblocked}` : `${number.format(over)} over the limit`
-  else if (reached) note = f.soft_limit ? "At the soft limit. Use past it is not blocked" : "At the limit, further use is refused"
+  if (over > 0)
+    note = f.soft_limit
+      ? `${number.format(over)} over the soft limit${unblocked}`
+      : `${number.format(over)} over the limit`
+  else if (reached)
+    note = f.soft_limit
+      ? "At the soft limit. Use past it is not blocked"
+      : "At the limit, further use is refused"
 
   return (
     <li className="flex flex-col gap-2 px-4 py-3">
@@ -89,12 +106,20 @@ export function EntitlementRow({ feature: f }: { feature: FeatureUsage }) {
         aria-label={`${f.name}: ${number.format(f.used)} of ${number.format(f.limit)} used`}
         aria-describedby={note ? noteId : undefined}
         className={cn(
-          fill === "bg-destructive" && "[&_[data-slot=progress-indicator]]:bg-destructive",
-          fill === "bg-warning" && "[&_[data-slot=progress-indicator]]:bg-warning",
+          fill === "bg-destructive" &&
+            "[&_[data-slot=progress-indicator]]:bg-destructive",
+          fill === "bg-warning" &&
+            "[&_[data-slot=progress-indicator]]:bg-warning"
         )}
       />
       {note && (
-        <p id={noteId} className={cn("flex items-center gap-1.5 text-sm", f.soft_limit ? "text-warning-foreground" : "text-destructive")}>
+        <p
+          id={noteId}
+          className={cn(
+            "flex items-center gap-1.5 text-sm",
+            f.soft_limit ? "text-warning-foreground" : "text-destructive"
+          )}
+        >
           <TriangleAlertIcon className="size-4" aria-hidden="true" />
           {note}
         </p>
@@ -109,8 +134,14 @@ export function EntitlementRow({ feature: f }: { feature: FeatureUsage }) {
  * calendar period, which the rows name ("this month") rather than implying
  * the billing period.
  */
-export function EntitlementPanel({ subscriptionId }: { subscriptionId: string }) {
-  const usage = useQuery<SubscriptionUsage>("subscriptions.usage", { id: subscriptionId })
+export function EntitlementPanel({
+  subscriptionId,
+}: {
+  subscriptionId: string
+}) {
+  const usage = useQuery<SubscriptionUsage>("subscriptions.usage", {
+    id: subscriptionId,
+  })
   return (
     <section aria-label="Usage against limits" className="flex flex-col gap-3">
       <h2 className="text-base font-medium">Usage against limits</h2>
@@ -118,7 +149,9 @@ export function EntitlementPanel({ subscriptionId }: { subscriptionId: string })
         {(data) => {
           const features = data.features ?? []
           return features.length === 0 ? (
-            <p className="text-sm text-muted-foreground">This plan grants no features, so there is nothing to measure.</p>
+            <p className="text-sm text-muted-foreground">
+              This plan grants no features, so there is nothing to measure.
+            </p>
           ) : (
             <ul className="flex flex-col divide-y rounded-md border">
               {features.map((f) => (

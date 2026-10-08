@@ -18,19 +18,32 @@ function columns(suiteId: string): Column<TestCase>[] {
       id: "name",
       header: "Name",
       className: "font-medium",
-      cell: (c) => <PluginLink to={casePath(suiteId, c.id)}>{c.name}</PluginLink>,
+      cell: (c) => (
+        <PluginLink to={casePath(suiteId, c.id)}>{c.name}</PluginLink>
+      ),
     },
-    { id: "type", header: "Attack type", cell: (c) => attackLabel(c.redTeam?.attackType ?? "") },
+    {
+      id: "type",
+      header: "Attack type",
+      cell: (c) => attackLabel(c.redTeam?.attackType ?? ""),
+    },
     {
       id: "input",
       header: "Input",
       // One line, as text: this is the attack.
-      cell: (c) => <span className="line-clamp-1 max-w-md break-all">{c.input}</span>,
+      cell: (c) => (
+        <span className="line-clamp-1 max-w-md break-all">{c.input}</span>
+      ),
     },
     {
       id: "scorers",
       header: "Own scorers",
-      cell: (c) => <TagList values={[...new Set(c.scorers.map((s) => s.name))]} label="scorers of its own" />,
+      cell: (c) => (
+        <TagList
+          values={[...new Set(c.scorers.map((s) => s.name))]}
+          label="scorers of its own"
+        />
+      ),
     },
   ]
 }
@@ -42,7 +55,11 @@ function columns(suiteId: string): Column<TestCase>[] {
  */
 export function RedTeamTab({ suiteId }: { suiteId: string }) {
   const cases = useQuery<CasesList>("cases.list", { suiteId })
-  const latest = useQuery<RunsList>("runs.list", { suiteId, state: "completed", limit: 1 })
+  const latest = useQuery<RunsList>("runs.list", {
+    suiteId,
+    state: "completed",
+    limit: 1,
+  })
   const [generating, setGenerating] = useState(false)
   const [added, setAdded] = useState<GenerateResult | null>(null)
   const run = latest.data?.items[0]
@@ -50,7 +67,8 @@ export function RedTeamTab({ suiteId }: { suiteId: string }) {
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-muted-foreground">
-          Attacks on the target, as cases. A run scores them with the rest, and a failed one is a bypass.
+          Attacks on the target, as cases. A run scores them with the rest, and
+          a failed one is a bypass.
         </p>
         <Button
           onClick={() => {
@@ -98,7 +116,12 @@ export function RedTeamTab({ suiteId }: { suiteId: string }) {
           )
         }}
       </SettledBoundary>
-      <GenerateDialog open={generating} onOpenChange={setGenerating} suiteId={suiteId} onGenerated={setAdded} />
+      <GenerateDialog
+        open={generating}
+        onOpenChange={setGenerating}
+        suiteId={suiteId}
+        onGenerated={setAdded}
+      />
     </div>
   )
 }

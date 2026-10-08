@@ -1,5 +1,15 @@
 import { describe, expect, it } from "vitest"
-import { ageSeconds, formatAge, formatBytes, formatCount, formatMs, formatScore, isRealTime, plural, utf8Length } from "../src/format"
+import {
+  ageSeconds,
+  formatAge,
+  formatBytes,
+  formatCount,
+  formatMs,
+  formatScore,
+  isRealTime,
+  plural,
+  utf8Length,
+} from "../src/format"
 
 describe("format", () => {
   it("groups counts and bytes", () => {

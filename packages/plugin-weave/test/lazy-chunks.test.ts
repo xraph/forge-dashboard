@@ -8,10 +8,16 @@ import { describe, expect, it } from "vitest"
  * types.
  */
 interface GlobbingImportMeta {
-  glob: (pattern: string, options: { query?: string; eager?: boolean }) => Record<string, { default: string } | string>
+  glob: (
+    pattern: string,
+    options: { query?: string; eager?: boolean }
+  ) => Record<string, { default: string } | string>
 }
 
-const modules = (import.meta as unknown as GlobbingImportMeta).glob("../src/**/*.{ts,tsx}", { query: "?raw", eager: true })
+const modules = (import.meta as unknown as GlobbingImportMeta).glob(
+  "../src/**/*.{ts,tsx}",
+  { query: "?raw", eager: true }
+)
 
 function sourceOf(mod: { default: string } | string): string {
   return typeof mod === "string" ? mod : mod.default
@@ -32,17 +38,27 @@ describe("the chunk reader stays out of the entry", () => {
 
   it("reaches the document page from the plugin entry through lazy(), not a static import", () => {
     const entry = sourceOf(modules["../src/index.tsx"])
-    expect(entry).toMatch(/lazy\(\(\)\s*=>\s*import\("\.\/pages\/document-detail"\)\)/)
-    expect(entry).not.toMatch(/^import (?!type)[^\n]*["']\.\/pages\/document-detail["']/m)
+    expect(entry).toMatch(
+      /lazy\(\(\)\s*=>\s*import\("\.\/pages\/document-detail"\)\)/
+    )
+    expect(entry).not.toMatch(
+      /^import (?!type)[^\n]*["']\.\/pages\/document-detail["']/m
+    )
   })
 
   it("imports the document page from nowhere else", () => {
-    const others = importersOf(/from\s+["'][./]*pages\/document-detail["']/).filter((p) => p !== "../src/index.tsx")
+    const others = importersOf(
+      /from\s+["'][./]*pages\/document-detail["']/
+    ).filter((p) => p !== "../src/index.tsx")
     expect(others).toEqual([])
   })
 
   it("names the virtualiser only in the chunk reader, which only the document page imports", () => {
-    expect(importersOf(/@tanstack\/react-virtual/)).toEqual(["../src/components/chunk-reader.tsx"])
-    expect(importersOf(/from\s+["'][./]*components\/chunk-reader["']/)).toEqual(["../src/pages/document-detail.tsx"])
+    expect(importersOf(/@tanstack\/react-virtual/)).toEqual([
+      "../src/components/chunk-reader.tsx",
+    ])
+    expect(importersOf(/from\s+["'][./]*components\/chunk-reader["']/)).toEqual(
+      ["../src/pages/document-detail.tsx"]
+    )
   })
 })

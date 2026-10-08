@@ -86,7 +86,8 @@ export interface FlagDetail {
 }
 
 /** Why an evaluation answered the way it did, in the order the engine reaches them. */
-export type EvaluationReason = "disabled" | "tenantOverride" | "rule" | "default"
+export type EvaluationReason =
+  "disabled" | "tenantOverride" | "rule" | "default"
 
 /**
  * Mirrors the Go `FlagTraceStep`: one rule the engine looked at, in the order

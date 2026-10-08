@@ -45,7 +45,9 @@ function rowFor(text: string): HTMLElement {
 
 describe("RotationPage", () => {
   it("asks rotation.policies for the first page with an exact limit and offset", async () => {
-    const { client, sent } = recordingQueryClient({ "rotation.policies": POLICIES })
+    const { client, sent } = recordingQueryClient({
+      "rotation.policies": POLICIES,
+    })
     renderPage(RotationPage, client)
     await screen.findByText("api-token")
     const list = sent.filter((i) => i.intent === "rotation.policies")
@@ -70,7 +72,9 @@ describe("RotationPage", () => {
   it("shows the server total in the caption, not the page length", async () => {
     renderPage(
       RotationPage,
-      stubClient({ "rotation.policies": { policies: POLICIES.policies, total: 31 } })
+      stubClient({
+        "rotation.policies": { policies: POLICIES.policies, total: 31 },
+      })
     )
     await screen.findByText("api-token")
     expect(screen.getByText("31 policies")).toBeTruthy()
@@ -100,14 +104,18 @@ describe("RotationPage", () => {
       stubClient({ "rotation.policies": { policies: [], total: 0 } })
     )
     expect(
-      await screen.findByText("No rotation policies. Set one up from a secret's page.")
+      await screen.findByText(
+        "No rotation policies. Set one up from a secret's page."
+      )
     ).toBeTruthy()
     expect(screen.getByText("0 policies")).toBeTruthy()
   })
 
   it("links each secret through rotationPath, in mono", async () => {
     renderPage(RotationPage, stubClient({ "rotation.policies": POLICIES }))
-    const link = await screen.findByRole("link", { name: "db/primary.password" })
+    const link = await screen.findByRole("link", {
+      name: "db/primary.password",
+    })
     expect(link.getAttribute("href")).toBe(rotationPath("db/primary.password"))
     expect(link.getAttribute("href")).toBe("/rotation/db%2Fprimary.password")
     expect(link.closest("td")?.className).toMatch(/font-mono/)
@@ -180,8 +188,14 @@ describe("RotationPage", () => {
       })
     )
     await screen.findByText("api-token")
-    expect(within(rowFor("db/primary.password")).queryByLabelText(/no next rotation/i)).toBeNull()
-    expect(within(rowFor("api-token")).getByLabelText(/no next rotation/i)).toBeTruthy()
+    expect(
+      within(rowFor("db/primary.password")).queryByLabelText(
+        /no next rotation/i
+      )
+    ).toBeNull()
+    expect(
+      within(rowFor("api-token")).getByLabelText(/no next rotation/i)
+    ).toBeTruthy()
     const shown = new Date("2026-10-05T04:00:00Z").toLocaleString()
     expect(within(rowFor("api-token")).queryByText(shown)).toBeNull()
   })
@@ -206,18 +220,30 @@ describe("RotationPage", () => {
       })
     )
     await screen.findByText("api-token")
-    expect(within(rowFor("api-token")).getByLabelText(/no next rotation/i)).toBeTruthy()
+    expect(
+      within(rowFor("api-token")).getByLabelText(/no next rotation/i)
+    ).toBeTruthy()
     const shown = new Date("2026-10-05T04:00:00Z").toLocaleString()
     expect(within(rowFor("api-token")).queryByText(shown)).toBeNull()
     // A rotatable, enabled policy still shows its time.
-    expect(within(rowFor("db/primary.password")).queryByLabelText(/no next rotation/i)).toBeNull()
+    expect(
+      within(rowFor("db/primary.password")).queryByLabelText(
+        /no next rotation/i
+      )
+    ).toBeNull()
   })
 
   it("reads a policy that never rotated as no last rotation", async () => {
     renderPage(RotationPage, stubClient({ "rotation.policies": POLICIES }))
     await screen.findByText("api-token")
-    expect(within(rowFor("api-token")).getByLabelText(/no last rotation/i)).toBeTruthy()
-    expect(within(rowFor("db/primary.password")).queryByLabelText(/no last rotation/i)).toBeNull()
+    expect(
+      within(rowFor("api-token")).getByLabelText(/no last rotation/i)
+    ).toBeTruthy()
+    expect(
+      within(rowFor("db/primary.password")).queryByLabelText(
+        /no last rotation/i
+      )
+    ).toBeNull()
   })
 
   it("renders the error card, not an empty table, when the list fails", async () => {
@@ -225,7 +251,9 @@ describe("RotationPage", () => {
       RotationPage,
       failingClient(new ContractError("INTERNAL", "vault store is down"))
     )
-    expect(await screen.findByText(/Rotation policies unavailable/i)).toBeTruthy()
+    expect(
+      await screen.findByText(/Rotation policies unavailable/i)
+    ).toBeTruthy()
     expect(screen.getByText(/vault store is down/)).toBeTruthy()
     expect(screen.queryByRole("table")).toBeNull()
     expect(screen.queryByText(/No rotation policies/)).toBeNull()

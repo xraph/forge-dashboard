@@ -9,7 +9,9 @@ function Probe() {
   return (
     <div>
       <TenantFilter value={tenant} onChange={setTenant} />
-      <output aria-label="sent">{JSON.stringify(withTenant({ limit: 25 }, tenant))}</output>
+      <output aria-label="sent">
+        {JSON.stringify(withTenant({ limit: 25 }, tenant))}
+      </output>
     </div>
   )
 }
@@ -31,17 +33,29 @@ describe("TenantFilter", () => {
 
   it("narrows to untenanted rows", () => {
     render(<Probe />)
-    fireEvent.change(screen.getByLabelText("Tenant"), { target: { value: "none" } })
-    expect(screen.getByLabelText("sent").textContent).toBe('{"limit":25,"tenant":""}')
+    fireEvent.change(screen.getByLabelText("Tenant"), {
+      target: { value: "none" },
+    })
+    expect(screen.getByLabelText("sent").textContent).toBe(
+      '{"limit":25,"tenant":""}'
+    )
   })
 
   it("narrows to a named tenant, trimmed, and treats a blank name as no filter yet", () => {
     render(<Probe />)
-    fireEvent.change(screen.getByLabelText("Tenant"), { target: { value: "named" } })
+    fireEvent.change(screen.getByLabelText("Tenant"), {
+      target: { value: "named" },
+    })
     expect(screen.getByLabelText("sent").textContent).toBe('{"limit":25}')
-    fireEvent.change(screen.getByLabelText("Tenant ID"), { target: { value: "  acme " } })
-    expect(screen.getByLabelText("sent").textContent).toBe('{"limit":25,"tenant":"acme"}')
-    fireEvent.change(screen.getByLabelText("Tenant"), { target: { value: "all" } })
+    fireEvent.change(screen.getByLabelText("Tenant ID"), {
+      target: { value: "  acme " },
+    })
+    expect(screen.getByLabelText("sent").textContent).toBe(
+      '{"limit":25,"tenant":"acme"}'
+    )
+    fireEvent.change(screen.getByLabelText("Tenant"), {
+      target: { value: "all" },
+    })
     expect(screen.getByLabelText("sent").textContent).toBe('{"limit":25}')
     expect(screen.queryByLabelText("Tenant ID")).toBeNull()
   })

@@ -20,36 +20,63 @@ if (typeof window.PointerEvent === "undefined") {
 
 const answers = {
   "users.detail": {
-    id: "u1", email: "ada@example.com", emailVerified: true,
-    firstName: "Ada", lastName: "Lovelace", username: "ada",
-    banned: false, createdAt: "2026-01-01T00:00:00Z",
-    updatedAt: "2026-02-01T00:00:00Z", phone: "+1", phoneVerified: false,
-    banReason: "", banExpiresAt: "",
+    id: "u1",
+    email: "ada@example.com",
+    emailVerified: true,
+    firstName: "Ada",
+    lastName: "Lovelace",
+    username: "ada",
+    banned: false,
+    createdAt: "2026-01-01T00:00:00Z",
+    updatedAt: "2026-02-01T00:00:00Z",
+    phone: "+1",
+    phoneVerified: false,
+    banReason: "",
+    banExpiresAt: "",
   },
   "sessions.list": {
     sessions: [
-      { id: "s1", userId: "u1", ipAddress: "10.0.0.1", expiresAt: "2026-03-01T00:00:00Z", createdAt: "2026-02-01T00:00:00Z" },
+      {
+        id: "s1",
+        userId: "u1",
+        ipAddress: "10.0.0.1",
+        expiresAt: "2026-03-01T00:00:00Z",
+        createdAt: "2026-02-01T00:00:00Z",
+      },
     ],
   },
   "devices.list": {
     devices: [
-      { id: "d1", userId: "u1", name: "laptop", browser: "Firefox", trusted: true, lastSeenAt: "2026-02-02T00:00:00Z", createdAt: "2026-01-01T00:00:00Z" },
+      {
+        id: "d1",
+        userId: "u1",
+        name: "laptop",
+        browser: "Firefox",
+        trusted: true,
+        lastSeenAt: "2026-02-02T00:00:00Z",
+        createdAt: "2026-01-01T00:00:00Z",
+      },
     ],
   },
 }
 
-function renderDetail(client: Parameters<typeof PluginProvider>[0]["client"], id = "u1") {
+function renderDetail(
+  client: Parameters<typeof PluginProvider>[0]["client"],
+  id = "u1"
+) {
   return render(
     <PluginProvider client={client}>
       <AuthUserDetailPage params={{ id }} />
-    </PluginProvider>,
+    </PluginProvider>
   )
 }
 
 describe("AuthUserDetailPage", () => {
   it("shows the user with their sessions and devices", async () => {
     renderDetail(stubClient(answers).client)
-    await waitFor(() => expect(screen.getByRole("heading", { name: /Ada Lovelace/ })).toBeTruthy())
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: /Ada Lovelace/ })).toBeTruthy()
+    )
     // The email renders twice by design: once as the page subtitle, once in
     // the description list, so this asserts presence rather than uniqueness.
     expect(screen.getAllByText("ada@example.com").length).toBeGreaterThan(0)
@@ -68,17 +95,31 @@ describe("AuthUserDetailPage", () => {
         ...answers,
         "sessions.list": {
           sessions: [
-            { id: "s1", userId: "u1", expiresAt: "2026-03-01T00:00:00Z", createdAt: "2026-02-01T00:00:00Z" },
+            {
+              id: "s1",
+              userId: "u1",
+              expiresAt: "2026-03-01T00:00:00Z",
+              createdAt: "2026-02-01T00:00:00Z",
+            },
           ],
         },
         "devices.list": {
           devices: [
-            { id: "d1", userId: "u1", name: "laptop", trusted: true, lastSeenAt: "2026-02-02T00:00:00Z", createdAt: "2026-01-01T00:00:00Z" },
+            {
+              id: "d1",
+              userId: "u1",
+              name: "laptop",
+              trusted: true,
+              lastSeenAt: "2026-02-02T00:00:00Z",
+              createdAt: "2026-01-01T00:00:00Z",
+            },
           ],
         },
-      }).client,
+      }).client
     )
-    await waitFor(() => expect(screen.getByRole("heading", { name: /Ada Lovelace/ })).toBeTruthy())
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: /Ada Lovelace/ })).toBeTruthy()
+    )
     expect(screen.getByLabelText("no ip address")).toBeTruthy()
     expect(screen.getByLabelText("no browser")).toBeTruthy()
     // The Device column is what an operator reads to identify the row, the
@@ -92,23 +133,29 @@ describe("AuthUserDetailPage", () => {
         ...answers,
         "sessions.list": { sessions: [] },
         "devices.list": { devices: [] },
-      }).client,
+      }).client
     )
-    await waitFor(() => expect(screen.getByRole("heading", { name: /Ada Lovelace/ })).toBeTruthy())
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: /Ada Lovelace/ })).toBeTruthy()
+    )
     expect(screen.getByText("0 sessions")).toBeTruthy()
     expect(screen.getByText("0 devices")).toBeTruthy()
   })
 
   it("prints an en dash for the empty strings authsome sends for never-happened", async () => {
     renderDetail(stubClient(answers).client)
-    await waitFor(() => expect(screen.getByRole("heading", { name: /Ada Lovelace/ })).toBeTruthy())
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: /Ada Lovelace/ })).toBeTruthy()
+    )
     // banExpiresAt is "" on a user who is not banned. The epoch would be a lie.
     expect(screen.getAllByText("–").length).toBeGreaterThan(0)
   })
 
   it("labels the absent ban-expiry and password-change dashes for assistive tech, not a bare unlabelled one", async () => {
     renderDetail(stubClient(answers).client)
-    await waitFor(() => expect(screen.getByRole("heading", { name: /Ada Lovelace/ })).toBeTruthy())
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: /Ada Lovelace/ })).toBeTruthy()
+    )
     // `formatTimestamp` alone returns a plain "–" string with nothing for a
     // screen reader to announce. kit's `Timestamp` wraps it with `NoneCell`
     // so the absent case still has a real accessible name.
@@ -117,11 +164,17 @@ describe("AuthUserDetailPage", () => {
   })
 
   it("sends only the fields that changed, and never an empty string for an untouched one", async () => {
-    const { client, sent } = recordingCommandClient(answers, { "users.update": { ok: true } })
+    const { client, sent } = recordingCommandClient(answers, {
+      "users.update": { ok: true },
+    })
     renderDetail(client)
-    await waitFor(() => expect(screen.getByLabelText("First name")).toBeTruthy())
+    await waitFor(() =>
+      expect(screen.getByLabelText("First name")).toBeTruthy()
+    )
 
-    fireEvent.change(screen.getByLabelText("First name"), { target: { value: "Augusta" } })
+    fireEvent.change(screen.getByLabelText("First name"), {
+      target: { value: "Augusta" },
+    })
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }))
 
     await waitFor(() => expect(sent).toHaveLength(1))
@@ -135,17 +188,27 @@ describe("AuthUserDetailPage", () => {
 
   it("keeps save disabled until something actually changes", async () => {
     renderDetail(stubClient(answers).client)
-    await waitFor(() => expect(screen.getByLabelText("First name")).toBeTruthy())
-    const save = screen.getByRole("button", { name: "Save changes" }) as HTMLButtonElement
+    await waitFor(() =>
+      expect(screen.getByLabelText("First name")).toBeTruthy()
+    )
+    const save = screen.getByRole("button", {
+      name: "Save changes",
+    }) as HTMLButtonElement
     expect(save.disabled).toBe(true)
-    fireEvent.change(screen.getByLabelText("First name"), { target: { value: "Augusta" } })
+    fireEvent.change(screen.getByLabelText("First name"), {
+      target: { value: "Augusta" },
+    })
     expect(save.disabled).toBe(false)
   })
 
   it("sends a changed checkbox as a boolean, not a string", async () => {
-    const { client, sent } = recordingCommandClient(answers, { "users.update": { ok: true } })
+    const { client, sent } = recordingCommandClient(answers, {
+      "users.update": { ok: true },
+    })
     renderDetail(client)
-    await waitFor(() => expect(screen.getByLabelText("Email verified")).toBeTruthy())
+    await waitFor(() =>
+      expect(screen.getByLabelText("Email verified")).toBeTruthy()
+    )
 
     fireEvent.click(screen.getByLabelText("Email verified"))
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }))
@@ -158,7 +221,7 @@ describe("AuthUserDetailPage", () => {
     render(
       <PluginProvider client={stubClient(answers).client}>
         <AuthUserDetailPage params={{}} />
-      </PluginProvider>,
+      </PluginProvider>
     )
     expect(screen.getByText("No user selected.")).toBeTruthy()
   })

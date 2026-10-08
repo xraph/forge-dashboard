@@ -1,6 +1,13 @@
 import { lazy } from "react"
 import { definePlugin } from "@forge-go/dashboard-plugin"
-import { FileTextIcon, HouseIcon, LayersIcon, LibraryIcon, ScanSearchIcon, WorkflowIcon } from "@forge-go/dashboard-kit/icons"
+import {
+  FileTextIcon,
+  HouseIcon,
+  LayersIcon,
+  LibraryIcon,
+  ScanSearchIcon,
+  WorkflowIcon,
+} from "@forge-go/dashboard-kit/icons"
 import { ChunkDetailPage } from "./pages/chunk-detail"
 import { ChunksPage } from "./pages/chunks"
 import { CollectionCreatePage } from "./pages/collection-create"
@@ -33,12 +40,48 @@ export const weavePlugin = definePlugin({
   namespace: "weave",
   label: "Weave",
   nav: [
-    { label: "Overview", to: "/", priority: -10, icon: <HouseIcon />, group: "RAG" },
-    { label: "Retrieval", to: "/retrieval", priority: 0, icon: <ScanSearchIcon />, group: "RAG" },
-    { label: "Collections", to: "/collections", priority: 10, icon: <LibraryIcon />, group: "RAG" },
-    { label: "Documents", to: "/documents", priority: 20, icon: <FileTextIcon />, group: "RAG" },
-    { label: "Chunks", to: "/chunks", priority: 30, icon: <LayersIcon />, group: "RAG" },
-    { label: "Pipeline", to: "/pipeline", priority: 40, icon: <WorkflowIcon />, group: "RAG" },
+    {
+      label: "Overview",
+      to: "/",
+      priority: -10,
+      icon: <HouseIcon />,
+      group: "RAG",
+    },
+    {
+      label: "Retrieval",
+      to: "/retrieval",
+      priority: 0,
+      icon: <ScanSearchIcon />,
+      group: "RAG",
+    },
+    {
+      label: "Collections",
+      to: "/collections",
+      priority: 10,
+      icon: <LibraryIcon />,
+      group: "RAG",
+    },
+    {
+      label: "Documents",
+      to: "/documents",
+      priority: 20,
+      icon: <FileTextIcon />,
+      group: "RAG",
+    },
+    {
+      label: "Chunks",
+      to: "/chunks",
+      priority: 30,
+      icon: <LayersIcon />,
+      group: "RAG",
+    },
+    {
+      label: "Pipeline",
+      to: "/pipeline",
+      priority: 40,
+      icon: <WorkflowIcon />,
+      group: "RAG",
+    },
   ],
   routes: [
     { path: "/", element: OverviewPage },
@@ -56,6 +99,18 @@ export const weavePlugin = definePlugin({
   ],
 })
 
-export { ChunkDetailPage, ChunksPage, CollectionCreatePage, CollectionDetailPage, CollectionEditPage, CollectionsPage, DocumentsPage, IngestPage, OverviewPage, PipelinePage, RetrievalPage }
+export {
+  ChunkDetailPage,
+  ChunksPage,
+  CollectionCreatePage,
+  CollectionDetailPage,
+  CollectionEditPage,
+  CollectionsPage,
+  DocumentsPage,
+  IngestPage,
+  OverviewPage,
+  PipelinePage,
+  RetrievalPage,
+}
 
 export default weavePlugin

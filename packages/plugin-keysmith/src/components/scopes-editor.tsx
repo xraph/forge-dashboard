@@ -58,7 +58,7 @@ export function useScopeEditing(keyId: string): ScopeEditing {
         sending.current = false
       }
     },
-    [keyId, sendAssign, resetRemove],
+    [keyId, sendAssign, resetRemove]
   )
 
   const remove = useCallback(
@@ -70,7 +70,7 @@ export function useScopeEditing(keyId: string): ScopeEditing {
         sending.current = false
       })
     },
-    [keyId, sendRemove, resetAssign],
+    [keyId, sendRemove, resetAssign]
   )
 
   return {
@@ -115,11 +115,13 @@ function EditableScopes({ summary, editing }: ScopesEditorProps) {
   // Until the policies are in, a key with a policy may still be narrowed, so
   // nothing is added from a list that could shrink under the operator.
   const policySettling = hasPolicy && !policies.data && !policies.error
-  const policyFailed = hasPolicy && policies.error !== undefined && !policies.data
+  const policyFailed =
+    hasPolicy && policies.error !== undefined && !policies.data
   // A policy that is not in the first page, or a list that failed, leaves the
   // choice wide, and the server refuses a scope the policy does not allow.
   const allowed =
-    policies.data?.policies?.find((p) => p.id === summary.policyId)?.allowedScopes ?? []
+    policies.data?.policies?.find((p) => p.id === summary.policyId)
+      ?.allowedScopes ?? []
   const narrowed = hasPolicy && allowed.length > 0
   const tenantScopes = scopes.data?.scopes ?? []
   const available = tenantScopes
@@ -143,7 +145,12 @@ function EditableScopes({ summary, editing }: ScopesEditorProps) {
               className="inline-flex items-center gap-0.5 rounded-4xl border py-0.5 pr-0.5 pl-2"
             >
               <span className="font-mono text-xs">{name}</span>
-              <IconButton variant="ghost" disabled={editing.busy} onClick={() => editing.remove(name)} label={`Remove ${name}`} />
+              <IconButton
+                variant="ghost"
+                disabled={editing.busy}
+                onClick={() => editing.remove(name)}
+                label={`Remove ${name}`}
+              />
             </li>
           ))}
         </ul>
@@ -154,7 +161,9 @@ function EditableScopes({ summary, editing }: ScopesEditorProps) {
           Scopes could not be loaded, so none can be added right now.
         </p>
       ) : scopes.data && tenantScopes.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No scopes exist in this tenant yet.</p>
+        <p className="text-sm text-muted-foreground">
+          No scopes exist in this tenant yet.
+        </p>
       ) : scopes.data && available.length === 0 ? (
         <p className="text-sm text-muted-foreground">
           {narrowed

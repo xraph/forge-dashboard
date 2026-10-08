@@ -30,7 +30,10 @@ export interface SpanLayout {
  */
 function overlapWith(prev: Span | undefined, span: Span): number {
   if (!prev || span.start_offset < prev.start_offset) return 0
-  return Math.max(0, Math.min(prev.end_offset, span.end_offset) - span.start_offset)
+  return Math.max(
+    0,
+    Math.min(prev.end_offset, span.end_offset) - span.start_offset
+  )
 }
 
 /**
@@ -54,14 +57,17 @@ export function layoutSpans(spans: Span[]): SpanLayout {
   const gaps: Gap[] = []
   let covered = 0
   for (const s of [...spans].sort((a, b) => a.start_offset - b.start_offset)) {
-    if (s.start_offset > covered) gaps.push({ start: covered, end: s.start_offset })
+    if (s.start_offset > covered)
+      gaps.push({ start: covered, end: s.start_offset })
     covered = Math.max(covered, s.end_offset)
   }
   return { scale, segments, gaps }
 }
 
 export function overlapsByIndex(spans: Span[]): Map<number, number> {
-  return new Map(layoutSpans(spans).segments.map((s) => [s.span.index, s.overlap]))
+  return new Map(
+    layoutSpans(spans).segments.map((s) => [s.span.index, s.overlap])
+  )
 }
 
 /** The longest prefix of `text` that fits in `n` UTF-8 bytes, and the rest. */

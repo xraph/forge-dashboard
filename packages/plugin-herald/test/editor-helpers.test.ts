@@ -2,11 +2,15 @@ import { describe, expect, it } from "vitest"
 import { findActions, inAction } from "../src/editor/actions"
 import { diagnosticRange, offsetOf } from "../src/editor/positions"
 
-const actionsIn = (text: string) => findActions(text).map((a) => text.slice(a.from, a.to))
+const actionsIn = (text: string) =>
+  findActions(text).map((a) => text.slice(a.from, a.to))
 
 describe("findActions", () => {
   it("finds each action from {{ to its }}", () => {
-    expect(actionsIn("Hi {{.name}}, {{ upper .x }}!")).toEqual(["{{.name}}", "{{ upper .x }}"])
+    expect(actionsIn("Hi {{.name}}, {{ upper .x }}!")).toEqual([
+      "{{.name}}",
+      "{{ upper .x }}",
+    ])
   })
 
   it("keeps trim markers inside the action", () => {
@@ -14,15 +18,21 @@ describe("findActions", () => {
   })
 
   it("doesn't end an action at a }} inside a string, a raw string or a comment", () => {
-    expect(actionsIn('{{ printf "}}" .x }} tail')).toEqual(['{{ printf "}}" .x }}'])
+    expect(actionsIn('{{ printf "}}" .x }} tail')).toEqual([
+      '{{ printf "}}" .x }}',
+    ])
     expect(actionsIn("{{ printf `}}` }} tail")).toEqual(["{{ printf `}}` }}"])
     expect(actionsIn("{{/* }} */}} tail")).toEqual(["{{/* }} */}}"])
-    expect(actionsIn('{{ printf "a\\"}}" }}')).toEqual(['{{ printf "a\\"}}" }}'])
+    expect(actionsIn('{{ printf "a\\"}}" }}')).toEqual([
+      '{{ printf "a\\"}}" }}',
+    ])
   })
 
   it("runs an unclosed action to the end of the text", () => {
     const text = "Hi {{ .name"
-    expect(findActions(text)).toEqual([{ from: 3, to: text.length, closed: false }])
+    expect(findActions(text)).toEqual([
+      { from: 3, to: text.length, closed: false },
+    ])
   })
 
   it("finds nothing in text without actions", () => {

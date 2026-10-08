@@ -3,7 +3,10 @@ import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { StatGrid } from "@forge-go/dashboard-kit/components/stat-grid"
 import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
 import { Badge } from "@forge-go/dashboard-kit/components/badge"
-import { ResourceTable, type Column } from "@forge-go/dashboard-kit/components/resource-table"
+import {
+  ResourceTable,
+  type Column,
+} from "@forge-go/dashboard-kit/components/resource-table"
 import { formatTimestamp } from "@forge-go/dashboard-kit/lib/format"
 
 /**
@@ -65,13 +68,24 @@ const presenceColumns: Column<PresenceInfo>[] = [
       <span className="flex items-center gap-2">
         <Badge variant="outline">{p.status}</Badge>
         {p.customStatus && (
-          <span className="text-xs text-muted-foreground">{p.customStatus}</span>
+          <span className="text-xs text-muted-foreground">
+            {p.customStatus}
+          </span>
         )}
       </span>
     ),
   },
-  { id: "rooms", header: "Rooms", cell: (p) => (p.rooms ?? []).length, align: "end" },
-  { id: "lastSeen", header: "Last seen", cell: (p) => formatTimestamp(p.lastSeen) },
+  {
+    id: "rooms",
+    header: "Rooms",
+    cell: (p) => (p.rooms ?? []).length,
+    align: "end",
+  },
+  {
+    id: "lastSeen",
+    header: "Last seen",
+    cell: (p) => formatTimestamp(p.lastSeen),
+  },
 ]
 
 function OnlineUsers() {
@@ -114,7 +128,10 @@ export function StreamingOverviewPage() {
 
   return (
     <section className="flex flex-col gap-4">
-      <PageHeader title="Streaming" description="Live connection and room counts for this node." />
+      <PageHeader
+        title="Streaming"
+        description="Live connection and room counts for this node."
+      />
       <QueryBoundary title="Streaming stats" query={query} skeletonRows={2}>
         {(stats) => (
           <StatGrid

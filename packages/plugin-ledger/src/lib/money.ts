@@ -11,8 +11,10 @@ import type { Money } from "../types"
 export function currencyDigits(currency: string): number {
   try {
     return (
-      new Intl.NumberFormat("en", { style: "currency", currency: currency.toUpperCase() }).resolvedOptions()
-        .maximumFractionDigits ?? 2
+      new Intl.NumberFormat("en", {
+        style: "currency",
+        currency: currency.toUpperCase(),
+      }).resolvedOptions().maximumFractionDigits ?? 2
     )
   } catch {
     return 2
@@ -46,14 +48,18 @@ export function formatMoney(m: Money): string {
  * integer range. It never rounds: a price that silently became a different
  * price is the worst thing a billing form can do.
  */
-export function parseMajor(input: string, currency: string): number | undefined {
+export function parseMajor(
+  input: string,
+  currency: string
+): number | undefined {
   const match = /^(\d+)(?:\.(\d+))?$/.exec(input.trim())
   if (!match) return undefined
   const digits = currencyDigits(currency)
   const whole = match[1]
   const fraction = match[2] ?? ""
   if (fraction.length > digits) return undefined
-  const minor = Number(whole) * 10 ** digits + Number(fraction.padEnd(digits, "0") || "0")
+  const minor =
+    Number(whole) * 10 ** digits + Number(fraction.padEnd(digits, "0") || "0")
   return Number.isSafeInteger(minor) ? minor : undefined
 }
 

@@ -18,7 +18,8 @@ import type { KeySummary, Overview, RotationItem } from "../types"
 // Nothing here may import the usage chart: this page is eager, and the chart
 // would bring Recharts into the shell's entry chunk with it.
 
-const NOT_RECORDED_HINT = "Usage appears once your application calls RecordUsage."
+const NOT_RECORDED_HINT =
+  "Usage appears once your application calls RecordUsage."
 
 function stats(data: Overview): StatItem[] {
   const { counts } = data

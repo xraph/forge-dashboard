@@ -55,7 +55,12 @@ export function KeyStateActions({
         <IconButton variant="outline" onClick={onSuspend} label="Suspend" />
       )}
       {offer.reactivate && (
-        <IconButton variant="outline" disabled={reactivating} onClick={onReactivate} label="Reactivate" />
+        <IconButton
+          variant="outline"
+          disabled={reactivating}
+          onClick={onReactivate}
+          label="Reactivate"
+        />
       )}
       {offer.revoke && (
         <IconButton variant="destructive" onClick={onRevoke} label="Revoke" />
@@ -82,7 +87,8 @@ export interface ReactivateKey {
  * is what the operator suspended it to be able to do, so there is no confirm.
  */
 export function useReactivateKey(keyId: string): ReactivateKey {
-  const { execute, loading, error, reset } = useCommand<KeyOnly>("keys.reactivate")
+  const { execute, loading, error, reset } =
+    useCommand<KeyOnly>("keys.reactivate")
   // Set synchronously, so a second click in the same tick cannot slip past a
   // button that has not re-rendered as disabled yet.
   const sending = useRef(false)

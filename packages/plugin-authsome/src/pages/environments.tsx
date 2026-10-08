@@ -59,18 +59,33 @@ function CreateEnvironmentForm({ onClose }: { onClose: () => void }) {
   return (
     <div className="flex flex-col gap-3 rounded-md border p-4">
       <h2 className="text-sm font-medium">New environment</h2>
-      <CommandAlert error={create.error} title="Could not create the environment" />
+      <CommandAlert
+        error={create.error}
+        title="Could not create the environment"
+      />
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="new-env-name">Name</Label>
-        <Input id="new-env-name" value={name} onChange={(e) => setName(e.target.value)} />
+        <Input
+          id="new-env-name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+        />
       </div>
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="new-env-slug">Slug</Label>
-        <Input id="new-env-slug" value={slug} onChange={(e) => setSlug(e.target.value)} />
+        <Input
+          id="new-env-slug"
+          value={slug}
+          onChange={(e) => setSlug(e.target.value)}
+        />
       </div>
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="new-env-type">Type</Label>
-        <Input id="new-env-type" value={type} onChange={(e) => setType(e.target.value)} />
+        <Input
+          id="new-env-type"
+          value={type}
+          onChange={(e) => setType(e.target.value)}
+        />
       </div>
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="new-env-description">Description</Label>
@@ -82,7 +97,11 @@ function CreateEnvironmentForm({ onClose }: { onClose: () => void }) {
       </div>
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="new-env-color">Color</Label>
-        <Input id="new-env-color" value={color} onChange={(e) => setColor(e.target.value)} />
+        <Input
+          id="new-env-color"
+          value={color}
+          onChange={(e) => setColor(e.target.value)}
+        />
       </div>
       <div className="flex items-center gap-2">
         <Button
@@ -168,8 +187,18 @@ export function AuthEnvironmentsPage() {
   }
 
   const columns: Column<EnvSummary>[] = [
-    { id: "name", header: "Name", cell: (e) => e.name, className: "font-medium" },
-    { id: "slug", header: "Slug", cell: (e) => e.slug, className: "font-mono text-xs" },
+    {
+      id: "name",
+      header: "Name",
+      cell: (e) => e.name,
+      className: "font-medium",
+    },
+    {
+      id: "slug",
+      header: "Slug",
+      cell: (e) => e.slug,
+      className: "font-mono text-xs",
+    },
     { id: "type", header: "Type", cell: (e) => e.type },
     {
       id: "default",
@@ -180,7 +209,11 @@ export function AuthEnvironmentsPage() {
         </Badge>
       ),
     },
-    { id: "createdAt", header: "Created", cell: (e) => formatTimestamp(e.createdAt) },
+    {
+      id: "createdAt",
+      header: "Created",
+      cell: (e) => formatTimestamp(e.createdAt),
+    },
   ]
 
   return (
@@ -198,7 +231,10 @@ export function AuthEnvironmentsPage() {
 
       {creating && <CreateEnvironmentForm onClose={() => setCreating(false)} />}
 
-      <CommandAlert error={setDefault.error} title="Could not set the default environment" />
+      <CommandAlert
+        error={setDefault.error}
+        title="Could not set the default environment"
+      />
 
       <QueryBoundary title="Environments" query={list} skeletonRows={5}>
         {(data) => {
@@ -286,15 +322,27 @@ export function AuthEnvironmentsPage() {
       >
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="clone-env-name">New name</Label>
-          <Input id="clone-env-name" value={cloneName} onChange={(e) => setCloneName(e.target.value)} />
+          <Input
+            id="clone-env-name"
+            value={cloneName}
+            onChange={(e) => setCloneName(e.target.value)}
+          />
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="clone-env-slug">New slug</Label>
-          <Input id="clone-env-slug" value={cloneSlug} onChange={(e) => setCloneSlug(e.target.value)} />
+          <Input
+            id="clone-env-slug"
+            value={cloneSlug}
+            onChange={(e) => setCloneSlug(e.target.value)}
+          />
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="clone-env-type">Type</Label>
-          <Input id="clone-env-type" value={cloneType} onChange={(e) => setCloneType(e.target.value)} />
+          <Input
+            id="clone-env-type"
+            value={cloneType}
+            onChange={(e) => setCloneType(e.target.value)}
+          />
         </div>
         <CommandAlert error={clone.error} title="Could not clone" />
       </ConfirmDialog>

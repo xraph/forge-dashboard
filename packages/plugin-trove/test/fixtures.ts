@@ -11,6 +11,11 @@ export const HEAD: ObjectHead = {
     versionId: null,
     metadata: { owner: "ops", team: "billing" },
   },
-  middleware: [{ name: "compress", direction: "readwrite", scope: "global", priority: 0 }],
-  presign: { available: false, reason: "No share links: this driver cannot sign one." },
+  middleware: [
+    { name: "compress", direction: "readwrite", scope: "global", priority: 0 },
+  ],
+  presign: {
+    available: false,
+    reason: "No share links: this driver cannot sign one.",
+  },
 }

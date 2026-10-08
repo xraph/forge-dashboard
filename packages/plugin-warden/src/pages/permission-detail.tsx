@@ -1,6 +1,11 @@
 import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { useEffect, useRef, useState } from "react"
-import { PluginLink, useCommand, useNavigateTo, useQuery } from "@forge-go/dashboard-plugin"
+import {
+  PluginLink,
+  useCommand,
+  useNavigateTo,
+  useQuery,
+} from "@forge-go/dashboard-plugin"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
 import { Alert } from "@forge-go/dashboard-kit/components/alert"
 import { Badge } from "@forge-go/dashboard-kit/components/badge"
@@ -85,7 +90,12 @@ export function WardenPermissionDetailPage({ params }: PluginPageProps) {
     // keepPreviousData: a refetch (after the save, or when the tab comes
     // back) would otherwise swap in the skeleton and unmount the form with
     // whatever the operator was typing in it.
-    <QueryBoundary title="Permission" query={detail} skeletonRows={4} keepPreviousData>
+    <QueryBoundary
+      title="Permission"
+      query={detail}
+      skeletonRows={4}
+      keepPreviousData
+    >
       {(permission) => (
         <section className="flex flex-col gap-6">
           <PageHeader
@@ -98,22 +108,33 @@ export function WardenPermissionDetailPage({ params }: PluginPageProps) {
               !permission.isSystem &&
               !edit.editing && (
                 <>
-                  <IconButton variant="outline" ref={edit.triggerRef} onClick={edit.open} label="Edit description" />
-                  <IconButton variant="destructive" onClick={() => {
+                  <IconButton
+                    variant="outline"
+                    ref={edit.triggerRef}
+                    onClick={edit.open}
+                    label="Edit description"
+                  />
+                  <IconButton
+                    variant="destructive"
+                    onClick={() => {
                       // Reset at open, not at close: the operator is about to
                       // read whatever this dialog shows for THIS permission, so
                       // a failure from an earlier attempt must not be
                       // attributed to it.
                       remove.reset()
                       setDeleting(true)
-                    }} label="Delete" />
+                    }}
+                    label="Delete"
+                  />
                 </>
               )
             }
           />
 
           {permission.isSystem && (
-            <Alert>This is a system permission. It cannot be changed or deleted.</Alert>
+            <Alert>
+              This is a system permission. It cannot be changed or deleted.
+            </Alert>
           )}
 
           <DetailLayout
@@ -127,12 +148,18 @@ export function WardenPermissionDetailPage({ params }: PluginPageProps) {
                       // permission at all.
                       term: "Resource",
                       value: (
-                        <span className="font-mono text-xs">{permission.resource}</span>
+                        <span className="font-mono text-xs">
+                          {permission.resource}
+                        </span>
                       ),
                     },
                     {
                       term: "Action",
-                      value: <span className="font-mono text-xs">{permission.action}</span>,
+                      value: (
+                        <span className="font-mono text-xs">
+                          {permission.action}
+                        </span>
+                      ),
                     },
                     {
                       term: "Namespace",
@@ -140,7 +167,9 @@ export function WardenPermissionDetailPage({ params }: PluginPageProps) {
                     },
                     {
                       term: "Description",
-                      value: permission.description || <NoneCell label="description" />,
+                      value: permission.description || (
+                        <NoneCell label="description" />
+                      ),
                     },
                     {
                       term: "Flags",
@@ -152,17 +181,27 @@ export function WardenPermissionDetailPage({ params }: PluginPageProps) {
                     },
                     {
                       term: "Created",
-                      value: <Timestamp value={permission.createdAt} label="creation time" />,
+                      value: (
+                        <Timestamp
+                          value={permission.createdAt}
+                          label="creation time"
+                        />
+                      ),
                     },
                     {
                       term: "Updated",
-                      value: <Timestamp value={permission.updatedAt} label="updated at" />,
+                      value: (
+                        <Timestamp
+                          value={permission.updatedAt}
+                          label="updated at"
+                        />
+                      ),
                     },
                   ]}
                 />
                 <p className="text-xs text-muted-foreground">
-                  A check matches on resource and action, never on the permission&apos;s name or
-                  namespace.
+                  A check matches on resource and action, never on the
+                  permission&apos;s name or namespace.
                 </p>
               </div>
             }
@@ -225,7 +264,10 @@ function DescriptionForm({
 
   async function submit() {
     if (!dirty) return
-    const result = await update.execute({ id: permission.id, description: next })
+    const result = await update.execute({
+      id: permission.id,
+      description: next,
+    })
     // execute() resolves undefined only when the client throws, so this is
     // the success check. A refused save must leave the form open with what
     // the operator typed.
@@ -250,13 +292,22 @@ function DescriptionForm({
           value={description}
           onChange={(e) => setDescription(e.target.value)}
         />
-        <p id="permission-edit-description-hint" className="text-xs text-muted-foreground">
+        <p
+          id="permission-edit-description-hint"
+          className="text-xs text-muted-foreground"
+        >
           Leave it empty to remove the description.
         </p>
       </div>
-      <CommandAlert error={update.error} title="Could not save the description" />
+      <CommandAlert
+        error={update.error}
+        title="Could not save the description"
+      />
       <div className="flex gap-2">
-        <Button onClick={() => void submit()} disabled={update.loading || !dirty}>
+        <Button
+          onClick={() => void submit()}
+          disabled={update.loading || !dirty}
+        >
           {update.loading ? "Saving…" : "Save description"}
         </Button>
         <Button variant="ghost" onClick={onDone} disabled={update.loading}>
@@ -289,8 +340,18 @@ function DescriptionForm({
  */
 function GrantedByTable({ roles }: { roles: RoleSummary[] }) {
   const columns: Column<RoleSummary>[] = [
-    { id: "name", header: "Role", cell: (r) => r.name, className: "font-medium" },
-    { id: "slug", header: "Slug", cell: (r) => r.slug, className: "font-mono text-xs" },
+    {
+      id: "name",
+      header: "Role",
+      cell: (r) => r.name,
+      className: "font-medium",
+    },
+    {
+      id: "slug",
+      header: "Slug",
+      cell: (r) => r.slug,
+      className: "font-mono text-xs",
+    },
     {
       id: "namespace",
       header: "Namespace",
@@ -300,7 +361,11 @@ function GrantedByTable({ roles }: { roles: RoleSummary[] }) {
       id: "flags",
       header: "Flags",
       cell: (r) =>
-        r.isSystem ? <Badge variant="destructive">system</Badge> : <NoneCell label="flags" />,
+        r.isSystem ? (
+          <Badge variant="destructive">system</Badge>
+        ) : (
+          <NoneCell label="flags" />
+        ),
     },
   ]
   return (

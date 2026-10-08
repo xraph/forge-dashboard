@@ -25,21 +25,50 @@ interface CaseChange extends DeltaRow {
 }
 
 const changeColumns: Column<CaseChange>[] = [
-  { id: "case", header: "Case", className: "font-medium", cell: (c) => c.label },
-  { id: "was", header: "Baseline score", align: "end", className: "tabular-nums", cell: (c) => formatScore(c.was) },
-  { id: "now", header: "This run", align: "end", className: "tabular-nums", cell: (c) => formatScore(c.now) },
+  {
+    id: "case",
+    header: "Case",
+    className: "font-medium",
+    cell: (c) => c.label,
+  },
+  {
+    id: "was",
+    header: "Baseline score",
+    align: "end",
+    className: "tabular-nums",
+    cell: (c) => formatScore(c.was),
+  },
+  {
+    id: "now",
+    header: "This run",
+    align: "end",
+    className: "tabular-nums",
+    cell: (c) => formatScore(c.now),
+  },
   {
     id: "change",
     header: "Change",
     align: "end",
     className: "tabular-nums",
-    cell: (c) => (c.regressed ? `${formatDelta(c.value)} regressed` : formatDelta(c.value)),
+    cell: (c) =>
+      c.regressed ? `${formatDelta(c.value)} regressed` : formatDelta(c.value),
   },
 ]
 
 const dimensionColumns: Column<{ dim: string; score: number }>[] = [
-  { id: "dimension", header: "Dimension", className: "font-medium", cell: (d) => d.dim },
-  { id: "score", header: "Score", align: "end", className: "tabular-nums", cell: (d) => formatScore(d.score) },
+  {
+    id: "dimension",
+    header: "Dimension",
+    className: "font-medium",
+    cell: (d) => d.dim,
+  },
+  {
+    id: "score",
+    header: "Score",
+    align: "end",
+    className: "tabular-nums",
+    cell: (d) => formatScore(d.score),
+  },
 ]
 
 /**
@@ -47,10 +76,20 @@ const dimensionColumns: Column<{ dim: string; score: number }>[] = [
  * compared with, and its dimension scores. Both have tables. Neither is drawn
  * for a run that has nothing to show yet; each says why instead.
  */
-export function RunCharts({ runId, run, regression }: { runId: string; run: Run; regression: Regression }) {
+export function RunCharts({
+  runId,
+  run,
+  regression,
+}: {
+  runId: string
+  run: Run
+  regression: Regression
+}) {
   return (
     <div className="grid grid-cols-1 gap-8 xl:grid-cols-2">
-      {regression.state === "compared" && regression.baseline && regression.threshold !== undefined ? (
+      {regression.state === "compared" &&
+      regression.baseline &&
+      regression.threshold !== undefined ? (
         <CaseChanges
           runId={runId}
           baselineId={regression.baseline.id}
@@ -86,7 +125,10 @@ function CaseChanges({
       <section className="flex flex-col gap-2">
         <h2 className="text-sm font-medium">Change from baseline</h2>
         {error ? (
-          <p role="alert" className="text-sm text-destructive">{`The scores could not be read. ${error.message}`}</p>
+          <p
+            role="alert"
+            className="text-sm text-destructive"
+          >{`The scores could not be read. ${error.message}`}</p>
         ) : (
           <p role="status" className="text-sm text-muted-foreground">
             Reading the scores.
@@ -104,7 +146,9 @@ function CaseChanges({
       return [
         {
           key: r.id,
-          label: <PluginLink to={resultPath(runId, r.id)}>{r.caseName}</PluginLink>,
+          label: (
+            <PluginLink to={resultPath(runId, r.id)}>{r.caseName}</PluginLink>
+          ),
           caseName: r.caseName,
           resultId: r.id,
           value,
@@ -117,8 +161,12 @@ function CaseChanges({
     .sort((a, b) => a.value - b.value || a.caseName.localeCompare(b.caseName))
   const unmatched = results.data.items.length - changes.length
   const notes = [
-    unmatched > 0 ? `${plural(unmatched, "case is", "cases are")} new since the baseline and not compared` : null,
-    missing > 0 ? `${plural(missing, "case", "cases")} the baseline scored ${missing === 1 ? "is" : "are"} missing from this run` : null,
+    unmatched > 0
+      ? `${plural(unmatched, "case is", "cases are")} new since the baseline and not compared`
+      : null,
+    missing > 0
+      ? `${plural(missing, "case", "cases")} the baseline scored ${missing === 1 ? "is" : "are"} missing from this run`
+      : null,
   ].filter((n): n is string => n !== null)
   return (
     <ChartFrame
@@ -136,11 +184,19 @@ function CaseChanges({
     >
       <div className="flex flex-col gap-2">
         {changes.length > 0 ? (
-          <DeltaBars rows={changes} threshold={threshold} label="Change from baseline, by case" />
+          <DeltaBars
+            rows={changes}
+            threshold={threshold}
+            label="Change from baseline, by case"
+          />
         ) : (
-          <p className="text-sm text-muted-foreground">No case was scored by both this run and the baseline.</p>
+          <p className="text-sm text-muted-foreground">
+            No case was scored by both this run and the baseline.
+          </p>
         )}
-        {notes.length > 0 && <p className="text-sm text-muted-foreground">{`${notes.join(". ")}.`}</p>}
+        {notes.length > 0 && (
+          <p className="text-sm text-muted-foreground">{`${notes.join(". ")}.`}</p>
+        )}
       </div>
     </ChartFrame>
   )
@@ -157,7 +213,9 @@ function DimensionScores({ run }: { run: Run }) {
       <section className="flex flex-col gap-2">
         <h2 className="text-sm font-medium">Dimension scores</h2>
         <p className="text-sm text-muted-foreground">
-          {run.state === "running" ? "No dimension has been measured yet." : "This run measured no dimensions."}
+          {run.state === "running"
+            ? "No dimension has been measured yet."
+            : "This run measured no dimensions."}
         </p>
       </section>
     )
@@ -188,8 +246,20 @@ function DimensionScores({ run }: { run: Run }) {
           <p className="text-sm">{`${rows[0].dim} ${formatScore(rows[0].score)}`}</p>
         ) : (
           <ScaleBars
-            rows={rows.map((r) => ({ key: r.dim, label: r.dim, value: r.score, valueLabel: formatScore(r.score) }))}
-            reference={pass === undefined ? undefined : { value: pass, label: `Pass threshold ${formatThreshold(pass)}` }}
+            rows={rows.map((r) => ({
+              key: r.dim,
+              label: r.dim,
+              value: r.score,
+              valueLabel: formatScore(r.score),
+            }))}
+            reference={
+              pass === undefined
+                ? undefined
+                : {
+                    value: pass,
+                    label: `Pass threshold ${formatThreshold(pass)}`,
+                  }
+            }
             label="Dimension scores"
           />
         )}

@@ -15,7 +15,10 @@ vi.mock("../src/components/code-view", () => ({
   ),
 }))
 
-const LINK = { url: "/dashboard/trove/content?t=abc", expiresAt: "2026-09-30T12:01:00Z" }
+const LINK = {
+  url: "/dashboard/trove/content?t=abc",
+  expiresAt: "2026-09-30T12:01:00Z",
+}
 
 function headWith(contentType: string | null, storedSize = 100): ObjectHead {
   return { ...HEAD, object: { ...HEAD.object, contentType, storedSize } }
@@ -30,7 +33,7 @@ function renderPreview(head: ObjectHead) {
   render(
     <PluginProvider client={recorded.client}>
       <Preview store="" bucket="reports" head={head} />
-    </PluginProvider>,
+    </PluginProvider>
   )
   return recorded.sent
 }
@@ -67,7 +70,10 @@ describe("Preview", () => {
     const view = await screen.findByTestId("code-view")
     expect(view.getAttribute("data-language")).toBe("json")
     expect(view.textContent).toBe('{\n  "total": 4812\n}')
-    expect(sent[0]).toEqual({ intent: "objects.contentUrl", params: { bucket: "reports", key: HEAD.object.key, purpose: "preview" } })
+    expect(sent[0]).toEqual({
+      intent: "objects.contentUrl",
+      params: { bucket: "reports", key: HEAD.object.key, purpose: "preview" },
+    })
   })
 
   it("says when it shows only the first 256 KiB, and does not reformat a cut JSON", async () => {
@@ -87,21 +93,34 @@ describe("Preview", () => {
   it("shows an image from a Blob behind an object URL", async () => {
     vi.stubGlobal("fetch", respond(new Uint8Array([137, 80, 78, 71])))
     const sent = renderPreview(headWith("image/png", 20480))
-    const img = (await screen.findByRole("img", { name: `Preview of ${HEAD.object.key}` })) as HTMLImageElement
+    const img = (await screen.findByRole("img", {
+      name: `Preview of ${HEAD.object.key}`,
+    })) as HTMLImageElement
     expect(img.getAttribute("src")).toBe("blob:preview")
-    expect(sent[0].params).toEqual({ bucket: "reports", key: HEAD.object.key, purpose: "download" })
+    expect(sent[0].params).toEqual({
+      bucket: "reports",
+      key: HEAD.object.key,
+      purpose: "download",
+    })
   })
 
   it("shows an SVG through a data URL, never a same-origin object URL", async () => {
-    const svg = '<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>'
+    const svg =
+      '<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>'
     vi.stubGlobal("fetch", respond(svg))
     const sent = renderPreview(headWith("image/svg+xml", svg.length))
-    const img = (await screen.findByRole("img", { name: `Preview of ${HEAD.object.key}` })) as HTMLImageElement
+    const img = (await screen.findByRole("img", {
+      name: `Preview of ${HEAD.object.key}`,
+    })) as HTMLImageElement
     const src = img.getAttribute("src") ?? ""
     expect(src.startsWith("data:image/svg+xml;base64,")).toBe(true)
     expect(atob(src.slice("data:image/svg+xml;base64,".length))).toBe(svg)
     expect(URL.createObjectURL).not.toHaveBeenCalled()
-    expect(sent[0].params).toEqual({ bucket: "reports", key: HEAD.object.key, purpose: "download" })
+    expect(sent[0].params).toEqual({
+      bucket: "reports",
+      key: HEAD.object.key,
+      purpose: "download",
+    })
   })
 
   it("does not fetch an SVG over 4 MiB", async () => {
@@ -140,15 +159,27 @@ describe("Preview", () => {
   })
 
   it("shows the content route's own refusal", async () => {
-    vi.stubGlobal("fetch", respond(JSON.stringify({ error: "This ticket has expired. Ask for a new link." }), { status: 403 }))
+    vi.stubGlobal(
+      "fetch",
+      respond(
+        JSON.stringify({
+          error: "This ticket has expired. Ask for a new link.",
+        }),
+        { status: 403 }
+      )
+    )
     renderPreview(headWith("text/plain"))
-    expect(await screen.findByText("This ticket has expired. Ask for a new link.")).toBeTruthy()
+    expect(
+      await screen.findByText("This ticket has expired. Ask for a new link.")
+    ).toBeTruthy()
   })
 
   it("says so when the route never answers", async () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("network")))
     renderPreview(headWith("text/plain"))
-    expect(await screen.findByText("The content route did not answer.")).toBeTruthy()
+    expect(
+      await screen.findByText("The content route did not answer.")
+    ).toBeTruthy()
   })
 
   it("lets go of the object URL when it unmounts", async () => {
@@ -157,10 +188,12 @@ describe("Preview", () => {
     const { unmount } = render(
       <PluginProvider client={recorded.client}>
         <Preview store="" bucket="reports" head={headWith("image/png")} />
-      </PluginProvider>,
+      </PluginProvider>
     )
     await screen.findByRole("img")
     unmount()
-    await waitFor(() => expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:preview"))
+    await waitFor(() =>
+      expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:preview")
+    )
   })
 })

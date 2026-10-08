@@ -62,7 +62,12 @@ export interface SuiteFormDialogProps {
  * above it and is reset on open, so the last attempt's refusal is not shown
  * against this one. While it is in flight the dialog refuses to close.
  */
-export function SuiteFormDialog({ open, onOpenChange, suite, onSaved }: SuiteFormDialogProps) {
+export function SuiteFormDialog({
+  open,
+  onOpenChange,
+  suite,
+  onSaved,
+}: SuiteFormDialogProps) {
   const command = useCommand<Suite>(suite ? "suites.update" : "suites.create")
   const { reset } = command
   useEffect(() => {
@@ -81,7 +86,10 @@ export function SuiteFormDialog({ open, onOpenChange, suite, onSaved }: SuiteFor
       }}
       disablePointerDismissal={locked}
     >
-      <DialogContent showCloseButton={!locked} className="max-h-[calc(100vh-2rem)] overflow-y-auto sm:max-w-xl">
+      <DialogContent
+        showCloseButton={!locked}
+        className="max-h-[calc(100vh-2rem)] overflow-y-auto sm:max-w-xl"
+      >
         <SuiteForm
           command={command}
           suite={suite}
@@ -112,7 +120,7 @@ function SuiteForm({
   // Zero is "not set" to the engine, so an existing suite at zero shows an
   // empty box rather than a temperature of 0.
   const [temperature, setTemperature] = useState(
-    suite && suite.temperature !== 0 ? String(suite.temperature) : "",
+    suite && suite.temperature !== 0 ? String(suite.temperature) : ""
   )
   const [personaRef, setPersonaRef] = useState(suite?.personaRef ?? "")
   const [systemPrompt, setSystemPrompt] = useState(suite?.systemPrompt ?? "")
@@ -124,7 +132,9 @@ function SuiteForm({
   const message = problem ?? command.error?.message
   const invalid = fieldFor(message)
   const invalidProps = (field: Problem) =>
-    invalid === field ? { "aria-invalid": true as const, "aria-describedby": id("error") } : {}
+    invalid === field
+      ? { "aria-invalid": true as const, "aria-describedby": id("error") }
+      : {}
 
   async function submit(event: FormEvent) {
     event.preventDefault()
@@ -153,10 +163,17 @@ function SuiteForm({
         ? // Every field goes out, prefilled from the suite, so nothing the
           // operator did not touch changes. An empty temperature is 0: the
           // engine's own.
-          await command.execute({ suiteId: suite.id, ...fields, temperature: temp ?? 0 })
+          await command.execute({
+            suiteId: suite.id,
+            ...fields,
+            temperature: temp ?? 0,
+          })
         : // On create an empty temperature is left out, and an empty model
           // is the engine's default model.
-          await command.execute({ ...fields, ...(temp !== undefined && { temperature: temp }) })
+          await command.execute({
+            ...fields,
+            ...(temp !== undefined && { temperature: temp }),
+          })
     } finally {
       sending.current = false
     }
@@ -166,7 +183,9 @@ function SuiteForm({
   return (
     <form onSubmit={(e) => void submit(e)} className="contents" noValidate>
       <DialogHeader>
-        <DialogTitle>{suite ? `Edit ${suite.name}` : "Create suite"}</DialogTitle>
+        <DialogTitle>
+          {suite ? `Edit ${suite.name}` : "Create suite"}
+        </DialogTitle>
       </DialogHeader>
       <FieldGroup>
         <Field>
@@ -215,7 +234,9 @@ function SuiteForm({
             {...invalidProps("temperature")}
             onChange={(e) => setTemperature(e.target.value)}
           />
-          <FieldDescription>From 0 to 2. Empty uses the engine's temperature.</FieldDescription>
+          <FieldDescription>
+            From 0 to 2. Empty uses the engine's temperature.
+          </FieldDescription>
         </Field>
         <Field>
           <Label htmlFor={id("persona")}>Persona</Label>
@@ -249,7 +270,10 @@ function SuiteForm({
         </p>
       )}
       <DialogFooter>
-        <DialogClose render={<Button type="button" variant="outline" />} disabled={command.loading}>
+        <DialogClose
+          render={<Button type="button" variant="outline" />}
+          disabled={command.loading}
+        >
           Cancel
         </DialogClose>
         <Button type="submit" disabled={command.loading}>

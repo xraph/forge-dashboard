@@ -10,7 +10,9 @@ import { DeniedScreen } from "../src/auth/screens/denied"
 // mocking useCommand file-wide would make that assertion meaningless: a
 // mocked hook never throws regardless of context, whether or not the bug it
 // is meant to catch is still there.
-function client(command = vi.fn().mockResolvedValue({ ok: true })): ScopedClient {
+function client(
+  command = vi.fn().mockResolvedValue({ ok: true })
+): ScopedClient {
   return {
     extension: "auth",
     query: vi.fn(),
@@ -20,7 +22,12 @@ function client(command = vi.fn().mockResolvedValue({ ok: true })): ScopedClient
 
 describe("DeniedScreen", () => {
   it("renders the required-roles list when roles are given", () => {
-    render(<DeniedScreen onSignedOut={vi.fn()} requiredRoles={["admin", "auditor"]} />)
+    render(
+      <DeniedScreen
+        onSignedOut={vi.fn()}
+        requiredRoles={["admin", "auditor"]}
+      />
+    )
     expect(screen.getByText(/admin/)).toBeDefined()
     expect(screen.getByText(/auditor/)).toBeDefined()
   })
@@ -42,7 +49,7 @@ describe("DeniedScreen", () => {
           requiredRoles={["admin"]}
           signOutIntent="auth.logout"
         />
-      </PluginProvider>,
+      </PluginProvider>
     )
     expect(screen.getByRole("button", { name: /sign out/i })).toBeDefined()
   })
@@ -61,7 +68,7 @@ describe("DeniedScreen", () => {
           requiredRoles={["admin"]}
           signOutIntent="auth.logout"
         />
-      </PluginProvider>,
+      </PluginProvider>
     )
 
     fireEvent.click(screen.getByRole("button", { name: /sign out/i }))
@@ -73,7 +80,10 @@ describe("DeniedScreen", () => {
     const onSignedOut = vi.fn()
     const failingCommand = vi
       .fn()
-      .mockRejectedValue({ code: "TRANSPORT", message: "could not reach the server" })
+      .mockRejectedValue({
+        code: "TRANSPORT",
+        message: "could not reach the server",
+      })
     render(
       <PluginProvider client={client(failingCommand)}>
         <DeniedScreen
@@ -81,14 +91,12 @@ describe("DeniedScreen", () => {
           requiredRoles={["admin"]}
           signOutIntent="auth.logout"
         />
-      </PluginProvider>,
+      </PluginProvider>
     )
 
     fireEvent.click(screen.getByRole("button", { name: /sign out/i }))
 
-    expect(
-      await screen.findByText("could not reach the server"),
-    ).toBeDefined()
+    expect(await screen.findByText("could not reach the server")).toBeDefined()
     expect(onSignedOut).not.toHaveBeenCalled()
   })
 
@@ -101,6 +109,8 @@ describe("DeniedScreen", () => {
     // screen. No PluginProvider anywhere in this tree, and no mock standing
     // in for one either.
     render(<DeniedScreen onSignedOut={vi.fn()} />)
-    expect(screen.getByRole("heading", { name: /you do not have access/i })).toBeDefined()
+    expect(
+      screen.getByRole("heading", { name: /you do not have access/i })
+    ).toBeDefined()
   })
 })

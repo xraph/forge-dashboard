@@ -86,7 +86,9 @@ function retentionText(c: ConfigDetail): string {
 /** The maintenance interval, read the same way as the retention. */
 function intervalText(c: ConfigDetail): string {
   if (c.maintenanceIntervalSeconds !== undefined) {
-    return c.maintenanceIntervalSeconds > 0 ? formatSeconds(c.maintenanceIntervalSeconds) : "Off"
+    return c.maintenanceIntervalSeconds > 0
+      ? formatSeconds(c.maintenanceIntervalSeconds)
+      : "Off"
   }
   return c.maintenanceIntervalMinutes > 0
     ? `${plural(c.maintenanceIntervalMinutes, "minute")}, rounded down`
@@ -136,16 +138,22 @@ function clearSummary(r: { scope: string }): string {
  */
 function PluginList({ names }: { names: string[] }) {
   return (
-    <section aria-labelledby="warden-config-plugins" className="flex flex-col gap-2">
+    <section
+      aria-labelledby="warden-config-plugins"
+      className="flex flex-col gap-2"
+    >
       <h2 id="warden-config-plugins" className="text-sm font-medium">
         Plugins
       </h2>
       {names.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No authorization plugins are registered.</p>
+        <p className="text-sm text-muted-foreground">
+          No authorization plugins are registered.
+        </p>
       ) : (
         <>
           <p className="text-sm text-muted-foreground">
-            The plugins in the engine's registry, including any warden registers on its own.
+            The plugins in the engine's registry, including any warden registers
+            on its own.
           </p>
           <ul className="flex flex-wrap gap-2">
             {names.map((name, i) => (
@@ -177,7 +185,9 @@ function ModelBadge({ label, on }: { label: string; on: boolean }) {
 export function WardenConfigPage() {
   const config = useQuery<ConfigDetail>("config.detail")
   const runMaintenance = useCommand<MaintenanceResult>("maintenance.run")
-  const clearCache = useCommand<{ scope: string }>("maintenance.cacheInvalidate")
+  const clearCache = useCommand<{ scope: string }>(
+    "maintenance.cacheInvalidate"
+  )
 
   const [confirmingRun, setConfirmingRun] = useState(false)
   const [confirmingClear, setConfirmingClear] = useState(false)
@@ -222,14 +232,18 @@ export function WardenConfigPage() {
             >
               Run maintenance
             </Button>
-            <IconButton variant="outline" onClick={() => {
+            <IconButton
+              variant="outline"
+              onClick={() => {
                 // Same reasoning as the run-maintenance button above: reset
                 // at open, so a result from a previous clear is not read as
                 // belonging to this one.
                 clearCache.reset()
                 setClearResult(null)
                 setConfirmingClear(true)
-              }} label="Clear cache" />
+              }}
+              label="Clear cache"
+            />
           </div>
         }
       />
@@ -242,8 +256,8 @@ export function WardenConfigPage() {
           <div className="flex flex-col gap-6">
             {!c.checkLogEnabled && (
               <Alert variant="destructive">
-                Check logging is disabled, so nothing is being recorded. The check
-                log will stay empty whatever traffic this engine serves.
+                Check logging is disabled, so nothing is being recorded. The
+                check log will stay empty whatever traffic this engine serves.
               </Alert>
             )}
 
@@ -262,7 +276,10 @@ export function WardenConfigPage() {
             <DescriptionList
               items={[
                 { term: "Graph depth limit", value: String(c.maxGraphDepth) },
-                { term: "Graph visit budget", value: String(c.maxGraphVisited) },
+                {
+                  term: "Graph visit budget",
+                  value: String(c.maxGraphVisited),
+                },
                 { term: "Graph fanout limit", value: String(c.maxGraphFanout) },
                 { term: "Batch check limit", value: String(c.maxBatchChecks) },
                 {
@@ -272,7 +289,10 @@ export function WardenConfigPage() {
                       ? `${c.cacheTtlSeconds}s, up to ${c.cacheMaxSize} entries`
                       : "Off",
                 },
-                { term: "Tenant required", value: c.requireTenant ? "Yes" : "No" },
+                {
+                  term: "Tenant required",
+                  value: c.requireTenant ? "Yes" : "No",
+                },
                 {
                   term: "Evaluate all models",
                   value: c.evaluateAllModels ? "Yes" : "No",
@@ -326,7 +346,10 @@ export function WardenConfigPage() {
         pending={clearCache.loading}
         onConfirm={() => void doClear()}
       >
-        <CommandAlert error={clearCache.error} title="Could not clear the cache" />
+        <CommandAlert
+          error={clearCache.error}
+          title="Could not clear the cache"
+        />
       </ConfirmDialog>
     </section>
   )

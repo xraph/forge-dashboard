@@ -15,13 +15,23 @@ export function RefreshDiscovery() {
   }
 
   const error =
-    refresh.error?.code === "CONFLICT" && refresh.error.details?.reason === "discoveryOff"
-      ? { code: refresh.error.code, message: "Discovery is switched off in the gateway config, so there is nothing to refresh." }
+    refresh.error?.code === "CONFLICT" &&
+    refresh.error.details?.reason === "discoveryOff"
+      ? {
+          code: refresh.error.code,
+          message:
+            "Discovery is switched off in the gateway config, so there is nothing to refresh.",
+        }
       : refresh.error
 
   return (
     <div className="flex flex-col items-end gap-2">
-      <IconButton variant="outline" disabled={refresh.loading} onClick={() => void run()} label={refresh.loading ? "Refreshing…" : "Refresh discovery"} />
+      <IconButton
+        variant="outline"
+        disabled={refresh.loading}
+        onClick={() => void run()}
+        label={refresh.loading ? "Refreshing…" : "Refresh discovery"}
+      />
       <CommandAlert title="Could not refresh discovery" error={error} />
       {refreshed ? (
         <p role="status" className="text-sm text-muted-foreground">

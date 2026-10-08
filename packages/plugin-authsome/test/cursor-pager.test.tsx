@@ -1,5 +1,11 @@
 import { describe, expect, it, vi } from "vitest"
-import { act, fireEvent, render, renderHook, screen } from "@testing-library/react"
+import {
+  act,
+  fireEvent,
+  render,
+  renderHook,
+  screen,
+} from "@testing-library/react"
 import { CursorPager, useCursorStack } from "../src/components/cursor-pager"
 
 describe("useCursorStack", () => {
@@ -42,7 +48,13 @@ describe("useCursorStack", () => {
 describe("CursorPager", () => {
   it("renders nothing when there is one page and no way back", () => {
     const { container } = render(
-      <CursorPager shown={3} total={3} onNext={() => {}} onPrevious={() => {}} canGoBack={false} />,
+      <CursorPager
+        shown={3}
+        total={3}
+        onNext={() => {}}
+        onPrevious={() => {}}
+        canGoBack={false}
+      />
     )
     expect(container.firstChild).toBeNull()
   })
@@ -57,12 +69,16 @@ describe("CursorPager", () => {
         onNext={onNext}
         onPrevious={() => {}}
         canGoBack={false}
-      />,
+      />
     )
     fireEvent.click(screen.getByRole("button", { name: "Next page" }))
     expect(onNext).toHaveBeenCalledWith("c1")
     expect(
-      (screen.getByRole("button", { name: "Previous page" }) as HTMLButtonElement).disabled,
+      (
+        screen.getByRole("button", {
+          name: "Previous page",
+        }) as HTMLButtonElement
+      ).disabled
     ).toBe(true)
   })
 
@@ -75,14 +91,20 @@ describe("CursorPager", () => {
         onNext={() => {}}
         onPrevious={() => {}}
         canGoBack={false}
-      />,
+      />
     )
     expect(screen.getByText(/25 of 100/)).toBeTruthy()
   })
 
   it("omits the total when the server did not send one", () => {
     render(
-      <CursorPager shown={25} nextCursor="c1" onNext={() => {}} onPrevious={() => {}} canGoBack={false} />,
+      <CursorPager
+        shown={25}
+        nextCursor="c1"
+        onNext={() => {}}
+        onPrevious={() => {}}
+        canGoBack={false}
+      />
     )
     expect(screen.getByText(/25 shown/)).toBeTruthy()
   })

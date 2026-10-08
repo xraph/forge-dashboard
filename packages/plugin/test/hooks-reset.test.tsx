@@ -30,7 +30,7 @@ describe("useCommand reset", () => {
     render(
       <PluginProvider client={clientThatFails()}>
         <Probe />
-      </PluginProvider>,
+      </PluginProvider>
     )
     await act(async () => {
       screen.getByText("go").click()

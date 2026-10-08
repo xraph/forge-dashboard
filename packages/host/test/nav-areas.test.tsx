@@ -43,26 +43,55 @@ const risk = defineSubPlugin({
   host: "authsome",
   label: "Risk engine",
   nav: [
-    { label: "Risk Engine", to: "/security/risk", priority: 0, cluster: { label: "Threat detection" } },
-    { label: "Risk Rules", to: "/security/rules", priority: 1, cluster: { label: "Threat detection" } },
+    {
+      label: "Risk Engine",
+      to: "/security/risk",
+      priority: 0,
+      cluster: { label: "Threat detection" },
+    },
+    {
+      label: "Risk Rules",
+      to: "/security/rules",
+      priority: 1,
+      cluster: { label: "Threat detection" },
+    },
   ],
   routes: [],
 })
 
-const silent = defineSubPlugin({ extension: "waitlist", host: "authsome", nav: [], routes: [] })
+const silent = defineSubPlugin({
+  extension: "waitlist",
+  host: "authsome",
+  nav: [],
+  routes: [],
+})
 
 describe("navAreas", () => {
   it("puts the scope first with its own grouped nav, and no sub-plugin pages in it", () => {
     const [scope] = navAreas(auth, [billing, apikey])
-    expect(scope).toMatchObject({ id: "authsome", label: "Authsome", kind: "scope", href: "/@authsome/users" })
+    expect(scope).toMatchObject({
+      id: "authsome",
+      label: "Authsome",
+      kind: "scope",
+      href: "/@authsome/users",
+    })
     expect(scope.icon).toBe("A")
     expect(scope.groups.map((g) => g.label)).toEqual(["Identity", "System"])
-    expect(scope.groups.flatMap((g) => g.items.map((i) => i.label))).toEqual(["Users", "Sessions", "Overview"])
+    expect(scope.groups.flatMap((g) => g.items.map((i) => i.label))).toEqual([
+      "Users",
+      "Sessions",
+      "Overview",
+    ])
   })
 
   it("adds one plugin area per sub-plugin with nav, sorted by label, and skips those with none", () => {
     const areas = navAreas(auth, [risk, billing, silent, apikey])
-    expect(areas.map((a) => a.label)).toEqual(["Authsome", "API key", "Risk engine", "Subscription"])
+    expect(areas.map((a) => a.label)).toEqual([
+      "Authsome",
+      "API key",
+      "Risk engine",
+      "Subscription",
+    ])
     expect(areas.slice(1).every((a) => a.kind === "plugin")).toBe(true)
   })
 
@@ -76,7 +105,11 @@ describe("navAreas", () => {
       nav: [{ label: "Lookups", to: "/geo", icon: "G" }],
       routes: [],
     })
-    expect(navAreas(auth, [bare])[1]).toMatchObject({ id: "geo-ip", label: "Geo ip", icon: "G" })
+    expect(navAreas(auth, [bare])[1]).toMatchObject({
+      id: "geo-ip",
+      label: "Geo ip",
+      icon: "G",
+    })
   })
 
   it("splits a plugin's pages into sections by group, in first-appearance order after a priority sort", () => {
@@ -88,7 +121,10 @@ describe("navAreas", () => {
   it("does not fold clusters inside a plugin's own area", () => {
     const area = navAreas(auth, [risk]).find((a) => a.id === "riskengine")!
     const items = area.groups[0].items
-    expect(items.map((node) => node.label)).toEqual(["Risk Engine", "Risk Rules"])
+    expect(items.map((node) => node.label)).toEqual([
+      "Risk Engine",
+      "Risk Rules",
+    ])
     expect(items.every((node) => node.children === undefined)).toBe(true)
     expect(area.href).toBe("/@authsome/security/risk")
   })
@@ -98,18 +134,33 @@ describe("navAreas", () => {
       extension: "authsome",
       namespace: "authsome",
       nav: [
-        { label: "Risk Engine", to: "/security/risk", cluster: { label: "Threat detection" } },
-        { label: "Risk Rules", to: "/security/rules", cluster: { label: "Threat detection" } },
+        {
+          label: "Risk Engine",
+          to: "/security/risk",
+          cluster: { label: "Threat detection" },
+        },
+        {
+          label: "Risk Rules",
+          to: "/security/rules",
+          cluster: { label: "Threat detection" },
+        },
       ],
       routes: [],
     })
     const area = navAreas(clustered, []).find((a) => a.id === "authsome")!
-    expect(area.groups[0].items.map((n) => n.label)).toEqual(["Risk Engine", "Risk Rules"])
+    expect(area.groups[0].items.map((n) => n.label)).toEqual([
+      "Risk Engine",
+      "Risk Rules",
+    ])
     expect(area.groups[0].items.every((n) => !n.children)).toBe(true)
   })
 
   it("returns only plugin areas when the scope itself has no nav", () => {
-    const empty = definePlugin({ extension: "authsome", namespace: "authsome", routes: [] })
+    const empty = definePlugin({
+      extension: "authsome",
+      namespace: "authsome",
+      routes: [],
+    })
     expect(navAreas(empty, [apikey]).map((a) => a.id)).toEqual(["apikey"])
   })
 })
@@ -133,7 +184,11 @@ describe("activeAreaId", () => {
   })
 
   it("does not light a plugin for an unlisted route when the scope has no nav of its own", () => {
-    const empty = definePlugin({ extension: "authsome", namespace: "authsome", routes: [] })
+    const empty = definePlugin({
+      extension: "authsome",
+      namespace: "authsome",
+      routes: [],
+    })
     const pluginOnly = navAreas(empty, [apikey])
     expect(activeAreaId(pluginOnly, "/@authsome/unknown")).toBeUndefined()
     expect(activeAreaId(pluginOnly, "/@authsome/apikeys")).toBe("apikey")

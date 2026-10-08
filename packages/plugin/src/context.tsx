@@ -12,7 +12,9 @@ export function PluginProvider({
   client: ScopedClient
   children: ReactNode
 }) {
-  return <ClientContext.Provider value={client}>{children}</ClientContext.Provider>
+  return (
+    <ClientContext.Provider value={client}>{children}</ClientContext.Provider>
+  )
 }
 
 export function usePluginClient(): ScopedClient {
@@ -20,7 +22,7 @@ export function usePluginClient(): ScopedClient {
   if (!client) {
     throw new Error(
       "usePluginClient was called outside a PluginProvider. Plugin components " +
-        "only render inside the dashboard host.",
+        "only render inside the dashboard host."
     )
   }
   return client

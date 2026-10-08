@@ -10,7 +10,7 @@ describe("DescriptionList", () => {
           { term: "Email", value: "ada@example.com" },
           { term: "Status", value: "active" },
         ]}
-      />,
+      />
     )
     expect(container.querySelector("dl")).toBeTruthy()
     expect(container.querySelectorAll("dt")).toHaveLength(2)
@@ -21,7 +21,9 @@ describe("DescriptionList", () => {
 
   it("renders a node value, not just a string", () => {
     render(
-      <DescriptionList items={[{ term: "Status", value: <span>banned</span> }]} />,
+      <DescriptionList
+        items={[{ term: "Status", value: <span>banned</span> }]}
+      />
     )
     expect(screen.getByText("banned")).toBeTruthy()
   })

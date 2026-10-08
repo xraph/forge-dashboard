@@ -181,6 +181,11 @@ function UseExample({
   const example = detail.data?.example
   if (example === undefined || example === null) return null
   return (
-    <IconButton type="button" variant="ghost" onClick={() => onUse(prettyJSON(example))} label="Use the example" />
+    <IconButton
+      type="button"
+      variant="ghost"
+      onClick={() => onUse(prettyJSON(example))}
+      label="Use the example"
+    />
   )
 }

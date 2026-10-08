@@ -1,9 +1,19 @@
 import { describe, expect, it, vi } from "vitest"
 import { render, screen, waitFor } from "@testing-library/react"
 import { MemoryRouter } from "react-router"
-import { ForgeDashboardProvider, SessionProvider } from "@forge-go/dashboard-runtime"
-import { definePlugin, defineSubPlugin, PluginSlot } from "@forge-go/dashboard-plugin"
-import type { ContributorCapability, ForgeSubPlugin } from "@forge-go/dashboard-plugin"
+import {
+  ForgeDashboardProvider,
+  SessionProvider,
+} from "@forge-go/dashboard-runtime"
+import {
+  definePlugin,
+  defineSubPlugin,
+  PluginSlot,
+} from "@forge-go/dashboard-plugin"
+import type {
+  ContributorCapability,
+  ForgeSubPlugin,
+} from "@forge-go/dashboard-plugin"
 import { PluginHost } from "../src/host/PluginHost"
 
 window.matchMedia ??= ((query: string) => ({
@@ -55,7 +65,11 @@ function capabilities(names: string[]) {
   }
 }
 
-function renderHostWith(subPlugins: ForgeSubPlugin[], contributors: string[], path: string) {
+function renderHostWith(
+  subPlugins: ForgeSubPlugin[],
+  contributors: string[],
+  path: string
+) {
   const fetchImpl = vi.fn().mockResolvedValue({
     ok: true,
     status: 200,
@@ -74,10 +88,14 @@ function renderHostWith(subPlugins: ForgeSubPlugin[], contributors: string[], pa
           status PluginHost treats the same as signed-in for rendering.
         */}
         <SessionProvider fetchImpl={fetchImpl}>
-          <PluginHost plugins={[auth]} subPlugins={subPlugins} fetchImpl={fetchImpl} />
+          <PluginHost
+            plugins={[auth]}
+            subPlugins={subPlugins}
+            fetchImpl={fetchImpl}
+          />
         </SessionProvider>
       </MemoryRouter>
-    </ForgeDashboardProvider>,
+    </ForgeDashboardProvider>
   )
 }
 
@@ -92,23 +110,26 @@ function renderHost(contributors: string[], path: string) {
 function renderHostWithCapabilities(
   subPlugins: ForgeSubPlugin[],
   contributors: ContributorCapability[],
-  path: string,
+  path: string
 ) {
   const fetchImpl = vi.fn().mockResolvedValue({
     ok: true,
     status: 200,
-    json: () =>
-      Promise.resolve({ shellEnvelopes: ["v1"], contributors }),
+    json: () => Promise.resolve({ shellEnvelopes: ["v1"], contributors }),
   } as unknown as Response)
 
   return render(
     <ForgeDashboardProvider config={{ basePath: "/dashboard" }}>
       <MemoryRouter initialEntries={[path]}>
         <SessionProvider fetchImpl={fetchImpl}>
-          <PluginHost plugins={[auth]} subPlugins={subPlugins} fetchImpl={fetchImpl} />
+          <PluginHost
+            plugins={[auth]}
+            subPlugins={subPlugins}
+            fetchImpl={fetchImpl}
+          />
         </SessionProvider>
       </MemoryRouter>
-    </ForgeDashboardProvider>,
+    </ForgeDashboardProvider>
   )
 }
 
@@ -133,7 +154,7 @@ describe("sub-plugin mounting", () => {
   it("does not mount a sub-plugin's route when its contributor is absent", async () => {
     renderHost(["auth"], "/@auth/organizations")
     await waitFor(() =>
-      expect(screen.queryByText("Loading dashboard capabilities…")).toBeNull(),
+      expect(screen.queryByText("Loading dashboard capabilities…")).toBeNull()
     )
     expect(screen.queryByText("orgs page")).toBeNull()
   })
@@ -141,7 +162,7 @@ describe("sub-plugin mounting", () => {
   it("renders nothing for a sub-plugin whose host is absent", async () => {
     renderHost(["organization"], "/@auth/organizations")
     await waitFor(() =>
-      expect(screen.queryByText("Loading dashboard capabilities…")).toBeNull(),
+      expect(screen.queryByText("Loading dashboard capabilities…")).toBeNull()
     )
     expect(screen.queryByText("orgs page")).toBeNull()
   })
@@ -154,7 +175,9 @@ const setupSub = defineSubPlugin({
   nav: [{ label: "Billing", to: "/billing" }],
   routes: [{ path: "/billing", element: () => <p>billing page</p> }],
   contributions: {
-    "overview.widgets": [{ id: "billing-widget", render: () => <p>billing widget</p> }],
+    "overview.widgets": [
+      { id: "billing-widget", render: () => <p>billing widget</p> },
+    ],
   },
 })
 
@@ -167,9 +190,15 @@ describe("setup-state and not-ready sub-plugins", () => {
 
     // The route still mounts: somebody following a link or a bookmark to
     // billing's own page lands on a panel explaining why, not a blank page.
-    const setupRoute = renderHostWithCapabilities([setupSub], caps, "/@auth/billing")
+    const setupRoute = renderHostWithCapabilities(
+      [setupSub],
+      caps,
+      "/@auth/billing"
+    )
     await waitFor(() =>
-      expect(screen.getByText("This extension is not configured yet.")).toBeTruthy(),
+      expect(
+        screen.getByText("This extension is not configured yet.")
+      ).toBeTruthy()
     )
     setupRoute.unmount()
 
@@ -188,10 +217,10 @@ describe("setup-state and not-ready sub-plugins", () => {
         { name: "auth", envelopes: ["v1"], configured: false },
         { name: "organization", envelopes: ["v1"], configured: true },
       ],
-      "/@auth/organizations",
+      "/@auth/organizations"
     )
     await waitFor(() =>
-      expect(screen.queryByText("Loading dashboard capabilities…")).toBeNull(),
+      expect(screen.queryByText("Loading dashboard capabilities…")).toBeNull()
     )
     expect(screen.queryByText("orgs page")).toBeNull()
     expect(screen.queryByRole("link", { name: /Organization/ })).toBeNull()
@@ -214,13 +243,21 @@ describe("route collisions between sub-plugins", () => {
   it("mounts one page, not both, and picks the same winner regardless of array order", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {})
 
-    const first = renderHostWith([collidingA, collidingB], ["auth", "aaa-plugin", "zzz-plugin"], "/@auth/shared")
+    const first = renderHostWith(
+      [collidingA, collidingB],
+      ["auth", "aaa-plugin", "zzz-plugin"],
+      "/@auth/shared"
+    )
     await waitFor(() => expect(screen.getByText("from aaa")).toBeTruthy())
     expect(screen.queryByText("from zzz")).toBeNull()
     first.unmount()
 
     // Same two sub-plugins, opposite declaration order. The winner must not move.
-    const second = renderHostWith([collidingB, collidingA], ["auth", "aaa-plugin", "zzz-plugin"], "/@auth/shared")
+    const second = renderHostWith(
+      [collidingB, collidingA],
+      ["auth", "aaa-plugin", "zzz-plugin"],
+      "/@auth/shared"
+    )
     await waitFor(() => expect(screen.getByText("from aaa")).toBeTruthy())
     second.unmount()
 
@@ -229,7 +266,11 @@ describe("route collisions between sub-plugins", () => {
 
   it("says which page it dropped rather than failing silently", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {})
-    renderHostWith([collidingA, collidingB], ["auth", "aaa-plugin", "zzz-plugin"], "/@auth/shared")
+    renderHostWith(
+      [collidingA, collidingB],
+      ["auth", "aaa-plugin", "zzz-plugin"],
+      "/@auth/shared"
+    )
     await waitFor(() => expect(screen.getByText("from aaa")).toBeTruthy())
 
     expect(warn).toHaveBeenCalled()
@@ -277,7 +318,11 @@ describe("route collisions between sub-plugins", () => {
       routes: [{ path: "/shared", element: () => <p>from zzz</p> }],
     })
 
-    renderHostWith([navA, navB], ["auth", "aaa-plugin", "zzz-plugin"], "/@auth/users")
+    renderHostWith(
+      [navA, navB],
+      ["auth", "aaa-plugin", "zzz-plugin"],
+      "/@auth/users"
+    )
     await waitFor(() => expect(screen.getByText("users page")).toBeTruthy())
 
     // The winner keeps its entry; the loser must not advertise a link that

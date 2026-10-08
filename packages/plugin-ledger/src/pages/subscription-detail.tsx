@@ -1,14 +1,28 @@
 import { useState } from "react"
-import { PluginLink, useCommand, useNavigateTo, useQuery } from "@forge-go/dashboard-plugin"
+import {
+  PluginLink,
+  useCommand,
+  useNavigateTo,
+  useQuery,
+} from "@forge-go/dashboard-plugin"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
 import { Button } from "@forge-go/dashboard-kit/components/button"
-import { DescriptionList, DetailLayout } from "@forge-go/dashboard-kit/components/detail-layout"
+import {
+  DescriptionList,
+  DetailLayout,
+} from "@forge-go/dashboard-kit/components/detail-layout"
 import { Input } from "@forge-go/dashboard-kit/components/input"
 import { Label } from "@forge-go/dashboard-kit/components/label"
-import { NativeSelect, NativeSelectOption } from "@forge-go/dashboard-kit/components/native-select"
+import {
+  NativeSelect,
+  NativeSelectOption,
+} from "@forge-go/dashboard-kit/components/native-select"
 import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
-import { CommandAlert, QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
+import {
+  CommandAlert,
+  QueryBoundary,
+} from "@forge-go/dashboard-kit/components/query-boundary"
 import { ResourceTable } from "@forge-go/dashboard-kit/components/resource-table"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { SubscriptionStatusBadge } from "../badges"
@@ -20,9 +34,19 @@ import { SyncPanel } from "../components/sync-panel"
 import { describeDiscount } from "../lib/coupons"
 import { formatDay, formatPeriod } from "../lib/datetime"
 import { couponPath, invoicePath, planPath } from "../lib/paths"
-import type { Coupon, Invoice, Page, Plan, SettingsDetail, Subscription, SubscriptionDetail, SubscriptionStatus } from "../types"
+import type {
+  Coupon,
+  Invoice,
+  Page,
+  Plan,
+  SettingsDetail,
+  Subscription,
+  SubscriptionDetail,
+  SubscriptionStatus,
+} from "../types"
 
-export type SubscriptionAction = "generate" | "changePlan" | "applyCoupon" | "pause" | "resume" | "cancel"
+export type SubscriptionAction =
+  "generate" | "changePlan" | "applyCoupon" | "pause" | "resume" | "cancel"
 
 /**
  * The actions the engine allows from each state, so the page never offers a
@@ -79,9 +103,17 @@ function SubscriptionDetailBody({ id }: { id: string }) {
   // Once there is data the page stays up through a refresh: a write
   // invalidates subscriptions.detail, and QueryBoundary would otherwise swap
   // the page for a skeleton and take any open dialog with it.
-  if (detail.data !== undefined) return <SubscriptionDetailView detail={detail.data} />
+  if (detail.data !== undefined)
+    return <SubscriptionDetailView detail={detail.data} />
   if (isNotFound(detail.error, "subscription")) {
-    return <NotFoundState noun="subscription" id={id} backTo="/subscriptions" backLabel="Back to subscriptions" />
+    return (
+      <NotFoundState
+        noun="subscription"
+        id={id}
+        backTo="/subscriptions"
+        backLabel="Back to subscriptions"
+      />
+    )
   }
   return (
     <QueryBoundary title="Subscription" query={detail} skeletonRows={6}>
@@ -90,7 +122,8 @@ function SubscriptionDetailBody({ id }: { id: string }) {
   )
 }
 
-type Dialog = "pause" | "resume" | "cancel" | "changePlan" | "applyCoupon" | null
+type Dialog =
+  "pause" | "resume" | "cancel" | "changePlan" | "applyCoupon" | null
 
 /**
  * The note beside a cancellation date that has passed. What ends the
@@ -102,8 +135,11 @@ function PassedNote() {
   const settings = useQuery<SettingsDetail>("settings.detail")
   const interval = settings.data?.lifecycle_interval
   let text = "Date passed, not yet ended"
-  if (interval === "off") text = "Date passed, but the lifecycle clock is off. It ends only when something else runs it."
-  else if (interval !== undefined) text = `Date passed, ends on the next lifecycle clock run (every ${interval})`
+  if (interval === "off")
+    text =
+      "Date passed, but the lifecycle clock is off. It ends only when something else runs it."
+  else if (interval !== undefined)
+    text = `Date passed, ends on the next lifecycle clock run (every ${interval})`
   return <span className="text-xs text-muted-foreground">{text}</span>
 }
 
@@ -143,7 +179,8 @@ function SubscriptionDetailView({ detail }: { detail: SubscriptionDetail }) {
     // earlier attempt is shown against this one. The plan-change dialog owns
     // its command and its choices and is mounted only while open, so it starts
     // clean on its own.
-    if (which !== "changePlan") ({ pause, resume, cancel, applyCoupon })[which].reset()
+    if (which !== "changePlan")
+      ({ pause, resume, cancel, applyCoupon })[which].reset()
     setImmediately(false)
     setCode("")
     setOpenedAt(Date.now())
@@ -162,18 +199,29 @@ function SubscriptionDetailView({ detail }: { detail: SubscriptionDetail }) {
   // cancel_at. Until then the status is still active, which the row says. The
   // engine never writes ended_at.
   const isCanceled = sub.status === "canceled"
-  const datePassed = !isCanceled && sub.status !== "expired" && sub.cancel_at !== undefined && Date.parse(sub.cancel_at) < now
+  const datePassed =
+    !isCanceled &&
+    sub.status !== "expired" &&
+    sub.cancel_at !== undefined &&
+    Date.parse(sub.cancel_at) < now
   const cancelRow = {
     term: isCanceled ? "Canceled" : "Scheduled to cancel",
     value: (
       <span className="flex flex-wrap items-baseline gap-x-2">
-        <Timestamp value={isCanceled ? (sub.canceled_at ?? sub.cancel_at) : sub.cancel_at} label="scheduled cancellation" />
+        <Timestamp
+          value={
+            isCanceled ? (sub.canceled_at ?? sub.cancel_at) : sub.cancel_at
+          }
+          label="scheduled cancellation"
+        />
         {datePassed && <PassedNote />}
       </span>
     ),
   }
   const periodEnded = Date.parse(sub.current_period_end) <= openedAt
-  const seatText = Object.entries(sub.quantity ?? {}).map(([k, n]) => `${k}: ${n}`)
+  const seatText = Object.entries(sub.quantity ?? {}).map(
+    ([k, n]) => `${k}: ${n}`
+  )
 
   return (
     <section className="flex flex-col gap-6">
@@ -183,17 +231,27 @@ function SubscriptionDetailView({ detail }: { detail: SubscriptionDetail }) {
           actions.length > 0 && (
             <>
               {actions.includes("generate") && (
-                <Button variant="outline" disabled={generate.loading} onClick={() => void generateInvoice()}>
+                <Button
+                  variant="outline"
+                  disabled={generate.loading}
+                  onClick={() => void generateInvoice()}
+                >
                   {generate.loading ? "Generating…" : "Generate invoice"}
                 </Button>
               )}
               {actions.includes("changePlan") && (
-                <Button variant="outline" onClick={() => openDialog("changePlan")}>
+                <Button
+                  variant="outline"
+                  onClick={() => openDialog("changePlan")}
+                >
                   Change plan
                 </Button>
               )}
               {actions.includes("applyCoupon") && (
-                <Button variant="outline" onClick={() => openDialog("applyCoupon")}>
+                <Button
+                  variant="outline"
+                  onClick={() => openDialog("applyCoupon")}
+                >
                   Apply coupon
                 </Button>
               )}
@@ -208,7 +266,10 @@ function SubscriptionDetailView({ detail }: { detail: SubscriptionDetail }) {
                 </Button>
               )}
               {actions.includes("cancel") && (
-                <Button variant="destructive" onClick={() => openDialog("cancel")}>
+                <Button
+                  variant="destructive"
+                  onClick={() => openDialog("cancel")}
+                >
                   Cancel subscription
                 </Button>
               )}
@@ -216,7 +277,10 @@ function SubscriptionDetailView({ detail }: { detail: SubscriptionDetail }) {
           )
         }
       />
-      <CommandAlert error={generate.error} title="Could not generate an invoice" />
+      <CommandAlert
+        error={generate.error}
+        title="Could not generate an invoice"
+      />
 
       <DetailLayout
         main={
@@ -229,38 +293,100 @@ function SubscriptionDetailView({ detail }: { detail: SubscriptionDetail }) {
           <>
             <DescriptionList
               items={[
-                { term: "Status", value: <SubscriptionStatusBadge status={sub.status} /> },
-                { term: "Plan", value: <PluginLink to={planPath(plan.id)}>{plan.name}</PluginLink> },
-                { term: "Tenant", value: <span className="font-mono text-xs">{sub.tenant_id}</span> },
-                { term: "Current period", value: formatPeriod(sub.current_period_start, sub.current_period_end) },
+                {
+                  term: "Status",
+                  value: <SubscriptionStatusBadge status={sub.status} />,
+                },
+                {
+                  term: "Plan",
+                  value: (
+                    <PluginLink to={planPath(plan.id)}>{plan.name}</PluginLink>
+                  ),
+                },
+                {
+                  term: "Tenant",
+                  value: (
+                    <span className="font-mono text-xs">{sub.tenant_id}</span>
+                  ),
+                },
+                {
+                  term: "Current period",
+                  value: formatPeriod(
+                    sub.current_period_start,
+                    sub.current_period_end
+                  ),
+                },
                 {
                   term: "Trial",
-                  value: sub.trial_start && sub.trial_end ? formatPeriod(sub.trial_start, sub.trial_end) : <NoneCell label="trial" />,
+                  value:
+                    sub.trial_start && sub.trial_end ? (
+                      formatPeriod(sub.trial_start, sub.trial_end)
+                    ) : (
+                      <NoneCell label="trial" />
+                    ),
                 },
-                ...(sub.paused_at ? [{ term: "Paused since", value: <Timestamp value={sub.paused_at} label="pause" /> }] : []),
+                ...(sub.paused_at
+                  ? [
+                      {
+                        term: "Paused since",
+                        value: (
+                          <Timestamp value={sub.paused_at} label="pause" />
+                        ),
+                      },
+                    ]
+                  : []),
                 cancelRow,
-                { term: "Seats", value: seatText.length > 0 ? <span className="font-mono text-xs">{seatText.join(", ")}</span> : <NoneCell label="seat counts" /> },
-                { term: "Started", value: <Timestamp value={sub.created_at} label="start" /> },
+                {
+                  term: "Seats",
+                  value:
+                    seatText.length > 0 ? (
+                      <span className="font-mono text-xs">
+                        {seatText.join(", ")}
+                      </span>
+                    ) : (
+                      <NoneCell label="seat counts" />
+                    ),
+                },
+                {
+                  term: "Started",
+                  value: <Timestamp value={sub.created_at} label="start" />,
+                },
               ]}
             />
-            <section className="flex flex-col gap-2" aria-label="Applied coupons">
+            <section
+              className="flex flex-col gap-2"
+              aria-label="Applied coupons"
+            >
               <h2 className="text-sm font-medium">Coupons</h2>
               {coupons.length === 0 ? (
                 <NoneCell label="applied coupons" />
               ) : (
                 <ul className="flex flex-col gap-1 text-sm">
                   {coupons.map((c) => (
-                    <li key={c.id} className="flex items-baseline justify-between gap-2">
-                      <PluginLink to={couponPath(c.id)} className="font-mono text-xs">
+                    <li
+                      key={c.id}
+                      className="flex items-baseline justify-between gap-2"
+                    >
+                      <PluginLink
+                        to={couponPath(c.id)}
+                        className="font-mono text-xs"
+                      >
                         {c.code}
                       </PluginLink>
-                      <span className="tabular-nums text-muted-foreground">{describeDiscount(c)}</span>
+                      <span className="text-muted-foreground tabular-nums">
+                        {describeDiscount(c)}
+                      </span>
                     </li>
                   ))}
                 </ul>
               )}
             </section>
-            <SyncPanel intent="subscriptions.syncToProvider" id={sub.id} providerName={sub.provider_name} providerId={sub.provider_id} />
+            <SyncPanel
+              intent="subscriptions.syncToProvider"
+              id={sub.id}
+              providerName={sub.provider_name}
+              providerId={sub.provider_id}
+            />
           </>
         }
       />
@@ -296,15 +422,29 @@ function SubscriptionDetailView({ detail }: { detail: SubscriptionDetail }) {
         payload={{ id: sub.id, immediately }}
         onDone={() => setDialog(null)}
       >
-        <div role="radiogroup" aria-label="When to cancel" className="flex flex-col gap-2 text-xs/relaxed">
+        <div
+          role="radiogroup"
+          aria-label="When to cancel"
+          className="flex flex-col gap-2 text-xs/relaxed"
+        >
           <label className="flex items-center gap-2">
-            <input type="radio" name="cancel-when" checked={!immediately} onChange={() => setImmediately(false)} />
+            <input
+              type="radio"
+              name="cancel-when"
+              checked={!immediately}
+              onChange={() => setImmediately(false)}
+            />
             {periodEnded
               ? `The period ended on ${formatDay(sub.current_period_end)}, so the cancellation is dated then. The subscription keeps its current status until the ledger ends it. Choose End it now to stop it today.`
               : `Schedule the cancellation for the end of the period, ${formatDay(sub.current_period_end)}. It keeps its current status until then.`}
           </label>
           <label className="flex items-center gap-2">
-            <input type="radio" name="cancel-when" checked={immediately} onChange={() => setImmediately(true)} />
+            <input
+              type="radio"
+              name="cancel-when"
+              checked={immediately}
+              onChange={() => setImmediately(true)}
+            />
             End it now
           </label>
         </div>
@@ -331,13 +471,23 @@ function SubscriptionDetailView({ detail }: { detail: SubscriptionDetail }) {
             value={code}
             onChange={(e) => setCode(e.target.value)}
           />
-          <p id="apply-code-help" className="text-xs/relaxed text-muted-foreground">
-            It applies from the next invoice. Invoices already issued are not changed.
+          <p
+            id="apply-code-help"
+            className="text-xs/relaxed text-muted-foreground"
+          >
+            It applies from the next invoice. Invoices already issued are not
+            changed.
           </p>
         </div>
       </ConfirmAction>
       {/* Mounted only while open: it reads the plan list, and useQuery fires on mount. */}
-      {dialog === "changePlan" && <ChangePlanDialog subscription={sub} current={plan} onClose={() => setDialog(null)} />}
+      {dialog === "changePlan" && (
+        <ChangePlanDialog
+          subscription={sub}
+          current={plan}
+          onClose={() => setDialog(null)}
+        />
+      )}
     </section>
   )
 }
@@ -352,20 +502,39 @@ function SubscriptionDetailView({ detail }: { detail: SubscriptionDetail }) {
  * nowhere to go it says which and waits for the operator to choose to clear
  * them, then sends the counts that do fit. It never drops a count on its own.
  */
-function ChangePlanDialog({ subscription: sub, current, onClose }: { subscription: Subscription; current: Plan; onClose: () => void }) {
+function ChangePlanDialog({
+  subscription: sub,
+  current,
+  onClose,
+}: {
+  subscription: Subscription
+  current: Plan
+  onClose: () => void
+}) {
   const changePlan = useCommand<Subscription>("subscriptions.changePlan")
-  const plans = useQuery<Page<Plan>>("plans.list", { status: "active", limit: 200, offset: 0 })
+  const plans = useQuery<Page<Plan>>("plans.list", {
+    status: "active",
+    limit: 200,
+    offset: 0,
+  })
   const [newPlan, setNewPlan] = useState("")
   const [clear, setClear] = useState(false)
   const choices = (plans.data?.items ?? []).filter((p) => p.id !== current.id)
   const target = choices.find((p) => p.id === newPlan)
 
-  const seatKeys = new Set((target?.features ?? []).filter((f) => f.type === "seat").map((f) => f.key))
+  const seatKeys = new Set(
+    (target?.features ?? []).filter((f) => f.type === "seat").map((f) => f.key)
+  )
   const carried = Object.entries(sub.quantity ?? {})
-  const stranded = target ? carried.filter(([key]) => !seatKeys.has(key)).map(([key]) => key) : []
+  const stranded = target
+    ? carried.filter(([key]) => !seatKeys.has(key)).map(([key]) => key)
+    : []
 
   const payload: Record<string, unknown> = { id: sub.id, plan_id: newPlan }
-  if (stranded.length > 0 && clear) payload.quantity = Object.fromEntries(carried.filter(([key]) => seatKeys.has(key)))
+  if (stranded.length > 0 && clear)
+    payload.quantity = Object.fromEntries(
+      carried.filter(([key]) => seatKeys.has(key))
+    )
 
   return (
     <ConfirmAction
@@ -391,7 +560,9 @@ function ChangePlanDialog({ subscription: sub, current, onClose }: { subscriptio
           }}
           disabled={plans.loading}
         >
-          <NativeSelectOption value="">{plans.loading ? "Loading plans…" : "Choose a plan"}</NativeSelectOption>
+          <NativeSelectOption value="">
+            {plans.loading ? "Loading plans…" : "Choose a plan"}
+          </NativeSelectOption>
           {choices.map((p) => (
             <NativeSelectOption key={p.id} value={p.id}>
               {p.name}
@@ -399,13 +570,18 @@ function ChangePlanDialog({ subscription: sub, current, onClose }: { subscriptio
           ))}
         </NativeSelect>
         <p id="change-plan-help" className="text-muted-foreground">
-          Seat counts carry over. The change is not prorated: the next invoice bills the new plan for the whole period.
+          Seat counts carry over. The change is not prorated: the next invoice
+          bills the new plan for the whole period.
         </p>
         {target && stranded.length > 0 && (
           <>
             <p>{`${target.name} has no seat feature for ${stranded.join(", ")}, so those seat counts cannot carry over.`}</p>
             <label className="flex items-center gap-2">
-              <input type="checkbox" checked={clear} onChange={(e) => setClear(e.target.checked)} />
+              <input
+                type="checkbox"
+                checked={clear}
+                onChange={(e) => setClear(e.target.checked)}
+              />
               {`Clear the seat counts for ${stranded.join(", ")}`}
             </label>
           </>
@@ -421,14 +597,24 @@ function ChangePlanDialog({ subscription: sub, current, onClose }: { subscriptio
  * subscription, so this reads the tenant's newest 200 and keeps the ones for
  * this subscription. A tenant with more than that is told where the rest are.
  */
-function SubscriptionInvoices({ subscription }: { subscription: Subscription }) {
-  const list = useQuery<Page<Invoice>>("invoices.list", { tenant_id: subscription.tenant_id, limit: INVOICE_READ, offset: 0 })
+function SubscriptionInvoices({
+  subscription,
+}: {
+  subscription: Subscription
+}) {
+  const list = useQuery<Page<Invoice>>("invoices.list", {
+    tenant_id: subscription.tenant_id,
+    limit: INVOICE_READ,
+    offset: 0,
+  })
   return (
     <section className="flex flex-col gap-2">
       <h2 className="text-base font-medium">Invoices</h2>
       <QueryBoundary title="Invoices" query={list} skeletonRows={3}>
         {(data) => {
-          const rows = (data.items ?? []).filter((i) => i.subscription_id === subscription.id)
+          const rows = (data.items ?? []).filter(
+            (i) => i.subscription_id === subscription.id
+          )
           return (
             <>
               <ResourceTable<Invoice>
@@ -444,7 +630,8 @@ function SubscriptionInvoices({ subscription }: { subscription: Subscription }) 
               />
               {data.has_more && (
                 <p className="text-sm text-muted-foreground">
-                  This reads the tenant's {INVOICE_READ} most recent invoices. Older ones are on the Invoices page, filtered by tenant.
+                  This reads the tenant's {INVOICE_READ} most recent invoices.
+                  Older ones are on the Invoices page, filtered by tenant.
                 </p>
               )}
             </>

@@ -47,7 +47,10 @@ export function FlagValue({ value, type, className }: FlagValueProps) {
 
   if (typeof value === "number") {
     return (
-      <span data-flag-type={type} className={cn(base, "tabular-nums", className)}>
+      <span
+        data-flag-type={type}
+        className={cn(base, "tabular-nums", className)}
+      >
         {String(value)}
       </span>
     )

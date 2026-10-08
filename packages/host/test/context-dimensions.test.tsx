@@ -27,14 +27,21 @@ const appDimension: ContextDimension = {
   select: (data) => {
     const d = data as AppsContext
     return {
-      current: d.currentApp ? { id: d.currentApp.id, label: d.currentApp.name } : undefined,
-      options: (d.availableApps ?? []).map((a) => ({ id: a.id, label: a.name })),
+      current: d.currentApp
+        ? { id: d.currentApp.id, label: d.currentApp.name }
+        : undefined,
+      options: (d.availableApps ?? []).map((a) => ({
+        id: a.id,
+        label: a.name,
+      })),
     }
   },
   payload: (appId) => ({ appId }),
 }
 
-function client(command = vi.fn().mockResolvedValue({ ok: true })): ScopedClient {
+function client(
+  command = vi.fn().mockResolvedValue({ ok: true })
+): ScopedClient {
   return {
     extension: "auth",
     query: vi.fn().mockResolvedValue({
@@ -54,7 +61,7 @@ describe("ContextSwitchers", () => {
     const { container } = renderSwitchers(
       <PluginProvider client={client()}>
         <ContextSwitchers dimensions={[]} />
-      </PluginProvider>,
+      </PluginProvider>
     )
     expect(container.firstChild).toBeNull()
   })
@@ -64,10 +71,13 @@ describe("ContextSwitchers", () => {
     renderSwitchers(
       <PluginProvider client={client()}>
         <ContextSwitchers dimensions={[appDimension]} />
-      </PluginProvider>,
+      </PluginProvider>
     )
     await waitFor(() =>
-      expect((screen.getByRole("combobox", { name: "App" }) as HTMLSelectElement).value).toBe("a1"),
+      expect(
+        (screen.getByRole("combobox", { name: "App" }) as HTMLSelectElement)
+          .value
+      ).toBe("a1")
     )
   })
 
@@ -81,14 +91,21 @@ describe("ContextSwitchers", () => {
     renderSwitchers(
       <PluginProvider client={client(command)}>
         <ContextSwitchers dimensions={[appDimension]} />
-      </PluginProvider>,
+      </PluginProvider>
     )
-    await waitFor(() => expect(screen.getByRole("combobox", { name: "App" })).toBeTruthy())
+    await waitFor(() =>
+      expect(screen.getByRole("combobox", { name: "App" })).toBeTruthy()
+    )
 
-    fireEvent.change(screen.getByRole("combobox", { name: "App" }), { target: { value: "a2" } })
+    fireEvent.change(screen.getByRole("combobox", { name: "App" }), {
+      target: { value: "a2" },
+    })
 
     await waitFor(() =>
-      expect(command.mock.calls[0].slice(0, 2)).toEqual(["apps.switch", { appId: "a2" }]),
+      expect(command.mock.calls[0].slice(0, 2)).toEqual([
+        "apps.switch",
+        { appId: "a2" },
+      ])
     )
     await waitFor(() => expect(queryStore.snapshot(stale).data).toBeUndefined())
   })
@@ -107,10 +124,18 @@ describe("ContextSwitchers", () => {
       query: "apps.context",
       switchCommand: "environments.switch",
       select: (d) => {
-        const data = d as { currentEnv?: { id: string; name: string }; availableEnvs: { id: string; name: string }[] }
+        const data = d as {
+          currentEnv?: { id: string; name: string }
+          availableEnvs: { id: string; name: string }[]
+        }
         return {
-          current: data.currentEnv ? { id: data.currentEnv.id, label: data.currentEnv.name } : undefined,
-          options: (data.availableEnvs ?? []).map((e) => ({ id: e.id, label: e.name })),
+          current: data.currentEnv
+            ? { id: data.currentEnv.id, label: data.currentEnv.name }
+            : undefined,
+          options: (data.availableEnvs ?? []).map((e) => ({
+            id: e.id,
+            label: e.name,
+          })),
         }
       },
       payload: (envId) => ({ envId }),
@@ -119,11 +144,15 @@ describe("ContextSwitchers", () => {
     renderSwitchers(
       <PluginProvider client={{ extension: "auth", query, command: vi.fn() }}>
         <ContextSwitchers dimensions={[appDimension, envDimension]} />
-      </PluginProvider>,
+      </PluginProvider>
     )
 
-    await waitFor(() => expect(screen.getByRole("combobox", { name: "App" })).toBeTruthy())
-    await waitFor(() => expect(screen.getByRole("combobox", { name: "Environment" })).toBeTruthy())
+    await waitFor(() =>
+      expect(screen.getByRole("combobox", { name: "App" })).toBeTruthy()
+    )
+    await waitFor(() =>
+      expect(screen.getByRole("combobox", { name: "Environment" })).toBeTruthy()
+    )
 
     // Both dimensions read apps.context. The store dedups on the key, so the
     // two switchers share one request rather than each issuing their own.
@@ -142,11 +171,15 @@ describe("ContextSwitchers", () => {
     renderSwitchers(
       <PluginProvider client={client(command)}>
         <ContextSwitchers dimensions={[appDimension]} />
-      </PluginProvider>,
+      </PluginProvider>
     )
-    await waitFor(() => expect(screen.getByRole("combobox", { name: "App" })).toBeTruthy())
+    await waitFor(() =>
+      expect(screen.getByRole("combobox", { name: "App" })).toBeTruthy()
+    )
 
-    fireEvent.change(screen.getByRole("combobox", { name: "App" }), { target: { value: "a2" } })
+    fireEvent.change(screen.getByRole("combobox", { name: "App" }), {
+      target: { value: "a2" },
+    })
     await waitFor(() => expect(command).toHaveBeenCalled())
 
     // A failed switch means the cookie did not change, so the cache is still

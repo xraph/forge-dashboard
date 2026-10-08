@@ -41,7 +41,9 @@ describe("Timestamp", () => {
   it("formats a value it has", () => {
     render(<Timestamp value="2026-01-01T00:00:00Z" label="expiry" />)
     expect(screen.queryByLabelText("no expiry")).toBeNull()
-    expect(screen.getByText(new Date("2026-01-01T00:00:00Z").toLocaleString())).toBeTruthy()
+    expect(
+      screen.getByText(new Date("2026-01-01T00:00:00Z").toLocaleString())
+    ).toBeTruthy()
   })
 
   it("says what did not happen, rather than an unlabelled dash", () => {

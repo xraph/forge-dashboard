@@ -1,6 +1,11 @@
 import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { useState } from "react"
-import { PluginLink, useCommand, useNavigateTo, useQuery } from "@forge-go/dashboard-plugin"
+import {
+  PluginLink,
+  useCommand,
+  useNavigateTo,
+  useQuery,
+} from "@forge-go/dashboard-plugin"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
 import { DescriptionList } from "@forge-go/dashboard-kit/components/detail-layout"
 import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
@@ -10,7 +15,12 @@ import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { CouponStateBadge } from "../badges"
 import { ConfirmAction } from "../components/confirm-action"
 import { isNotFound, NotFoundState } from "../components/not-found"
-import { couponState, describeDiscount, redemptionsText, validityText } from "../lib/coupons"
+import {
+  couponState,
+  describeDiscount,
+  redemptionsText,
+  validityText,
+} from "../lib/coupons"
 import { couponEditPath } from "../lib/paths"
 import type { Ack, Coupon } from "../types"
 
@@ -28,8 +38,17 @@ export function LedgerCouponDetailPage({ params }: PluginPageProps) {
 
 function CouponDetailBody({ id }: { id: string }) {
   const detail = useQuery<Coupon>("coupons.detail", { id })
-  if (detail.data !== undefined) return <CouponDetailView coupon={detail.data} />
-  if (isNotFound(detail.error, "coupon")) return <NotFoundState noun="coupon" id={id} backTo="/coupons" backLabel="Back to coupons" />
+  if (detail.data !== undefined)
+    return <CouponDetailView coupon={detail.data} />
+  if (isNotFound(detail.error, "coupon"))
+    return (
+      <NotFoundState
+        noun="coupon"
+        id={id}
+        backTo="/coupons"
+        backLabel="Back to coupons"
+      />
+    )
   return (
     <QueryBoundary title="Coupon" query={detail} skeletonRows={4}>
       {(c) => <CouponDetailView coupon={c} />}
@@ -48,27 +67,60 @@ function CouponDetailView({ coupon }: { coupon: Coupon }) {
         description={coupon.name || undefined}
         actions={
           <>
-            <IconButton label="Edit" nativeButton={false} role="link" render={<PluginLink to={couponEditPath(coupon.id)} />} />
-            <IconButton variant="destructive" onClick={() => {
+            <IconButton
+              label="Edit"
+              nativeButton={false}
+              role="link"
+              render={<PluginLink to={couponEditPath(coupon.id)} />}
+            />
+            <IconButton
+              variant="destructive"
+              onClick={() => {
                 remove.reset()
                 setDeleting(true)
-              }} label="Delete" />
+              }}
+              label="Delete"
+            />
           </>
         }
       />
       <DescriptionList
         className="max-w-2xl"
         items={[
-          { term: "State", value: <CouponStateBadge state={couponState(coupon)} /> },
+          {
+            term: "State",
+            value: <CouponStateBadge state={couponState(coupon)} />,
+          },
           { term: "Discount", value: describeDiscount(coupon) },
           {
             term: "Currency",
-            value: coupon.currency === "" ? "Any currency" : <span className="font-mono text-xs">{coupon.currency.toUpperCase()}</span>,
+            value:
+              coupon.currency === "" ? (
+                "Any currency"
+              ) : (
+                <span className="font-mono text-xs">
+                  {coupon.currency.toUpperCase()}
+                </span>
+              ),
           },
-          { term: "Redemptions", value: <span className="tabular-nums">{redemptionsText(coupon)}</span> },
-          { term: "Valid", value: validityText(coupon) ?? <NoneCell label="validity window" /> },
-          { term: "Created", value: <Timestamp value={coupon.created_at} label="creation" /> },
-          { term: "Updated", value: <Timestamp value={coupon.updated_at} label="update" /> },
+          {
+            term: "Redemptions",
+            value: (
+              <span className="tabular-nums">{redemptionsText(coupon)}</span>
+            ),
+          },
+          {
+            term: "Valid",
+            value: validityText(coupon) ?? <NoneCell label="validity window" />,
+          },
+          {
+            term: "Created",
+            value: <Timestamp value={coupon.created_at} label="creation" />,
+          },
+          {
+            term: "Updated",
+            value: <Timestamp value={coupon.updated_at} label="update" />,
+          },
         ]}
       />
       <ConfirmAction

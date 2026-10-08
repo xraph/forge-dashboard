@@ -53,7 +53,15 @@ function CouponEditBody({ id }: { id: string }) {
 
   // Data already on screen stays up while a write's invalidation refetches, so the form keeps what was typed.
   if (detail.data !== undefined) return form(detail.data)
-  if (isNotFound(detail.error, "coupon")) return <NotFoundState noun="coupon" id={id} backTo="/coupons" backLabel="Back to coupons" />
+  if (isNotFound(detail.error, "coupon"))
+    return (
+      <NotFoundState
+        noun="coupon"
+        id={id}
+        backTo="/coupons"
+        backLabel="Back to coupons"
+      />
+    )
   return (
     <QueryBoundary title="Coupon" query={detail} skeletonRows={4}>
       {form}

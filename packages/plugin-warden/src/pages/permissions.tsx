@@ -66,7 +66,9 @@ function CreatePermissionForm({
   // operator types removes the chance to disagree with it, which the
   // contract refuses anyway.
   const derived =
-    resource.trim() && action.trim() ? `${resource.trim()}:${action.trim()}` : ""
+    resource.trim() && action.trim()
+      ? `${resource.trim()}:${action.trim()}`
+      : ""
 
   async function submit() {
     // No name field is sent at all: the contract derives it, so there is one
@@ -89,7 +91,10 @@ function CreatePermissionForm({
 
   return (
     <div className="flex flex-col gap-3 rounded-md border p-4">
-      <CommandAlert error={create.error} title="Could not create the permission" />
+      <CommandAlert
+        error={create.error}
+        title="Could not create the permission"
+      />
       <p className="text-sm text-muted-foreground">
         A check matches on resource and action, not on the name, so the name
         below is derived from them rather than asked for.
@@ -104,7 +109,11 @@ function CreatePermissionForm({
       </div>
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="perm-action">Action</Label>
-        <Input id="perm-action" value={action} onChange={(e) => setAction(e.target.value)} />
+        <Input
+          id="perm-action"
+          value={action}
+          onChange={(e) => setAction(e.target.value)}
+        />
       </div>
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="perm-description">Description</Label>
@@ -119,13 +128,17 @@ function CreatePermissionForm({
         {derived ? (
           <span className="font-mono text-xs">{derived}</span>
         ) : (
-          <span className="text-muted-foreground">fill in a resource and an action</span>
+          <span className="text-muted-foreground">
+            fill in a resource and an action
+          </span>
         )}
       </p>
       <div className="flex gap-2">
         <Button
           onClick={() => void submit()}
-          disabled={create.loading || resource.trim() === "" || action.trim() === ""}
+          disabled={
+            create.loading || resource.trim() === "" || action.trim() === ""
+          }
         >
           {create.loading ? "Creating…" : "Create permission"}
         </Button>
@@ -177,7 +190,8 @@ export function WardenPermissionsPage() {
     // The shared message knows only search and namespace. With an exact
     // filter on, "No permissions yet" would say nothing exists when the
     // filter is what hid it.
-    if (Object.keys(appliedParams).length > 0) return "No permissions match these filters."
+    if (Object.keys(appliedParams).length > 0)
+      return "No permissions match these filters."
     return emptyListMessage("permissions", search, namespace.value)
   }
   const remove = useCommand<AckResponse>("permissions.delete")
@@ -194,7 +208,12 @@ export function WardenPermissionsPage() {
   }
 
   const columns: Column<PermissionSummary>[] = [
-    { id: "name", header: "Name", cell: (p) => p.name, className: "font-medium" },
+    {
+      id: "name",
+      header: "Name",
+      cell: (p) => p.name,
+      className: "font-medium",
+    },
     { id: "resource", header: "Resource", cell: (p) => p.resource },
     { id: "action", header: "Action", cell: (p) => p.action },
     {
@@ -208,7 +227,11 @@ export function WardenPermissionsPage() {
       cell: (p) =>
         // Most permissions are not system ones, so system is the minority
         // and the state somebody scanning for it is hunting.
-        p.isSystem ? <Badge variant="destructive">system</Badge> : <NoneCell label="flags" />,
+        p.isSystem ? (
+          <Badge variant="destructive">system</Badge>
+        ) : (
+          <NoneCell label="flags" />
+        ),
     },
     {
       id: "description",
@@ -227,7 +250,9 @@ export function WardenPermissionsPage() {
       <PageHeader
         title="Permissions"
         actions={
-          !creating && <Button onClick={() => setCreating(true)}>New permission</Button>
+          !creating && (
+            <Button onClick={() => setCreating(true)}>New permission</Button>
+          )
         }
       />
 
@@ -246,13 +271,17 @@ export function WardenPermissionsPage() {
 
       <form className="flex flex-wrap items-end gap-3" onSubmit={apply}>
         <span className="flex flex-col gap-1.5">
-          <Label htmlFor="permissions-filter-resource">Filter by resource</Label>
+          <Label htmlFor="permissions-filter-resource">
+            Filter by resource
+          </Label>
           <Input
             id="permissions-filter-resource"
             className="font-mono text-xs"
             placeholder="exact match"
             value={draft.resource}
-            onChange={(e) => setDraft((d) => ({ ...d, resource: e.target.value }))}
+            onChange={(e) =>
+              setDraft((d) => ({ ...d, resource: e.target.value }))
+            }
           />
         </span>
         <span className="flex flex-col gap-1.5">
@@ -262,11 +291,18 @@ export function WardenPermissionsPage() {
             className="font-mono text-xs"
             placeholder="exact match"
             value={draft.action}
-            onChange={(e) => setDraft((d) => ({ ...d, action: e.target.value }))}
+            onChange={(e) =>
+              setDraft((d) => ({ ...d, action: e.target.value }))
+            }
           />
         </span>
         <Button type="submit">Apply</Button>
-        <IconButton type="button" variant="outline" onClick={clear} label="Clear" />
+        <IconButton
+          type="button"
+          variant="outline"
+          onClick={clear}
+          label="Clear"
+        />
       </form>
 
       {creating && (
@@ -302,14 +338,18 @@ export function WardenPermissionsPage() {
                   {/* No delete on a system permission: the contract refuses
                       it, so offering the button would promise a rejection. */}
                   {!p.isSystem && (
-                    <IconButton variant="destructive" onClick={() => {
+                    <IconButton
+                      variant="destructive"
+                      onClick={() => {
                         // Reset at open, not at close: the operator is about
                         // to read whatever this dialog shows for THIS
                         // permission, so a failure from a previous row must
                         // not be attributed to one they have not touched.
                         remove.reset()
                         setDeleting(p)
-                      }} label={`Delete ${p.name}`} />
+                      }}
+                      label={`Delete ${p.name}`}
+                    />
                   )}
                 </>
               )}

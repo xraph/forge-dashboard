@@ -50,8 +50,7 @@ export function RotateKeyReveal({ rotation, onDone }: RotateKeyRevealProps) {
   // that one was already open. Which of two same-hint windows is "this one"
   // does not matter (the hint is only four characters): either way one of
   // them is earlier, so nothing here compares times.
-  const openedOne =
-    openedWindow && windows.some((p) => p.hint === previousHint)
+  const openedOne = openedWindow && windows.some((p) => p.hint === previousHint)
   const state = result.key.effectiveState
   const earlierOpen = windows.length > (openedOne ? 1 : 0)
   const maskedOf = (p: PreviousKey) =>

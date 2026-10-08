@@ -39,13 +39,17 @@ export function setActiveStore(name: string): void {
 }
 
 export function useActiveStore(): string {
-  return useSyncExternalStore(subscribe, () => active, () => active)
+  return useSyncExternalStore(
+    subscribe,
+    () => active,
+    () => active
+  )
 }
 
 /** params plus `store`, or params alone for the default store. */
 export function withStore<T extends Record<string, unknown>>(
   store: string,
-  params: T,
+  params: T
 ): T & { store?: string } {
   return store === "" ? params : { ...params, store }
 }

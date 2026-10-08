@@ -52,10 +52,11 @@ export const DocumentsPage: ComponentType<PluginPageProps> = () => {
       ...(state !== "" ? { state } : {}),
       ...(term !== "" ? { search: term } : {}),
     },
-    tenant,
+    tenant
   )
   const list = useQuery<ListOutput<DocumentRow>>("documents.list", params)
-  const filtered = collectionId !== "" || state !== "" || term !== "" || tenant !== null
+  const filtered =
+    collectionId !== "" || state !== "" || term !== "" || tenant !== null
 
   function clear() {
     setSearch("")
@@ -67,7 +68,10 @@ export const DocumentsPage: ComponentType<PluginPageProps> = () => {
 
   return (
     <section className="flex flex-col gap-4">
-      <PageHeader title="Documents" description="Newest first. A document's state is where its ingest got to." />
+      <PageHeader
+        title="Documents"
+        description="Newest first. A document's state is where its ingest got to."
+      />
       <FilterBar
         search={{
           value: search,
@@ -128,7 +132,11 @@ export const DocumentsPage: ComponentType<PluginPageProps> = () => {
             rows={data.items}
             rowKey={(d) => d.id}
             caption={plural(data.total, "document", "documents")}
-            emptyMessage={filtered ? "No documents match these filters." : "No documents yet. Open a collection and ingest one."}
+            emptyMessage={
+              filtered
+                ? "No documents match these filters."
+                : "No documents yet. Open a collection and ingest one."
+            }
             emptyAction={
               filtered ? (
                 <Button variant="outline" onClick={clear}>

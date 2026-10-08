@@ -5,7 +5,10 @@ import {
   useNavigateTo,
   useQuery,
 } from "@forge-go/dashboard-plugin"
-import { Alert, AlertDescription } from "@forge-go/dashboard-kit/components/alert"
+import {
+  Alert,
+  AlertDescription,
+} from "@forge-go/dashboard-kit/components/alert"
 import { Badge } from "@forge-go/dashboard-kit/components/badge"
 import { Button } from "@forge-go/dashboard-kit/components/button"
 import { ConfirmDialog } from "@forge-go/dashboard-kit/components/confirm-dialog"
@@ -43,7 +46,8 @@ import type { AckResponse } from "./roles"
  * `never` is a window that closes before it opens. It is not the same as
  * `expired`, which was in effect once.
  */
-export type PolicyState = "active" | "inactive" | "scheduled" | "expired" | "never"
+export type PolicyState =
+  "active" | "inactive" | "scheduled" | "expired" | "never"
 
 /**
  * Mirrors the Go `PolicySummary`. Field names are its JSON tags.
@@ -332,7 +336,10 @@ export function WardenPoliciesPage() {
       id: "name",
       header: "Name",
       cell: (p) => (
-        <PluginLink to={`/policies/${p.id}`} className="underline underline-offset-4">
+        <PluginLink
+          to={`/policies/${p.id}`}
+          className="underline underline-offset-4"
+        >
           {p.name}
         </PluginLink>
       ),
@@ -384,9 +391,9 @@ export function WardenPoliciesPage() {
 
       <p className="text-sm text-muted-foreground">
         A policy allows or denies a check when its subjects, actions, resources
-        and conditions match. The status column says what each one will
-        actually do, and nothing shows for a policy that is active and behaves
-        as written.
+        and conditions match. The status column says what each one will actually
+        do, and nothing shows for a policy that is active and behaves as
+        written.
       </p>
 
       <FilterBar
@@ -501,7 +508,10 @@ export function WardenPoliciesPage() {
           </NativeSelect>
         </div>
         <NamespaceSelect value={newNamespace} onChange={setNewNamespace} />
-        <CommandAlert error={create.error} title="Could not create the policy" />
+        <CommandAlert
+          error={create.error}
+          title="Could not create the policy"
+        />
       </ConfirmDialog>
     </section>
   )

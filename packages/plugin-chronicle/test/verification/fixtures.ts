@@ -49,7 +49,14 @@ export const broken = report({
   gaps: [2311, 2312],
   tampered: [2780],
   downgrades: [2901],
-  retained: [{ fromSeq: 101, toSeq: 400, recordSeq: 401, policyId: "retpol_globex_debug" }],
+  retained: [
+    {
+      fromSeq: 101,
+      toSeq: 400,
+      recordSeq: 401,
+      policyId: "retpol_globex_debug",
+    },
+  ],
   retentionPolicies: 2,
   coverage: [{ fromSeq: 1, toSeq: 5000, level: "keyed" }],
 })
@@ -63,7 +70,26 @@ export const truncated = report({
   headMatch: false,
   checkpointHeadOk: false,
   checkpoints: [
-    { id: "ckpt_initech_1", fromSeq: 1, toSeq: 1500, signatureValid: true, hashMatch: true, hashChecked: true, continuityOk: true, continuityChecked: true },
-    { id: "ckpt_initech_2", fromSeq: 1501, toSeq: 3400, signatureValid: true, hashMatch: false, hashChecked: false, continuityOk: true, continuityChecked: true, note: "The checkpoint ends past the chain's head, so its hash could not be compared." },
+    {
+      id: "ckpt_initech_1",
+      fromSeq: 1,
+      toSeq: 1500,
+      signatureValid: true,
+      hashMatch: true,
+      hashChecked: true,
+      continuityOk: true,
+      continuityChecked: true,
+    },
+    {
+      id: "ckpt_initech_2",
+      fromSeq: 1501,
+      toSeq: 3400,
+      signatureValid: true,
+      hashMatch: false,
+      hashChecked: false,
+      continuityOk: true,
+      continuityChecked: true,
+      note: "The checkpoint ends past the chain's head, so its hash could not be compared.",
+    },
   ],
 })

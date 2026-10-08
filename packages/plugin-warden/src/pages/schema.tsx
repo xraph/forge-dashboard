@@ -89,7 +89,10 @@ function refusal(error: ContractError): string {
       .slice(HALF_APPLY.length)
       .replace(/^:\s*/, "")
       .replace(/\.+$/, "")
-    const stopped = rest === "" ? "The apply stopped part way" : `The apply stopped with an error: ${rest}`
+    const stopped =
+      rest === ""
+        ? "The apply stopped part way"
+        : `The apply stopped with an error: ${rest}`
     // A member arrived after apply's own dry run passed, and the write pass
     // refused the cap. A plan runs that same check, so planning again would
     // only show the refusal, not what remains.
@@ -123,7 +126,8 @@ function spendsPlan(error: ContractError): boolean {
 
 /** What a diverged apply says after "what was written differs". */
 function divergedSentence(applied: SchemaApplyResult): string {
-  const written = applied.created.length + applied.updated.length + applied.deleted.length
+  const written =
+    applied.created.length + applied.updated.length + applied.deleted.length
   return `The store changed while this apply ran, so what was written differs from the plan. ${written > 0 ? "The lines above are what was written." : "Nothing was written."}`
 }
 
@@ -147,7 +151,10 @@ function PlanSection({ title, lines }: { title: string; lines: string[] }) {
   return (
     <div className="flex flex-col gap-1.5">
       <h3 className="text-sm font-medium">
-        {title} <span className="tabular-nums text-muted-foreground">{lines.length}</span>
+        {title}{" "}
+        <span className="text-muted-foreground tabular-nums">
+          {lines.length}
+        </span>
       </h3>
       <Lines lines={lines} />
     </div>
@@ -178,18 +185,24 @@ export function WardenSchemaPage() {
   // A new key mounts a new editor: that is how the editor is started over.
   const [editorKey, setEditorKey] = useState(0)
   const [loading, setLoading] = useState(true)
-  const [loadError, setLoadError] = useState<ContractError | undefined>(undefined)
+  const [loadError, setLoadError] = useState<ContractError | undefined>(
+    undefined
+  )
   const [confirmingLoad, setConfirmingLoad] = useState(false)
 
   const [prune, setPrune] = useState(false)
   const [planning, setPlanning] = useState(false)
   const [planned, setPlanned] = useState<Planned | null>(null)
-  const [planError, setPlanError] = useState<ContractError | undefined>(undefined)
+  const [planError, setPlanError] = useState<ContractError | undefined>(
+    undefined
+  )
 
   const [confirming, setConfirming] = useState<Planned | null>(null)
   const [readDeletions, setReadDeletions] = useState(false)
   const [applying, setApplying] = useState(false)
-  const [applyError, setApplyError] = useState<ContractError | undefined>(undefined)
+  const [applyError, setApplyError] = useState<ContractError | undefined>(
+    undefined
+  )
   const [applied, setApplied] = useState<SchemaApplyResult | null>(null)
 
   // Only the latest load and the latest plan may land: a slower, older one
@@ -247,7 +260,10 @@ export function WardenSchemaPage() {
     setPlanned(null)
     setApplied(null)
     try {
-      const plan = await client.query<SchemaPlan>("schema.plan", { source, prune: pruning })
+      const plan = await client.query<SchemaPlan>("schema.plan", {
+        source,
+        prune: pruning,
+      })
       if (generation !== planGeneration.current) return
       setPlanned({ source, prune: pruning, plan })
     } catch (error) {
@@ -302,14 +318,21 @@ export function WardenSchemaPage() {
     }
   }
 
-  const current = planned !== null && planned.source === text && planned.prune === prune
+  const current =
+    planned !== null && planned.source === text && planned.prune === prune
   const canApply =
-    current && planned.plan.valid && changesOf(planned.plan) > 0 && planned.plan.digest !== ""
-  const diagnostics = planned && !planned.plan.valid ? planned.plan.diagnostics : NO_DIAGNOSTICS
+    current &&
+    planned.plan.valid &&
+    changesOf(planned.plan) > 0 &&
+    planned.plan.digest !== ""
+  const diagnostics =
+    planned && !planned.plan.valid ? planned.plan.diagnostics : NO_DIAGNOSTICS
   const busy = loading || planning || applying
 
   const deletions =
-    confirming !== null && confirming.prune && confirming.plan.deleted.length > 0
+    confirming !== null &&
+    confirming.prune &&
+    confirming.plan.deleted.length > 0
       ? confirming.plan.deleted
       : null
 
@@ -336,12 +359,16 @@ export function WardenSchemaPage() {
       >
         {(loaded) => (
           <>
-            <CommandAlert error={loadError} title="Could not load the current schema" />
+            <CommandAlert
+              error={loadError}
+              title="Could not load the current schema"
+            />
 
             <div className="flex flex-col gap-1">
               <div className="flex items-center gap-2">
                 <Label id="schema-prune-label">
-                  Delete roles, permissions, policies and resource types this source does not declare
+                  Delete roles, permissions, policies and resource types this
+                  source does not declare
                 </Label>
                 <Switch
                   id="schema-prune"
@@ -351,7 +378,8 @@ export function WardenSchemaPage() {
                 />
               </div>
               <p className="text-xs text-muted-foreground">
-                Only namespaces this source names, including by an empty namespace block, are pruned.
+                Only namespaces this source names, including by an empty
+                namespace block, are pruned.
               </p>
             </div>
 
@@ -370,7 +398,10 @@ export function WardenSchemaPage() {
             </div>
 
             <section aria-label="Plan result" className="flex flex-col gap-3">
-              <CommandAlert error={planError} title="Could not plan the schema" />
+              <CommandAlert
+                error={planError}
+                title="Could not plan the schema"
+              />
 
               {planned === null ? (
                 !planError && (
@@ -398,11 +429,22 @@ export function WardenSchemaPage() {
                   ) : (
                     <>
                       {changesOf(planned.plan) === 0 && (
-                        <p className="text-sm">Applying this changes nothing.</p>
+                        <p className="text-sm">
+                          Applying this changes nothing.
+                        </p>
                       )}
-                      <PlanSection title="Will create" lines={planned.plan.created} />
-                      <PlanSection title="Will change" lines={planned.plan.updated} />
-                      <PlanSection title="Will delete" lines={planned.plan.deleted} />
+                      <PlanSection
+                        title="Will create"
+                        lines={planned.plan.created}
+                      />
+                      <PlanSection
+                        title="Will change"
+                        lines={planned.plan.updated}
+                      />
+                      <PlanSection
+                        title="Will delete"
+                        lines={planned.plan.deleted}
+                      />
                       <p className="text-sm text-muted-foreground tabular-nums">
                         {planned.plan.noOps} unchanged
                       </p>
@@ -418,11 +460,20 @@ export function WardenSchemaPage() {
             </section>
 
             {applied && (
-              <section aria-label="Apply result" className="flex flex-col gap-2">
+              <section
+                aria-label="Apply result"
+                className="flex flex-col gap-2"
+              >
                 <p role="status" className="text-sm font-medium">
                   {`Applied: ${applied.created.length} created, ${applied.updated.length} changed, ${applied.deleted.length} deleted.`}
                 </p>
-                <Lines lines={[...applied.created, ...applied.updated, ...applied.deleted]} />
+                <Lines
+                  lines={[
+                    ...applied.created,
+                    ...applied.updated,
+                    ...applied.deleted,
+                  ]}
+                />
                 {applied.diverged && (
                   <p className="text-sm">{divergedSentence(applied)}</p>
                 )}
@@ -478,7 +529,9 @@ export function WardenSchemaPage() {
               checked={readDeletions}
               onCheckedChange={(checked) => setReadDeletions(checked === true)}
             />
-            <Label htmlFor="schema-read-deletions">I have read the deletions</Label>
+            <Label htmlFor="schema-read-deletions">
+              I have read the deletions
+            </Label>
           </span>
         )}
         {applyError && (

@@ -5,7 +5,10 @@ import {
   PluginLink,
   mountPath,
 } from "@forge-go/dashboard-plugin"
-import type { NavigateOptions, PluginLinkProps } from "@forge-go/dashboard-plugin"
+import type {
+  NavigateOptions,
+  PluginLinkProps,
+} from "@forge-go/dashboard-plugin"
 import keysmithPlugin from "../src/index"
 import {
   KEYSMITH_MOUNT,
@@ -21,13 +24,19 @@ afterEach(() => {
 
 describe("the links that carry a key", () => {
   it("start at the plugin's real mount point", () => {
-    expect(`${KEYSMITH_MOUNT}/rotations`).toBe(mountPath(keysmithPlugin, "/rotations"))
+    expect(`${KEYSMITH_MOUNT}/rotations`).toBe(
+      mountPath(keysmithPlugin, "/rotations")
+    )
     expect(`${KEYSMITH_MOUNT}/usage`).toBe(mountPath(keysmithPlugin, "/usage"))
   })
 
   it("name the key in the query and nothing else", () => {
-    expect(rotationsForKey("akey_billing")).toBe("/@keysmith/rotations?keyId=akey_billing")
-    expect(usageForKey("akey_billing")).toBe("/@keysmith/usage?keyId=akey_billing")
+    expect(rotationsForKey("akey_billing")).toBe(
+      "/@keysmith/rotations?keyId=akey_billing"
+    )
+    expect(usageForKey("akey_billing")).toBe(
+      "/@keysmith/usage?keyId=akey_billing"
+    )
   })
 
   it("pass through the host's resolver untouched, so its carried search is not tacked on", () => {
@@ -42,23 +51,27 @@ describe("the links that carry a key", () => {
     render(
       <NavigationProvider value={nav}>
         <PluginLink to={usageForKey("akey_billing")}>Open usage</PluginLink>
-      </NavigationProvider>,
+      </NavigationProvider>
     )
-    expect(screen.getByRole("link", { name: "Open usage" }).getAttribute("href")).toBe(
-      "/@keysmith/usage?keyId=akey_billing",
-    )
+    expect(
+      screen.getByRole("link", { name: "Open usage" }).getAttribute("href")
+    ).toBe("/@keysmith/usage?keyId=akey_billing")
   })
 
   it("encode an id with characters that mean something in a URL", () => {
     const href = usageForKey("a&b=c?d#e")
-    expect(new URLSearchParams(href.slice(href.indexOf("?"))).get("keyId")).toBe("a&b=c?d#e")
+    expect(
+      new URLSearchParams(href.slice(href.indexOf("?"))).get("keyId")
+    ).toBe("a&b=c?d#e")
   })
 })
 
 describe("useKeyIdParam", () => {
   it("reads keyId from the address, and is empty without one", () => {
     window.history.replaceState(null, "", "/@keysmith/usage?keyId=akey_billing")
-    expect(renderHook(() => useKeyIdParam()).result.current).toBe("akey_billing")
+    expect(renderHook(() => useKeyIdParam()).result.current).toBe(
+      "akey_billing"
+    )
 
     window.history.replaceState(null, "", "/@keysmith/usage")
     expect(renderHook(() => useKeyIdParam()).result.current).toBe("")
@@ -105,7 +118,7 @@ function setterUnder(path: "/rotations" | "/usage") {
       wrapper: ({ children }) => (
         <NavigationProvider value={nav}>{children}</NavigationProvider>
       ),
-    },
+    }
   )
   return { result, sent, options }
 }
@@ -131,12 +144,20 @@ describe("useSetKeyIdParam", () => {
       "/@keysmith/usage?keyId=akey_billing",
       "/@keysmith/usage",
     ])
-    expect(options).toEqual([{ replace: true }, { replace: true }, { replace: true }])
+    expect(options).toEqual([
+      { replace: true },
+      { replace: true },
+      { replace: true },
+    ])
     expect(window.history.length).toBe(length)
   })
 
   it("leaves every other query parameter where it was", () => {
-    window.history.replaceState(null, "", "/@keysmith/rotations?env=prod&keyId=akey_a")
+    window.history.replaceState(
+      null,
+      "",
+      "/@keysmith/rotations?env=prod&keyId=akey_a"
+    )
     const { result, sent } = setterUnder("/rotations")
     act(() => result.current.set("akey_b"))
     const search = new URLSearchParams(sent[0]!.slice(sent[0]!.indexOf("?")))
@@ -145,7 +166,11 @@ describe("useSetKeyIdParam", () => {
   })
 
   it("drops keyId entirely for every key, not keyId=", () => {
-    window.history.replaceState(null, "", "/@keysmith/rotations?env=prod&keyId=akey_a")
+    window.history.replaceState(
+      null,
+      "",
+      "/@keysmith/rotations?env=prod&keyId=akey_a"
+    )
     const first = setterUnder("/rotations")
     act(() => first.result.current.set(""))
     expect(first.sent).toEqual(["/@keysmith/rotations?env=prod"])

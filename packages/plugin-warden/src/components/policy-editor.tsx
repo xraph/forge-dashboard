@@ -1,5 +1,12 @@
 import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
-import { Fragment, useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react"
+import {
+  Fragment,
+  useEffect,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type ReactNode,
+} from "react"
 import {
   usePluginClient,
   useCommand,
@@ -96,7 +103,12 @@ export interface PolicyUpdatePayload {
 }
 
 /** Warden's closed set of subject kinds (`validSubjectKinds` in the Go). */
-export const SUBJECT_KINDS = ["user", "api_key", "service", "service_acct"] as const
+export const SUBJECT_KINDS = [
+  "user",
+  "api_key",
+  "service",
+  "service_acct",
+] as const
 
 /** The server's own sentence for an empty subject matcher, in `collectPolicyIssues`. */
 export const EMPTY_SUBJECT =
@@ -129,7 +141,8 @@ export function isStale(error: ContractError | undefined): boolean {
 // ---------------------------------------------------------------------------
 
 /** What kind of value an operator reads, which decides the input it gets. */
-export type ValueKind = "list" | "cidr" | "time" | "number" | "pattern" | "none" | "text"
+export type ValueKind =
+  "list" | "cidr" | "time" | "number" | "pattern" | "none" | "text"
 
 export function valueKind(operator: string): ValueKind {
   switch (operator) {
@@ -203,7 +216,11 @@ function hasValue(v: unknown): boolean {
 
 function rowFrom(c: PolicyCondition): ConditionRow {
   const v = c.value
-  const items = Array.isArray(v) ? v.map(itemText) : hasValue(v) ? [itemText(v)] : []
+  const items = Array.isArray(v)
+    ? v.map(itemText)
+    : hasValue(v)
+      ? [itemText(v)]
+      : []
   const text = Array.isArray(v) || !hasValue(v) ? "" : itemText(v)
   return {
     key: nextRowKey++,
@@ -228,7 +245,12 @@ function sameList(a: string[], b: string[]): boolean {
  */
 function rowValue(r: ConditionRow): unknown {
   const s = r.stored
-  if (s && r.operator === s.operator && r.text === s.text && sameList(r.items, s.items)) {
+  if (
+    s &&
+    r.operator === s.operator &&
+    r.text === s.text &&
+    sameList(r.items, s.items)
+  ) {
     return hasValue(s.value) ? s.value : undefined
   }
   switch (valueKind(r.operator)) {
@@ -347,24 +369,31 @@ const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
  * absent, so the server leaves it alone; a list emptied here is `[]`, and a
  * bound cleared here is `""`.
  */
-export function patchOf(s: EditorState, loaded: PolicyDetail): PolicyUpdatePayload {
+export function patchOf(
+  s: EditorState,
+  loaded: PolicyDetail
+): PolicyUpdatePayload {
   const out: PolicyUpdatePayload = { id: loaded.id }
   if (s.name !== loaded.name) out.name = s.name
-  if (s.description !== (loaded.description ?? "")) out.description = s.description
+  if (s.description !== (loaded.description ?? ""))
+    out.description = s.description
   if (s.effect !== loaded.effect) out.effect = s.effect
   const priority = priorityOf(s.priority)
   if (priority !== null && priority !== loaded.priority) out.priority = priority
   if (s.notBefore !== (loaded.notBefore ?? "")) out.notBefore = s.notBefore
   if (s.notAfter !== (loaded.notAfter ?? "")) out.notAfter = s.notAfter
   const subjects = s.subjects.map(cleanSubject)
-  if (!same(subjects, (loaded.subjects ?? []).map(cleanSubject))) out.subjects = subjects
+  if (!same(subjects, (loaded.subjects ?? []).map(cleanSubject)))
+    out.subjects = subjects
   if (!same(s.actions, loaded.actions ?? [])) out.actions = [...s.actions]
-  if (!same(s.resources, loaded.resources ?? [])) out.resources = [...s.resources]
+  if (!same(s.resources, loaded.resources ?? []))
+    out.resources = [...s.resources]
   const conditions = s.conditions.map(wireCondition)
   if (!same(conditions, (loaded.conditions ?? []).map(storedCondition))) {
     out.conditions = conditions
   }
-  if (!same(s.obligations, loaded.obligations ?? [])) out.obligations = [...s.obligations]
+  if (!same(s.obligations, loaded.obligations ?? []))
+    out.obligations = [...s.obligations]
   return out
 }
 
@@ -380,13 +409,16 @@ export function patchOf(s: EditorState, loaded: PolicyDetail): PolicyUpdatePaylo
  * validate answer says that. It means only that the page does not know
  * when the bound falls.
  */
-const RFC3339 = /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})(?:[.,](\d+))?(Z|[+-]\d{2}:\d{2})$/
+const RFC3339 =
+  /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})(?:[.,](\d+))?(Z|[+-]\d{2}:\d{2})$/
 
 export function boundTime(raw: string): number {
   const m = RFC3339.exec(raw)
   if (!m) return Number.NaN
   const [, base, fraction, zone] = m
-  return Date.parse(`${base}${fraction ? `.${fraction.slice(0, 3)}` : ""}${zone}`)
+  return Date.parse(
+    `${base}${fraction ? `.${fraction.slice(0, 3)}` : ""}${zone}`
+  )
 }
 
 export interface SaveConfirmationInput {
@@ -433,11 +465,20 @@ export interface SaveConfirmationInput {
  * one here too.
  */
 export function saveConfirmation(input: SaveConfirmationInput): string | null {
-  const { loaded, effect, notBefore, notAfter, matchesEverything, windowRefused, evaluationOff, now } =
-    input
+  const {
+    loaded,
+    effect,
+    notBefore,
+    notAfter,
+    matchesEverything,
+    windowRefused,
+    evaluationOff,
+    now,
+  } = input
   if (evaluationOff || !matchesEverything || !loaded.isActive) return null
   const patched =
-    notBefore !== (loaded.notBefore ?? "") || notAfter !== (loaded.notAfter ?? "")
+    notBefore !== (loaded.notBefore ?? "") ||
+    notAfter !== (loaded.notAfter ?? "")
   // The server judges a patched window as the merged pair, and validate
   // judged exactly that pair. An untouched window is never refused.
   if (patched && windowRefused) return null
@@ -459,7 +500,8 @@ export function saveConfirmation(input: SaveConfirmationInput): string | null {
   const sep = isAllow ? ", " : " "
   const startUnknown = notBefore !== "" && !startKnown
   const endUnknown = notAfter !== "" && !endKnown
-  if (startUnknown || endUnknown) return `${lead}${sep}whenever its window is open.`
+  if (startUnknown || endUnknown)
+    return `${lead}${sep}whenever its window is open.`
   if (startKnown && start > now) {
     return `${lead}${sep}from ${windowTime(new Date(start).toISOString())}.`
   }
@@ -623,14 +665,19 @@ function ValueInput({
       return null
     case "list":
     case "cidr": {
-      const noun = kind === "cidr" ? `network for condition ${n}` : `value for condition ${n}`
+      const noun =
+        kind === "cidr"
+          ? `network for condition ${n}`
+          : `value for condition ${n}`
       return (
         <span className="flex flex-col gap-1.5" data-value-kind={kind}>
           <RemovableChips
             values={row.items}
             anyWord="no values yet"
             noun={noun}
-            onRemove={(i) => onChange({ items: row.items.filter((_, j) => j !== i) })}
+            onRemove={(i) =>
+              onChange({ items: row.items.filter((_, j) => j !== i) })
+            }
           />
           <AddEntry
             noun={noun}
@@ -715,7 +762,9 @@ export function PolicyEditor({
   const [subjectRole, setSubjectRole] = useState("")
   const [subjectRefused, setSubjectRefused] = useState(false)
   const [checking, setChecking] = useState(false)
-  const [checkError, setCheckError] = useState<ContractError | undefined>(undefined)
+  const [checkError, setCheckError] = useState<ContractError | undefined>(
+    undefined
+  )
   const [refusedKey, setRefusedKey] = useState<string | null>(null)
   const [confirming, setConfirming] = useState<Pending | null>(null)
   // Whether this editor is still mounted, and whether Cancel was pressed.
@@ -750,7 +799,9 @@ export function PolicyEditor({
   }, [draftKey])
   const validation = useQuery<PolicyValidateResponse>(
     "policies.validate",
-    validatedKey === null ? undefined : (JSON.parse(validatedKey) as Record<string, unknown>),
+    validatedKey === null
+      ? undefined
+      : (JSON.parse(validatedKey) as Record<string, unknown>),
     { enabled: validatedKey !== null }
   )
   // Marks are about the draft on screen or not shown at all.
@@ -770,7 +821,9 @@ export function PolicyEditor({
       if (!list.includes(c.message)) list.push(c.message)
     }
   }
-  const otherFields = Object.keys(fieldIssues).filter((k) => !KNOWN_FIELDS.has(k))
+  const otherFields = Object.keys(fieldIssues).filter(
+    (k) => !KNOWN_FIELDS.has(k)
+  )
 
   const priorityBad = priorityOf(state.priority) === null
   const patch = patchOf(state, loaded)
@@ -783,7 +836,9 @@ export function PolicyEditor({
   function editRow(index: number, next: Partial<ConditionRow>) {
     setState((s) => ({
       ...s,
-      conditions: s.conditions.map((r, i) => (i === index ? { ...r, ...next } : r)),
+      conditions: s.conditions.map((r, i) =>
+        i === index ? { ...r, ...next } : r
+      ),
     }))
   }
 
@@ -794,14 +849,21 @@ export function PolicyEditor({
         if (i !== index) return r
         // A value of the wrong JSON type for the new operator is cleared,
         // never carried over to be sent as something it is not.
-        const keep = wireType(valueKind(r.operator)) === wireType(valueKind(operator))
-        return keep ? { ...r, operator } : { ...r, operator, items: [], text: "" }
+        const keep =
+          wireType(valueKind(r.operator)) === wireType(valueKind(operator))
+        return keep
+          ? { ...r, operator }
+          : { ...r, operator, items: [], text: "" }
       }),
     }))
   }
 
   function addSubject() {
-    const s = cleanSubject({ kind: kind.trim(), id: subjectId.trim(), role: subjectRole.trim() })
+    const s = cleanSubject({
+      kind: kind.trim(),
+      id: subjectId.trim(),
+      role: subjectRole.trim(),
+    })
     if (!s.kind && !s.id && !s.role) {
       setSubjectRefused(true)
       return
@@ -816,7 +878,10 @@ export function PolicyEditor({
   async function send(p: PolicyUpdatePayload, key: string): Promise<boolean> {
     // The version from `loaded`, never the prop, so the server judges the
     // draft against the policy it was made from.
-    const result = await update.execute({ ...p, expectedVersion: loaded.version })
+    const result = await update.execute({
+      ...p,
+      expectedVersion: loaded.version,
+    })
     // execute() resolves undefined only when the command failed, so this is
     // the success check. A refusal keeps the form and everything typed.
     if (result === undefined) {
@@ -845,7 +910,8 @@ export function PolicyEditor({
     // snapshot, whatever is typed while the check is in flight.
     const p = patch
     const key = draftKey
-    let answer = validatedKey === key && !validation.error ? validation.data : undefined
+    let answer =
+      validatedKey === key && !validation.error ? validation.data : undefined
     if (!answer) {
       // The debounce has not caught up with the draft, so ask about exactly
       // this draft now. The confirmation is never judged on an older one.
@@ -937,7 +1003,11 @@ export function PolicyEditor({
   // every other refusal in the server's own, wherever it is shown.
   const saveError = (
     <CommandAlert
-      error={isStale(update.error) ? { code: "CONFLICT", message: STALE_EDIT } : update.error}
+      error={
+        isStale(update.error)
+          ? { code: "CONFLICT", message: STALE_EDIT }
+          : update.error
+      }
       title="Could not save the policy"
     />
   )
@@ -945,9 +1015,16 @@ export function PolicyEditor({
   const rows = state.conditions
 
   const main = (
-    <section aria-label="Rule editor" className="flex flex-col gap-3 rounded-md border p-4">
+    <section
+      aria-label="Rule editor"
+      className="flex flex-col gap-3 rounded-md border p-4"
+    >
       <div className="flex flex-col gap-1">
-        <div role="group" aria-label="Effect" className="flex items-center gap-1">
+        <div
+          role="group"
+          aria-label="Effect"
+          className="flex items-center gap-1"
+        >
           <Button
             type="button"
             size="sm"
@@ -965,7 +1042,10 @@ export function PolicyEditor({
             size="sm"
             variant={isAllow ? "ghost" : "secondary"}
             aria-pressed={!isAllow}
-            className={cn("text-base font-medium", isAllow ? "text-foreground" : "text-destructive")}
+            className={cn(
+              "text-base font-medium",
+              isAllow ? "text-foreground" : "text-destructive"
+            )}
             onClick={() => edit({ effect: "deny" })}
           >
             Deny
@@ -987,7 +1067,9 @@ export function PolicyEditor({
             )}
             anyWord="anyone"
             noun="subject"
-            onRemove={(i) => edit({ subjects: state.subjects.filter((_, j) => j !== i) })}
+            onRemove={(i) =>
+              edit({ subjects: state.subjects.filter((_, j) => j !== i) })
+            }
           />
           <span className="flex flex-wrap items-center gap-1.5">
             <NativeSelect
@@ -1026,7 +1108,12 @@ export function PolicyEditor({
                 setSubjectRefused(false)
               }}
             />
-            <IconButton type="button" variant="outline" onClick={addSubject} label="Add subject" />
+            <IconButton
+              type="button"
+              variant="outline"
+              onClick={addSubject}
+              label="Add subject"
+            />
           </span>
           {subjectRefused && <Issue part="new-subject">{EMPTY_SUBJECT}</Issue>}
           {fieldIssues.subjects?.map((m) => (
@@ -1042,7 +1129,9 @@ export function PolicyEditor({
             values={state.actions}
             anyWord="any action"
             noun="action"
-            onRemove={(i) => edit({ actions: state.actions.filter((_, j) => j !== i) })}
+            onRemove={(i) =>
+              edit({ actions: state.actions.filter((_, j) => j !== i) })
+            }
           />
           <AddEntry
             noun="action"
@@ -1062,7 +1151,9 @@ export function PolicyEditor({
             values={state.resources}
             anyWord="any resource"
             noun="resource"
-            onRemove={(i) => edit({ resources: state.resources.filter((_, j) => j !== i) })}
+            onRemove={(i) =>
+              edit({ resources: state.resources.filter((_, j) => j !== i) })
+            }
           />
           <AddEntry
             noun="resource"
@@ -1082,7 +1173,9 @@ export function PolicyEditor({
           const known = r.operator in OPERATOR_WORDS
           return (
             <Fragment key={r.key}>
-              <dt className={cn(LABEL, i > 0 && "text-right")}>{i === 0 ? "when" : "and"}</dt>
+              <dt className={cn(LABEL, i > 0 && "text-right")}>
+                {i === 0 ? "when" : "and"}
+              </dt>
               <dd
                 data-condition={i}
                 data-invalid={issues ? "true" : undefined}
@@ -1107,7 +1200,9 @@ export function PolicyEditor({
                         so the select never claims a row says something it
                         does not. The server marks the row. */}
                     {!known && (
-                      <NativeSelectOption value={r.operator}>{r.operator}</NativeSelectOption>
+                      <NativeSelectOption value={r.operator}>
+                        {r.operator}
+                      </NativeSelectOption>
                     )}
                     {Object.entries(OPERATOR_WORDS).map(([op, words]) => (
                       <NativeSelectOption key={op} value={op}>
@@ -1115,10 +1210,21 @@ export function PolicyEditor({
                       </NativeSelectOption>
                     ))}
                   </NativeSelect>
-                  <ValueInput row={r} n={n} onChange={(next) => editRow(i, next)} />
-                  <IconButton type="button" variant="ghost" onClick={() =>
-                      edit({ conditions: state.conditions.filter((_, j) => j !== i) })
-                    } label={`Remove condition ${n}`} />
+                  <ValueInput
+                    row={r}
+                    n={n}
+                    onChange={(next) => editRow(i, next)}
+                  />
+                  <IconButton
+                    type="button"
+                    variant="ghost"
+                    onClick={() =>
+                      edit({
+                        conditions: state.conditions.filter((_, j) => j !== i),
+                      })
+                    }
+                    label={`Remove condition ${n}`}
+                  />
                 </span>
                 {issues?.map((m) => (
                   <Issue key={m} part={`condition-${i}`}>
@@ -1132,21 +1238,38 @@ export function PolicyEditor({
         <dt className={LABEL}>
           {/* The cell stays in the grid; only its word is for screen readers
               once the rows above carry when and and. */}
-          {rows.length === 0 ? "when" : <span className="sr-only">more conditions</span>}
+          {rows.length === 0 ? (
+            "when"
+          ) : (
+            <span className="sr-only">more conditions</span>
+          )}
         </dt>
         <dd>
           <span className="flex flex-col gap-1">
             <span>
-              <IconButton type="button" variant="outline" onClick={() =>
+              <IconButton
+                type="button"
+                variant="outline"
+                onClick={() =>
                   edit({
                     conditions: [
                       ...state.conditions,
-                      { key: nextRowKey++, field: "", operator: "eq", items: [], text: "" },
+                      {
+                        key: nextRowKey++,
+                        field: "",
+                        operator: "eq",
+                        items: [],
+                        text: "",
+                      },
                     ],
                   })
-                } label="Add condition" />
+                }
+                label="Add condition"
+              />
             </span>
-            {rows.length === 0 && <Muted>no conditions, so it applies whenever it matches</Muted>}
+            {rows.length === 0 && (
+              <Muted>no conditions, so it applies whenever it matches</Muted>
+            )}
           </span>
         </dd>
 
@@ -1162,7 +1285,13 @@ export function PolicyEditor({
               value={state.notBefore}
               onChange={(e) => edit({ notBefore: e.target.value })}
             />
-            <IconButton type="button" variant="ghost" disabled={state.notBefore === ""} onClick={() => edit({ notBefore: "" })} label="Clear start" />
+            <IconButton
+              type="button"
+              variant="ghost"
+              disabled={state.notBefore === ""}
+              onClick={() => edit({ notBefore: "" })}
+              label="Clear start"
+            />
           </span>
           <span className="flex flex-wrap items-center gap-2">
             <Muted>until</Muted>
@@ -1174,7 +1303,13 @@ export function PolicyEditor({
               value={state.notAfter}
               onChange={(e) => edit({ notAfter: e.target.value })}
             />
-            <IconButton type="button" variant="ghost" disabled={state.notAfter === ""} onClick={() => edit({ notAfter: "" })} label="Clear end" />
+            <IconButton
+              type="button"
+              variant="ghost"
+              disabled={state.notAfter === ""}
+              onClick={() => edit({ notAfter: "" })}
+              label="Clear end"
+            />
           </span>
           <span className="text-xs text-muted-foreground">
             RFC3339, like 2026-06-01T09:00:00Z. An empty bound is no bound.
@@ -1192,7 +1327,9 @@ export function PolicyEditor({
             values={state.obligations}
             anyWord="nothing"
             noun="obligation"
-            onRemove={(i) => edit({ obligations: state.obligations.filter((_, j) => j !== i) })}
+            onRemove={(i) =>
+              edit({ obligations: state.obligations.filter((_, j) => j !== i) })
+            }
           />
           <AddEntry
             noun="obligation"

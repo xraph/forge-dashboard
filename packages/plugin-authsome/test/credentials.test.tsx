@@ -25,7 +25,9 @@ describe("AuthCredentialsPage", () => {
     expect(screen.getByText("storefront")).toBeTruthy()
     expect(screen.getByText("Production")).toBeTruthy()
     expect(screen.getByText("pk_live_abc123")).toBeTruthy()
-    expect(screen.getByRole("button", { name: "Copy publishable key" })).toBeTruthy()
+    expect(
+      screen.getByRole("button", { name: "Copy publishable key" })
+    ).toBeTruthy()
     expect(screen.getByText("app")).toBeTruthy()
     // Same polarity as `apps.tsx`, `environments.tsx`, `plugins.tsx` and
     // `users.tsx`: `outline` reads as the true/normal case, `secondary` as
@@ -35,7 +37,10 @@ describe("AuthCredentialsPage", () => {
 
   it("marks the platform app with a badge", async () => {
     const { client } = stubClient({
-      "credentials.detail": { ...platformAnswers["credentials.detail"], isPlatform: true },
+      "credentials.detail": {
+        ...platformAnswers["credentials.detail"],
+        isPlatform: true,
+      },
     })
     renderPage(AuthCredentialsPage, client)
     await waitFor(() => expect(screen.getByText("Storefront")).toBeTruthy())
@@ -55,6 +60,8 @@ describe("AuthCredentialsPage", () => {
     renderPage(AuthCredentialsPage, client)
     await waitFor(() => expect(screen.getByText("Platform")).toBeTruthy())
     expect(screen.getAllByLabelText(/^no /).length).toBeGreaterThanOrEqual(2)
-    expect(screen.queryByRole("button", { name: "Copy publishable key" })).toBeNull()
+    expect(
+      screen.queryByRole("button", { name: "Copy publishable key" })
+    ).toBeNull()
   })
 })

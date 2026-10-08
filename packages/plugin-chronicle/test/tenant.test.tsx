@@ -19,6 +19,8 @@ describe("TenantValue", () => {
   it("never calls a tenant the server did not send app level", () => {
     render(<TenantValue tenantId={undefined} />)
     expect(screen.queryByText(/App level/)).toBeNull()
-    expect(screen.getByText("Not reported by this server").className).toContain("text-muted-foreground")
+    expect(screen.getByText("Not reported by this server").className).toContain(
+      "text-muted-foreground"
+    )
   })
 })

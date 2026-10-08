@@ -36,13 +36,16 @@ beforeEach(() => {
  */
 export function stubClient(
   answers: Record<string, unknown>,
-  commands: Record<string, unknown> = {},
+  commands: Record<string, unknown> = {}
 ): ScopedClient {
   return {
     extension: "keysmith",
     query: async (intent: string) => {
       if (!(intent in answers)) {
-        throw new ContractError("NOT_FOUND", `no handler for intent "${intent}"`)
+        throw new ContractError(
+          "NOT_FOUND",
+          `no handler for intent "${intent}"`
+        )
       }
       return answers[intent]
     },
@@ -51,7 +54,10 @@ export function stubClient(
     // resolve to undefined and look like a success.
     command: async (intent: string) => {
       if (!(intent in commands)) {
-        throw new ContractError("NOT_FOUND", `no handler for command "${intent}"`)
+        throw new ContractError(
+          "NOT_FOUND",
+          `no handler for command "${intent}"`
+        )
       }
       return commands[intent]
     },
@@ -61,7 +67,7 @@ export function stubClient(
 /** Records every command a page sends, with its payload, in order. */
 export function recordingCommandClient(
   answers: Record<string, unknown>,
-  commands: Record<string, unknown> = {},
+  commands: Record<string, unknown> = {}
 ): { client: ScopedClient; sent: { intent: string; payload: unknown }[] } {
   const sent: { intent: string; payload: unknown }[] = []
   const inner = stubClient(answers, commands)
@@ -97,7 +103,7 @@ export const STILL_RUNNING_MESSAGE =
  */
 export function secretCommandClient(
   answers: Record<string, unknown>,
-  commands: Record<string, unknown>,
+  commands: Record<string, unknown>
 ): {
   client: ScopedClient
   sent: { intent: string; payload: unknown; idempotencyKey?: string }[]
@@ -107,7 +113,8 @@ export function secretCommandClient(
   holdNextRun: () => void
   finishRuns: () => void
 } {
-  const sent: { intent: string; payload: unknown; idempotencyKey?: string }[] = []
+  const sent: { intent: string; payload: unknown; idempotencyKey?: string }[] =
+    []
   const ran: Record<string, number> = {}
   const seen = new Set<string>()
   let lose = 0
@@ -130,7 +137,11 @@ export function secretCommandClient(
     client: {
       extension: inner.extension,
       query: inner.query,
-      command: async (intent: string, payload?: unknown, opts?: CommandOptions) => {
+      command: async (
+        intent: string,
+        payload?: unknown,
+        opts?: CommandOptions
+      ) => {
         const key = opts?.idempotencyKey
         sent.push({ intent, payload, idempotencyKey: key })
         const at = `${key}:${intent}`
@@ -150,7 +161,10 @@ export function secretCommandClient(
         }
         if (lose > 0) {
           lose -= 1
-          throw new ContractError("TRANSPORT", "contract request failed with HTTP 502")
+          throw new ContractError(
+            "TRANSPORT",
+            "contract request failed with HTTP 502"
+          )
         }
         return answer
       },
@@ -233,7 +247,7 @@ export function recordingClient(answers: Record<string, unknown>): {
 export function renderPage(
   Page: ComponentType<PluginPageProps>,
   client: ScopedClient,
-  params: PluginPageProps["params"] = {},
+  params: PluginPageProps["params"] = {}
 ) {
   return render(
     <PluginProvider client={client}>
@@ -258,7 +272,7 @@ export interface RouterState {
 export function renderRoutedPage(
   Page: ComponentType<PluginPageProps>,
   client: ScopedClient,
-  params: PluginPageProps["params"] = {},
+  params: PluginPageProps["params"] = {}
 ) {
   const router: RouterState = { navigations: [], search: "" }
   const result = render(
@@ -271,7 +285,7 @@ export function renderRoutedPage(
       >
         <Page params={params} />
       </FakeHost>
-    </PluginProvider>,
+    </PluginProvider>
   )
   return { ...result, router }
 }

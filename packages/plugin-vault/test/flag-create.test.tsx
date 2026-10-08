@@ -50,7 +50,7 @@ function renderCreate(client: ScopedClient) {
       >
         <FlagCreatePage params={{}} />
       </NavigationProvider>
-    </PluginProvider>,
+    </PluginProvider>
   )
   return { navigate }
 }
@@ -69,10 +69,14 @@ describe("FlagCreatePage", () => {
   it("starts as a bool flag, enabled, with nothing to submit", () => {
     const { client } = recordingCommandClient({}, { "flags.create": CREATED })
     renderCreate(client)
-    expect((screen.getByLabelText("Type") as HTMLSelectElement).value).toBe("bool")
-    expect(screen.getByRole("checkbox", { name: "Enabled" }).getAttribute("aria-checked")).toBe(
-      "true",
+    expect((screen.getByLabelText("Type") as HTMLSelectElement).value).toBe(
+      "bool"
     )
+    expect(
+      screen
+        .getByRole("checkbox", { name: "Enabled" })
+        .getAttribute("aria-checked")
+    ).toBe("true")
     expect(submit().disabled).toBe(true)
   })
 
@@ -106,7 +110,10 @@ describe("FlagCreatePage", () => {
   })
 
   it("sends a real boolean default and exact field names", async () => {
-    const { client, sent } = recordingCommandClient({}, { "flags.create": CREATED })
+    const { client, sent } = recordingCommandClient(
+      {},
+      { "flags.create": CREATED }
+    )
     renderCreate(client)
     setKey("checkout/new-flow")
     chooseBool("true")
@@ -121,21 +128,34 @@ describe("FlagCreatePage", () => {
       enabled: true,
     })
     expect(typeof payload.defaultValue).toBe("boolean")
-    expect(Object.keys(payload).sort()).toEqual(["defaultValue", "enabled", "key", "type"])
+    expect(Object.keys(payload).sort()).toEqual([
+      "defaultValue",
+      "enabled",
+      "key",
+      "type",
+    ])
   })
 
   it("sends false as false, not as an absent default", async () => {
-    const { client, sent } = recordingCommandClient({}, { "flags.create": CREATED })
+    const { client, sent } = recordingCommandClient(
+      {},
+      { "flags.create": CREATED }
+    )
     renderCreate(client)
     setKey("k")
     chooseBool("false")
     fireEvent.click(submit())
     await waitFor(() => expect(sent).toHaveLength(1))
-    expect((sent[0]?.payload as Record<string, unknown>).defaultValue).toBe(false)
+    expect((sent[0]?.payload as Record<string, unknown>).defaultValue).toBe(
+      false
+    )
   })
 
   it("sends an int default as a number, description, trimmed tags and enabled off", async () => {
-    const { client, sent } = recordingCommandClient({}, { "flags.create": CREATED })
+    const { client, sent } = recordingCommandClient(
+      {},
+      { "flags.create": CREATED }
+    )
     renderCreate(client)
     setKey("  max-items ")
     setType("int")
@@ -159,8 +179,11 @@ describe("FlagCreatePage", () => {
     })
   })
 
-  it("sends an empty string default as \"\", not omitted", async () => {
-    const { client, sent } = recordingCommandClient({}, { "flags.create": CREATED })
+  it('sends an empty string default as "", not omitted', async () => {
+    const { client, sent } = recordingCommandClient(
+      {},
+      { "flags.create": CREATED }
+    )
     renderCreate(client)
     setKey("banner-text")
     setType("string")
@@ -193,18 +216,26 @@ describe("FlagCreatePage", () => {
   })
 
   it("sends a string default that looks like a boolean as a string", async () => {
-    const { client, sent } = recordingCommandClient({}, { "flags.create": CREATED })
+    const { client, sent } = recordingCommandClient(
+      {},
+      { "flags.create": CREATED }
+    )
     renderCreate(client)
     setKey("k")
     setType("string")
     fireEvent.change(defaultBox(), { target: { value: "true" } })
     fireEvent.click(submit())
     await waitFor(() => expect(sent).toHaveLength(1))
-    expect((sent[0]?.payload as Record<string, unknown>).defaultValue).toBe("true")
+    expect((sent[0]?.payload as Record<string, unknown>).defaultValue).toBe(
+      "true"
+    )
   })
 
   it("sends parsed JSON, including null", async () => {
-    const { client, sent } = recordingCommandClient({}, { "flags.create": CREATED })
+    const { client, sent } = recordingCommandClient(
+      {},
+      { "flags.create": CREATED }
+    )
     renderCreate(client)
     setKey("k")
     setType("json")
@@ -245,34 +276,41 @@ describe("FlagCreatePage", () => {
   it("keeps the form and shows the server's message when the client throws", async () => {
     const { navigate } = renderCreate(
       failingClient(
-        new ContractError("BAD_REQUEST", "flag: defaultValue: expected an integer"),
-      ),
+        new ContractError(
+          "BAD_REQUEST",
+          "flag: defaultValue: expected an integer"
+        )
+      )
     )
     setKey("k")
     setType("int")
     fireEvent.change(defaultBox(), { target: { value: "5" } })
     fireEvent.click(submit())
     const alert = await screen.findByRole("alert")
-    expect(alert.textContent).toContain("flag: defaultValue: expected an integer")
+    expect(alert.textContent).toContain(
+      "flag: defaultValue: expected an integer"
+    )
     expect(navigate).not.toHaveBeenCalled()
     expect((screen.getByLabelText("Key") as HTMLInputElement).value).toBe("k")
     expect(defaultBox().value).toBe("5")
     expect(submit().disabled).toBe(false)
-    expect(screen.queryByRole("link", { name: "Open the existing flag" })).toBeNull()
+    expect(
+      screen.queryByRole("link", { name: "Open the existing flag" })
+    ).toBeNull()
   })
 
   it("explains a CONFLICT and links to the existing flag", async () => {
     const { navigate } = renderCreate(
       failingClient(
-        new ContractError("CONFLICT", "a flag with this key already exists"),
-      ),
+        new ContractError("CONFLICT", "a flag with this key already exists")
+      )
     )
     setKey("checkout/new-flow")
     chooseBool("true")
     fireEvent.click(submit())
     const alert = await screen.findByRole("alert")
     expect(alert.textContent).toContain(
-      'A flag with the key "checkout/new-flow" already exists.',
+      'A flag with the key "checkout/new-flow" already exists.'
     )
     expect(alert.textContent).toContain("CONFLICT")
     const link = screen.getByRole("link", { name: "Open the existing flag" })
@@ -283,8 +321,8 @@ describe("FlagCreatePage", () => {
   it("keeps the CONFLICT message and link on the submitted key after the field is edited", async () => {
     renderCreate(
       failingClient(
-        new ContractError("CONFLICT", "a flag with this key already exists"),
-      ),
+        new ContractError("CONFLICT", "a flag with this key already exists")
+      )
     )
     setKey("checkout/new-flow")
     chooseBool("true")
@@ -299,7 +337,10 @@ describe("FlagCreatePage", () => {
   })
 
   it("sends nothing when the form is submitted with the button disabled", async () => {
-    const { client, sent } = recordingCommandClient({}, { "flags.create": CREATED })
+    const { client, sent } = recordingCommandClient(
+      {},
+      { "flags.create": CREATED }
+    )
     const { navigate } = renderCreate(client)
     setKey("k")
     // No default chosen. Enter in a field submits the form regardless.
@@ -312,6 +353,8 @@ describe("FlagCreatePage", () => {
   it("has a Cancel link back to the list", () => {
     const { client } = recordingCommandClient({}, { "flags.create": CREATED })
     renderCreate(client)
-    expect(screen.getByRole("link", { name: "Cancel" }).getAttribute("href")).toBe("/flags")
+    expect(
+      screen.getByRole("link", { name: "Cancel" }).getAttribute("href")
+    ).toBe("/flags")
   })
 })

@@ -6,7 +6,7 @@ describe("FilterBar", () => {
   it("reports every keystroke in the search box", () => {
     const onChange = vi.fn()
     render(
-      <FilterBar search={{ value: "", onChange, label: "Search users" }} />,
+      <FilterBar search={{ value: "", onChange, label: "Search users" }} />
     )
     fireEvent.change(screen.getByRole("searchbox", { name: "Search users" }), {
       target: { value: "ada" },
@@ -30,7 +30,7 @@ describe("FilterBar", () => {
             ],
           },
         ]}
-      />,
+      />
     )
     const select = screen.getByRole("combobox", { name: "Status" })
     fireEvent.change(select, { target: { value: "banned" } })

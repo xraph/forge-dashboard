@@ -59,7 +59,12 @@ function rule(over: Record<string, unknown> = {}) {
 }
 
 const RULES = [
-  rule({ id: "rul_1", priority: 0, type: "when_tenant", tenantIds: ["t-beta", "t-gamma"] }),
+  rule({
+    id: "rul_1",
+    priority: 0,
+    type: "when_tenant",
+    tenantIds: ["t-beta", "t-gamma"],
+  }),
   rule({ id: "rul_2", priority: 1, type: "when_user", userIds: ["u-1"] }),
   rule({ id: "rul_3", priority: 2, type: "rollout", percentage: 25 }),
   rule({
@@ -69,8 +74,18 @@ const RULES = [
     startAt: "2026-03-01T09:00:00Z",
     endAt: "2026-03-14T17:30:00Z",
   }),
-  rule({ id: "rul_5", priority: 4, type: "schedule", startAt: "2026-03-01T09:00:00Z" }),
-  rule({ id: "rul_6", priority: 5, type: "schedule", endAt: "2026-03-14T17:30:00Z" }),
+  rule({
+    id: "rul_5",
+    priority: 4,
+    type: "schedule",
+    startAt: "2026-03-01T09:00:00Z",
+  }),
+  rule({
+    id: "rul_6",
+    priority: 5,
+    type: "schedule",
+    endAt: "2026-03-14T17:30:00Z",
+  }),
   rule({
     id: "rul_7",
     priority: 6,
@@ -90,8 +105,18 @@ const RULES = [
 ]
 
 const OVERRIDES = [
-  { tenantId: "t-acme", value: true, valueMatchesType: true, updatedAt: "2026-09-22T10:00:00Z" },
-  { tenantId: "t-globex", value: false, valueMatchesType: true, updatedAt: "2026-09-22T11:00:00Z" },
+  {
+    tenantId: "t-acme",
+    value: true,
+    valueMatchesType: true,
+    updatedAt: "2026-09-22T10:00:00Z",
+  },
+  {
+    tenantId: "t-globex",
+    value: false,
+    valueMatchesType: true,
+    updatedAt: "2026-09-22T11:00:00Z",
+  },
 ]
 
 const AUDIT = [
@@ -126,7 +151,7 @@ interface Harness {
 /** One client that records both the reads and the writes a page sends. */
 function harness(
   answer: unknown = detail(),
-  commands: Record<string, unknown> = {},
+  commands: Record<string, unknown> = {}
 ): Harness {
   const queries: Harness["queries"] = []
   const sent: Harness["commands"] = []
@@ -149,7 +174,10 @@ function harness(
 }
 
 /** Commands that throw, for the failure path. */
-function failingCommands(error: ContractError, answer: unknown = detail()): Harness {
+function failingCommands(
+  error: ContractError,
+  answer: unknown = detail()
+): Harness {
   const h = harness(answer)
   return {
     ...h,
@@ -178,7 +206,10 @@ function neverSettles(answer: unknown = detail()): Harness {
   }
 }
 
-function renderDetail(client: ScopedClient, params: Record<string, string> = { key: KEY }) {
+function renderDetail(
+  client: ScopedClient,
+  params: Record<string, string> = { key: KEY }
+) {
   const navigate = vi.fn()
   render(
     <PluginProvider client={client}>
@@ -194,7 +225,7 @@ function renderDetail(client: ScopedClient, params: Record<string, string> = { k
       >
         <FlagDetailPage params={params} />
       </NavigationProvider>
-    </PluginProvider>,
+    </PluginProvider>
   )
   return { navigate }
 }
@@ -248,12 +279,17 @@ describe("FlagDetailPage reads", () => {
     const client = {
       extension: "vault",
       query: async () => {
-        throw new ContractError("NOT_FOUND", 'no handler for intent "flags.detail"')
+        throw new ContractError(
+          "NOT_FOUND",
+          'no handler for intent "flags.detail"'
+        )
       },
       command: async () => undefined,
     } as unknown as ScopedClient
     renderDetail(client)
-    expect((await screen.findAllByText(/no handler for intent/)).length).toBeGreaterThan(0)
+    expect(
+      (await screen.findAllByText(/no handler for intent/)).length
+    ).toBeGreaterThan(0)
     expect(screen.queryByText(`No flag named ${KEY}.`)).toBeNull()
   })
 
@@ -266,7 +302,9 @@ describe("FlagDetailPage reads", () => {
       command: async () => undefined,
     } as unknown as ScopedClient
     renderDetail(client)
-    expect((await screen.findAllByText(/store is down/)).length).toBeGreaterThan(0)
+    expect(
+      (await screen.findAllByText(/store is down/)).length
+    ).toBeGreaterThan(0)
   })
 })
 
@@ -278,17 +316,24 @@ describe("FlagDetailPage refresh", () => {
     let reads = 0
     const client = {
       extension: "vault",
-      query: () => (++reads === 1 ? Promise.resolve(detail()) : new Promise<never>(() => {})),
+      query: () =>
+        ++reads === 1
+          ? Promise.resolve(detail())
+          : new Promise<never>(() => {}),
       command: async () => undefined,
     } as unknown as ScopedClient
     renderDetail(client)
     const dialog = await openDialog("Edit description")
-    fireEvent.change(within(dialog).getByLabelText("Description"), { target: { value: "half typed" } })
+    fireEvent.change(within(dialog).getByLabelText("Description"), {
+      target: { value: "half typed" },
+    })
     queryStore.invalidate("vault", ["flags.detail"])
     await waitFor(() => expect(reads).toBe(2))
     await new Promise((r) => setTimeout(r, 20))
     expect(screen.queryByRole("status", { name: /Loading/ })).toBeNull()
-    expect((screen.getByLabelText("Description") as HTMLInputElement).value).toBe("half typed")
+    expect(
+      (screen.getByLabelText("Description") as HTMLInputElement).value
+    ).toBe("half typed")
   })
 })
 
@@ -299,15 +344,19 @@ describe("FlagDetailPage header and definition", () => {
     // PageHeader takes a string title, so the key's mono comes from a variant
     // on the header that reaches its h1.
     expect(heading.closest('[data-slot="page-header"]')?.className).toContain(
-      "[&_h1]:font-mono",
+      "[&_h1]:font-mono"
     )
     expect(screen.getAllByText("bool").length).toBeGreaterThan(0)
-    expect(screen.getAllByText("The new checkout flow").length).toBeGreaterThan(0)
+    expect(screen.getAllByText("The new checkout flow").length).toBeGreaterThan(
+      0
+    )
     expect(screen.getAllByText("payments").length).toBeGreaterThan(0)
   })
 
   it("says so when there is no description or no tags", async () => {
-    renderDetail(harness(detail({ flag: flag({ description: "", tags: [] }) })).client)
+    renderDetail(
+      harness(detail({ flag: flag({ description: "", tags: [] }) })).client
+    )
     await ready()
     expect(screen.getAllByText("No description").length).toBeGreaterThan(0)
     expect(screen.getAllByLabelText("no tags").length).toBeGreaterThan(0)
@@ -317,12 +366,17 @@ describe("FlagDetailPage header and definition", () => {
     renderDetail(
       harness(
         detail({
-          flag: flag({ type: "string", defaultValue: true, defaultMatchesType: false }),
-        }),
-      ).client,
+          flag: flag({
+            type: "string",
+            defaultValue: true,
+            defaultMatchesType: false,
+          }),
+        })
+      ).client
     )
     await ready()
-    const def = screen.getByText("Default", { selector: "dt" }).nextElementSibling as HTMLElement
+    const def = screen.getByText("Default", { selector: "dt" })
+      .nextElementSibling as HTMLElement
     expect(def.textContent).toContain("true")
     expect(def.textContent).not.toContain('"true"')
     expect(within(def).getByText("Wrong type")).toBeTruthy()
@@ -330,10 +384,12 @@ describe("FlagDetailPage header and definition", () => {
 
   it("draws a string default quoted, so it is not mistaken for a boolean", async () => {
     renderDetail(
-      harness(detail({ flag: flag({ type: "string", defaultValue: "true" }) })).client,
+      harness(detail({ flag: flag({ type: "string", defaultValue: "true" }) }))
+        .client
     )
     await ready()
-    const def = screen.getByText("Default", { selector: "dt" }).nextElementSibling as HTMLElement
+    const def = screen.getByText("Default", { selector: "dt" })
+      .nextElementSibling as HTMLElement
     expect(def.textContent).toContain('"true"')
     expect(within(def).queryByText("Wrong type")).toBeNull()
   })
@@ -344,8 +400,8 @@ describe("FlagDetailPage header and definition", () => {
         detail({
           variants: [{ value: "blue", description: "Blue button" }],
           metadata: { team: "payments", env: "prod" },
-        }),
-      ).client,
+        })
+      ).client
     )
     await ready()
     expect(screen.getByText("Not used when evaluating")).toBeTruthy()
@@ -423,8 +479,14 @@ describe("FlagDetailPage ladder", () => {
   it("says what each rung does in a sentence", async () => {
     renderDetail(harness().client)
     await ready()
-    expect(within(rung("enabled")).getByText(/When off, everything below returns the default\./)).toBeTruthy()
-    expect(within(rung("overrides")).getByText(/Beat every rule below\./)).toBeTruthy()
+    expect(
+      within(rung("enabled")).getByText(
+        /When off, everything below returns the default\./
+      )
+    ).toBeTruthy()
+    expect(
+      within(rung("overrides")).getByText(/Beat every rule below\./)
+    ).toBeTruthy()
     expect(within(rung("rules")).getByText(/First match wins\./)).toBeTruthy()
   })
 
@@ -436,13 +498,17 @@ describe("FlagDetailPage ladder", () => {
     expect(rows[0]?.textContent).toContain("true")
     expect(rows[1]?.textContent).toContain("t-globex")
     expect(rows[1]?.textContent).toContain("false")
-    expect(within(rows[0]!).getByText("t-acme").className).toContain("font-mono")
+    expect(within(rows[0]!).getByText("t-acme").className).toContain(
+      "font-mono"
+    )
   })
 
   it("says there are no overrides, and no rules", async () => {
     renderDetail(harness().client)
     await ready()
-    expect(within(rung("overrides")).getByText("No tenant overrides.")).toBeTruthy()
+    expect(
+      within(rung("overrides")).getByText("No tenant overrides.")
+    ).toBeTruthy()
     expect(within(rung("rules")).getByText(/No rules\./)).toBeTruthy()
   })
 
@@ -451,10 +517,15 @@ describe("FlagDetailPage ladder", () => {
       harness(
         detail({
           overrides: [
-            { tenantId: "t-x", value: "yes", valueMatchesType: false, updatedAt: "2026-09-22T10:00:00Z" },
+            {
+              tenantId: "t-x",
+              value: "yes",
+              valueMatchesType: false,
+              updatedAt: "2026-09-22T10:00:00Z",
+            },
           ],
-        }),
-      ).client,
+        })
+      ).client
     )
     await ready()
     expect(within(rung("overrides")).getByText("Wrong type")).toBeTruthy()
@@ -465,11 +536,21 @@ describe("FlagDetailPage ladder", () => {
       harness(
         detail({
           rules: [
-            rule({ id: "a", priority: 9, type: "when_user", userIds: ["u-first"] }),
-            rule({ id: "b", priority: 2, type: "when_user", userIds: ["u-second"] }),
+            rule({
+              id: "a",
+              priority: 9,
+              type: "when_user",
+              userIds: ["u-first"],
+            }),
+            rule({
+              id: "b",
+              priority: 2,
+              type: "when_user",
+              userIds: ["u-second"],
+            }),
           ],
-        }),
-      ).client,
+        })
+      ).client
     )
     await ready()
     const rows = within(rung("rules")).getAllByRole("listitem")
@@ -487,7 +568,9 @@ describe("FlagDetailPage ladder", () => {
     expect(rows).toHaveLength(8)
     // Tenant and user rules: chips.
     expect(rows[0]?.textContent).toContain("Tenant is one of")
-    expect(within(rows[0]!).getByText("t-beta").className).toContain("font-mono")
+    expect(within(rows[0]!).getByText("t-beta").className).toContain(
+      "font-mono"
+    )
     expect(within(rows[0]!).getByText("t-gamma")).toBeTruthy()
     expect(rows[1]?.textContent).toContain("User is one of")
     expect(within(rows[1]!).getByText("u-1")).toBeTruthy()
@@ -495,7 +578,9 @@ describe("FlagDetailPage ladder", () => {
     expect(rows[2]?.textContent).toContain("Rollout to 25% of tenants")
     expect(rows[2]?.textContent).toMatch(/never by user/i)
     // Schedule: three shapes, all in UTC.
-    expect(rows[3]?.textContent).toContain("Between 2026-03-01 09:00 and 2026-03-14 17:30 UTC")
+    expect(rows[3]?.textContent).toContain(
+      "Between 2026-03-01 09:00 and 2026-03-14 17:30 UTC"
+    )
     expect(rows[4]?.textContent).toContain("From 2026-03-01 09:00 UTC")
     expect(rows[5]?.textContent).toContain("Until 2026-03-14 17:30 UTC")
     // The two the engine never matches.
@@ -507,15 +592,26 @@ describe("FlagDetailPage ladder", () => {
     renderDetail(harness(detail({ rules: RULES })).client)
     await ready()
     const rows = within(rung("rules")).getAllByRole("listitem")
-    const flagged = rows.map((r) => within(r).queryByText("Never matches") !== null)
-    expect(flagged).toEqual([false, false, false, false, false, false, true, true])
+    const flagged = rows.map(
+      (r) => within(r).queryByText("Never matches") !== null
+    )
+    expect(flagged).toEqual([
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+    ])
   })
 
   it("calls an unknown rule type unknown, and says it never matches", async () => {
     renderDetail(
       harness(
-        detail({ rules: [rule({ type: "geo_fence", implemented: false })] }),
-      ).client,
+        detail({ rules: [rule({ type: "geo_fence", implemented: false })] })
+      ).client
     )
     await ready()
     const row = within(rung("rules")).getByRole("listitem")
@@ -524,9 +620,13 @@ describe("FlagDetailPage ladder", () => {
   })
 
   it("says a schedule with no ends always matches", async () => {
-    renderDetail(harness(detail({ rules: [rule({ type: "schedule" })] })).client)
+    renderDetail(
+      harness(detail({ rules: [rule({ type: "schedule" })] })).client
+    )
     await ready()
-    expect(within(rung("rules")).getByRole("listitem").textContent).toMatch(/no start or end/i)
+    expect(within(rung("rules")).getByRole("listitem").textContent).toMatch(
+      /no start or end/i
+    )
   })
 
   it("shows each rule's return value typed, and marks one that is the wrong type", async () => {
@@ -534,7 +634,12 @@ describe("FlagDetailPage ladder", () => {
       harness(
         detail({
           rules: [
-            rule({ id: "a", type: "when_user", userIds: ["u"], returnValue: true }),
+            rule({
+              id: "a",
+              type: "when_user",
+              userIds: ["u"],
+              returnValue: true,
+            }),
             rule({
               id: "b",
               type: "when_user",
@@ -543,8 +648,8 @@ describe("FlagDetailPage ladder", () => {
               returnMatchesType: false,
             }),
           ],
-        }),
-      ).client,
+        })
+      ).client
     )
     await ready()
     const rows = within(rung("rules")).getAllByRole("listitem")
@@ -556,7 +661,7 @@ describe("FlagDetailPage ladder", () => {
 
   it("shows the default on the last rung", async () => {
     renderDetail(
-      harness(detail({ flag: flag({ type: "int", defaultValue: 7 }) })).client,
+      harness(detail({ flag: flag({ type: "int", defaultValue: 7 }) })).client
     )
     await ready()
     expect(within(rung("default")).getByText("7")).toBeTruthy()
@@ -565,10 +670,15 @@ describe("FlagDetailPage ladder", () => {
   it("offers Edit rules in rung 3's actions, and no other rung offers rule editing", async () => {
     renderDetail(harness(detail({ rules: RULES })).client)
     await ready()
-    const header = rungBody("rules").firstElementChild!.nextElementSibling as HTMLElement
-    expect(within(header).getByRole("button", { name: "Edit rules" })).toBeTruthy()
+    const header = rungBody("rules").firstElementChild!
+      .nextElementSibling as HTMLElement
+    expect(
+      within(header).getByRole("button", { name: "Edit rules" })
+    ).toBeTruthy()
     for (const id of ["enabled", "overrides", "default"]) {
-      expect(within(rung(id)).queryByRole("button", { name: /rules/i })).toBeNull()
+      expect(
+        within(rung(id)).queryByRole("button", { name: /rules/i })
+      ).toBeNull()
     }
     // Reading the rules opens no draft: no Save, no Add.
     expect(screen.queryByRole("button", { name: "Save rules" })).toBeNull()
@@ -616,8 +726,14 @@ describe("FlagDetailPage when the flag is off", () => {
 describe("FlagDetailPage with a type the vault does not evaluate", () => {
   const yaml = () =>
     detail({
-      flag: flag({ type: "yaml", defaultValue: "a: 1", defaultMatchesType: false }),
-      rules: [rule({ id: "rul_1", priority: 0, type: "when_user", userIds: ["u-1"] })],
+      flag: flag({
+        type: "yaml",
+        defaultValue: "a: 1",
+        defaultMatchesType: false,
+      }),
+      rules: [
+        rule({ id: "rul_1", priority: 0, type: "when_user", userIds: ["u-1"] }),
+      ],
     })
   const SENTENCE =
     "This flag's type, yaml, is not one the vault evaluates, so its values cannot be edited here."
@@ -642,15 +758,30 @@ describe("FlagDetailPage with a type the vault does not evaluate", () => {
   it("still edits the description and tags, which need no type", async () => {
     renderDetail(harness(yaml()).client)
     await ready()
-    expect((screen.getByRole("button", { name: "Edit description" }) as HTMLButtonElement).disabled).toBe(false)
-    expect((screen.getByRole("button", { name: "Edit tags" }) as HTMLButtonElement).disabled).toBe(false)
+    expect(
+      (
+        screen.getByRole("button", {
+          name: "Edit description",
+        }) as HTMLButtonElement
+      ).disabled
+    ).toBe(false)
+    expect(
+      (screen.getByRole("button", { name: "Edit tags" }) as HTMLButtonElement)
+        .disabled
+    ).toBe(false)
   })
 
   it("says nothing of the kind for a type the vault evaluates", async () => {
     renderDetail(harness().client)
     await ready()
     expect(screen.queryByText(/is not one the vault evaluates/)).toBeNull()
-    expect((screen.getByRole("button", { name: "Edit default" }) as HTMLButtonElement).disabled).toBe(false)
+    expect(
+      (
+        screen.getByRole("button", {
+          name: "Edit default",
+        }) as HTMLButtonElement
+      ).disabled
+    ).toBe(false)
   })
 })
 
@@ -664,7 +795,9 @@ describe("FlagDetailPage enabled switch", () => {
   })
 
   it("sends key and enabled:false for an enabled flag", async () => {
-    const h = harness(detail(), { "flags.setEnabled": { flag: flag({ enabled: false }) } })
+    const h = harness(detail(), {
+      "flags.setEnabled": { flag: flag({ enabled: false }) },
+    })
     renderDetail(h.client)
     await ready()
     fireEvent.click(sw())
@@ -697,7 +830,9 @@ describe("FlagDetailPage enabled switch", () => {
   })
 
   it("shows a failure under rung 1", async () => {
-    const h = failingCommands(new ContractError("INTERNAL", "could not save the flag"))
+    const h = failingCommands(
+      new ContractError("INTERNAL", "could not save the flag")
+    )
     renderDetail(h.client)
     await ready()
     fireEvent.click(sw())
@@ -714,7 +849,9 @@ describe("FlagDetailPage edit dialogs", () => {
     renderDetail(h.client)
     const dialog = await openDialog("Edit default")
     fireEvent.click(within(dialog).getByRole("button", { name: "true" }))
-    fireEvent.click(within(dialog).getByRole("button", { name: "Save default" }))
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: "Save default" })
+    )
     await waitFor(() => expect(h.commands).toHaveLength(1))
     expect(h.commands[0]).toEqual({
       intent: "flags.update",
@@ -724,27 +861,39 @@ describe("FlagDetailPage edit dialogs", () => {
   })
 
   it("edits the default of an int flag and sends a number", async () => {
-    const h = harness(detail({ flag: flag({ type: "int", defaultValue: 7 }) }), {
-      "flags.update": { flag: flag() },
-    })
+    const h = harness(
+      detail({ flag: flag({ type: "int", defaultValue: 7 }) }),
+      {
+        "flags.update": { flag: flag() },
+      }
+    )
     renderDetail(h.client)
     const dialog = await openDialog("Edit default")
     const input = within(dialog).getByRole("textbox") as HTMLInputElement
     expect(input.value).toBe("7")
     fireEvent.change(input, { target: { value: "42" } })
-    fireEvent.click(within(dialog).getByRole("button", { name: "Save default" }))
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: "Save default" })
+    )
     await waitFor(() => expect(h.commands).toHaveLength(1))
     expect(h.commands[0]?.payload).toEqual({ key: KEY, defaultValue: 42 })
   })
 
   it("can set a string default to the empty string", async () => {
-    const h = harness(detail({ flag: flag({ type: "string", defaultValue: "x" }) }), {
-      "flags.update": { flag: flag() },
-    })
+    const h = harness(
+      detail({ flag: flag({ type: "string", defaultValue: "x" }) }),
+      {
+        "flags.update": { flag: flag() },
+      }
+    )
     renderDetail(h.client)
     const dialog = await openDialog("Edit default")
-    fireEvent.change(within(dialog).getByRole("textbox"), { target: { value: "" } })
-    fireEvent.click(within(dialog).getByRole("button", { name: "Save default" }))
+    fireEvent.change(within(dialog).getByRole("textbox"), {
+      target: { value: "" },
+    })
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: "Save default" })
+    )
     await waitFor(() => expect(h.commands).toHaveLength(1))
     expect(h.commands[0]?.payload).toEqual({ key: KEY, defaultValue: "" })
   })
@@ -753,8 +902,12 @@ describe("FlagDetailPage edit dialogs", () => {
     const h = harness(detail({ flag: flag({ type: "int", defaultValue: 7 }) }))
     renderDetail(h.client)
     const dialog = await openDialog("Edit default")
-    fireEvent.change(within(dialog).getByRole("textbox"), { target: { value: "" } })
-    const save = within(dialog).getByRole("button", { name: "Save default" }) as HTMLButtonElement
+    fireEvent.change(within(dialog).getByRole("textbox"), {
+      target: { value: "" },
+    })
+    const save = within(dialog).getByRole("button", {
+      name: "Save default",
+    }) as HTMLButtonElement
     expect(save.disabled).toBe(true)
     fireEvent.submit(dialog.querySelector("form") as HTMLFormElement)
     expect(h.commands).toHaveLength(0)
@@ -762,17 +915,29 @@ describe("FlagDetailPage edit dialogs", () => {
 
   it("starts a mistyped default empty, not on the wrong value", async () => {
     const h = harness(
-      detail({ flag: flag({ type: "bool", defaultValue: "true", defaultMatchesType: false }) }),
+      detail({
+        flag: flag({
+          type: "bool",
+          defaultValue: "true",
+          defaultMatchesType: false,
+        }),
+      })
     )
     renderDetail(h.client)
     const dialog = await openDialog("Edit default")
     for (const name of ["true", "false"]) {
       expect(
-        within(dialog).getByRole("button", { name }).getAttribute("aria-pressed"),
+        within(dialog)
+          .getByRole("button", { name })
+          .getAttribute("aria-pressed")
       ).toBe("false")
     }
     expect(
-      (within(dialog).getByRole("button", { name: "Save default" }) as HTMLButtonElement).disabled,
+      (
+        within(dialog).getByRole("button", {
+          name: "Save default",
+        }) as HTMLButtonElement
+      ).disabled
     ).toBe(true)
   })
 
@@ -780,10 +945,14 @@ describe("FlagDetailPage edit dialogs", () => {
     const h = harness(detail(), { "flags.update": { flag: flag() } })
     renderDetail(h.client)
     const dialog = await openDialog("Edit description")
-    const input = within(dialog).getByLabelText("Description") as HTMLInputElement
+    const input = within(dialog).getByLabelText(
+      "Description"
+    ) as HTMLInputElement
     expect(input.value).toBe("The new checkout flow")
     fireEvent.change(input, { target: { value: "  Shorter  " } })
-    fireEvent.click(within(dialog).getByRole("button", { name: "Save description" }))
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: "Save description" })
+    )
     await waitFor(() => expect(h.commands).toHaveLength(1))
     expect(h.commands[0]).toEqual({
       intent: "flags.update",
@@ -795,8 +964,12 @@ describe("FlagDetailPage edit dialogs", () => {
     const h = harness(detail(), { "flags.update": { flag: flag() } })
     renderDetail(h.client)
     const dialog = await openDialog("Edit description")
-    fireEvent.change(within(dialog).getByLabelText("Description"), { target: { value: "" } })
-    fireEvent.click(within(dialog).getByRole("button", { name: "Save description" }))
+    fireEvent.change(within(dialog).getByLabelText("Description"), {
+      target: { value: "" },
+    })
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: "Save description" })
+    )
     await waitFor(() => expect(h.commands).toHaveLength(1))
     expect(h.commands[0]?.payload).toEqual({ key: KEY, description: "" })
   })
@@ -820,27 +993,37 @@ describe("FlagDetailPage edit dialogs", () => {
     const h = harness(detail(), { "flags.update": { flag: flag() } })
     renderDetail(h.client)
     const dialog = await openDialog("Edit tags")
-    fireEvent.change(within(dialog).getByLabelText("Tags"), { target: { value: "" } })
+    fireEvent.change(within(dialog).getByLabelText("Tags"), {
+      target: { value: "" },
+    })
     fireEvent.click(within(dialog).getByRole("button", { name: "Save tags" }))
     await waitFor(() => expect(h.commands).toHaveLength(1))
     expect(h.commands[0]?.payload).toEqual({ key: KEY, tags: [] })
   })
 
   it("shows a failure inside the dialog and keeps it open", async () => {
-    const h = failingCommands(new ContractError("BAD_REQUEST", "flag: description: too long"))
+    const h = failingCommands(
+      new ContractError("BAD_REQUEST", "flag: description: too long")
+    )
     renderDetail(h.client)
     const dialog = await openDialog("Edit description")
-    fireEvent.click(within(dialog).getByRole("button", { name: "Save description" }))
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: "Save description" })
+    )
     const alert = await within(dialog).findByRole("alert")
     expect(alert.textContent).toContain("flag: description: too long")
     expect(screen.queryByRole("dialog")).toBeTruthy()
   })
 
   it("shows no stale error when a dialog is reopened, even a different one", async () => {
-    const h = failingCommands(new ContractError("BAD_REQUEST", "flag: description: too long"))
+    const h = failingCommands(
+      new ContractError("BAD_REQUEST", "flag: description: too long")
+    )
     renderDetail(h.client)
     const dialog = await openDialog("Edit description")
-    fireEvent.click(within(dialog).getByRole("button", { name: "Save description" }))
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: "Save description" })
+    )
     await within(dialog).findByRole("alert")
     fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }))
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull())
@@ -852,21 +1035,25 @@ describe("FlagDetailPage edit dialogs", () => {
   it("starts each open from the flag's current value, not from an abandoned edit", async () => {
     renderDetail(harness().client)
     let dialog = await openDialog("Edit description")
-    fireEvent.change(within(dialog).getByLabelText("Description"), { target: { value: "abandoned" } })
+    fireEvent.change(within(dialog).getByLabelText("Description"), {
+      target: { value: "abandoned" },
+    })
     fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }))
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull())
     click("Edit description")
     dialog = await screen.findByRole("dialog")
-    expect((within(dialog).getByLabelText("Description") as HTMLInputElement).value).toBe(
-      "The new checkout flow",
-    )
+    expect(
+      (within(dialog).getByLabelText("Description") as HTMLInputElement).value
+    ).toBe("The new checkout flow")
   })
 
   it("disables save while pending and keeps the dialog open on Escape and Close", async () => {
     const h = neverSettles()
     renderDetail(h.client)
     const dialog = await openDialog("Edit description")
-    fireEvent.click(within(dialog).getByRole("button", { name: "Save description" }))
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: "Save description" })
+    )
     const saving = await within(dialog).findByRole("button", { name: /Saving/ })
     expect((saving as HTMLButtonElement).disabled).toBe(true)
     fireEvent.keyDown(dialog, { key: "Escape" })
@@ -889,12 +1076,18 @@ describe("FlagDetailPage tenant overrides", () => {
   const addButton = () => screen.getByRole("button", { name: "Add override" })
 
   it("adds an override for a bool flag with a real boolean", async () => {
-    const h = harness(detail(), { "flags.setTenantOverride": { override: OVERRIDES[0] } })
+    const h = harness(detail(), {
+      "flags.setTenantOverride": { override: OVERRIDES[0] },
+    })
     renderDetail(h.client)
     const dialog = await openDialog("Add override")
-    fireEvent.change(within(dialog).getByLabelText("Tenant ID"), { target: { value: " t-new " } })
+    fireEvent.change(within(dialog).getByLabelText("Tenant ID"), {
+      target: { value: " t-new " },
+    })
     fireEvent.click(within(dialog).getByRole("button", { name: "true" }))
-    fireEvent.click(within(dialog).getByRole("button", { name: "Save override" }))
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: "Save override" })
+    )
     await waitFor(() => expect(h.commands).toHaveLength(1))
     expect(h.commands[0]).toEqual({
       intent: "flags.setTenantOverride",
@@ -904,74 +1097,120 @@ describe("FlagDetailPage tenant overrides", () => {
   })
 
   it("adds an override for an int flag as a number", async () => {
-    const h = harness(detail({ flag: flag({ type: "int", defaultValue: 1 }) }), {
-      "flags.setTenantOverride": { override: OVERRIDES[0] },
-    })
+    const h = harness(
+      detail({ flag: flag({ type: "int", defaultValue: 1 }) }),
+      {
+        "flags.setTenantOverride": { override: OVERRIDES[0] },
+      }
+    )
     renderDetail(h.client)
     const dialog = await openDialog("Add override")
-    fireEvent.change(within(dialog).getByLabelText("Tenant ID"), { target: { value: "t-1" } })
-    fireEvent.change(within(dialog).getByLabelText("Value"), { target: { value: "5" } })
-    fireEvent.click(within(dialog).getByRole("button", { name: "Save override" }))
+    fireEvent.change(within(dialog).getByLabelText("Tenant ID"), {
+      target: { value: "t-1" },
+    })
+    fireEvent.change(within(dialog).getByLabelText("Value"), {
+      target: { value: "5" },
+    })
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: "Save override" })
+    )
     await waitFor(() => expect(h.commands).toHaveLength(1))
-    expect(h.commands[0]?.payload).toEqual({ key: KEY, tenantId: "t-1", value: 5 })
+    expect(h.commands[0]?.payload).toEqual({
+      key: KEY,
+      tenantId: "t-1",
+      value: 5,
+    })
   })
 
   it("adds a string override, including the empty string", async () => {
-    const h = harness(detail({ flag: flag({ type: "string", defaultValue: "a" }) }), {
-      "flags.setTenantOverride": { override: OVERRIDES[0] },
-    })
+    const h = harness(
+      detail({ flag: flag({ type: "string", defaultValue: "a" }) }),
+      {
+        "flags.setTenantOverride": { override: OVERRIDES[0] },
+      }
+    )
     renderDetail(h.client)
     const dialog = await openDialog("Add override")
-    fireEvent.change(within(dialog).getByLabelText("Tenant ID"), { target: { value: "t-1" } })
-    fireEvent.click(within(dialog).getByRole("button", { name: "Save override" }))
+    fireEvent.change(within(dialog).getByLabelText("Tenant ID"), {
+      target: { value: "t-1" },
+    })
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: "Save override" })
+    )
     await waitFor(() => expect(h.commands).toHaveLength(1))
-    expect(h.commands[0]?.payload).toEqual({ key: KEY, tenantId: "t-1", value: "" })
+    expect(h.commands[0]?.payload).toEqual({
+      key: KEY,
+      tenantId: "t-1",
+      value: "",
+    })
   })
 
   it("will not save without a tenant, or without a value", async () => {
     const h = harness()
     renderDetail(h.client)
     const dialog = await openDialog("Add override")
-    const save = within(dialog).getByRole("button", { name: "Save override" }) as HTMLButtonElement
+    const save = within(dialog).getByRole("button", {
+      name: "Save override",
+    }) as HTMLButtonElement
     expect(save.disabled).toBe(true)
-    fireEvent.change(within(dialog).getByLabelText("Tenant ID"), { target: { value: "t-1" } })
+    fireEvent.change(within(dialog).getByLabelText("Tenant ID"), {
+      target: { value: "t-1" },
+    })
     expect(save.disabled).toBe(true) // a bool has no value until one is chosen
     fireEvent.submit(dialog.querySelector("form") as HTMLFormElement)
     expect(h.commands).toHaveLength(0)
     fireEvent.click(within(dialog).getByRole("button", { name: "false" }))
     expect(save.disabled).toBe(false)
-    fireEvent.change(within(dialog).getByLabelText("Tenant ID"), { target: { value: "   " } })
+    fireEvent.change(within(dialog).getByLabelText("Tenant ID"), {
+      target: { value: "   " },
+    })
     expect(save.disabled).toBe(true)
   })
 
   it("shows a failure inside the dialog", async () => {
-    const h = failingCommands(new ContractError("BAD_REQUEST", "flag: value: not an int"))
+    const h = failingCommands(
+      new ContractError("BAD_REQUEST", "flag: value: not an int")
+    )
     renderDetail(h.client)
     const dialog = await openDialog("Add override")
-    fireEvent.change(within(dialog).getByLabelText("Tenant ID"), { target: { value: "t-1" } })
+    fireEvent.change(within(dialog).getByLabelText("Tenant ID"), {
+      target: { value: "t-1" },
+    })
     fireEvent.click(within(dialog).getByRole("button", { name: "true" }))
-    fireEvent.click(within(dialog).getByRole("button", { name: "Save override" }))
-    expect((await within(dialog).findByRole("alert")).textContent).toContain("not an int")
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: "Save override" })
+    )
+    expect((await within(dialog).findByRole("alert")).textContent).toContain(
+      "not an int"
+    )
   })
 
   it("starts empty on every open", async () => {
     renderDetail(harness().client)
     let dialog = await openDialog("Add override")
-    fireEvent.change(within(dialog).getByLabelText("Tenant ID"), { target: { value: "t-1" } })
+    fireEvent.change(within(dialog).getByLabelText("Tenant ID"), {
+      target: { value: "t-1" },
+    })
     fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }))
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull())
     fireEvent.click(addButton())
     dialog = await screen.findByRole("dialog")
-    expect((within(dialog).getByLabelText("Tenant ID") as HTMLInputElement).value).toBe("")
+    expect(
+      (within(dialog).getByLabelText("Tenant ID") as HTMLInputElement).value
+    ).toBe("")
   })
 
   it("keeps the dialog open on Escape while pending", async () => {
     const h = neverSettles()
     renderDetail(h.client)
     const dialog = await openDialog("Add override")
-    fireEvent.change(within(dialog).getByLabelText("Tenant ID"), { target: { value: "t-1" } })
+    fireEvent.change(within(dialog).getByLabelText("Tenant ID"), {
+      target: { value: "t-1" },
+    })
     fireEvent.click(within(dialog).getByRole("button", { name: "true" }))
-    fireEvent.click(within(dialog).getByRole("button", { name: "Save override" }))
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: "Save override" })
+    )
     await within(dialog).findByRole("button", { name: /Saving/ })
     fireEvent.keyDown(dialog, { key: "Escape" })
     await new Promise((r) => setTimeout(r, 20))
@@ -980,13 +1219,19 @@ describe("FlagDetailPage tenant overrides", () => {
 
   async function openRemove(tenant: string) {
     await ready()
-    fireEvent.click(screen.getByRole("button", { name: `Remove override for ${tenant}` }))
+    fireEvent.click(
+      screen.getByRole("button", { name: `Remove override for ${tenant}` })
+    )
     return await screen.findByRole("alertdialog")
   }
 
   it("removes an override after confirming, sending key and tenantId", async () => {
     const h = harness(detail({ overrides: OVERRIDES }), {
-      "flags.deleteTenantOverride": { ok: true, key: KEY, tenantId: "t-globex" },
+      "flags.deleteTenantOverride": {
+        ok: true,
+        key: KEY,
+        tenantId: "t-globex",
+      },
     })
     renderDetail(h.client)
     const dialog = await openRemove("t-globex")
@@ -1004,13 +1249,13 @@ describe("FlagDetailPage tenant overrides", () => {
   it("shows a NOT_FOUND from the remove inside the dialog", async () => {
     const h = failingCommands(
       new ContractError("NOT_FOUND", "tenant override not found"),
-      detail({ overrides: OVERRIDES }),
+      detail({ overrides: OVERRIDES })
     )
     renderDetail(h.client)
     const dialog = await openRemove("t-acme")
     fireEvent.click(within(dialog).getByRole("button", { name: "Remove" }))
     expect((await within(dialog).findByRole("alert")).textContent).toContain(
-      "tenant override not found",
+      "tenant override not found"
     )
   })
 
@@ -1019,7 +1264,9 @@ describe("FlagDetailPage tenant overrides", () => {
     renderDetail(h.client)
     const dialog = await openRemove("t-acme")
     fireEvent.click(within(dialog).getByRole("button", { name: "Remove" }))
-    const working = await within(dialog).findByRole("button", { name: /Working/ })
+    const working = await within(dialog).findByRole("button", {
+      name: /Working/,
+    })
     expect((working as HTMLButtonElement).disabled).toBe(true)
     fireEvent.keyDown(dialog, { key: "Escape" })
     fireEvent.keyDown(document.body, { key: "Escape" })
@@ -1031,7 +1278,7 @@ describe("FlagDetailPage tenant overrides", () => {
   it("shows no stale error when the remove dialog is reopened", async () => {
     const h = failingCommands(
       new ContractError("NOT_FOUND", "tenant override not found"),
-      detail({ overrides: OVERRIDES }),
+      detail({ overrides: OVERRIDES })
     )
     renderDetail(h.client)
     const dialog = await openRemove("t-acme")
@@ -1055,13 +1302,13 @@ describe("FlagDetailPage delete", () => {
     renderDetail(harness(detail({ rules: RULES, overrides: OVERRIDES })).client)
     const dialog = await openDelete()
     expect(dialog.textContent).toContain(
-      `This deletes ${KEY}, its 8 rules and 2 tenant overrides. Applications fall back to their own default.`,
+      `This deletes ${KEY}, its 8 rules and 2 tenant overrides. Applications fall back to their own default.`
     )
   })
 
   it("uses the singular for one of each", async () => {
     renderDetail(
-      harness(detail({ rules: [RULES[0]], overrides: [OVERRIDES[0]] })).client,
+      harness(detail({ rules: [RULES[0]], overrides: [OVERRIDES[0]] })).client
     )
     const dialog = await openDelete()
     expect(dialog.textContent).toContain("its 1 rule and 1 tenant override.")
@@ -1079,7 +1326,10 @@ describe("FlagDetailPage delete", () => {
     const dialog = await openDelete()
     fireEvent.click(within(dialog).getByRole("button", { name: "Delete" }))
     await waitFor(() => expect(navigate).toHaveBeenCalledWith("/flags"))
-    expect(h.commands[0]).toEqual({ intent: "flags.delete", payload: { key: KEY } })
+    expect(h.commands[0]).toEqual({
+      intent: "flags.delete",
+      payload: { key: KEY },
+    })
   })
 
   it("shows a failure inside the dialog and does not navigate", async () => {
@@ -1087,7 +1337,9 @@ describe("FlagDetailPage delete", () => {
     const { navigate } = renderDetail(h.client)
     const dialog = await openDelete()
     fireEvent.click(within(dialog).getByRole("button", { name: "Delete" }))
-    expect((await within(dialog).findByRole("alert")).textContent).toContain("delete refused")
+    expect((await within(dialog).findByRole("alert")).textContent).toContain(
+      "delete refused"
+    )
     expect(navigate).not.toHaveBeenCalled()
   })
 
@@ -1096,7 +1348,9 @@ describe("FlagDetailPage delete", () => {
     renderDetail(h.client)
     const dialog = await openDelete()
     fireEvent.click(within(dialog).getByRole("button", { name: "Delete" }))
-    const working = await within(dialog).findByRole("button", { name: /Working/ })
+    const working = await within(dialog).findByRole("button", {
+      name: /Working/,
+    })
     expect((working as HTMLButtonElement).disabled).toBe(true)
     fireEvent.keyDown(dialog, { key: "Escape" })
     fireEvent.keyDown(document.body, { key: "Escape" })

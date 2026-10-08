@@ -20,14 +20,20 @@ if (typeof window.PointerEvent === "undefined") {
 }
 
 const base = {
-  key: "min_length", displayName: "Minimum length", type: "int",
-  isOverridden: false, isEnforced: false, canOverride: true, order: 1,
+  key: "min_length",
+  displayName: "Minimum length",
+  type: "int",
+  isOverridden: false,
+  isEnforced: false,
+  canOverride: true,
+  order: 1,
 }
 
 describe("flattenCategories", () => {
   it("pulls the fields out of their categories", () => {
     const out = flattenCategories({
-      namespace: "password", scope: "app",
+      namespace: "password",
+      scope: "app",
       categories: [
         { name: "Strength", settings: [{ ...base, key: "min_length" }] },
         { name: "Hashing", settings: [{ ...base, key: "algorithm" }] },
@@ -38,8 +44,17 @@ describe("flattenCategories", () => {
 
   it("uses the category name as the section when a field has none", () => {
     const out = flattenCategories({
-      namespace: "password", scope: "app",
-      categories: [{ name: "Strength", settings: [{ ...base, key: "a" }, { ...base, key: "b", section: "Own" }] }],
+      namespace: "password",
+      scope: "app",
+      categories: [
+        {
+          name: "Strength",
+          settings: [
+            { ...base, key: "a" },
+            { ...base, key: "b", section: "Own" },
+          ],
+        },
+      ],
     })
     expect(out[0].section).toBe("Strength")
     // A field that names its own section keeps it. The category is a
@@ -55,13 +70,19 @@ describe("flattenCategories", () => {
 
 describe("toDescriptors", () => {
   it("shows the effective value, falling back to the default when unset", () => {
-    expect(toDescriptors([{ ...base, effectiveValue: 12, default: 8 }])[0].value).toBe(12)
+    expect(
+      toDescriptors([{ ...base, effectiveValue: 12, default: 8 }])[0].value
+    ).toBe(12)
     expect(toDescriptors([{ ...base, default: 8 }])[0].value).toBe(8)
   })
 
   it("treats enforced and cannot-override as the same thing to the operator", () => {
-    expect(toDescriptors([{ ...base, isEnforced: true }])[0].enforced).toBe(true)
-    expect(toDescriptors([{ ...base, canOverride: false }])[0].enforced).toBe(true)
+    expect(toDescriptors([{ ...base, isEnforced: true }])[0].enforced).toBe(
+      true
+    )
+    expect(toDescriptors([{ ...base, canOverride: false }])[0].enforced).toBe(
+      true
+    )
     expect(toDescriptors([base])[0].enforced).toBe(false)
   })
 
@@ -72,7 +93,9 @@ describe("toDescriptors", () => {
   })
 
   it("masks a sensitive field whatever its inputType says", () => {
-    const d = toDescriptors([{ ...base, sensitive: true, inputType: "text" }])[0]
+    const d = toDescriptors([
+      { ...base, sensitive: true, inputType: "text" },
+    ])[0]
     // A sensitive value rendered as plain text is the kind of leak that shows
     // up in a screen-share.
     expect(d.type).toBe("secret")
@@ -84,20 +107,29 @@ describe("toDescriptors", () => {
     expect(toDescriptors([{ ...base, type: "float" }])[0].type).toBe("number")
     expect(toDescriptors([{ ...base, type: "string" }])[0].type).toBe("string")
     expect(
-      toDescriptors([{ ...base, type: "string", options: [{ label: "A", value: "a" }] }])[0].type,
+      toDescriptors([
+        { ...base, type: "string", options: [{ label: "A", value: "a" }] },
+      ])[0].type
     ).toBe("select")
   })
 
   it("falls back to string for a type it has never heard of", () => {
     // A newer server may declare a type this UI predates. Rendering it as a
     // text box is wrong-ish; refusing to render the namespace at all is worse.
-    expect(toDescriptors([{ ...base, type: "duration" }])[0].type).toBe("string")
+    expect(toDescriptors([{ ...base, type: "duration" }])[0].type).toBe(
+      "string"
+    )
   })
 
   it("sorts by order, then carries section, help and validation through", () => {
     const out = toDescriptors([
       { ...base, key: "b", order: 2, section: "S", helpText: "h" },
-      { ...base, key: "a", order: 1, validation: { required: true, min: 1, max: 9 } },
+      {
+        ...base,
+        key: "a",
+        order: 1,
+        validation: { required: true, min: 1, max: 9 },
+      },
     ])
     expect(out.map((d) => d.key)).toEqual(["a", "b"])
     expect(out[1].section).toBe("S")
@@ -110,7 +142,12 @@ describe("toDescriptors", () => {
 
 const namespacesAnswer = {
   namespaces: [
-    { name: "password", displayName: "Password", description: "Password rules", settingCount: 2 },
+    {
+      name: "password",
+      displayName: "Password",
+      description: "Password rules",
+      settingCount: 2,
+    },
   ],
 }
 
@@ -155,14 +192,25 @@ const namespaceAnswer = {
       name: "Strength",
       settings: [
         {
-          key: "min_length", displayName: "Minimum length", type: "int",
-          effectiveValue: 12, default: 8,
-          isOverridden: true, isEnforced: false, canOverride: true, order: 1,
+          key: "min_length",
+          displayName: "Minimum length",
+          type: "int",
+          effectiveValue: 12,
+          default: 8,
+          isOverridden: true,
+          isEnforced: false,
+          canOverride: true,
+          order: 1,
         },
         {
-          key: "max_length", displayName: "Maximum length", type: "int",
+          key: "max_length",
+          displayName: "Maximum length",
+          type: "int",
           effectiveValue: 64,
-          isOverridden: false, isEnforced: false, canOverride: true, order: 2,
+          isOverridden: false,
+          isEnforced: false,
+          canOverride: true,
+          order: 2,
         },
       ],
     },
@@ -170,9 +218,14 @@ const namespaceAnswer = {
       name: "Hashing",
       settings: [
         {
-          key: "algorithm", displayName: "Algorithm", type: "string",
+          key: "algorithm",
+          displayName: "Algorithm",
+          type: "string",
           effectiveValue: "argon2",
-          isOverridden: false, isEnforced: true, canOverride: false, order: 3,
+          isOverridden: false,
+          isEnforced: true,
+          canOverride: false,
+          order: 3,
         },
       ],
     },
@@ -189,27 +242,39 @@ describe("AuthSettingsNamespacePage", () => {
   it("renders a field from inside a category with its effective value", async () => {
     const { client } = stubClient({ "settings.namespace": namespaceAnswer })
     renderPage(AuthSettingsNamespacePage, client, { namespace: "password" })
-    await waitFor(() => expect(screen.getByLabelText("Minimum length")).toBeTruthy())
-    expect((screen.getByLabelText("Minimum length") as HTMLInputElement).value).toBe("12")
+    await waitFor(() =>
+      expect(screen.getByLabelText("Minimum length")).toBeTruthy()
+    )
+    expect(
+      (screen.getByLabelText("Minimum length") as HTMLInputElement).value
+    ).toBe("12")
   })
 
   it("disables a field the operator cannot override", async () => {
     const { client } = stubClient({ "settings.namespace": namespaceAnswer })
     renderPage(AuthSettingsNamespacePage, client, { namespace: "password" })
     await waitFor(() => expect(screen.getByLabelText("Algorithm")).toBeTruthy())
-    expect((screen.getByLabelText("Algorithm") as HTMLInputElement).disabled).toBe(true)
+    expect(
+      (screen.getByLabelText("Algorithm") as HTMLInputElement).disabled
+    ).toBe(true)
   })
 
   it("sends one settings.update per changed key, in order", async () => {
     const { client, sent } = recordingCommandClient(
       { "settings.namespace": namespaceAnswer },
-      { "settings.update": { ok: true } },
+      { "settings.update": { ok: true } }
     )
     renderPage(AuthSettingsNamespacePage, client, { namespace: "password" })
-    await waitFor(() => expect(screen.getByLabelText("Minimum length")).toBeTruthy())
+    await waitFor(() =>
+      expect(screen.getByLabelText("Minimum length")).toBeTruthy()
+    )
 
-    fireEvent.change(screen.getByLabelText("Minimum length"), { target: { value: "16" } })
-    fireEvent.change(screen.getByLabelText("Maximum length"), { target: { value: "32" } })
+    fireEvent.change(screen.getByLabelText("Minimum length"), {
+      target: { value: "16" },
+    })
+    fireEvent.change(screen.getByLabelText("Maximum length"), {
+      target: { value: "32" },
+    })
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }))
 
     await waitFor(() => expect(sent).toHaveLength(2))
@@ -226,13 +291,19 @@ describe("AuthSettingsNamespacePage", () => {
   it("stops at the first failed key rather than sending the rest", async () => {
     const { client, sent } = recordingCommandClient(
       { "settings.namespace": namespaceAnswer },
-      { "settings.update": new ContractError("VALIDATION", "value too short") },
+      { "settings.update": new ContractError("VALIDATION", "value too short") }
     )
     renderPage(AuthSettingsNamespacePage, client, { namespace: "password" })
-    await waitFor(() => expect(screen.getByLabelText("Minimum length")).toBeTruthy())
+    await waitFor(() =>
+      expect(screen.getByLabelText("Minimum length")).toBeTruthy()
+    )
 
-    fireEvent.change(screen.getByLabelText("Minimum length"), { target: { value: "16" } })
-    fireEvent.change(screen.getByLabelText("Maximum length"), { target: { value: "32" } })
+    fireEvent.change(screen.getByLabelText("Minimum length"), {
+      target: { value: "16" },
+    })
+    fireEvent.change(screen.getByLabelText("Maximum length"), {
+      target: { value: "32" },
+    })
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }))
 
     // The first key fails, so the second must never go out.
@@ -248,20 +319,33 @@ describe("AuthSettingsNamespacePage", () => {
     // redacted to the literal string "***"; the real value never crosses the
     // wire. Leaving it untouched must never write that placeholder back.
     const withSecret = {
-      namespace: "password", displayName: "Password", scope: "app",
+      namespace: "password",
+      displayName: "Password",
+      scope: "app",
       categories: [
         {
           name: "Hashing",
           settings: [
             {
-              key: "pepper", displayName: "Pepper", type: "string", sensitive: true,
+              key: "pepper",
+              displayName: "Pepper",
+              type: "string",
+              sensitive: true,
               effectiveValue: "***",
-              isOverridden: true, isEnforced: false, canOverride: true, order: 1,
+              isOverridden: true,
+              isEnforced: false,
+              canOverride: true,
+              order: 1,
             },
             {
-              key: "min_length", displayName: "Minimum length", type: "int",
+              key: "min_length",
+              displayName: "Minimum length",
+              type: "int",
               effectiveValue: 12,
-              isOverridden: true, isEnforced: false, canOverride: true, order: 2,
+              isOverridden: true,
+              isEnforced: false,
+              canOverride: true,
+              order: 2,
             },
           ],
         },
@@ -269,12 +353,14 @@ describe("AuthSettingsNamespacePage", () => {
     }
     const { client, sent } = recordingCommandClient(
       { "settings.namespace": withSecret },
-      { "settings.update": { ok: true } },
+      { "settings.update": { ok: true } }
     )
     renderPage(AuthSettingsNamespacePage, client, { namespace: "password" })
     await waitFor(() => expect(screen.getByLabelText("Pepper")).toBeTruthy())
 
-    fireEvent.change(screen.getByLabelText("Minimum length"), { target: { value: "16" } })
+    fireEvent.change(screen.getByLabelText("Minimum length"), {
+      target: { value: "16" },
+    })
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }))
 
     await waitFor(() => expect(sent).toHaveLength(1))
@@ -291,9 +377,13 @@ describe("AuthSettingsNamespacePage", () => {
     // that has not landed, so this page must not offer the control.
     const { client } = stubClient({ "settings.namespace": namespaceAnswer })
     renderPage(AuthSettingsNamespacePage, client, { namespace: "password" })
-    await waitFor(() => expect(screen.getByLabelText("Minimum length")).toBeTruthy())
+    await waitFor(() =>
+      expect(screen.getByLabelText("Minimum length")).toBeTruthy()
+    )
 
-    expect(screen.queryByRole("button", { name: /reset to default/i })).toBeNull()
+    expect(
+      screen.queryByRole("button", { name: /reset to default/i })
+    ).toBeNull()
     expect(screen.queryByRole("button", { name: /default/i })).toBeNull()
   })
 
@@ -306,15 +396,23 @@ describe("AuthSettingsNamespacePage", () => {
     // above already solves, so this closes that hole rather than working
     // around it again.
     const withBoolean = {
-      namespace: "password", displayName: "Password", scope: "app",
+      namespace: "password",
+      displayName: "Password",
+      scope: "app",
       categories: [
         {
           name: "Strength",
           settings: [
             {
-              key: "require_special", displayName: "Require a symbol", type: "bool",
-              effectiveValue: false, default: false,
-              isOverridden: false, isEnforced: false, canOverride: true, order: 1,
+              key: "require_special",
+              displayName: "Require a symbol",
+              type: "bool",
+              effectiveValue: false,
+              default: false,
+              isOverridden: false,
+              isEnforced: false,
+              canOverride: true,
+              order: 1,
             },
           ],
         },
@@ -322,10 +420,14 @@ describe("AuthSettingsNamespacePage", () => {
     }
     const { client, sent } = recordingCommandClient(
       { "settings.namespace": withBoolean },
-      { "settings.update": { ok: true } },
+      { "settings.update": { ok: true } }
     )
     renderPage(AuthSettingsNamespacePage, client, { namespace: "password" })
-    await waitFor(() => expect(screen.getByRole("switch", { name: "Require a symbol" })).toBeTruthy())
+    await waitFor(() =>
+      expect(
+        screen.getByRole("switch", { name: "Require a symbol" })
+      ).toBeTruthy()
+    )
 
     const control = screen.getByRole("switch", { name: "Require a symbol" })
     expect(control.getAttribute("aria-checked")).toBe("false")

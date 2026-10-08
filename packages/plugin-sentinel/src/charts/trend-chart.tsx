@@ -65,7 +65,9 @@ export default function TrendChart({
   // so the average's label moves below or above the baseline's.
   const lastAvg = rows[last]?.avgScore
   const nudge =
-    baseline && lastAvg !== undefined && Math.abs(lastAvg - baseline.passRate) < 0.08
+    baseline &&
+    lastAvg !== undefined &&
+    Math.abs(lastAvg - baseline.passRate) < 0.08
       ? lastAvg < baseline.passRate
         ? 14
         : -8
@@ -75,11 +77,21 @@ export default function TrendChart({
       <div className="flex flex-wrap gap-4">
         <LineKey color="var(--foreground)" label="Pass rate" />
         <LineKey color="var(--muted-foreground)" label="Avg score" />
-        {baseline && <LineKey color="var(--muted-foreground)" label={`Baseline "${baseline.name}"`} thin />}
+        {baseline && (
+          <LineKey
+            color="var(--muted-foreground)"
+            label={`Baseline "${baseline.name}"`}
+            thin
+          />
+        )}
       </div>
       <ChartContainer config={config} className="aspect-auto h-56 w-full">
         {/* The right margin holds the end labels ("Avg score 0.53", "Baseline 0.88"). */}
-        <LineChart data={rows} margin={{ top: 12, right: 104, bottom: 0, left: 0 }} accessibilityLayer={false}>
+        <LineChart
+          data={rows}
+          margin={{ top: 12, right: 104, bottom: 0, left: 0 }}
+          accessibilityLayer={false}
+        >
           <CartesianGrid vertical={false} stroke="var(--border)" />
           <XAxis
             dataKey="index"
@@ -89,7 +101,14 @@ export default function TrendChart({
             interval="preserveStartEnd"
             minTickGap={24}
           />
-          <YAxis domain={[0, 1]} ticks={TICKS} width={36} tickLine={false} axisLine={false} tickFormatter={formatScore} />
+          <YAxis
+            domain={[0, 1]}
+            ticks={TICKS}
+            width={36}
+            tickLine={false}
+            axisLine={false}
+            tickFormatter={formatScore}
+          />
           {baseline && (
             <ReferenceLine
               y={baseline.passRate}
@@ -115,7 +134,9 @@ export default function TrendChart({
                 }}
                 formatter={(value, name) => (
                   <span className="flex w-full justify-between gap-4">
-                    <span className="text-muted-foreground">{config[name as keyof typeof config]?.label ?? name}</span>
+                    <span className="text-muted-foreground">
+                      {config[name as keyof typeof config]?.label ?? name}
+                    </span>
                     <span className="font-mono font-medium tabular-nums">
                       {typeof value === "number" ? formatScore(value) : ""}
                     </span>
@@ -133,7 +154,12 @@ export default function TrendChart({
             dot={false}
             activeDot={false}
             isAnimationActive={false}
-            label={(props: { x?: number | string; y?: number | string; index?: number; value?: unknown }) =>
+            label={(props: {
+              x?: number | string
+              y?: number | string
+              index?: number
+              value?: unknown
+            }) =>
               props.index === last && typeof props.value === "number" ? (
                 <text
                   key="avg-end"
@@ -158,8 +184,19 @@ export default function TrendChart({
             strokeLinejoin="round"
             activeDot={false}
             isAnimationActive={false}
-            dot={(props: { cx?: number; cy?: number; index?: number; payload?: Row }) => (
-              <RunMarker key={`dot-${props.index}`} cx={props.cx} cy={props.cy} row={props.payload} onOpen={onOpenRun} />
+            dot={(props: {
+              cx?: number
+              cy?: number
+              index?: number
+              payload?: Row
+            }) => (
+              <RunMarker
+                key={`dot-${props.index}`}
+                cx={props.cx}
+                cy={props.cy}
+                row={props.payload}
+                onOpen={onOpenRun}
+              />
             )}
           />
         </LineChart>
@@ -197,8 +234,23 @@ function RunMarker({
       }}
     >
       <circle cx={cx} cy={cy} r={12} fill="transparent" />
-      <circle className="ring opacity-0" cx={cx} cy={cy} r={8} fill="none" stroke="var(--ring)" strokeWidth={2} />
-      <circle cx={cx} cy={cy} r={4} fill="var(--foreground)" stroke="var(--background)" strokeWidth={2} />
+      <circle
+        className="opacity-0 ring"
+        cx={cx}
+        cy={cy}
+        r={8}
+        fill="none"
+        stroke="var(--ring)"
+        strokeWidth={2}
+      />
+      <circle
+        cx={cx}
+        cy={cy}
+        r={4}
+        fill="var(--foreground)"
+        stroke="var(--background)"
+        strokeWidth={2}
+      />
     </g>
   )
 }

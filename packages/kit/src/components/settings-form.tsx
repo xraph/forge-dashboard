@@ -12,11 +12,7 @@ import {
 import { EmptyState } from "@forge-go/dashboard-kit/components/empty-state"
 
 export type SettingFieldType =
-  | "string"
-  | "number"
-  | "boolean"
-  | "select"
-  | "secret"
+  "string" | "number" | "boolean" | "select" | "secret"
 
 export interface SettingFieldDescriptor {
   key: string
@@ -87,7 +83,7 @@ export function SettingsForm({
 
   // Keys whose draft value differs from what the server last told us.
   const changedKeys = Object.keys(draft).filter(
-    (key) => draft[key] !== initial[key],
+    (key) => draft[key] !== initial[key]
   )
 
   // A numeric field cleared to blank is ambiguous: it could mean "unset this"

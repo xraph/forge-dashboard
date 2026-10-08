@@ -17,7 +17,10 @@ window.matchMedia ??= ((query: string) => ({
   dispatchEvent: () => false,
 })) as unknown as typeof window.matchMedia
 
-const renderLink = (node: { label: string; href: string; icon?: React.ReactNode }, href: string) => (
+const renderLink = (
+  node: { label: string; href: string; icon?: React.ReactNode },
+  href: string
+) => (
   <a href={href}>
     {node.icon}
     <span>{node.label}</span>
@@ -42,12 +45,17 @@ const areas: NavArea[] = [
     kind: "plugin",
     groups: [
       { label: "Catalog", items: [{ label: "Plans", href: "/@auth/plans" }] },
-      { label: "Revenue", items: [{ label: "Invoices", href: "/@auth/invoices" }] },
+      {
+        label: "Revenue",
+        items: [{ label: "Invoices", href: "/@auth/invoices" }],
+      },
     ],
   },
 ]
 
-function renderSidebar(overrides: Partial<React.ComponentProps<typeof AppSidebar>> = {}) {
+function renderSidebar(
+  overrides: Partial<React.ComponentProps<typeof AppSidebar>> = {}
+) {
   return render(
     <SidebarProvider>
       <AppSidebar
@@ -60,20 +68,26 @@ function renderSidebar(overrides: Partial<React.ComponentProps<typeof AppSidebar
         renderLink={renderLink}
         {...overrides}
       />
-    </SidebarProvider>,
+    </SidebarProvider>
   )
 }
 
-const header = (c: HTMLElement) => c.querySelector('[data-slot="sidebar-header"]') as HTMLElement
-const content = (c: HTMLElement) => c.querySelector('[data-slot="sidebar-content"]') as HTMLElement
+const header = (c: HTMLElement) =>
+  c.querySelector('[data-slot="sidebar-header"]') as HTMLElement
+const content = (c: HTMLElement) =>
+  c.querySelector('[data-slot="sidebar-content"]') as HTMLElement
 
 describe("AppSidebar", () => {
   it("names the active area and shows only its pages, under section labels", () => {
     const { container } = renderSidebar()
     expect(within(header(container)).getByText("Billing")).toBeTruthy()
     const c = content(container)
-    expect(within(c).getByRole("button", { name: "Collapse Catalog" })).toBeTruthy()
-    expect(within(c).getByRole("button", { name: "Collapse Revenue" })).toBeTruthy()
+    expect(
+      within(c).getByRole("button", { name: "Collapse Catalog" })
+    ).toBeTruthy()
+    expect(
+      within(c).getByRole("button", { name: "Collapse Revenue" })
+    ).toBeTruthy()
     expect(within(c).getByRole("link", { name: "Plans" })).toBeTruthy()
     expect(within(c).getByRole("link", { name: "Invoices" })).toBeTruthy()
     expect(within(c).queryByRole("link", { name: "Users" })).toBeNull()
@@ -81,17 +95,26 @@ describe("AppSidebar", () => {
 
   it("falls back to the first area when the active id matches none", () => {
     const { container } = renderSidebar({ activeAreaId: "nope" })
-    expect(within(content(container)).getByRole("link", { name: "Users" })).toBeTruthy()
+    expect(
+      within(content(container)).getByRole("link", { name: "Users" })
+    ).toBeTruthy()
   })
 
   it("renders plain groups when there are no areas", () => {
     const { container } = renderSidebar({
       areas: undefined,
-      groups: [{ label: "Authorization", items: [{ label: "Roles", href: "/@warden/roles" }] }],
+      groups: [
+        {
+          label: "Authorization",
+          items: [{ label: "Roles", href: "/@warden/roles" }],
+        },
+      ],
       currentPath: "/@warden/roles",
     })
     const c = content(container)
-    expect(within(c).getByRole("button", { name: "Collapse Authorization" })).toBeTruthy()
+    expect(
+      within(c).getByRole("button", { name: "Collapse Authorization" })
+    ).toBeTruthy()
     expect(within(c).getByRole("link", { name: "Roles" })).toBeTruthy()
     expect(header(container).textContent).toBe("")
   })
@@ -100,14 +123,20 @@ describe("AppSidebar", () => {
     const { container } = renderSidebar({
       areas: undefined,
       groups: [
-        { label: "Identity", items: [{ label: "Users", href: "/@auth/users" }] },
+        {
+          label: "Identity",
+          items: [{ label: "Users", href: "/@auth/users" }],
+        },
         { label: "System", items: [{ label: "Overview", href: "/@auth" }] },
       ],
       currentPath: "/@auth/users",
     })
     const c = content(container)
     const active = (name: string) =>
-      within(c).getByRole("link", { name }).closest("[data-slot='sidebar-menu-item']")?.querySelector("[data-active]")
+      within(c)
+        .getByRole("link", { name })
+        .closest("[data-slot='sidebar-menu-item']")
+        ?.querySelector("[data-active]")
     expect(active("Users")).toBeTruthy()
     expect(active("Overview")).toBeNull()
   })
@@ -125,11 +154,19 @@ describe("AppSidebar", () => {
     const { container } = renderSidebar({
       areas: [],
       search: "?env=staging",
-      empty: { message: "This extension needs configuring.", href: "/@auth", label: "Open setup" },
+      empty: {
+        message: "This extension needs configuring.",
+        href: "/@auth",
+        label: "Open setup",
+      },
     })
     const c = content(container)
-    expect(within(c).getByText("This extension needs configuring.")).toBeTruthy()
-    expect(within(c).getByRole("link", { name: "Open setup" }).getAttribute("href")).toBe("/@auth?env=staging")
+    expect(
+      within(c).getByText("This extension needs configuring.")
+    ).toBeTruthy()
+    expect(
+      within(c).getByRole("link", { name: "Open setup" }).getAttribute("href")
+    ).toBe("/@auth?env=staging")
   })
 
   it("keeps mobile chrome out of the desktop sidebar", () => {
@@ -142,7 +179,10 @@ describe("AppSidebar", () => {
   })
 
   it("stacks every area in the mobile sheet with its chrome", async () => {
-    Object.defineProperty(window, "innerWidth", { value: 500, configurable: true })
+    Object.defineProperty(window, "innerWidth", {
+      value: 500,
+      configurable: true,
+    })
     try {
       function OpenSheet() {
         const { setOpenMobile } = useSidebar()
@@ -162,16 +202,27 @@ describe("AppSidebar", () => {
             mobileHeader={<button type="button">Switch scope</button>}
             mobileFooter={<button type="button">Account menu</button>}
           />
-        </SidebarProvider>,
+        </SidebarProvider>
       )
       const sheet = await screen.findByRole("dialog")
-      expect(within(sheet).getByRole("button", { name: "Switch scope" })).toBeTruthy()
-      expect(within(sheet).getByRole("button", { name: "Account menu" })).toBeTruthy()
+      expect(
+        within(sheet).getByRole("button", { name: "Switch scope" })
+      ).toBeTruthy()
+      expect(
+        within(sheet).getByRole("button", { name: "Account menu" })
+      ).toBeTruthy()
       expect(within(sheet).getByRole("link", { name: "Users" })).toBeTruthy()
       expect(within(sheet).getByRole("link", { name: "Invoices" })).toBeTruthy()
-      expect(within(sheet).getByRole("button", { name: "Collapse Billing · Catalog" })).toBeTruthy()
+      expect(
+        within(sheet).getByRole("button", {
+          name: "Collapse Billing · Catalog",
+        })
+      ).toBeTruthy()
     } finally {
-      Object.defineProperty(window, "innerWidth", { value: 1024, configurable: true })
+      Object.defineProperty(window, "innerWidth", {
+        value: 1024,
+        configurable: true,
+      })
     }
   })
 })
@@ -179,7 +230,13 @@ describe("AppSidebar", () => {
 describe("stackAreas", () => {
   it("prefixes every labelled group with its area, and labels an area's unlabelled first group with the area", () => {
     const withLoose: NavArea[] = [
-      { id: "x", label: "Streaming", href: "/r", kind: "scope", groups: [{ items: [{ label: "Rooms", href: "/r" }] }] },
+      {
+        id: "x",
+        label: "Streaming",
+        href: "/r",
+        kind: "scope",
+        groups: [{ items: [{ label: "Rooms", href: "/r" }] }],
+      },
       ...areas,
     ]
     expect(stackAreas(withLoose).map((g) => g.label)).toEqual([

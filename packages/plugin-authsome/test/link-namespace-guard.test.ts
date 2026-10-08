@@ -22,13 +22,13 @@ import { describe, expect, it } from "vitest"
 interface GlobbingImportMeta {
   glob: (
     pattern: string,
-    options: { query?: string; eager?: boolean },
+    options: { query?: string; eager?: boolean }
   ) => Record<string, { default: string } | string>
 }
 
 const modules = (import.meta as unknown as GlobbingImportMeta).glob(
   "../src/**/*.{ts,tsx}",
-  { query: "?raw", eager: true },
+  { query: "?raw", eager: true }
 )
 
 function sourceOf(mod: { default: string } | string): string {
@@ -56,7 +56,7 @@ describe("PluginLink call sites carry no hardcoded /@auth prefix", () => {
       `hardcoded "/@auth" literal found in: ${offenders.join(", ")}. ` +
         `PluginLink and useNavigateTo now take a scope-relative path ` +
         `("/users/u1", not "/@auth/users/u1") and the host resolves it ` +
-        `against whichever app is actually in the URL.`,
+        `against whichever app is actually in the URL.`
     ).toEqual([])
   })
 })

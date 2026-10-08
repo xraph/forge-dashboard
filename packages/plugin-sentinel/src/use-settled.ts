@@ -16,11 +16,14 @@ import type { QueryState } from "@forge-go/dashboard-plugin"
  * body keyed on its id): kept data is never wrong for the key, because there
  * is only one key.
  */
-export function useSettled<T>(query: QueryState<T>): QueryState<T> & { stale: boolean } {
+export function useSettled<T>(
+  query: QueryState<T>
+): QueryState<T> & { stale: boolean } {
   const [kept, setKept] = useState<T | undefined>(query.data)
   // Storing the newest data during render is React's own pattern for
   // remembering a previous value; it settles in the same render pass.
   if (query.data !== undefined && query.data !== kept) setKept(query.data)
-  const stale = query.data === undefined && query.error !== undefined && kept !== undefined
+  const stale =
+    query.data === undefined && query.error !== undefined && kept !== undefined
   return { ...query, data: query.data ?? (stale ? kept : undefined), stale }
 }

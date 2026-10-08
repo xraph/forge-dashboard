@@ -26,12 +26,17 @@ describe("definePlugin", () => {
   // the host cannot resolve capabilities, so a plugin with no name is useless
   // and should say so at import time rather than render nothing at runtime.
   it("refuses a plugin with no extension name", () => {
-    expect(() => definePlugin({ extension: "", routes: [] })).toThrow(/extension/i)
+    expect(() => definePlugin({ extension: "", routes: [] })).toThrow(
+      /extension/i
+    )
   })
 
   it("refuses a route whose path does not start with a slash", () => {
     expect(() =>
-      definePlugin({ extension: "billing", routes: [{ path: "oops", element: Stub }] }),
+      definePlugin({
+        extension: "billing",
+        routes: [{ path: "oops", element: Stub }],
+      })
     ).toThrow(/path/i)
   })
 
@@ -59,13 +64,13 @@ describe("definePlugin", () => {
         extension: "auth",
         namespace: "auth/sso",
         routes: [],
-      }),
+      })
     ).toThrow(/namespace/)
   })
 
   it("rejects a namespace containing the sigil", () => {
     expect(() =>
-      definePlugin({ extension: "auth", namespace: "@auth", routes: [] }),
+      definePlugin({ extension: "auth", namespace: "@auth", routes: [] })
     ).toThrow(/namespace/)
   })
 
@@ -91,7 +96,7 @@ describe("definePlugin", () => {
         extension: "streaming",
         nav: [{ label: "Rooms", to: "rooms" }],
         routes: [],
-      }),
+      })
     ).toThrow(/rooms/)
   })
 
@@ -107,7 +112,7 @@ describe("definePlugin", () => {
           },
         ],
         routes: [],
-      }),
+      })
     ).toThrow(/rooms\/active/)
   })
 
@@ -130,7 +135,7 @@ describe("definePlugin", () => {
           },
         ],
         routes: [],
-      }),
+      })
     ).not.toThrow()
   })
 
@@ -153,7 +158,7 @@ describe("definePlugin", () => {
         root: true,
         namespace: "system",
         routes: [],
-      }),
+      })
     ).toThrow(/root/)
   })
 
@@ -171,7 +176,7 @@ describe("definePlugin", () => {
 describe("definePlugin names a plugin after its extension", () => {
   it("refuses a label that is a different name", () => {
     expect(() =>
-      definePlugin({ extension: "ledger", label: "Billing", routes: [] }),
+      definePlugin({ extension: "ledger", label: "Billing", routes: [] })
     ).toThrow(/"ledger" is labelled "Billing".*use "Ledger"/)
   })
 
@@ -188,19 +193,32 @@ describe("definePlugin names a plugin after its extension", () => {
 
   it("refuses a plural, which names a list page rather than the extension", () => {
     expect(() =>
-      definePlugin({ extension: "organization", label: "Organizations", routes: [] }),
+      definePlugin({
+        extension: "organization",
+        label: "Organizations",
+        routes: [],
+      })
     ).toThrow(/use "Organization"/)
   })
 
   it("refuses a namespace that differs from the extension", () => {
     expect(() =>
-      definePlugin({ extension: "streaming-contract", namespace: "streaming", routes: [] }),
+      definePlugin({
+        extension: "streaming-contract",
+        namespace: "streaming",
+        routes: [],
+      })
     ).toThrow(/namespace "streaming".*make it "streaming-contract"/)
   })
 
   it("leaves a root plugin's label alone, since it names the dashboard", () => {
     expect(() =>
-      definePlugin({ extension: "core-contract", root: true, label: "Forge", routes: [] }),
+      definePlugin({
+        extension: "core-contract",
+        root: true,
+        label: "Forge",
+        routes: [],
+      })
     ).not.toThrow()
   })
 })
@@ -220,7 +238,7 @@ describe("definePlugin root plugins may not claim a scoped path", () => {
         root: true,
         nav: [{ label: "Rooms", to: "/@streaming/rooms" }],
         routes: [],
-      }),
+      })
     ).toThrow(/@streaming\/rooms/)
   })
 
@@ -237,7 +255,7 @@ describe("definePlugin root plugins may not claim a scoped path", () => {
           },
         ],
         routes: [],
-      }),
+      })
     ).toThrow(/@streaming\/rooms/)
   })
 
@@ -247,7 +265,7 @@ describe("definePlugin root plugins may not claim a scoped path", () => {
         extension: "core-contract",
         root: true,
         routes: [{ path: "/@streaming/rooms", element: Stub }],
-      }),
+      })
     ).toThrow(/@streaming\/rooms/)
   })
 
@@ -258,7 +276,7 @@ describe("definePlugin root plugins may not claim a scoped path", () => {
         root: true,
         nav: [{ label: "Rooms", to: "/@streaming/rooms" }],
         routes: [],
-      }),
+      })
     ).toThrow(/core-contract/)
   })
 
@@ -269,7 +287,7 @@ describe("definePlugin root plugins may not claim a scoped path", () => {
         root: true,
         nav: [{ label: "Overview", to: "/overview" }],
         routes: [{ path: "/overview", element: Stub }],
-      }),
+      })
     ).not.toThrow()
   })
 
@@ -283,7 +301,7 @@ describe("definePlugin root plugins may not claim a scoped path", () => {
         extension: "streaming",
         nav: [{ label: "Odd", to: "/@nested/odd" }],
         routes: [{ path: "/@nested/odd", element: Stub }],
-      }),
+      })
     ).not.toThrow()
   })
 })
@@ -301,7 +319,7 @@ describe("definePlugin duplicate nav destinations", () => {
           { label: "Live rooms", to: "/rooms" },
         ],
         routes: [],
-      }),
+      })
     ).toThrow(/\/rooms/)
   })
 
@@ -320,7 +338,7 @@ describe("definePlugin duplicate nav destinations", () => {
           },
         ],
         routes: [],
-      }),
+      })
     ).toThrow(/\/archive\/all/)
   })
 
@@ -333,7 +351,7 @@ describe("definePlugin duplicate nav destinations", () => {
           { label: "Live rooms", to: "/rooms" },
         ],
         routes: [],
-      }),
+      })
     ).toThrow(/streaming/)
   })
 
@@ -349,7 +367,7 @@ describe("definePlugin duplicate nav destinations", () => {
           },
         ],
         routes: [],
-      }),
+      })
     ).not.toThrow()
   })
 
@@ -370,7 +388,7 @@ describe("definePlugin duplicate nav destinations", () => {
           },
         ],
         routes: [],
-      }),
+      })
     ).not.toThrow()
   })
 
@@ -389,7 +407,7 @@ describe("definePlugin duplicate nav destinations", () => {
             payload: (appId) => ({ appId }),
           },
         ],
-      }),
+      })
     ).toThrow(/query/)
   })
 
@@ -407,7 +425,7 @@ describe("definePlugin duplicate nav destinations", () => {
         extension: "auth",
         routes: [{ path: "/", element: () => null }],
         context: [dimension, { ...dimension, label: "Environment" }],
-      }),
+      })
     ).toThrow(/both use the id/)
   })
 
@@ -425,7 +443,7 @@ describe("definePlugin duplicate nav destinations", () => {
             select: () => ({ options: [] }),
           },
         ] as never,
-      }),
+      })
     ).toThrow(/payload/)
   })
 

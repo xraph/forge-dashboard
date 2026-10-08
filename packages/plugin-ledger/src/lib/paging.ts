@@ -25,7 +25,8 @@ export function pageCaption({
   singular: string
   plural: string
 }): string {
-  if (page === 1 && !hasMore) return `${shown} ${shown === 1 ? singular : plural}`
+  if (page === 1 && !hasMore)
+    return `${shown} ${shown === 1 ? singular : plural}`
   if (shown === 0) return `No ${plural} on page ${page}`
   const first = (page - 1) * PAGE_SIZE + 1
   const last = first + shown - 1
@@ -38,7 +39,11 @@ export function pageCaption({
  * the page is past the end of what does exist. A constant "none yet" under a
  * filter tells an operator nothing exists when something does.
  */
-export function listEmptyMessage(noun: string, page: number, filtered: string | undefined): string {
+export function listEmptyMessage(
+  noun: string,
+  page: number,
+  filtered: string | undefined
+): string {
   if (page > 1) return `Nothing on page ${page}.`
   if (filtered) return `No ${filtered} ${noun}.`
   return `No ${noun} yet.`

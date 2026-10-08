@@ -2,10 +2,19 @@ import { describe, expect, it } from "vitest"
 
 /** `ImportMeta` is widened locally: this package's tsconfig carries no vite client types. */
 interface GlobbingImportMeta {
-  glob: (pattern: string, options: { query?: string; import?: string; eager?: boolean }) => Record<string, string>
+  glob: (
+    pattern: string,
+    options: { query?: string; import?: string; eager?: boolean }
+  ) => Record<string, string>
 }
-const index = (import.meta as unknown as GlobbingImportMeta).glob("../src/index.tsx", { query: "?raw", import: "default", eager: true })
-const sources = (import.meta as unknown as GlobbingImportMeta).glob("../src/**/*.{ts,tsx}", { query: "?raw", import: "default", eager: true })
+const index = (import.meta as unknown as GlobbingImportMeta).glob(
+  "../src/index.tsx",
+  { query: "?raw", import: "default", eager: true }
+)
+const sources = (import.meta as unknown as GlobbingImportMeta).glob(
+  "../src/**/*.{ts,tsx}",
+  { query: "?raw", import: "default", eager: true }
+)
 
 describe("the event detail chunk", () => {
   it("is imported lazily by the plugin", () => {
@@ -15,7 +24,9 @@ describe("the event detail chunk", () => {
   })
   it("is the only way CodeMirror enters the plugin", () => {
     const eager = Object.entries(sources).filter(
-      ([path, text]) => /@codemirror\//.test(text) && !path.endsWith("components/json-editor.tsx"),
+      ([path, text]) =>
+        /@codemirror\//.test(text) &&
+        !path.endsWith("components/json-editor.tsx")
     )
     expect(eager.map(([p]) => p)).toEqual([])
   })
@@ -32,7 +43,11 @@ describe("the activity chunk", () => {
   })
   it("is the only way the chart library enters the plugin", () => {
     const charting = Object.entries(sources)
-      .filter(([, text]) => /from "@forge-go\/dashboard-kit\/components\/chart"|from "recharts"|from "\.\.\/charts\/bars"/.test(text))
+      .filter(([, text]) =>
+        /from "@forge-go\/dashboard-kit\/components\/chart"|from "recharts"|from "\.\.\/charts\/bars"/.test(
+          text
+        )
+      )
       .map(([p]) => p.replace(/^\.\.\/src\//, ""))
       .sort()
     expect(charting).toEqual(["charts/bars.tsx", "pages/activity.tsx"])

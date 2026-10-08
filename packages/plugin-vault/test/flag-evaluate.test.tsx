@@ -1,5 +1,12 @@
 import { describe, expect, it, vi } from "vitest"
-import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react"
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react"
 import {
   ContractError,
   NavigationProvider,
@@ -51,15 +58,35 @@ function rule(over: Record<string, unknown> = {}) {
 // In the order the engine walks them, which is not the order of `priority`
 // alone in general: the page never sorts them.
 const RULES = [
-  rule({ id: "rul_1", priority: 0, type: "when_tenant", tenantIds: ["t-beta"] }),
+  rule({
+    id: "rul_1",
+    priority: 0,
+    type: "when_tenant",
+    tenantIds: ["t-beta"],
+  }),
   rule({ id: "rul_2", priority: 1, type: "when_user", userIds: ["u-1"] }),
   rule({ id: "rul_3", priority: 2, type: "rollout", percentage: 25 }),
-  rule({ id: "rul_4", priority: 3, type: "schedule", startAt: "2026-03-01T09:00:00Z" }),
+  rule({
+    id: "rul_4",
+    priority: 3,
+    type: "schedule",
+    startAt: "2026-03-01T09:00:00Z",
+  }),
 ]
 
 const OVERRIDES = [
-  { tenantId: "t-acme", value: true, valueMatchesType: true, updatedAt: "2026-09-22T10:00:00Z" },
-  { tenantId: "t-globex", value: false, valueMatchesType: true, updatedAt: "2026-09-22T11:00:00Z" },
+  {
+    tenantId: "t-acme",
+    value: true,
+    valueMatchesType: true,
+    updatedAt: "2026-09-22T10:00:00Z",
+  },
+  {
+    tenantId: "t-globex",
+    value: false,
+    valueMatchesType: true,
+    updatedAt: "2026-09-22T11:00:00Z",
+  },
 ]
 
 function detail(over: Record<string, unknown> = {}) {
@@ -82,7 +109,10 @@ interface Step {
 }
 
 /** A trace over RULES, one step per rule, the way the engine writes it. */
-function trace(steps: Step[], rules: { priority: number; type: string }[] = RULES) {
+function trace(
+  steps: Step[],
+  rules: { priority: number; type: string }[] = RULES
+) {
   return steps.map((s, i) => ({
     priority: rules[i]!.priority,
     type: rules[i]!.type,
@@ -91,7 +121,10 @@ function trace(steps: Step[], rules: { priority: number; type: string }[] = RULE
 }
 
 /** The same trace, each step naming its rule the way a current server does. */
-function traceWithIds(steps: Step[], rules: { id: string; priority: number; type: string }[] = RULES) {
+function traceWithIds(
+  steps: Step[],
+  rules: { id: string; priority: number; type: string }[] = RULES
+) {
   return trace(steps, rules).map((s, i) => ({ ruleId: rules[i]!.id, ...s }))
 }
 
@@ -143,12 +176,13 @@ function setup(evaluate: Answer, page: unknown = detail()) {
       >
         <FlagDetailPage params={{ key: KEY }} />
       </NavigationProvider>
-    </PluginProvider>,
+    </PluginProvider>
   )
   return { queries, evaluates }
 }
 
-const rung = (id: string) => document.querySelector(`[data-rung="${id}"]`) as HTMLElement
+const rung = (id: string) =>
+  document.querySelector(`[data-rung="${id}"]`) as HTMLElement
 const rows = (id: string) =>
   Array.from(rung(id).querySelectorAll("ul[role='list'] > li")) as HTMLElement[]
 const ready = () => screen.findByRole("heading", { name: KEY })
@@ -157,12 +191,18 @@ const userInput = () => screen.getByLabelText("User id") as HTMLInputElement
 
 /** The badges a rung itself carries, not the ones on its rows. */
 function rungMarks(id: string): string[] {
-  const header = rung(id).querySelector('[data-slot="rung-body"] > div') as HTMLElement
-  return ["Decided here", "Not reached"].filter((t) => within(header).queryByText(t))
+  const header = rung(id).querySelector(
+    '[data-slot="rung-body"] > div'
+  ) as HTMLElement
+  return ["Decided here", "Not reached"].filter((t) =>
+    within(header).queryByText(t)
+  )
 }
 
 function rowMarks(row: HTMLElement): string[] {
-  return ["Decided here", "Not reached"].filter((t) => within(row).queryByText(t))
+  return ["Decided here", "Not reached"].filter((t) =>
+    within(row).queryByText(t)
+  )
 }
 
 async function evaluate(tenant = "", user = "") {
@@ -196,7 +236,8 @@ describe("evaluation bar", () => {
     expect(within(bar).getByLabelText("User id")).toBeTruthy()
     expect(within(bar).getByRole("button", { name: "Evaluate" })).toBeTruthy()
     expect(
-      bar.compareDocumentPosition(rung("enabled")) & Node.DOCUMENT_POSITION_FOLLOWING,
+      bar.compareDocumentPosition(rung("enabled")) &
+        Node.DOCUMENT_POSITION_FOLLOWING
     ).toBeTruthy()
   })
 
@@ -217,7 +258,11 @@ describe("evaluation bar", () => {
   it("sends both ids when both were typed", async () => {
     const { evaluates } = setup(() => evaluation())
     await evaluate("t-acme", "u-1")
-    expect(evaluates()[0]?.params).toEqual({ key: KEY, tenantId: "t-acme", userId: "u-1" })
+    expect(evaluates()[0]?.params).toEqual({
+      key: KEY,
+      tenantId: "t-acme",
+      userId: "u-1",
+    })
   })
 
   it("sends just the key when both inputs are empty", async () => {
@@ -244,7 +289,7 @@ describe("evaluation bar", () => {
 
   it("does not query again, or clear the result, while the inputs are edited", async () => {
     const { evaluates } = setup(() =>
-      evaluation({ reason: "tenantOverride", value: true }),
+      evaluation({ reason: "tenantOverride", value: true })
     )
     await evaluate("t-acme", "u-1")
     fireEvent.change(tenantInput(), { target: { value: "t-other" } })
@@ -272,7 +317,9 @@ describe("evaluation bar", () => {
     setup(() => new ContractError("INTERNAL", "engine unavailable"))
     await ready()
     fireEvent.click(screen.getByRole("button", { name: "Evaluate" }))
-    expect((await screen.findByRole("alert")).textContent).toContain("engine unavailable")
+    expect((await screen.findByRole("alert")).textContent).toContain(
+      "engine unavailable"
+    )
     expect(document.querySelector("[data-decided]")).toBeNull()
   })
 
@@ -280,14 +327,19 @@ describe("evaluation bar", () => {
     let reason = "default"
     const { evaluates } = setup(() =>
       reason === "default"
-        ? evaluation({ reason: "default", trace: trace([miss("a"), miss("b"), miss("c"), miss("d")]) })
-        : evaluation({ reason: "disabled" }),
+        ? evaluation({
+            reason: "default",
+            trace: trace([miss("a"), miss("b"), miss("c"), miss("d")]),
+          })
+        : evaluation({ reason: "disabled" })
     )
     await evaluate("t-x", "")
     expect(rung("default").getAttribute("data-decided")).toBe("true")
     reason = "disabled"
     act(() => queryStore.invalidate("vault", ["flags.evaluate"]))
-    await waitFor(() => expect(rung("enabled").getAttribute("data-decided")).toBe("true"))
+    await waitFor(() =>
+      expect(rung("enabled").getAttribute("data-decided")).toBe("true")
+    )
     expect(rung("default").getAttribute("data-decided")).toBeNull()
     expect(evaluates()).toHaveLength(2)
   })
@@ -316,8 +368,13 @@ describe("evaluation result line", () => {
       evaluation({
         reason: "rule",
         matchedRulePriority: 1,
-        trace: trace([miss("no user in context"), hit("user u-1"), skipped, skipped]),
-      }),
+        trace: trace([
+          miss("no user in context"),
+          hit("user u-1"),
+          skipped,
+          skipped,
+        ]),
+      })
     )
     await evaluate("", "u-1")
     expect(result().textContent).toContain("for user u-1.")
@@ -326,32 +383,49 @@ describe("evaluation result line", () => {
 
   it("says no rule matched for the default", async () => {
     setup(() =>
-      evaluation({ reason: "default", trace: trace([miss("a"), miss("b"), miss("c"), miss("d")]) }),
+      evaluation({
+        reason: "default",
+        trace: trace([miss("a"), miss("b"), miss("c"), miss("d")]),
+      })
     )
     await evaluate("t-x", "u-x")
-    expect(result().textContent).toContain("No rule matched, so the default is returned.")
+    expect(result().textContent).toContain(
+      "No rule matched, so the default is returned."
+    )
     expect(result().textContent).toContain("for tenant t-x, user u-x.")
   })
 
   it("flags an answer that is not a value of the flag's type", async () => {
-    setup(() => evaluation({ reason: "disabled", value: "yes", valueMatchesType: false }))
+    setup(() =>
+      evaluation({ reason: "disabled", value: "yes", valueMatchesType: false })
+    )
     await evaluate()
     expect(within(result()).getByText("Wrong type")).toBeTruthy()
   })
 
   it("carries cacheTtlSeconds in the cache sentence", async () => {
-    setup(() => evaluation({ reason: "disabled" }), detail({ cacheTtlSeconds: 45 }))
+    setup(
+      () => evaluation({ reason: "disabled" }),
+      detail({ cacheTtlSeconds: 45 })
+    )
     await evaluate()
-    expect(result().textContent).toContain("This is what this server answers now.")
     expect(result().textContent).toContain(
-      "Other servers may serve the previous answer for up to 45 seconds after a change.",
+      "This is what this server answers now."
+    )
+    expect(result().textContent).toContain(
+      "Other servers may serve the previous answer for up to 45 seconds after a change."
     )
   })
 
   it("leaves out the other-servers sentence when nothing is cached", async () => {
-    setup(() => evaluation({ reason: "disabled" }), detail({ cacheTtlSeconds: 0 }))
+    setup(
+      () => evaluation({ reason: "disabled" }),
+      detail({ cacheTtlSeconds: 0 })
+    )
     await evaluate()
-    expect(result().textContent).toContain("This is what this server answers now.")
+    expect(result().textContent).toContain(
+      "This is what this server answers now."
+    )
     expect(result().textContent).not.toContain("Other servers")
   })
 })
@@ -396,8 +470,13 @@ describe("evaluation marks on the ladder", () => {
       evaluation({
         reason: "rule",
         matchedRulePriority: 1,
-        trace: trace([miss("no tenant in context"), hit("user u-1"), skipped, skipped]),
-      }),
+        trace: trace([
+          miss("no tenant in context"),
+          hit("user u-1"),
+          skipped,
+          skipped,
+        ]),
+      })
     )
     await evaluate("", "u-1")
     const r = rows("rules")
@@ -430,18 +509,25 @@ describe("evaluation marks on the ladder", () => {
         reason: "rule",
         matchedRulePriority: 0,
         trace: trace([hit("tenant t-beta"), skipped, skipped, skipped]),
-      }),
+      })
     )
     await evaluate("t-beta", "")
-    expect(rung("overrides").textContent).toContain("Tenant t-beta has no override.")
+    expect(rung("overrides").textContent).toContain(
+      "Tenant t-beta has no override."
+    )
   })
 
   it("default: every rule shows its note and rung 4 decided", async () => {
     setup(() =>
       evaluation({
         reason: "default",
-        trace: trace([miss("tenant t-x"), miss("user u-x"), miss("no tenant in context, a rollout cannot match"), miss("the window has not started")]),
-      }),
+        trace: trace([
+          miss("tenant t-x"),
+          miss("user u-x"),
+          miss("no tenant in context, a rollout cannot match"),
+          miss("the window has not started"),
+        ]),
+      })
     )
     await evaluate("t-x", "u-x")
     const r = rows("rules")
@@ -468,12 +554,19 @@ describe("evaluation marks on the ladder", () => {
         reason: "rule",
         matchedRulePriority: 2,
         bucket: 12,
-        trace: trace([miss("tenant t-x"), miss("no user in context"), hit("bucket 12 of 100, threshold 25"), skipped]),
-      }),
+        trace: trace([
+          miss("tenant t-x"),
+          miss("no user in context"),
+          hit("bucket 12 of 100, threshold 25"),
+          skipped,
+        ]),
+      })
     )
     await evaluate("t-x", "")
     const rollout = rows("rules")[2]!
-    expect(rollout.textContent).toContain("Tenant t-x lands in bucket 12, under 25.")
+    expect(rollout.textContent).toContain(
+      "Tenant t-x lands in bucket 12, under 25."
+    )
     expect(rowMarks(rollout)).toEqual(["Decided here"])
   })
 
@@ -482,12 +575,19 @@ describe("evaluation marks on the ladder", () => {
       evaluation({
         reason: "default",
         bucket: 64,
-        trace: trace([miss("tenant t-x"), miss("no user in context"), miss("bucket 64 of 100, threshold 25"), miss("the window has not started")]),
-      }),
+        trace: trace([
+          miss("tenant t-x"),
+          miss("no user in context"),
+          miss("bucket 64 of 100, threshold 25"),
+          miss("the window has not started"),
+        ]),
+      })
     )
     await evaluate("t-x", "")
     const rollout = rows("rules")[2]!
-    expect(rollout.textContent).toContain("Tenant t-x lands in bucket 64, not under 25.")
+    expect(rollout.textContent).toContain(
+      "Tenant t-x lands in bucket 64, not under 25."
+    )
     expect(rollout.textContent).not.toContain("threshold")
   })
 
@@ -495,11 +595,18 @@ describe("evaluation marks on the ladder", () => {
     setup(() =>
       evaluation({
         reason: "default",
-        trace: trace([miss("no tenant in context"), miss("user u-9"), miss("no tenant in context, a rollout cannot match"), miss("the window has not started")]),
-      }),
+        trace: trace([
+          miss("no tenant in context"),
+          miss("user u-9"),
+          miss("no tenant in context, a rollout cannot match"),
+          miss("the window has not started"),
+        ]),
+      })
     )
     await evaluate("", "u-9")
-    expect(rows("rules")[2]!.textContent).toContain("no tenant in context, a rollout cannot match")
+    expect(rows("rules")[2]!.textContent).toContain(
+      "no tenant in context, a rollout cannot match"
+    )
     expect(rows("rules")[2]!.textContent).not.toContain("lands in bucket")
   })
 
@@ -516,7 +623,7 @@ describe("evaluation marks on the ladder", () => {
           matchedRulePriority: 2,
           trace: trace([miss("tenant t-9"), hit("user u-1")], odd),
         }),
-      detail({ rules: odd }),
+      detail({ rules: odd })
     )
     await evaluate("t-9", "u-1")
     const r = rows("rules")
@@ -532,7 +639,7 @@ describe("evaluation marks on the ladder", () => {
         matchedRulePriority: 1,
         // One step short: a rule was added after this trace was made.
         trace: trace([miss("no tenant in context"), hit("user u-1")]),
-      }),
+      })
     )
     await evaluate("", "u-1")
     expect(result().textContent).toContain("Press Evaluate again.")
@@ -552,11 +659,25 @@ describe("evaluation marks on the ladder", () => {
           matchedRuleId: "r2",
           matchedRulePriority: 0,
           trace: [
-            { ruleId: "r2", priority: 0, type: "rollout", matched: true, reached: true, note: "bucket 3 of 100, threshold 50" },
-            { ruleId: "r1", priority: 1, type: "when_tenant", matched: false, reached: false, note: "" },
+            {
+              ruleId: "r2",
+              priority: 0,
+              type: "rollout",
+              matched: true,
+              reached: true,
+              note: "bucket 3 of 100, threshold 50",
+            },
+            {
+              ruleId: "r1",
+              priority: 1,
+              type: "when_tenant",
+              matched: false,
+              reached: false,
+              note: "",
+            },
           ],
         }),
-      detail({ rules: page }),
+      detail({ rules: page })
     )
     await evaluate("wayne", "")
     const r = rows("rules")
@@ -571,10 +692,10 @@ describe("evaluation marks on the ladder", () => {
         reason: "rule",
         matchedRuleId: "rul_gone",
         matchedRulePriority: 1,
-        trace: traceWithIds([miss("a"), hit("b"), skipped, skipped]).map((s, i) =>
-          i === 1 ? { ...s, ruleId: "rul_gone" } : s,
+        trace: traceWithIds([miss("a"), hit("b"), skipped, skipped]).map(
+          (s, i) => (i === 1 ? { ...s, ruleId: "rul_gone" } : s)
         ),
-      }),
+      })
     )
     await evaluate("", "u-1")
     expect(screen.queryByText("Decided here")).toBeNull()
@@ -584,7 +705,8 @@ describe("evaluation marks on the ladder", () => {
   it("refetches the flag's rules whenever Evaluate is pressed", async () => {
     const { queries } = setup(() => evaluation())
     await evaluate("t-acme", "")
-    const detailReads = () => queries.filter((q) => q.intent === "flags.detail").length
+    const detailReads = () =>
+      queries.filter((q) => q.intent === "flags.detail").length
     await waitFor(() => expect(detailReads()).toBe(2))
     fireEvent.click(screen.getByRole("button", { name: "Evaluate" }))
     await waitFor(() => expect(detailReads()).toBe(3))
@@ -610,15 +732,22 @@ describe("evaluation marks on the ladder", () => {
     } as unknown as ScopedClient
     render(
       <PluginProvider client={client}>
-        <NavigationProvider value={{ Link: ({ children }) => <a>{children}</a>, navigate: vi.fn() }}>
+        <NavigationProvider
+          value={{
+            Link: ({ children }) => <a>{children}</a>,
+            navigate: vi.fn(),
+          }}
+        >
           <FlagDetailPage params={{ key: KEY }} />
         </NavigationProvider>
-      </PluginProvider>,
+      </PluginProvider>
     )
     await ready()
     fireEvent.click(screen.getByRole("button", { name: "Evaluate" }))
     await waitFor(() => expect(rows("rules")).toHaveLength(4))
-    await waitFor(() => expect(result().textContent).not.toContain("Press Evaluate again."))
+    await waitFor(() =>
+      expect(result().textContent).not.toContain("Press Evaluate again.")
+    )
     expect(rung("default").getAttribute("data-decided")).toBe("true")
   })
 
@@ -628,12 +757,36 @@ describe("evaluation marks on the ladder", () => {
         reason: "rule",
         matchedRulePriority: 9,
         trace: [
-          { priority: 0, type: "when_tenant", matched: false, reached: true, note: "n0" },
-          { priority: 9, type: "when_user", matched: true, reached: true, note: "n1" },
-          { priority: 2, type: "rollout", matched: false, reached: false, note: "" },
-          { priority: 3, type: "schedule", matched: false, reached: false, note: "" },
+          {
+            priority: 0,
+            type: "when_tenant",
+            matched: false,
+            reached: true,
+            note: "n0",
+          },
+          {
+            priority: 9,
+            type: "when_user",
+            matched: true,
+            reached: true,
+            note: "n1",
+          },
+          {
+            priority: 2,
+            type: "rollout",
+            matched: false,
+            reached: false,
+            note: "",
+          },
+          {
+            priority: 3,
+            type: "schedule",
+            matched: false,
+            reached: false,
+            note: "",
+          },
         ],
-      }),
+      })
     )
     await evaluate("", "u-1")
     expect(rowMarks(rows("rules")[1]!)).toEqual([])
@@ -645,7 +798,7 @@ describe("evaluation marks on the ladder", () => {
   it("does not mark or annotate one rung twice when the flag is also off in the page", async () => {
     setup(
       () => evaluation({ reason: "disabled" }),
-      detail({ flag: flag({ enabled: false }) }),
+      detail({ flag: flag({ enabled: false }) })
     )
     await evaluate()
     expect(rungBodyOpacityCount("rules")).toBe(1)
@@ -661,7 +814,9 @@ describe("remove override dialog title", () => {
   it("keeps its tenant while the dialog is closing", async () => {
     // jsdom has no animations, so the dialog would unmount at once and the
     // closing frame would never exist. A 60ms exit animation gives it one.
-    const proto = Element.prototype as unknown as { getAnimations?: () => unknown[] }
+    const proto = Element.prototype as unknown as {
+      getAnimations?: () => unknown[]
+    }
     const had = Object.getOwnPropertyDescriptor(proto, "getAnimations")
     proto.getAnimations = function () {
       return [{ finished: new Promise((r) => setTimeout(r, 60)) }]
@@ -669,7 +824,13 @@ describe("remove override dialog title", () => {
     try {
       const inner = stubClient(
         { "flags.detail": detail() },
-        { "flags.deleteTenantOverride": { ok: true, key: KEY, tenantId: "t-acme" } },
+        {
+          "flags.deleteTenantOverride": {
+            ok: true,
+            key: KEY,
+            tenantId: "t-acme",
+          },
+        }
       )
       render(
         <PluginProvider client={inner}>
@@ -681,15 +842,19 @@ describe("remove override dialog title", () => {
           >
             <FlagDetailPage params={{ key: KEY }} />
           </NavigationProvider>
-        </PluginProvider>,
+        </PluginProvider>
       )
       await ready()
-      fireEvent.click(screen.getByRole("button", { name: "Remove override for t-acme" }))
+      fireEvent.click(
+        screen.getByRole("button", { name: "Remove override for t-acme" })
+      )
       const dialog = await screen.findByRole("alertdialog")
       expect(dialog.textContent).toContain("Remove the override for t-acme?")
       fireEvent.click(within(dialog).getByRole("button", { name: "Remove" }))
       // The command has settled and the dialog is on its way out.
-      await waitFor(() => expect(within(dialog).queryByText(/Working/)).toBeNull())
+      await waitFor(() =>
+        expect(within(dialog).queryByText(/Working/)).toBeNull()
+      )
       const closing = document.querySelector('[role="alertdialog"]')
       expect(closing).toBeTruthy()
       expect(closing?.textContent).toContain("Remove the override for t-acme?")

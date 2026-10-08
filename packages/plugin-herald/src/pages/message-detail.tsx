@@ -13,16 +13,28 @@ import { messageSendTestPath, providerPath, templatePath } from "../keys"
 import type { MessageDetail, MessagesDetailResponse } from "../wire"
 
 function Outcome({ m }: { m: MessageDetail }) {
-  if (m.status === "sent") return <p className="text-sm">Accepted by provider. {NO_RECEIPTS}</p>
-  if (m.status === "suppressed") return <p className="text-sm">Not sent: the user opted out of this template on this channel.</p>
-  if (m.status === "sending") return <p className="text-sm">Handed to the provider and not settled yet.</p>
+  if (m.status === "sent")
+    return <p className="text-sm">Accepted by provider. {NO_RECEIPTS}</p>
+  if (m.status === "suppressed")
+    return (
+      <p className="text-sm">
+        Not sent: the user opted out of this template on this channel.
+      </p>
+    )
+  if (m.status === "sending")
+    return (
+      <p className="text-sm">Handed to the provider and not settled yet.</p>
+    )
   return null
 }
 
 function TemplateValue({ m }: { m: MessageDetail }) {
   if (m.template) {
     return (
-      <PluginLink to={templatePath(m.template.id)} className="font-mono text-xs underline">
+      <PluginLink
+        to={templatePath(m.template.id)}
+        className="font-mono text-xs underline"
+      >
         {m.template.slug}
       </PluginLink>
     )
@@ -30,7 +42,8 @@ function TemplateValue({ m }: { m: MessageDetail }) {
   if (m.templateSlug) {
     return (
       <span>
-        <span className="font-mono text-xs">{m.templateSlug}</span> <span className="text-muted-foreground">(no longer exists)</span>
+        <span className="font-mono text-xs">{m.templateSlug}</span>{" "}
+        <span className="text-muted-foreground">(no longer exists)</span>
       </span>
     )
   }
@@ -43,16 +56,21 @@ function ProviderValue({ m }: { m: MessageDetail }) {
     return (
       <span>
         <PluginLink to={providerPath(m.provider.id)} className="underline">
-          {m.provider.name || <span className="font-mono text-xs">{m.provider.id}</span>}
+          {m.provider.name || (
+            <span className="font-mono text-xs">{m.provider.id}</span>
+          )}
         </PluginLink>
-        {m.provider.driver && <span className="font-mono text-xs"> {m.provider.driver}</span>}
+        {m.provider.driver && (
+          <span className="font-mono text-xs"> {m.provider.driver}</span>
+        )}
       </span>
     )
   }
   if (m.status === "suppressed") return <NoneCell label="provider" />
   return (
     <span>
-      <NoneCell label="provider" /> <span className="text-muted-foreground">(no longer exists)</span>
+      <NoneCell label="provider" />{" "}
+      <span className="text-muted-foreground">(no longer exists)</span>
     </span>
   )
 }
@@ -69,7 +87,10 @@ function MessageBody({ id }: { id: string }) {
         title={loaded ? `Message to ${loaded.recipient}` : "Message"}
         actions={
           loaded && (
-            <PluginLink to={messageSendTestPath(loaded.id)} className={buttonVariants({ variant: "outline" })}>
+            <PluginLink
+              to={messageSendTestPath(loaded.id)}
+              className={buttonVariants({ variant: "outline" })}
+            >
               Send a test to this recipient
             </PluginLink>
           )
@@ -83,38 +104,84 @@ function MessageBody({ id }: { id: string }) {
               <section className="flex flex-col gap-1.5">
                 <h2 className="text-sm font-medium">Error</h2>
                 {m.error ? (
-                  <pre className="overflow-x-auto rounded-md border p-3 font-mono text-xs whitespace-pre-wrap">{m.error}</pre>
+                  <pre className="overflow-x-auto rounded-md border p-3 font-mono text-xs whitespace-pre-wrap">
+                    {m.error}
+                  </pre>
                 ) : (
-                  <p className="text-sm text-muted-foreground">No error was recorded.</p>
+                  <p className="text-sm text-muted-foreground">
+                    No error was recorded.
+                  </p>
                 )}
               </section>
             )}
             <DescriptionList
               items={[
-                { term: "ID", value: <span className="font-mono text-xs">{m.id}</span> },
+                {
+                  term: "ID",
+                  value: <span className="font-mono text-xs">{m.id}</span>,
+                },
                 { term: "Recipient", value: m.recipient },
                 { term: "Channel", value: m.channel },
-                { term: "Status", value: <MessageStatusBadge status={m.status} /> },
+                {
+                  term: "Status",
+                  value: <MessageStatusBadge status={m.status} />,
+                },
                 { term: "Template", value: <TemplateValue m={m} /> },
                 { term: "Provider", value: <ProviderValue m={m} /> },
-                { term: "Vendor message ID", value: m.providerMessageId ? <span className="font-mono text-xs">{m.providerMessageId}</span> : <NoneCell label="vendor message ID" /> },
-                { term: "Attempts", value: <span className="font-mono text-xs">{m.attempts}</span> },
+                {
+                  term: "Vendor message ID",
+                  value: m.providerMessageId ? (
+                    <span className="font-mono text-xs">
+                      {m.providerMessageId}
+                    </span>
+                  ) : (
+                    <NoneCell label="vendor message ID" />
+                  ),
+                },
+                {
+                  term: "Attempts",
+                  value: (
+                    <span className="font-mono text-xs">{m.attempts}</span>
+                  ),
+                },
                 { term: "Sent asynchronously", value: m.async ? "Yes" : "No" },
-                { term: "Environment", value: m.envId ? <span className="font-mono text-xs">{m.envId}</span> : <NoneCell label="environment" /> },
-                { term: "Created", value: <Timestamp value={m.createdAt} label="creation time" /> },
-                { term: "Sent", value: <Timestamp value={m.sentAt} label="send time" /> },
+                {
+                  term: "Environment",
+                  value: m.envId ? (
+                    <span className="font-mono text-xs">{m.envId}</span>
+                  ) : (
+                    <NoneCell label="environment" />
+                  ),
+                },
+                {
+                  term: "Created",
+                  value: (
+                    <Timestamp value={m.createdAt} label="creation time" />
+                  ),
+                },
+                {
+                  term: "Sent",
+                  value: <Timestamp value={m.sentAt} label="send time" />,
+                },
               ]}
             />
             <section className="flex flex-col gap-1.5">
               <h2 className="text-sm font-medium">Body</h2>
               {m.subject && <p className="text-sm">Subject: {m.subject}</p>}
               {m.body ? (
-                <pre className="overflow-x-auto rounded-md border p-3 font-mono text-xs whitespace-pre-wrap">{m.body}</pre>
+                <pre className="overflow-x-auto rounded-md border p-3 font-mono text-xs whitespace-pre-wrap">
+                  {m.body}
+                </pre>
               ) : (
-                <p className="text-sm text-muted-foreground">No body recorded.</p>
+                <p className="text-sm text-muted-foreground">
+                  No body recorded.
+                </p>
               )}
               <p className="text-xs text-muted-foreground">
-                This is the text part only. HTML bodies aren't logged, and bodies are cut at {limit === undefined ? "the engine's limit" : `${limit} bytes`} with no marker.
+                This is the text part only. HTML bodies aren't logged, and
+                bodies are cut at{" "}
+                {limit === undefined ? "the engine's limit" : `${limit} bytes`}{" "}
+                with no marker.
               </p>
             </section>
             <section className="flex flex-col gap-1.5">
@@ -122,7 +189,12 @@ function MessageBody({ id }: { id: string }) {
               {Object.keys(m.metadata).length === 0 ? (
                 <p className="text-sm text-muted-foreground">No metadata.</p>
               ) : (
-                <DescriptionList items={Object.entries(m.metadata).map(([term, value]) => ({ term, value: <span className="font-mono text-xs">{value}</span> }))} />
+                <DescriptionList
+                  items={Object.entries(m.metadata).map(([term, value]) => ({
+                    term,
+                    value: <span className="font-mono text-xs">{value}</span>,
+                  }))}
+                />
               )}
             </section>
           </div>
@@ -132,7 +204,9 @@ function MessageBody({ id }: { id: string }) {
   )
 }
 
-export const MessageDetailPage: ComponentType<PluginPageProps> = ({ params }) => {
+export const MessageDetailPage: ComponentType<PluginPageProps> = ({
+  params,
+}) => {
   const id = params.id
   if (!id) {
     return (

@@ -31,13 +31,16 @@ beforeEach(() => {
  */
 export function stubClient(
   answers: Record<string, unknown>,
-  commands: Record<string, unknown> = {},
+  commands: Record<string, unknown> = {}
 ): ScopedClient {
   return {
     extension: "sentinel",
     query: async (intent: string) => {
       if (!(intent in answers)) {
-        throw new ContractError("NOT_FOUND", `no handler for intent "${intent}"`)
+        throw new ContractError(
+          "NOT_FOUND",
+          `no handler for intent "${intent}"`
+        )
       }
       return answers[intent]
     },
@@ -46,7 +49,10 @@ export function stubClient(
     // resolve to undefined and look like a success.
     command: async (intent: string) => {
       if (!(intent in commands)) {
-        throw new ContractError("NOT_FOUND", `no handler for command "${intent}"`)
+        throw new ContractError(
+          "NOT_FOUND",
+          `no handler for command "${intent}"`
+        )
       }
       return commands[intent]
     },
@@ -56,7 +62,7 @@ export function stubClient(
 /** Records every command a page sends, with its payload, in order. */
 export function recordingCommandClient(
   answers: Record<string, unknown>,
-  commands: Record<string, unknown> = {},
+  commands: Record<string, unknown> = {}
 ): { client: ScopedClient; sent: { intent: string; payload: unknown }[] } {
   const sent: { intent: string; payload: unknown }[] = []
   const inner = stubClient(answers, commands)
@@ -130,8 +136,10 @@ export function recordingQueryClient(answers: Record<string, unknown>): {
  * saves, and a test needs to see all three.
  */
 export function recordingFullClient(
-  answers: Record<string, unknown> | ((intent: string, params?: Record<string, unknown>) => unknown),
-  commands: Record<string, unknown> = {},
+  answers:
+    | Record<string, unknown>
+    | ((intent: string, params?: Record<string, unknown>) => unknown),
+  commands: Record<string, unknown> = {}
 ): {
   client: ScopedClient
   queries: { intent: string; params?: Record<string, unknown> }[]
@@ -139,7 +147,10 @@ export function recordingFullClient(
 } {
   const queries: { intent: string; params?: Record<string, unknown> }[] = []
   const sent: { intent: string; payload: unknown }[] = []
-  const inner = stubClient(typeof answers === "function" ? {} : answers, commands)
+  const inner = stubClient(
+    typeof answers === "function" ? {} : answers,
+    commands
+  )
   return {
     queries,
     sent,
@@ -150,7 +161,11 @@ export function recordingFullClient(
         if (typeof answers !== "function") return inner.query(intent, params)
         const answer = answers(intent, params)
         if (answer instanceof Error) throw answer
-        if (answer === undefined) throw new ContractError("NOT_FOUND", `no handler for intent "${intent}"`)
+        if (answer === undefined)
+          throw new ContractError(
+            "NOT_FOUND",
+            `no handler for intent "${intent}"`
+          )
         return answer
       },
       command: (intent: string, payload?: unknown) => {
@@ -185,7 +200,7 @@ export function recordingClient(answers: Record<string, unknown>): {
 export function renderPage(
   Page: ComponentType<PluginPageProps>,
   client: ScopedClient,
-  params: PluginPageProps["params"] = {},
+  params: PluginPageProps["params"] = {}
 ) {
   return render(
     <PluginProvider client={client}>
@@ -202,7 +217,7 @@ export function renderPage(
 export function renderNavPage(
   Page: ComponentType<PluginPageProps>,
   client: ScopedClient,
-  params: PluginPageProps["params"] = {},
+  params: PluginPageProps["params"] = {}
 ) {
   const navigate = vi.fn()
   const view = render(
@@ -221,7 +236,7 @@ export function renderNavPage(
       >
         <Page params={params} />
       </NavigationProvider>
-    </PluginProvider>,
+    </PluginProvider>
   )
   return { ...view, navigate }
 }

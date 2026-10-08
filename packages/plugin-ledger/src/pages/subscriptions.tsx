@@ -4,7 +4,10 @@ import { buttonVariants } from "@forge-go/dashboard-kit/components/button"
 import { FilterBar } from "@forge-go/dashboard-kit/components/filter-bar"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
-import { ResourceTable, type Column } from "@forge-go/dashboard-kit/components/resource-table"
+import {
+  ResourceTable,
+  type Column,
+} from "@forge-go/dashboard-kit/components/resource-table"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { SUBSCRIPTION_STATUS_OPTIONS, SubscriptionStatusBadge } from "../badges"
 import { ImportFromProviderAction } from "../components/import-from-provider"
@@ -51,26 +54,50 @@ export function LedgerSubscriptionsPage() {
       id: "tenant",
       header: "Tenant",
       className: "font-mono text-xs font-medium",
-      cell: (s) => <PluginLink to={subscriptionPath(s.id)}>{s.tenant_id}</PluginLink>,
+      cell: (s) => (
+        <PluginLink to={subscriptionPath(s.id)}>{s.tenant_id}</PluginLink>
+      ),
     },
     {
       id: "plan",
       header: "Plan",
-      cell: (s) => planNames.get(s.plan_id) ?? <span className="font-mono text-xs">{s.plan_id}</span>,
+      cell: (s) =>
+        planNames.get(s.plan_id) ?? (
+          <span className="font-mono text-xs">{s.plan_id}</span>
+        ),
     },
-    { id: "status", header: "Status", cell: (s) => <SubscriptionStatusBadge status={s.status} /> },
-    { id: "period", header: "Current period", cell: (s) => formatPeriod(s.current_period_start, s.current_period_end) },
+    {
+      id: "status",
+      header: "Status",
+      cell: (s) => <SubscriptionStatusBadge status={s.status} />,
+    },
+    {
+      id: "period",
+      header: "Current period",
+      cell: (s) => formatPeriod(s.current_period_start, s.current_period_end),
+    },
     {
       id: "cancels",
       header: "Cancels",
       // The engine never writes ended_at: a canceled subscription carries
       // canceled_at, the moment it stopped, and a scheduled one only cancel_at.
-      cell: (s) => <Timestamp value={s.status === "canceled" ? s.canceled_at : s.cancel_at} label="cancellation" />,
+      cell: (s) => (
+        <Timestamp
+          value={s.status === "canceled" ? s.canceled_at : s.cancel_at}
+          label="cancellation"
+        />
+      ),
     },
-    { id: "created", header: "Started", cell: (s) => <Timestamp value={s.created_at} label="start" /> },
+    {
+      id: "created",
+      header: "Started",
+      cell: (s) => <Timestamp value={s.created_at} label="start" />,
+    },
   ]
 
-  const statusLabel = SUBSCRIPTION_STATUS_OPTIONS.find((s) => s.value === status)?.label.toLowerCase()
+  const statusLabel = SUBSCRIPTION_STATUS_OPTIONS.find(
+    (s) => s.value === status
+  )?.label.toLowerCase()
   const emptyMessage =
     page === 1 && tenantId
       ? `No ${statusLabel ? `${statusLabel} ` : ""}subscriptions for ${tenantId}.`
@@ -108,7 +135,10 @@ export function LedgerSubscriptionsPage() {
             id: "status",
             label: "Status",
             value: status,
-            options: [{ label: "All", value: "" }, ...SUBSCRIPTION_STATUS_OPTIONS],
+            options: [
+              { label: "All", value: "" },
+              ...SUBSCRIPTION_STATUS_OPTIONS,
+            ],
             onChange: (next) => {
               setStatus(next)
               setPage(1)
@@ -125,11 +155,27 @@ export function LedgerSubscriptionsPage() {
                 columns={columns}
                 rows={rows}
                 rowKey={(s) => s.id}
-                caption={pageCaption({ page, shown: rows.length, hasMore: data.has_more, singular: "subscription", plural: "subscriptions" })}
+                caption={pageCaption({
+                  page,
+                  shown: rows.length,
+                  hasMore: data.has_more,
+                  singular: "subscription",
+                  plural: "subscriptions",
+                })}
                 emptyMessage={emptyMessage}
-                emptyAction={page > 1 ? <BackToFirstPage onClick={() => setPage(1)} /> : !status && !tenantId ? <NewSubscriptionLink /> : undefined}
+                emptyAction={
+                  page > 1 ? (
+                    <BackToFirstPage onClick={() => setPage(1)} />
+                  ) : !status && !tenantId ? (
+                    <NewSubscriptionLink />
+                  ) : undefined
+                }
               />
-              <OffsetPager page={page} hasMore={data.has_more} onPageChange={setPage} />
+              <OffsetPager
+                page={page}
+                hasMore={data.has_more}
+                onPageChange={setPage}
+              />
             </div>
           )
         }}

@@ -1,11 +1,6 @@
 import { useEffect, useRef, useState } from "react"
 import type { ComponentType, ReactNode } from "react"
-import {
-  Navigate,
-  useLocation,
-  useParams,
-  useSearchParams,
-} from "react-router"
+import { Navigate, useLocation, useParams, useSearchParams } from "react-router"
 import {
   mountPath,
   urlValueOf,
@@ -50,7 +45,9 @@ function routeParam(dimension: ContextDimension): string {
  * importing back from it would be a cycle for three lines of sorting.
  */
 function firstNavPath(plugin: ForgePlugin): string {
-  const first = [...plugin.nav].sort((a, b) => (a.priority ?? 0) - (b.priority ?? 0))[0]
+  const first = [...plugin.nav].sort(
+    (a, b) => (a.priority ?? 0) - (b.priority ?? 0)
+  )[0]
   return first ? first.to : "/"
 }
 
@@ -100,7 +97,7 @@ interface ReconcileState {
 function useReconcile(
   dimension: ContextDimension,
   urlValue: string | undefined,
-  onSwitched?: () => void,
+  onSwitched?: () => void
 ): ReconcileState {
   const read = useQuery<unknown>(dimension.query)
   const switchTo = useCommand(dimension.switchCommand)
@@ -126,7 +123,9 @@ function useReconcile(
     : undefined
   const matched =
     resolved && urlValue !== undefined
-      ? resolved.options.find((option) => urlValueOf(dimension, option) === urlValue)
+      ? resolved.options.find(
+          (option) => urlValueOf(dimension, option) === urlValue
+        )
       : undefined
 
   useEffect(() => {
@@ -270,8 +269,8 @@ function UnknownContextPanel({
             guessing at the first letter survives a dimension called "Org"
             or one named in another language.
           */}
-          No {noun.toLowerCase()} matching{" "}
-          {slug ? `"${slug}"` : "this URL"} is available to you.
+          No {noun.toLowerCase()} matching {slug ? `"${slug}"` : "this URL"} is
+          available to you.
         </AlertDescription>
       </Alert>
       {Picker && <Picker />}
@@ -343,7 +342,6 @@ export function RoutedPage({
     locationRef.current = location
   }, [location])
 
-
   /*
     No query params are stripped on a switch, and that is a deliberate
     reversal.
@@ -375,7 +373,9 @@ export function RoutedPage({
       <div className="flex flex-col gap-4">
         <Alert variant="destructive">
           <TriangleAlertIcon />
-          <AlertTitle>This {dimension.label.toLowerCase()} did not take</AlertTitle>
+          <AlertTitle>
+            This {dimension.label.toLowerCase()} did not take
+          </AlertTitle>
           <AlertDescription>
             The switch was accepted and the server still reports
             {` ${state.current?.label ?? "something else"}`}. What is below is
@@ -406,7 +406,9 @@ export function RoutedPage({
     )
   }
 
-  const envDimension = plugin.context.find((d) => d.routed?.placement === "query")
+  const envDimension = plugin.context.find(
+    (d) => d.routed?.placement === "query"
+  )
 
   return envDimension ? (
     <QueryContextGate dimension={envDimension}>{children}</QueryContextGate>

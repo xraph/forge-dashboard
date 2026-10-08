@@ -1,5 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
-import { scheduleTime, toRFC3339, toUTCInput, utcInputToRFC3339 } from "../src/datetime"
+import {
+  scheduleTime,
+  toRFC3339,
+  toUTCInput,
+  utcInputToRFC3339,
+} from "../src/datetime"
 
 // The browser's zone, changed under a running test. No Node types in this
 // package, so it goes through vitest's own env stub rather than `process`.
@@ -9,10 +14,19 @@ afterEach(() => {
 
 describe("datetime helpers", () => {
   it("reads a schedule's fields as UTC whatever zone the browser is in", () => {
-    for (const tz of ["UTC", "America/New_York", "Asia/Kolkata", "Pacific/Auckland"]) {
+    for (const tz of [
+      "UTC",
+      "America/New_York",
+      "Asia/Kolkata",
+      "Pacific/Auckland",
+    ]) {
       vi.stubEnv("TZ", tz)
-      expect(utcInputToRFC3339("2026-03-01T09:00")).toBe("2026-03-01T09:00:00.000Z")
-      expect(utcInputToRFC3339("2026-03-01T09:00:30")).toBe("2026-03-01T09:00:30.000Z")
+      expect(utcInputToRFC3339("2026-03-01T09:00")).toBe(
+        "2026-03-01T09:00:00.000Z"
+      )
+      expect(utcInputToRFC3339("2026-03-01T09:00:30")).toBe(
+        "2026-03-01T09:00:30.000Z"
+      )
     }
   })
 
@@ -40,10 +54,18 @@ describe("datetime helpers", () => {
   })
 
   it("sends an untouched time as it was read, and an edited one as UTC", () => {
-    expect(scheduleTime("2026-03-01T09:00", "2026-03-01T09:00:00.250Z")).toBe("2026-03-01T09:00:00.250Z")
-    expect(scheduleTime("2026-03-01T09:00", "2026-03-01T11:00:00+02:00")).toBe("2026-03-01T11:00:00+02:00")
-    expect(scheduleTime("2026-03-02T09:00", "2026-03-01T09:00:00Z")).toBe("2026-03-02T09:00:00.000Z")
+    expect(scheduleTime("2026-03-01T09:00", "2026-03-01T09:00:00.250Z")).toBe(
+      "2026-03-01T09:00:00.250Z"
+    )
+    expect(scheduleTime("2026-03-01T09:00", "2026-03-01T11:00:00+02:00")).toBe(
+      "2026-03-01T11:00:00+02:00"
+    )
+    expect(scheduleTime("2026-03-02T09:00", "2026-03-01T09:00:00Z")).toBe(
+      "2026-03-02T09:00:00.000Z"
+    )
     expect(scheduleTime("", "2026-03-01T09:00:00Z")).toBeUndefined()
-    expect(scheduleTime("2026-03-02T09:00", undefined)).toBe("2026-03-02T09:00:00.000Z")
+    expect(scheduleTime("2026-03-02T09:00", undefined)).toBe(
+      "2026-03-02T09:00:00.000Z"
+    )
   })
 })

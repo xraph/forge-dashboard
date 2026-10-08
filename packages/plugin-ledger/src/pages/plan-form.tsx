@@ -5,7 +5,10 @@ import { PluginLink } from "@forge-go/dashboard-plugin"
 import { Button } from "@forge-go/dashboard-kit/components/button"
 import { Input } from "@forge-go/dashboard-kit/components/input"
 import { Label } from "@forge-go/dashboard-kit/components/label"
-import { NativeSelect, NativeSelectOption } from "@forge-go/dashboard-kit/components/native-select"
+import {
+  NativeSelect,
+  NativeSelectOption,
+} from "@forge-go/dashboard-kit/components/native-select"
 import { CommandAlert } from "@forge-go/dashboard-kit/components/query-boundary"
 import { Textarea } from "@forge-go/dashboard-kit/components/textarea"
 import { ProblemsAlert } from "../components/problems-alert"
@@ -82,12 +85,29 @@ export interface ParsedPlan {
     id?: string
     base_amount: MoneyInput
     billing_period: "monthly" | "yearly"
-    tiers: { feature_key: string; type: TierType; up_to: number; unit_amount: MoneyInput; flat_amount: MoneyInput; priority: number }[]
+    tiers: {
+      feature_key: string
+      type: TierType
+      up_to: number
+      unit_amount: MoneyInput
+      flat_amount: MoneyInput
+      priority: number
+    }[]
   }
 }
 
 export function emptyPlanForm(): PlanFormValue {
-  return { name: "", slug: "", description: "", currency: "usd", trial_days: "0", base: "0", billing_period: "monthly", features: [], tiers: [] }
+  return {
+    name: "",
+    slug: "",
+    description: "",
+    currency: "usd",
+    trial_days: "0",
+    base: "0",
+    billing_period: "monthly",
+    features: [],
+    tiers: [],
+  }
 }
 
 export function planToForm(p: Plan): PlanFormValue {
@@ -98,7 +118,8 @@ export function planToForm(p: Plan): PlanFormValue {
     currency: p.currency,
     trial_days: String(p.trial_days),
     base: toMajorInput(p.pricing?.base_amount.amount ?? 0, p.currency),
-    billing_period: p.pricing?.billing_period === "yearly" ? "yearly" : "monthly",
+    billing_period:
+      p.pricing?.billing_period === "yearly" ? "yearly" : "monthly",
     features: (p.features ?? []).map((f) => {
       const row: FeatureRow = {
         id: f.id,
@@ -106,7 +127,8 @@ export function planToForm(p: Plan): PlanFormValue {
         name: f.name,
         type: f.type,
         // An on-or-off feature is on only above zero, so a stored -1 is "off", not "unlimited".
-        limit: f.limit === -1 ? (f.type === "boolean" ? "0" : "") : String(f.limit),
+        limit:
+          f.limit === -1 ? (f.type === "boolean" ? "0" : "") : String(f.limit),
         unlimited: f.limit === -1 && f.type !== "boolean",
         period: f.period,
         soft_limit: f.soft_limit,
@@ -145,7 +167,10 @@ function wholeNumber(text: string, min = 0): number | undefined {
  * the authority: anything this lets through that it refuses still arrives
  * as a CommandAlert.
  */
-export function parsePlanForm(v: PlanFormValue, mode: "create" | "edit"): { ok: true; value: ParsedPlan } | { ok: false; errors: string[] } {
+export function parsePlanForm(
+  v: PlanFormValue,
+  mode: "create" | "edit"
+): { ok: true; value: ParsedPlan } | { ok: false; errors: string[] } {
   const errors: string[] = []
   const currency = v.currency.trim().toLowerCase()
   const code = currency.toUpperCase()
@@ -158,9 +183,11 @@ export function parsePlanForm(v: PlanFormValue, mode: "create" | "edit"): { ok: 
 
   if (v.name.trim() === "") errors.push("Name is required.")
   if (v.slug.trim() === "") errors.push("Slug is required.")
-  if (mode === "create" && !/^[a-z]{3}$/.test(currency)) errors.push("Currency must be a three-letter code such as usd.")
+  if (mode === "create" && !/^[a-z]{3}$/.test(currency))
+    errors.push("Currency must be a three-letter code such as usd.")
   const trialDays = wholeNumber(v.trial_days)
-  if (trialDays === undefined) errors.push("Trial days must be a whole number, 0 or more.")
+  if (trialDays === undefined)
+    errors.push("Trial days must be a whole number, 0 or more.")
   const base = money(v.base)
   if (!base) errors.push(`The base price must be ${moneyRule}.`)
 
@@ -169,15 +196,26 @@ export function parsePlanForm(v: PlanFormValue, mode: "create" | "edit"): { ok: 
     const n = i + 1
     const key = f.key.trim()
     if (key === "") errors.push(`Feature ${n}: the key is required.`)
-    else if (seen.has(key)) errors.push(`Feature ${n}: the key ${key} is already used.`)
+    else if (seen.has(key))
+      errors.push(`Feature ${n}: the key ${key} is already used.`)
     seen.add(key)
     let limit = -1
     if (!(f.unlimited && f.type !== "boolean")) {
       const parsedLimit = wholeNumber(f.limit)
-      if (parsedLimit === undefined) errors.push(`Feature ${n}: the limit must be a whole number, 0 or more, or unlimited.`)
+      if (parsedLimit === undefined)
+        errors.push(
+          `Feature ${n}: the limit must be a whole number, 0 or more, or unlimited.`
+        )
       else limit = parsedLimit
     }
-    const out: ParsedPlan["features"][number] = { key, name: f.name.trim() || key, type: f.type, limit, period: f.period, soft_limit: f.soft_limit }
+    const out: ParsedPlan["features"][number] = {
+      key,
+      name: f.name.trim() || key,
+      type: f.type,
+      limit,
+      period: f.period,
+      soft_limit: f.soft_limit,
+    }
     if (f.id) out.id = f.id
     if (f.catalog_id) out.catalog_id = f.catalog_id
     if (f.metadata) out.metadata = f.metadata
@@ -187,11 +225,17 @@ export function parsePlanForm(v: PlanFormValue, mode: "create" | "edit"): { ok: 
   const priorities = new Map<string, number>()
   const tiers = v.tiers.map((t, i) => {
     const n = i + 1
-    if (!seen.has(t.feature_key)) errors.push(`Tier ${n}: ${t.feature_key || "the feature"} is not one of this plan's features.`)
+    if (!seen.has(t.feature_key))
+      errors.push(
+        `Tier ${n}: ${t.feature_key || "the feature"} is not one of this plan's features.`
+      )
     let upTo = -1
     if (!t.unbounded) {
       const parsedUpTo = wholeNumber(t.up_to, 1)
-      if (parsedUpTo === undefined) errors.push(`Tier ${n}: up to must be a whole number above 0, or no limit.`)
+      if (parsedUpTo === undefined)
+        errors.push(
+          `Tier ${n}: up to must be a whole number above 0, or no limit.`
+        )
       else upTo = parsedUpTo
     }
     const unit = money(t.unit)
@@ -200,15 +244,30 @@ export function parsePlanForm(v: PlanFormValue, mode: "create" | "edit"): { ok: 
     if (!flat) errors.push(`Tier ${n}: the flat fee must be ${moneyRule}.`)
     const priority = priorities.get(t.feature_key) ?? 0
     priorities.set(t.feature_key, priority + 1)
-    return { feature_key: t.feature_key, type: t.type, up_to: upTo, unit_amount: unit ?? { amount: 0, currency }, flat_amount: flat ?? { amount: 0, currency }, priority }
+    return {
+      feature_key: t.feature_key,
+      type: t.type,
+      up_to: upTo,
+      unit_amount: unit ?? { amount: 0, currency },
+      flat_amount: flat ?? { amount: 0, currency },
+      priority,
+    }
   })
 
   if (errors.length > 0) return { ok: false, errors }
   // An edit of a plan that never had a price stays unpriced until the
   // operator sets one: a zero base price with no tiers is "untouched".
   const priced =
-    mode === "create" || v.pricing_id !== undefined || tiers.length > 0 || base!.amount > 0 || v.billing_period !== "monthly"
-  const pricing: ParsedPlan["pricing"] = { base_amount: base!, billing_period: v.billing_period, tiers }
+    mode === "create" ||
+    v.pricing_id !== undefined ||
+    tiers.length > 0 ||
+    base!.amount > 0 ||
+    v.billing_period !== "monthly"
+  const pricing: ParsedPlan["pricing"] = {
+    base_amount: base!,
+    billing_period: v.billing_period,
+    tiers,
+  }
   if (v.pricing_id) pricing.id = v.pricing_id
   return {
     ok: true,
@@ -224,8 +283,12 @@ export function parsePlanForm(v: PlanFormValue, mode: "create" | "edit"): { ok: 
   }
 }
 
-const FEATURE_TYPES: { value: FeatureType; label: string }[] = (["metered", "seat", "boolean"] as const).map((value) => ({ value, label: TYPE_LABEL[value] }))
-const PERIODS: { value: Period; label: string }[] = (["monthly", "yearly", "none"] as const).map((value) => ({ value, label: PERIOD_LABEL[value] }))
+const FEATURE_TYPES: { value: FeatureType; label: string }[] = (
+  ["metered", "seat", "boolean"] as const
+).map((value) => ({ value, label: TYPE_LABEL[value] }))
+const PERIODS: { value: Period; label: string }[] = (
+  ["monthly", "yearly", "none"] as const
+).map((value) => ({ value, label: PERIOD_LABEL[value] }))
 const TIER_TYPES: { value: TierType; label: string }[] = [
   { value: "graduated", label: "Graduated" },
   { value: "volume", label: "Volume" },
@@ -250,14 +313,33 @@ export interface PlanFormProps {
  * semantics expect; a feature keeps its id so the engine does not mint new
  * ones on every save.
  */
-export function PlanForm({ mode, initial, submitLabel, pendingLabel, pending, error, errorTitle, cancelTo, onSubmit }: PlanFormProps) {
+export function PlanForm({
+  mode,
+  initial,
+  submitLabel,
+  pendingLabel,
+  pending,
+  error,
+  errorTitle,
+  cancelTo,
+  onSubmit,
+}: PlanFormProps) {
   const [v, setV] = useState<PlanFormValue>(initial)
   const [problems, setProblems] = useState<string[]>([])
-  const set = <K extends keyof PlanFormValue>(key: K, value: PlanFormValue[K]) => setV((prev) => ({ ...prev, [key]: value }))
+  const set = <K extends keyof PlanFormValue>(
+    key: K,
+    value: PlanFormValue[K]
+  ) => setV((prev) => ({ ...prev, [key]: value }))
   const setFeature = (i: number, patch: Partial<FeatureRow>) =>
-    setV((prev) => ({ ...prev, features: prev.features.map((f, j) => (j === i ? { ...f, ...patch } : f)) }))
+    setV((prev) => ({
+      ...prev,
+      features: prev.features.map((f, j) => (j === i ? { ...f, ...patch } : f)),
+    }))
   const setTier = (i: number, patch: Partial<TierRow>) =>
-    setV((prev) => ({ ...prev, tiers: prev.tiers.map((t, j) => (j === i ? { ...t, ...patch } : t)) }))
+    setV((prev) => ({
+      ...prev,
+      tiers: prev.tiers.map((t, j) => (j === i ? { ...t, ...patch } : t)),
+    }))
 
   function submit(event: FormEvent) {
     event.preventDefault()
@@ -271,7 +353,9 @@ export function PlanForm({ mode, initial, submitLabel, pendingLabel, pending, er
     onSubmit(parsed.value)
   }
 
-  const featureKeys = v.features.map((f) => f.key.trim()).filter((k) => k !== "")
+  const featureKeys = v.features
+    .map((f) => f.key.trim())
+    .filter((k) => k !== "")
 
   return (
     <form onSubmit={submit} className="flex max-w-4xl flex-col gap-6">
@@ -282,15 +366,30 @@ export function PlanForm({ mode, initial, submitLabel, pendingLabel, pending, er
         <legend className="mb-2 text-base font-medium">Plan</legend>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="plan-name">Name</Label>
-          <Input id="plan-name" value={v.name} onChange={(e) => set("name", e.target.value)} />
+          <Input
+            id="plan-name"
+            value={v.name}
+            onChange={(e) => set("name", e.target.value)}
+          />
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="plan-slug">Slug</Label>
-          <Input id="plan-slug" className="font-mono" autoComplete="off" spellCheck={false} value={v.slug} onChange={(e) => set("slug", e.target.value)} />
+          <Input
+            id="plan-slug"
+            className="font-mono"
+            autoComplete="off"
+            spellCheck={false}
+            value={v.slug}
+            onChange={(e) => set("slug", e.target.value)}
+          />
         </div>
         <div className="flex flex-col gap-1.5 sm:col-span-2">
           <Label htmlFor="plan-description">Description</Label>
-          <Textarea id="plan-description" value={v.description} onChange={(e) => set("description", e.target.value)} />
+          <Textarea
+            id="plan-description"
+            value={v.description}
+            onChange={(e) => set("description", e.target.value)}
+          />
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="plan-currency">Currency</Label>
@@ -301,11 +400,21 @@ export function PlanForm({ mode, initial, submitLabel, pendingLabel, pending, er
             value={v.currency}
             onChange={(e) => set("currency", e.target.value)}
           />
-          {mode === "edit" && <p className="text-xs text-muted-foreground">A plan's currency cannot change once it exists.</p>}
+          {mode === "edit" && (
+            <p className="text-xs text-muted-foreground">
+              A plan's currency cannot change once it exists.
+            </p>
+          )}
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="plan-trial">Trial days</Label>
-          <Input id="plan-trial" inputMode="numeric" className="tabular-nums" value={v.trial_days} onChange={(e) => set("trial_days", e.target.value)} />
+          <Input
+            id="plan-trial"
+            inputMode="numeric"
+            className="tabular-nums"
+            value={v.trial_days}
+            onChange={(e) => set("trial_days", e.target.value)}
+          />
         </div>
       </fieldset>
 
@@ -313,11 +422,23 @@ export function PlanForm({ mode, initial, submitLabel, pendingLabel, pending, er
         <legend className="mb-2 text-base font-medium">Price</legend>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="plan-base">Base price</Label>
-          <Input id="plan-base" inputMode="decimal" className="text-right tabular-nums" value={v.base} onChange={(e) => set("base", e.target.value)} />
+          <Input
+            id="plan-base"
+            inputMode="decimal"
+            className="text-right tabular-nums"
+            value={v.base}
+            onChange={(e) => set("base", e.target.value)}
+          />
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="plan-period">Billed</Label>
-          <NativeSelect id="plan-period" value={v.billing_period} onChange={(e) => set("billing_period", e.target.value as "monthly" | "yearly")}>
+          <NativeSelect
+            id="plan-period"
+            value={v.billing_period}
+            onChange={(e) =>
+              set("billing_period", e.target.value as "monthly" | "yearly")
+            }
+          >
             <NativeSelectOption value="monthly">Monthly</NativeSelectOption>
             <NativeSelectOption value="yearly">Yearly</NativeSelectOption>
           </NativeSelect>
@@ -326,27 +447,57 @@ export function PlanForm({ mode, initial, submitLabel, pendingLabel, pending, er
 
       <fieldset className="flex flex-col gap-3">
         <legend className="mb-2 text-base font-medium">Features</legend>
-        {v.features.length === 0 && <p className="text-sm text-muted-foreground">No features yet. A plan with none grants nothing beyond its base price.</p>}
+        {v.features.length === 0 && (
+          <p className="text-sm text-muted-foreground">
+            No features yet. A plan with none grants nothing beyond its base
+            price.
+          </p>
+        )}
         {v.features.map((f, i) => {
           const n = i + 1
           return (
-            <div key={i} className="grid items-end gap-2 rounded-md border p-3 sm:grid-cols-[1fr_1fr_8rem_8rem_8rem_auto]">
+            <div
+              key={i}
+              className="grid items-end gap-2 rounded-md border p-3 sm:grid-cols-[1fr_1fr_8rem_8rem_8rem_auto]"
+            >
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor={`feature-${n}-key`}>Feature {n} key</Label>
-                <Input id={`feature-${n}-key`} className="font-mono" value={f.key} onChange={(e) => setFeature(i, { key: e.target.value })} />
+                <Input
+                  id={`feature-${n}-key`}
+                  className="font-mono"
+                  value={f.key}
+                  onChange={(e) => setFeature(i, { key: e.target.value })}
+                />
               </div>
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor={`feature-${n}-name`}>Feature {n} name</Label>
-                <Input id={`feature-${n}-name`} value={f.name} onChange={(e) => setFeature(i, { name: e.target.value })} />
+                <Input
+                  id={`feature-${n}-name`}
+                  value={f.name}
+                  onChange={(e) => setFeature(i, { name: e.target.value })}
+                />
               </div>
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor={`feature-${n}-type`}>Feature {n} type</Label>
-                <NativeSelect id={`feature-${n}-type`} value={f.type} onChange={(e) => {
+                <NativeSelect
+                  id={`feature-${n}-type`}
+                  value={f.type}
+                  onChange={(e) => {
                     const type = e.target.value as FeatureType
                     // A fresh row's limit is 0 and an unlimited one is -1, and both read as "off" for a boolean feature.
-                    const startOn = type === "boolean" && (f.unlimited || f.limit.trim() === "" || f.limit.trim() === "0")
-                    setFeature(i, startOn ? { type, limit: "1", unlimited: false } : { type })
-                  }}>
+                    const startOn =
+                      type === "boolean" &&
+                      (f.unlimited ||
+                        f.limit.trim() === "" ||
+                        f.limit.trim() === "0")
+                    setFeature(
+                      i,
+                      startOn
+                        ? { type, limit: "1", unlimited: false }
+                        : { type }
+                    )
+                  }}
+                >
                   {FEATURE_TYPES.map((t) => (
                     <NativeSelectOption key={t.value} value={t.value}>
                       {t.label}
@@ -364,17 +515,36 @@ export function PlanForm({ mode, initial, submitLabel, pendingLabel, pending, er
                   value={f.unlimited && f.type !== "boolean" ? "" : f.limit}
                   onChange={(e) => setFeature(i, { limit: e.target.value })}
                 />
-                {f.type === "boolean" && <p className="text-xs text-muted-foreground">1 means on, 0 means off</p>}
+                {f.type === "boolean" && (
+                  <p className="text-xs text-muted-foreground">
+                    1 means on, 0 means off
+                  </p>
+                )}
                 {f.type !== "boolean" && (
                   <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <input type="checkbox" aria-label={`Feature ${n}: unlimited`} checked={f.unlimited} onChange={(e) => setFeature(i, { unlimited: e.target.checked })} />
+                    <input
+                      type="checkbox"
+                      aria-label={`Feature ${n}: unlimited`}
+                      checked={f.unlimited}
+                      onChange={(e) =>
+                        setFeature(i, { unlimited: e.target.checked })
+                      }
+                    />
                     Unlimited
                   </label>
                 )}
               </div>
               <div className="flex flex-col gap-1.5">
-                <Label htmlFor={`feature-${n}-period`}>Feature {n} resets</Label>
-                <NativeSelect id={`feature-${n}-period`} value={f.period} onChange={(e) => setFeature(i, { period: e.target.value as Period })}>
+                <Label htmlFor={`feature-${n}-period`}>
+                  Feature {n} resets
+                </Label>
+                <NativeSelect
+                  id={`feature-${n}-period`}
+                  value={f.period}
+                  onChange={(e) =>
+                    setFeature(i, { period: e.target.value as Period })
+                  }
+                >
                   {PERIODS.map((p) => (
                     <NativeSelectOption key={p.value} value={p.value}>
                       {p.label}
@@ -382,32 +552,77 @@ export function PlanForm({ mode, initial, submitLabel, pendingLabel, pending, er
                   ))}
                 </NativeSelect>
                 <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <input type="checkbox" aria-label={`Feature ${n}: soft limit`} checked={f.soft_limit} onChange={(e) => setFeature(i, { soft_limit: e.target.checked })} />
+                  <input
+                    type="checkbox"
+                    aria-label={`Feature ${n}: soft limit`}
+                    checked={f.soft_limit}
+                    onChange={(e) =>
+                      setFeature(i, { soft_limit: e.target.checked })
+                    }
+                  />
                   Soft limit
                 </label>
               </div>
-              <IconButton type="button" variant="ghost" onClick={() => set("features", v.features.filter((_, j) => j !== i))} label={`Remove feature ${n}`} />
+              <IconButton
+                type="button"
+                variant="ghost"
+                onClick={() =>
+                  set(
+                    "features",
+                    v.features.filter((_, j) => j !== i)
+                  )
+                }
+                label={`Remove feature ${n}`}
+              />
             </div>
           )
         })}
         <div>
-          <IconButton type="button" variant="outline" onClick={() => set("features", [...v.features, { key: "", name: "", type: "metered", limit: "0", unlimited: false, period: "monthly", soft_limit: false }])} label="Add feature" />
+          <IconButton
+            type="button"
+            variant="outline"
+            onClick={() =>
+              set("features", [
+                ...v.features,
+                {
+                  key: "",
+                  name: "",
+                  type: "metered",
+                  limit: "0",
+                  unlimited: false,
+                  period: "monthly",
+                  soft_limit: false,
+                },
+              ])
+            }
+            label="Add feature"
+          />
         </div>
       </fieldset>
 
       <fieldset className="flex flex-col gap-3">
         <legend className="mb-2 text-base font-medium">Usage pricing</legend>
         <p className="text-sm text-muted-foreground">
-          Tiers price a feature's usage beyond the base price. A tier with no upper bound catches everything above the one before it.
+          Tiers price a feature's usage beyond the base price. A tier with no
+          upper bound catches everything above the one before it.
         </p>
         {v.tiers.map((t, i) => {
           const n = i + 1
           return (
-            <div key={i} className="grid items-end gap-2 rounded-md border p-3 sm:grid-cols-[1fr_8rem_8rem_8rem_8rem_auto]">
+            <div
+              key={i}
+              className="grid items-end gap-2 rounded-md border p-3 sm:grid-cols-[1fr_8rem_8rem_8rem_8rem_auto]"
+            >
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor={`tier-${n}-feature`}>Tier {n} feature</Label>
-                <NativeSelect id={`tier-${n}-feature`} value={t.feature_key} onChange={(e) => setTier(i, { feature_key: e.target.value })}>
-                  <NativeSelectOption value="">Choose a feature</NativeSelectOption>
+                <NativeSelect
+                  id={`tier-${n}-feature`}
+                  value={t.feature_key}
+                  onChange={(e) => setTier(i, { feature_key: e.target.value })}
+                >
+                  <NativeSelectOption value="">
+                    Choose a feature
+                  </NativeSelectOption>
                   {featureKeys.map((k) => (
                     <NativeSelectOption key={k} value={k}>
                       {k}
@@ -417,7 +632,13 @@ export function PlanForm({ mode, initial, submitLabel, pendingLabel, pending, er
               </div>
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor={`tier-${n}-type`}>Tier {n} type</Label>
-                <NativeSelect id={`tier-${n}-type`} value={t.type} onChange={(e) => setTier(i, { type: e.target.value as TierType })}>
+                <NativeSelect
+                  id={`tier-${n}-type`}
+                  value={t.type}
+                  onChange={(e) =>
+                    setTier(i, { type: e.target.value as TierType })
+                  }
+                >
                   {TIER_TYPES.map((x) => (
                     <NativeSelectOption key={x.value} value={x.value}>
                       {x.label}
@@ -436,24 +657,71 @@ export function PlanForm({ mode, initial, submitLabel, pendingLabel, pending, er
                   onChange={(e) => setTier(i, { up_to: e.target.value })}
                 />
                 <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <input type="checkbox" aria-label={`Tier ${n}: no limit`} checked={t.unbounded} onChange={(e) => setTier(i, { unbounded: e.target.checked })} />
+                  <input
+                    type="checkbox"
+                    aria-label={`Tier ${n}: no limit`}
+                    checked={t.unbounded}
+                    onChange={(e) =>
+                      setTier(i, { unbounded: e.target.checked })
+                    }
+                  />
                   No limit
                 </label>
               </div>
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor={`tier-${n}-unit`}>Tier {n} unit price</Label>
-                <Input id={`tier-${n}-unit`} inputMode="decimal" className="text-right tabular-nums" value={t.unit} onChange={(e) => setTier(i, { unit: e.target.value })} />
+                <Input
+                  id={`tier-${n}-unit`}
+                  inputMode="decimal"
+                  className="text-right tabular-nums"
+                  value={t.unit}
+                  onChange={(e) => setTier(i, { unit: e.target.value })}
+                />
               </div>
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor={`tier-${n}-flat`}>Tier {n} flat fee</Label>
-                <Input id={`tier-${n}-flat`} inputMode="decimal" className="text-right tabular-nums" value={t.flat} onChange={(e) => setTier(i, { flat: e.target.value })} />
+                <Input
+                  id={`tier-${n}-flat`}
+                  inputMode="decimal"
+                  className="text-right tabular-nums"
+                  value={t.flat}
+                  onChange={(e) => setTier(i, { flat: e.target.value })}
+                />
               </div>
-              <IconButton type="button" variant="ghost" onClick={() => set("tiers", v.tiers.filter((_, j) => j !== i))} label={`Remove tier ${n}`} />
+              <IconButton
+                type="button"
+                variant="ghost"
+                onClick={() =>
+                  set(
+                    "tiers",
+                    v.tiers.filter((_, j) => j !== i)
+                  )
+                }
+                label={`Remove tier ${n}`}
+              />
             </div>
           )
         })}
         <div>
-          <IconButton type="button" variant="outline" disabled={featureKeys.length === 0} onClick={() => set("tiers", [...v.tiers, { feature_key: featureKeys[0] ?? "", type: "graduated", up_to: "", unbounded: true, unit: "0", flat: "0" }])} label="Add tier" />
+          <IconButton
+            type="button"
+            variant="outline"
+            disabled={featureKeys.length === 0}
+            onClick={() =>
+              set("tiers", [
+                ...v.tiers,
+                {
+                  feature_key: featureKeys[0] ?? "",
+                  type: "graduated",
+                  up_to: "",
+                  unbounded: true,
+                  unit: "0",
+                  flat: "0",
+                },
+              ])
+            }
+            label="Add tier"
+          />
         </div>
       </fieldset>
 

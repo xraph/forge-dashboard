@@ -10,14 +10,16 @@ function renderInspector(client: ScopedClient, objectKey = HEAD.object.key) {
   return render(
     <PluginProvider client={client}>
       <Inspector store="" bucket="reports" objectKey={objectKey} />
-    </PluginProvider>,
+    </PluginProvider>
   )
 }
 
 describe("Inspector", () => {
   let click: ReturnType<typeof vi.spyOn>
   beforeEach(() => {
-    click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {})
+    click = vi
+      .spyOn(HTMLAnchorElement.prototype, "click")
+      .mockImplementation(() => {})
   })
   afterEach(() => {
     click.mockRestore()
@@ -26,9 +28,13 @@ describe("Inspector", () => {
 
   it("shows what objects.head reports, with identifiers in mono and absences as none", async () => {
     renderInspector(stubClient({ "objects.head": HEAD }))
-    expect(await screen.findByRole("heading", { name: "2026/09/summary.json" })).toBeTruthy()
+    expect(
+      await screen.findByRole("heading", { name: "2026/09/summary.json" })
+    ).toBeTruthy()
     expect(screen.getByText("9f3a01").className).toContain("font-mono")
-    expect(screen.getByText("application/json").className).toContain("font-mono")
+    expect(screen.getByText("application/json").className).toContain(
+      "font-mono"
+    )
     expect(screen.getByText("owner=ops")).toBeTruthy()
     expect(screen.getByText("team=billing")).toBeTruthy()
     expect(screen.getByLabelText("no storage class")).toBeTruthy()
@@ -39,30 +45,43 @@ describe("Inspector", () => {
     renderInspector(stubClient({ "objects.head": HEAD }))
     expect(await screen.findByText("compress")).toBeTruthy()
     expect(screen.getByText(/current config/)).toBeTruthy()
-    expect(screen.getByText(/records nothing about how this object was written/)).toBeTruthy()
-    expect(screen.queryByText(/is compressed|was compressed|encrypted/i)).toBeNull()
+    expect(
+      screen.getByText(/records nothing about how this object was written/)
+    ).toBeTruthy()
+    expect(
+      screen.queryByText(/is compressed|was compressed|encrypted/i)
+    ).toBeNull()
   })
 
   it("says when nothing matches the key now", async () => {
     renderInspector(stubClient({ "objects.head": { ...HEAD, middleware: [] } }))
-    expect(await screen.findByText("No middleware matches this key in the current config.")).toBeTruthy()
+    expect(
+      await screen.findByText(
+        "No middleware matches this key in the current config."
+      )
+    ).toBeTruthy()
   })
 
   it("asks for a download link only when Download is clicked", async () => {
     const { client, sent } = recordingQueryClient({
       "objects.head": HEAD,
-      "objects.contentUrl": { url: "/dashboard/trove/content?t=abc", expiresAt: "2026-09-30T12:01:00Z" },
+      "objects.contentUrl": {
+        url: "/dashboard/trove/content?t=abc",
+        expiresAt: "2026-09-30T12:01:00Z",
+      },
     })
     renderInspector(client)
     await screen.findByRole("heading", { name: "2026/09/summary.json" })
     expect(sent.some((s) => s.intent === "objects.contentUrl")).toBe(false)
     fireEvent.click(screen.getByRole("button", { name: "Download" }))
     await waitFor(() => expect(click).toHaveBeenCalledTimes(1))
-    expect(sent.find((s) => s.intent === "objects.contentUrl")?.params).toEqual({
-      bucket: "reports",
-      key: "2026/09/summary.json",
-      purpose: "download",
-    })
+    expect(sent.find((s) => s.intent === "objects.contentUrl")?.params).toEqual(
+      {
+        bucket: "reports",
+        key: "2026/09/summary.json",
+        purpose: "download",
+      }
+    )
     const anchor = click.mock.instances[0] as unknown as HTMLAnchorElement
     expect(anchor.getAttribute("href")).toBe("/dashboard/trove/content?t=abc")
     expect(anchor.hasAttribute("download")).toBe(true)
@@ -87,7 +106,9 @@ describe("Inspector", () => {
     vi.stubGlobal("navigator", { ...navigator, clipboard: { writeText } })
     renderInspector(stubClient({ "objects.head": HEAD }))
     fireEvent.click(await screen.findByRole("button", { name: "Copy key" }))
-    await waitFor(() => expect(writeText).toHaveBeenCalledWith("2026/09/summary.json"))
+    await waitFor(() =>
+      expect(writeText).toHaveBeenCalledWith("2026/09/summary.json")
+    )
     expect(await screen.findByRole("button", { name: "Copied" })).toBeTruthy()
   })
 

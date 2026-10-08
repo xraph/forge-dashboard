@@ -68,7 +68,9 @@ const BARE: PolicyDetail = {
   updatedAt: "2026-09-01T00:00:00Z",
 }
 
-function response(over: Partial<PolicyDetailResponse> = {}): PolicyDetailResponse {
+function response(
+  over: Partial<PolicyDetailResponse> = {}
+): PolicyDetailResponse {
   return {
     policy: STANDARD,
     keysUsing: 0,
@@ -141,13 +143,16 @@ function mount(client: ScopedClient, id: string | null = ID) {
   return { ...view, navigate }
 }
 
-async function show(r: PolicyDetailResponse = response(), keys: KeysList = KEYS) {
+async function show(
+  r: PolicyDetailResponse = response(),
+  keys: KeysList = KEYS
+) {
   const result = mount(
     stubClient({
       "policies.detail": r,
       "keys.list": keys,
       "scopes.list": SCOPES,
-    }),
+    })
   )
   await screen.findByRole("heading", { level: 1, name: r.policy.name })
   return result
@@ -197,7 +202,7 @@ describe("PolicyDetailPage header", () => {
   it("says there is nothing to show without an id in the address", () => {
     mount(stubClient({}), null)
     expect(screen.getByRole("status").textContent).toBe(
-      "No policy id in the address, so there is nothing to show.",
+      "No policy id in the address, so there is nothing to show."
     )
   })
 })
@@ -207,17 +212,17 @@ describe("PolicyDetailPage fields", () => {
     await show()
     expect(
       within(section(KEYSMITH)).getByText(
-        "Keysmith checks these: the lifetime when a key is created, scopes when they are assigned, and the grace when a key is rotated.",
-      ),
+        "Keysmith checks these: the lifetime when a key is created, scopes when they are assigned, and the grace when a key is rotated."
+      )
     ).toBeTruthy()
     const stored = within(section(STORED)).getByText(
       (_, el) =>
         el?.tagName === "P" &&
         el.textContent ===
-          "Keysmith does not check these. Your application can read them from ValidationResult.Policy.",
+          "Keysmith does not check these. Your application can read them from ValidationResult.Policy."
     )
     expect(stored.querySelector(".font-mono")?.textContent).toBe(
-      "ValidationResult.Policy",
+      "ValidationResult.Policy"
     )
   })
 
@@ -225,18 +230,20 @@ describe("PolicyDetailPage fields", () => {
     await show(response({ rateLimiterConfigured: false }))
     expect(
       within(section(LIMITER)).getByText(
-        "This deployment has no rate limiter. These are stored, but not enforced here.",
-      ),
+        "This deployment has no rate limiter. These are stored, but not enforced here."
+      )
     ).toBeTruthy()
-    expect(within(section(LIMITER)).queryByText(/has a rate limiter/)).toBeNull()
+    expect(
+      within(section(LIMITER)).queryByText(/has a rate limiter/)
+    ).toBeNull()
   })
 
   it("says the rate limit is enforced when there is a rate limiter", async () => {
     await show(response({ rateLimiterConfigured: true }))
     expect(
       within(section(LIMITER)).getByText(
-        "This deployment has a rate limiter, so Keysmith enforces these.",
-      ),
+        "This deployment has a rate limiter, so Keysmith enforces these."
+      )
     ).toBeTruthy()
     expect(within(section(LIMITER)).queryByText(/no rate limiter/)).toBeNull()
   })
@@ -246,7 +253,7 @@ describe("PolicyDetailPage fields", () => {
     expect(valueOf(KEYSMITH, "Max key lifetime").textContent).toBe("1 day")
     expect(valueOf(KEYSMITH, "Grace on rotation").textContent).toBe("2 hours")
     const scope = within(valueOf(KEYSMITH, "Allowed scopes")).getByText(
-      "billing:write",
+      "billing:write"
     )
     expect(scope.className).toMatch(/font-mono/)
     expect(valueOf(LIMITER, "Rate limit").textContent).toBe("100 per 1 minute")
@@ -269,7 +276,9 @@ describe("PolicyDetailPage fields", () => {
   it("says what each unset value means", async () => {
     await show(response({ policy: BARE }))
     const none = (s: string, term: string, label: string) =>
-      expect(within(valueOf(s, term)).getByLabelText(`no ${label}`)).toBeTruthy()
+      expect(
+        within(valueOf(s, term)).getByLabelText(`no ${label}`)
+      ).toBeTruthy()
     none(KEYSMITH, "Max key lifetime", "maximum lifetime")
     none(LIMITER, "Rate limit", "rate limit")
     none(STORED, "Burst limit", "burst limit")
@@ -283,7 +292,7 @@ describe("PolicyDetailPage fields", () => {
     // No grace is not none: rotation uses 24 hours. And an empty allow list
     // is the widest policy there is.
     expect(valueOf(KEYSMITH, "Grace on rotation").textContent).toBe(
-      "24 hours (default)",
+      "24 hours (default)"
     )
     expect(valueOf(KEYSMITH, "Allowed scopes").textContent).toBe("Any scope")
   })
@@ -292,19 +301,21 @@ describe("PolicyDetailPage fields", () => {
     await show(
       response({
         policy: { ...BARE, rateLimit: 10, rateLimitWindowSeconds: null },
-      }),
+      })
     )
     expect(valueOf(LIMITER, "Rate limit").textContent).toBe("10 with no window")
   })
 
   it("shows the id in mono and when the policy was created and updated", async () => {
     await show()
-    expect(valueOf("Details", "ID").querySelector(".font-mono")?.textContent).toBe(ID)
+    expect(
+      valueOf("Details", "ID").querySelector(".font-mono")?.textContent
+    ).toBe(ID)
     expect(valueOf("Details", "Created").textContent).toBe(
-      formatTimestamp(STANDARD.createdAt),
+      formatTimestamp(STANDARD.createdAt)
     )
     expect(valueOf("Details", "Updated").textContent).toBe(
-      formatTimestamp(STANDARD.updatedAt),
+      formatTimestamp(STANDARD.updatedAt)
     )
   })
 })
@@ -324,7 +335,7 @@ describe("PolicyDetailPage keys", () => {
     async (keysUsing, keysBlockingDelete, line) => {
       await show(response({ keysUsing, keysBlockingDelete }))
       expect(within(section(KEYS_SECTION)).getByText(line)).toBeTruthy()
-    },
+    }
   )
 
   it("asks keys.list for this policy's keys, 25 at a time", async () => {
@@ -334,9 +345,9 @@ describe("PolicyDetailPage keys", () => {
     })
     mount(client)
     await screen.findByRole("heading", { level: 1 })
-    expect(sent.filter((s) => s.intent === "keys.list").map((s) => s.params)).toEqual([
-      { policyId: ID, limit: 25, offset: 0 },
-    ])
+    expect(
+      sent.filter((s) => s.intent === "keys.list").map((s) => s.params)
+    ).toEqual([{ policyId: ID, limit: 25, offset: 0 }])
   })
 
   it("lists each key with a link, its masked key in mono and its state", async () => {
@@ -346,8 +357,12 @@ describe("PolicyDetailPage keys", () => {
     expect(link.getAttribute("href")).toBe(keyPath("akey_billing"))
     const masked = within(s).getByText("sk_live_…19d4")
     expect(masked.className).toMatch(/font-mono/)
-    expect(within(s).getByText("Revoked", { selector: "[data-slot=badge]" })).toBeTruthy()
-    expect(within(s).getByText("Active", { selector: "[data-slot=badge]" })).toBeTruthy()
+    expect(
+      within(s).getByText("Revoked", { selector: "[data-slot=badge]" })
+    ).toBeTruthy()
+    expect(
+      within(s).getByText("Active", { selector: "[data-slot=badge]" })
+    ).toBeTruthy()
   })
 
   it("pages through the keys", async () => {
@@ -360,18 +375,18 @@ describe("PolicyDetailPage keys", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Next page" }))
     await waitFor(() =>
       expect(
-        sent.filter((s) => s.intent === "keys.list").map((s) => s.params),
+        sent.filter((s) => s.intent === "keys.list").map((s) => s.params)
       ).toEqual([
         { policyId: ID, limit: 25, offset: 0 },
         { policyId: ID, limit: 25, offset: 25 },
-      ]),
+      ])
     )
   })
 
   it("says so when no key uses the policy", async () => {
     await show(response(), { keys: [], total: 0 })
     expect(
-      await within(section(KEYS_SECTION)).findByText("No keys to show."),
+      await within(section(KEYS_SECTION)).findByText("No keys to show.")
     ).toBeTruthy()
   })
 })
@@ -382,14 +397,18 @@ describe("PolicyDetailPage delete", () => {
 
   it("refuses to delete while a key that is not revoked uses it, and says why", async () => {
     await show(response({ keysUsing: 3, keysBlockingDelete: 2 }))
-    const del = screen.getByRole("button", { name: "Delete" }) as HTMLButtonElement
+    const del = screen.getByRole("button", {
+      name: "Delete",
+    }) as HTMLButtonElement
     expect(del.disabled).toBe(true)
     expect(screen.getByText(BLOCKED_LINE)).toBeTruthy()
   })
 
   it("offers Delete when only revoked keys use it", async () => {
     await show(response({ keysUsing: 3, keysBlockingDelete: 0 }))
-    const del = screen.getByRole("button", { name: "Delete" }) as HTMLButtonElement
+    const del = screen.getByRole("button", {
+      name: "Delete",
+    }) as HTMLButtonElement
     expect(del.disabled).toBe(false)
     expect(screen.queryByText(BLOCKED_LINE)).toBeNull()
   })
@@ -398,7 +417,7 @@ describe("PolicyDetailPage delete", () => {
     const sent: { intent: string; payload: unknown }[] = []
     const inner = stubClient(
       { "policies.detail": response(), "keys.list": KEYS },
-      { "policies.delete": { id: ID } },
+      { "policies.delete": { id: ID } }
     )
     const client = {
       ...inner,
@@ -410,11 +429,13 @@ describe("PolicyDetailPage delete", () => {
     const { navigate } = mount(client)
     await screen.findByRole("heading", { level: 1 })
     fireEvent.click(screen.getByRole("button", { name: "Delete" }))
-    const d = await screen.findByRole("alertdialog", { name: "Delete Standard?" })
+    const d = await screen.findByRole("alertdialog", {
+      name: "Delete Standard?",
+    })
     expect(
       within(d).getByText(
-        "Revoked keys that used it will show no policy. This cannot be undone.",
-      ),
+        "Revoked keys that used it will show no policy. This cannot be undone."
+      )
     ).toBeTruthy()
     fireEvent.click(within(d).getByRole("button", { name: "Delete" }))
     await waitFor(() => expect(navigate).toHaveBeenCalledWith("/policies"))
@@ -422,20 +443,25 @@ describe("PolicyDetailPage delete", () => {
   })
 
   it("shows the server's CONFLICT inside the dialog and stays", async () => {
-    const inner = stubClient({ "policies.detail": response(), "keys.list": KEYS })
+    const inner = stubClient({
+      "policies.detail": response(),
+      "keys.list": KEYS,
+    })
     const client = {
       ...inner,
       command: async () => {
         throw new ContractError(
           "CONFLICT",
-          "1 key that is not revoked uses this policy",
+          "1 key that is not revoked uses this policy"
         )
       },
     } as ScopedClient
     const { navigate } = mount(client)
     await screen.findByRole("heading", { level: 1 })
     fireEvent.click(screen.getByRole("button", { name: "Delete" }))
-    const d = await screen.findByRole("alertdialog", { name: "Delete Standard?" })
+    const d = await screen.findByRole("alertdialog", {
+      name: "Delete Standard?",
+    })
     fireEvent.click(within(d).getByRole("button", { name: "Delete" }))
     const alert = await within(d).findByRole("alert")
     expect(alert.textContent).toBe("1 key that is not revoked uses this policy")
@@ -446,11 +472,15 @@ describe("PolicyDetailPage delete", () => {
   })
 
   it("shows a failure from a throwing client inside the dialog", async () => {
-    const reads = stubClient({ "policies.detail": response(), "keys.list": KEYS })
+    const reads = stubClient({
+      "policies.detail": response(),
+      "keys.list": KEYS,
+    })
     const client = {
       ...reads,
-      command: failingClient(new ContractError("INTERNAL", "an internal error occurred"))
-        .command,
+      command: failingClient(
+        new ContractError("INTERNAL", "an internal error occurred")
+      ).command,
     } as ScopedClient
     mount(client)
     await screen.findByRole("heading", { level: 1 })
@@ -458,7 +488,7 @@ describe("PolicyDetailPage delete", () => {
     const d = await screen.findByRole("alertdialog")
     fireEvent.click(within(d).getByRole("button", { name: "Delete" }))
     expect((await within(d).findByRole("alert")).textContent).toBe(
-      "an internal error occurred",
+      "an internal error occurred"
     )
   })
 })
@@ -469,17 +499,17 @@ describe("PolicyDetailPage edit", () => {
     fireEvent.click(screen.getByRole("button", { name: "Edit" }))
     const d = await screen.findByRole("dialog", { name: "Edit Standard" })
     expect((within(d).getByLabelText("Name") as HTMLInputElement).value).toBe(
-      "Standard",
+      "Standard"
     )
     expect(
       within(d).getByText(
-        "This deployment has a rate limiter, so Keysmith enforces these.",
-      ),
+        "This deployment has a rate limiter, so Keysmith enforces these."
+      )
     ).toBeTruthy()
     expect(
       within(d).getByText(
-        "Changes apply from now on. Existing keys keep their expiry and scopes.",
-      ),
+        "Changes apply from now on. Existing keys keep their expiry and scopes."
+      )
     ).toBeTruthy()
   })
 })
@@ -498,7 +528,9 @@ describe("PolicyDetailPage not found", () => {
 
   it("shows the error card for any other failure", async () => {
     mount(stubClient({ "keys.list": KEYS }))
-    expect(await screen.findByText(/no handler for intent "policies.detail"/)).toBeTruthy()
+    expect(
+      await screen.findByText(/no handler for intent "policies.detail"/)
+    ).toBeTruthy()
     expect(screen.queryByText("No policy with this id.")).toBeNull()
   })
 })
@@ -521,7 +553,7 @@ function hostLikeClient(
     refetchError?: ContractError
     /** keys.list's answer for the params it was sent. KEYS by default. */
     keys?: (params: { offset: number }) => KeysList
-  } = {},
+  } = {}
 ) {
   let current = first
   let reads = 0
@@ -534,13 +566,13 @@ function hostLikeClient(
       queries.push({ intent, params })
       if (intent === "keys.list") {
         return Promise.resolve(
-          options.keys ? options.keys(params as { offset: number }) : KEYS,
+          options.keys ? options.keys(params as { offset: number }) : KEYS
         )
       }
       if (intent === "scopes.list") return Promise.resolve(SCOPES)
       if (intent !== "policies.detail") {
         return Promise.reject(
-          new ContractError("NOT_FOUND", `no handler for intent "${intent}"`),
+          new ContractError("NOT_FOUND", `no handler for intent "${intent}"`)
         )
       }
       reads += 1
@@ -548,14 +580,18 @@ function hostLikeClient(
       if (reads === 1) return Promise.resolve(answer)
       const { refetchError } = options
       return new Promise((resolve, reject) =>
-        held.push(() => (refetchError ? reject(refetchError) : resolve(answer))),
+        held.push(() => (refetchError ? reject(refetchError) : resolve(answer)))
       )
     },
     command: async (intent: string, payload?: unknown) => {
       sent.push({ intent, payload })
       const plan = commands[intent]
       const c = Array.isArray(plan) ? plan.shift() : plan
-      if (!c) throw new ContractError("NOT_FOUND", `no handler for command "${intent}"`)
+      if (!c)
+        throw new ContractError(
+          "NOT_FOUND",
+          `no handler for command "${intent}"`
+        )
       if ("error" in c) throw c.error
       current = c.next
       queryStore.invalidate("keysmith", c.invalidates)
@@ -579,7 +615,10 @@ function loading() {
 }
 
 describe("PolicyDetailPage dialogs through a refetch", () => {
-  const TAKEN = new ContractError("CONFLICT", "a policy with this name already exists")
+  const TAKEN = new ContractError(
+    "CONFLICT",
+    "a policy with this name already exists"
+  )
   const UPDATE_INVALIDATES = ["policies.list", "policies.detail", "keys.detail"]
 
   // Nothing on this page refetches policies.detail under an open dialog by
@@ -602,30 +641,36 @@ describe("PolicyDetailPage dialogs through a refetch", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Edit" }))
     const d = await screen.findByRole("dialog", { name: "Edit Standard" })
-    fireEvent.change(within(d).getByLabelText("Name"), { target: { value: "Partner" } })
+    fireEvent.change(within(d).getByLabelText("Name"), {
+      target: { value: "Partner" },
+    })
     fireEvent.click(within(d).getByRole("button", { name: "Save changes" }))
-    expect((await within(d).findByRole("alert")).textContent).toBe(TAKEN.message)
+    expect((await within(d).findByRole("alert")).textContent).toBe(
+      TAKEN.message
+    )
 
     act(() => queryStore.invalidate("keysmith", ["policies.detail"]))
     await waitFor(() => expect(loading()).not.toBeNull())
     const during = screen.getByRole("dialog", { name: "Edit Standard" })
-    expect((within(during).getByLabelText("Name") as HTMLInputElement).value).toBe(
-      "Partner",
-    )
+    expect(
+      (within(during).getByLabelText("Name") as HTMLInputElement).value
+    ).toBe("Partner")
     expect(within(during).getByRole("alert").textContent).toBe(TAKEN.message)
 
     host.releaseReads()
     await waitFor(() => expect(loading()).toBeNull())
     const after = screen.getByRole("dialog", { name: "Edit Standard" })
-    expect((within(after).getByLabelText("Name") as HTMLInputElement).value).toBe(
-      "Partner",
-    )
+    expect(
+      (within(after).getByLabelText("Name") as HTMLInputElement).value
+    ).toBe("Partner")
 
     // The retry lands: the dialog closes and the page refetches the policy.
     fireEvent.click(within(after).getByRole("button", { name: "Save changes" }))
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull())
     host.releaseReads()
-    expect(await screen.findByRole("heading", { level: 1, name: "Partner" })).toBeTruthy()
+    expect(
+      await screen.findByRole("heading", { level: 1, name: "Partner" })
+    ).toBeTruthy()
     expect(host.sent.map((s) => s.intent)).toEqual([
       "policies.update",
       "policies.update",
@@ -635,7 +680,10 @@ describe("PolicyDetailPage dialogs through a refetch", () => {
   it("keeps the delete dialog, its name and its error through a refetch", async () => {
     const host = hostLikeClient(response(), {
       "policies.delete": {
-        error: new ContractError("CONFLICT", "1 key that is not revoked uses this policy"),
+        error: new ContractError(
+          "CONFLICT",
+          "1 key that is not revoked uses this policy"
+        ),
       },
     })
     mount(host.client)
@@ -648,14 +696,14 @@ describe("PolicyDetailPage dialogs through a refetch", () => {
     const during = screen.getByRole("alertdialog", { name: "Delete Standard?" })
     fireEvent.click(within(during).getByRole("button", { name: "Delete" }))
     expect((await within(during).findByRole("alert")).textContent).toBe(
-      "1 key that is not revoked uses this policy",
+      "1 key that is not revoked uses this policy"
     )
 
     host.releaseReads()
     await waitFor(() => expect(loading()).toBeNull())
     const after = screen.getByRole("alertdialog", { name: "Delete Standard?" })
     expect(within(after).getByRole("alert").textContent).toBe(
-      "1 key that is not revoked uses this policy",
+      "1 key that is not revoked uses this policy"
     )
   })
 
@@ -679,14 +727,21 @@ describe("PolicyDetailPage dialogs through a refetch", () => {
     })
     host.releaseReads()
     await waitFor(() => expect(loading()).toBeNull())
-    expect(screen.getByRole("alertdialog", { name: "Delete Standard?" })).toBeTruthy()
+    expect(
+      screen.getByRole("alertdialog", { name: "Delete Standard?" })
+    ).toBeTruthy()
   })
 
   it("keeps the editor and the last rate limiter answer when the refetch fails", async () => {
     const host = hostLikeClient(
       response({ rateLimiterConfigured: true }),
       {},
-      { refetchError: new ContractError("TRANSPORT", "contract request failed with HTTP 502") },
+      {
+        refetchError: new ContractError(
+          "TRANSPORT",
+          "contract request failed with HTTP 502"
+        ),
+      }
     )
     mount(host.client)
     await screen.findByRole("heading", { level: 1, name: "Standard" })
@@ -702,8 +757,8 @@ describe("PolicyDetailPage dialogs through a refetch", () => {
     const d = screen.getByRole("dialog", { name: "Edit Standard" })
     expect(
       within(d).getByText(
-        "This deployment has a rate limiter, so Keysmith enforces these.",
-      ),
+        "This deployment has a rate limiter, so Keysmith enforces these."
+      )
     ).toBeTruthy()
     expect(within(d).queryByText(/not known/)).toBeNull()
   })
@@ -718,14 +773,20 @@ describe("PolicyDetailPage keys through a refetch", () => {
   }
 
   it("stays on the page of keys it was on while the policy refetches", async () => {
-    const host = hostLikeClient(MANY, {}, {
-      keys: ({ offset }) =>
-        offset === 0 ? { ...KEYS, total: 30 } : { keys: [LATE], total: 30 },
-    })
+    const host = hostLikeClient(
+      MANY,
+      {},
+      {
+        keys: ({ offset }) =>
+          offset === 0 ? { ...KEYS, total: 30 } : { keys: [LATE], total: 30 },
+      }
+    )
     mount(host.client)
     await screen.findByRole("heading", { level: 1, name: "Standard" })
     fireEvent.click(await screen.findByRole("button", { name: "Next page" }))
-    expect(await screen.findByRole("link", { name: "Late reporter" })).toBeTruthy()
+    expect(
+      await screen.findByRole("link", { name: "Late reporter" })
+    ).toBeTruthy()
 
     // The policy refetches: the page is a skeleton, and comes back on page 2.
     act(() => queryStore.invalidate("keysmith", ["policies.detail"]))
@@ -733,9 +794,15 @@ describe("PolicyDetailPage keys through a refetch", () => {
     act(() => host.releaseReads())
     await waitFor(() => expect(loading()).toBeNull())
 
-    expect(await screen.findByRole("link", { name: "Late reporter" })).toBeTruthy()
+    expect(
+      await screen.findByRole("link", { name: "Late reporter" })
+    ).toBeTruthy()
     expect(screen.getByText("Page 2 of 2, 30 total")).toBeTruthy()
-    expect(last(host.keysParams())).toEqual({ policyId: ID, limit: 25, offset: 25 })
+    expect(last(host.keysParams())).toEqual({
+      policyId: ID,
+      limit: 25,
+      offset: 25,
+    })
   })
 
   it("keeps the keys and the pager, and the pager keeps focus, while the next page loads", async () => {
@@ -746,10 +813,13 @@ describe("PolicyDetailPage keys through a refetch", () => {
         if (intent === "policies.detail") return Promise.resolve(MANY)
         if (intent === "scopes.list") return Promise.resolve(SCOPES)
         if (intent === "keys.list") {
-          if (params?.offset === 0) return Promise.resolve({ ...KEYS, total: 30 })
+          if (params?.offset === 0)
+            return Promise.resolve({ ...KEYS, total: 30 })
           return new Promise<KeysList>((resolve) => waiting.push(resolve))
         }
-        return Promise.reject(new ContractError("NOT_FOUND", `no handler for intent "${intent}"`))
+        return Promise.reject(
+          new ContractError("NOT_FOUND", `no handler for intent "${intent}"`)
+        )
       },
       command: async () => {
         throw new ContractError("NOT_FOUND", "no commands")
@@ -761,44 +831,64 @@ describe("PolicyDetailPage keys through a refetch", () => {
     next.focus()
     fireEvent.click(next)
 
-    await waitFor(() => expect(document.querySelector('[aria-busy="true"]')).not.toBeNull())
+    await waitFor(() =>
+      expect(document.querySelector('[aria-busy="true"]')).not.toBeNull()
+    )
     expect(screen.getByRole("link", { name: "Billing service" })).toBeTruthy()
     expect(screen.queryByRole("status", { name: "Loading Keys" })).toBeNull()
     expect(screen.getByRole("button", { name: "Next page" })).toBe(next)
     expect(document.activeElement).toBe(next)
 
     await act(async () => waiting.shift()!({ keys: [LATE], total: 30 }))
-    expect(await screen.findByRole("link", { name: "Late reporter" })).toBeTruthy()
+    expect(
+      await screen.findByRole("link", { name: "Late reporter" })
+    ).toBeTruthy()
   })
 
   it("steps back a page when keys leave the page it was on", async () => {
     let total = 30
-    const host = hostLikeClient(MANY, {}, {
-      keys: ({ offset }) =>
-        offset === 0
-          ? { ...KEYS, total }
-          : { keys: total > 25 ? [LATE] : [], total },
-    })
+    const host = hostLikeClient(
+      MANY,
+      {},
+      {
+        keys: ({ offset }) =>
+          offset === 0
+            ? { ...KEYS, total }
+            : { keys: total > 25 ? [LATE] : [], total },
+      }
+    )
     mount(host.client)
     await screen.findByRole("heading", { level: 1, name: "Standard" })
     fireEvent.click(await screen.findByRole("button", { name: "Next page" }))
-    expect(await screen.findByRole("link", { name: "Late reporter" })).toBeTruthy()
+    expect(
+      await screen.findByRole("link", { name: "Late reporter" })
+    ).toBeTruthy()
 
     // Ten keys are revoked elsewhere, and page 2 now has nothing on it.
     total = 20
-    act(() => queryStore.invalidate("keysmith", ["policies.detail", "keys.list"]))
+    act(() =>
+      queryStore.invalidate("keysmith", ["policies.detail", "keys.list"])
+    )
     act(() => host.releaseReads())
 
-    expect(await screen.findByRole("link", { name: "Billing service" })).toBeTruthy()
+    expect(
+      await screen.findByRole("link", { name: "Billing service" })
+    ).toBeTruthy()
     expect(screen.queryByRole("link", { name: "Late reporter" })).toBeNull()
     expect(screen.queryByRole("navigation", { name: "Pagination" })).toBeNull()
-    expect(last(host.keysParams())).toEqual({ policyId: ID, limit: 25, offset: 0 })
+    expect(last(host.keysParams())).toEqual({
+      policyId: ID,
+      limit: 25,
+      offset: 0,
+    })
   })
 })
 
 describe("PolicyDetailPage moving to another policy", () => {
   const PARTNER_ID = "kpol_partner"
-  const PARTNER = response({ policy: { ...STANDARD, id: PARTNER_ID, name: "Partner" } })
+  const PARTNER = response({
+    policy: { ...STANDARD, id: PARTNER_ID, name: "Partner" },
+  })
 
   /** Answers the first policy at once and holds the second until released. */
   function twoPolicies(second: PolicyDetailResponse | ContractError) {
@@ -810,18 +900,21 @@ describe("PolicyDetailPage moving to another policy", () => {
         if (intent === "scopes.list") return Promise.resolve(SCOPES)
         if (intent !== "policies.detail") {
           return Promise.reject(
-            new ContractError("NOT_FOUND", `no handler for intent "${intent}"`),
+            new ContractError("NOT_FOUND", `no handler for intent "${intent}"`)
           )
         }
         if (params?.id === ID) return Promise.resolve(response())
         return new Promise((resolve, reject) =>
           held.push(() =>
-            second instanceof ContractError ? reject(second) : resolve(second),
-          ),
+            second instanceof ContractError ? reject(second) : resolve(second)
+          )
         )
       },
       command: async (intent: string) => {
-        throw new ContractError("NOT_FOUND", `no handler for command "${intent}"`)
+        throw new ContractError(
+          "NOT_FOUND",
+          `no handler for command "${intent}"`
+        )
       },
     } as unknown as ScopedClient
     return {
@@ -843,23 +936,31 @@ describe("PolicyDetailPage moving to another policy", () => {
     // While the next policy loads, nothing of the first is on screen.
     await waitFor(() => expect(loading()).not.toBeNull())
     expect(
-      screen.queryByRole("heading", { level: 1, name: "Standard", hidden: true }),
+      screen.queryByRole("heading", {
+        level: 1,
+        name: "Standard",
+        hidden: true,
+      })
     ).toBeNull()
     expect(screen.queryByRole("alertdialog", { hidden: true })).toBeNull()
     expect(screen.queryByText("Delete Standard?")).toBeNull()
 
     act(() => two.release())
-    expect(await screen.findByRole("heading", { level: 1, name: "Partner" })).toBeTruthy()
+    expect(
+      await screen.findByRole("heading", { level: 1, name: "Partner" })
+    ).toBeTruthy()
     expect(screen.queryByRole("alertdialog", { hidden: true })).toBeNull()
 
     // Delete now asks about the policy on screen.
     fireEvent.click(screen.getByRole("button", { name: "Delete" }))
-    expect(await screen.findByRole("alertdialog", { name: "Delete Partner?" })).toBeTruthy()
+    expect(
+      await screen.findByRole("alertdialog", { name: "Delete Partner?" })
+    ).toBeTruthy()
   })
 
   it("does not bring back the first policy's editor when the next one fails to load", async () => {
     const two = twoPolicies(
-      new ContractError("TRANSPORT", "contract request failed with HTTP 502"),
+      new ContractError("TRANSPORT", "contract request failed with HTTP 502")
     )
     const { rerender, navigate } = mount(two.client)
     await screen.findByRole("heading", { level: 1, name: "Standard" })
@@ -868,7 +969,9 @@ describe("PolicyDetailPage moving to another policy", () => {
 
     rerender(tree(two.client, PARTNER_ID, navigate))
     act(() => two.release())
-    expect(await screen.findByText(/contract request failed with HTTP 502/)).toBeTruthy()
+    expect(
+      await screen.findByText(/contract request failed with HTTP 502/)
+    ).toBeTruthy()
     expect(screen.queryByRole("dialog", { hidden: true })).toBeNull()
     expect(screen.queryByText("Edit Standard")).toBeNull()
   })

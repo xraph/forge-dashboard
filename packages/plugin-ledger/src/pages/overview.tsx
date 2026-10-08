@@ -21,12 +21,20 @@ export function LedgerOverviewPage() {
   // An unpaid invoice leaves "pending" once the clock marks it past due, and
   // the Invoices list is the only other place that shows it. Without this table
   // the page would count it and give no way to reach it.
-  const pastDue = useQuery<Page<Invoice>>("invoices.list", { status: "past_due", limit: RECENT })
-  const recent = useQuery<Invoice[]>("overview.recentInvoices", { limit: RECENT })
+  const pastDue = useQuery<Page<Invoice>>("invoices.list", {
+    status: "past_due",
+    limit: RECENT,
+  })
+  const recent = useQuery<Invoice[]>("overview.recentInvoices", {
+    limit: RECENT,
+  })
 
   return (
     <section className="flex flex-col gap-6">
-      <PageHeader title="Ledger" description="Plans, subscriptions and invoices for this app." />
+      <PageHeader
+        title="Ledger"
+        description="Plans, subscriptions and invoices for this app."
+      />
 
       <QueryBoundary title="Ledger counts" query={stats} skeletonRows={1}>
         {(s) => {
@@ -39,20 +47,38 @@ export function LedgerOverviewPage() {
             <div className="flex flex-col gap-2">
               <StatGrid
                 items={[
-                  { label: "Plans", value: n(s.plans), hint: `${n(s.active_plans)} active` },
-                  { label: "Live subscriptions", value: n(live), hint: `${n(by.trialing ?? 0)} trialing` },
-                  { label: "Subscriptions past due", value: n(by.past_due ?? 0) },
+                  {
+                    label: "Plans",
+                    value: n(s.plans),
+                    hint: `${n(s.active_plans)} active`,
+                  },
+                  {
+                    label: "Live subscriptions",
+                    value: n(live),
+                    hint: `${n(by.trialing ?? 0)} trialing`,
+                  },
+                  {
+                    label: "Subscriptions past due",
+                    value: n(by.past_due ?? 0),
+                  },
                   { label: "Pending invoices", value: n(s.pending_invoices) },
                   // A ledger older than the lifecycle clock does not send the count.
                   ...(s.past_due_invoices === undefined
                     ? []
-                    : [{ label: "Past-due invoices", value: n(s.past_due_invoices), hint: "Not counted as pending" }]),
+                    : [
+                        {
+                          label: "Past-due invoices",
+                          value: n(s.past_due_invoices),
+                          hint: "Not counted as pending",
+                        },
+                      ]),
                   { label: "Coupons", value: n(s.coupons) },
                 ]}
               />
               {s.capped && (
                 <p className="text-sm text-muted-foreground">
-                  Each count stops at 5,000 rows, and at least one reached it, so the real numbers are at least these.
+                  Each count stops at 5,000 rows, and at least one reached it,
+                  so the real numbers are at least these.
                 </p>
               )}
             </div>
@@ -62,7 +88,11 @@ export function LedgerOverviewPage() {
 
       <section className="flex flex-col gap-2">
         <h2 className="text-base font-medium">Pending invoices</h2>
-        <QueryBoundary title="Pending invoices" query={pending} skeletonRows={3}>
+        <QueryBoundary
+          title="Pending invoices"
+          query={pending}
+          skeletonRows={3}
+        >
           {(rows) => (
             <ResourceTable<Invoice>
               columns={invoiceColumns({ withStatus: false })}
@@ -77,7 +107,11 @@ export function LedgerOverviewPage() {
 
       <section className="flex flex-col gap-2">
         <h2 className="text-base font-medium">Past-due invoices</h2>
-        <QueryBoundary title="Past-due invoices" query={pastDue} skeletonRows={3}>
+        <QueryBoundary
+          title="Past-due invoices"
+          query={pastDue}
+          skeletonRows={3}
+        >
           {(data) => {
             const rows = data.items ?? []
             return (
@@ -91,7 +125,8 @@ export function LedgerOverviewPage() {
                 />
                 {data.has_more && (
                   <p className="text-sm text-muted-foreground">
-                    Showing the newest {RECENT}. Filter the Invoices list by Past due to see the rest.
+                    Showing the newest {RECENT}. Filter the Invoices list by
+                    Past due to see the rest.
                   </p>
                 )}
               </div>

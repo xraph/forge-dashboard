@@ -5,7 +5,12 @@ import { formatTimestamp } from "@forge-go/dashboard-kit/lib/format"
 import { OverviewPage } from "../src/pages/overview"
 import { keyPath } from "../src/format"
 import type { KeySummary, Overview, RotationItem } from "../src/types"
-import { failingClient, recordingClient, renderPage, stubClient } from "./harness"
+import {
+  failingClient,
+  recordingClient,
+  renderPage,
+  stubClient,
+} from "./harness"
 
 // The overview is eager, in the plugin's entry chunk. Recharts belongs to the
 // lazy Usage page alone, and this package reaches it only through the kit's
@@ -13,7 +18,9 @@ import { failingClient, recordingClient, renderPage, stubClient } from "./harnes
 // bare "recharts" id here would match nothing). If anything the overview
 // imports loads that module, this factory throws and the file fails to load.
 vi.mock("@forge-go/dashboard-kit/components/chart", () => {
-  throw new Error("the overview must not load the kit chart, and Recharts with it")
+  throw new Error(
+    "the overview must not load the kit chart, and Recharts with it"
+  )
 })
 
 function key(over: Partial<KeySummary>): KeySummary {
@@ -142,7 +149,11 @@ function rowWith(table: HTMLElement, text: string): HTMLElement {
   return row
 }
 
-function cellOf(table: HTMLElement, row: HTMLElement, column: string): HTMLElement {
+function cellOf(
+  table: HTMLElement,
+  row: HTMLElement,
+  column: string
+): HTMLElement {
   const headers = within(table)
     .getAllByRole("columnheader")
     .map((h) => h.textContent)
@@ -161,7 +172,9 @@ describe("OverviewPage", () => {
   it("asks for the overview", async () => {
     const { client, intents } = recordingClient({ overview: overview() })
     renderPage(OverviewPage, client)
-    expect(await screen.findByRole("heading", { name: "Overview" })).toBeTruthy()
+    expect(
+      await screen.findByRole("heading", { name: "Overview" })
+    ).toBeTruthy()
     await screen.findByText("Active keys")
     expect(intents).toEqual(["overview"])
   })
@@ -177,7 +190,11 @@ describe("OverviewPage", () => {
       renderOverview()
       await screen.findByText("Active keys")
       expect(statValue("Active keys")).toBe("3")
-      expect(within(stat("Active keys")).getByText("1 suspended, 2 revoked, 1 expired")).toBeTruthy()
+      expect(
+        within(stat("Active keys")).getByText(
+          "1 suspended, 2 revoked, 1 expired"
+        )
+      ).toBeTruthy()
     })
 
     it("counts the way the badges read, so a key past its expiry is expired in both", async () => {
@@ -188,7 +205,8 @@ describe("OverviewPage", () => {
       await screen.findByText("Recent keys")
       const table = within(section("Recent keys")).getByRole("table")
       expect(
-        cellOf(table, rowWith(table, "Legacy webhook signer"), "State").textContent,
+        cellOf(table, rowWith(table, "Legacy webhook signer"), "State")
+          .textContent
       ).toMatch(/^Expired/)
       expect(within(stat("Active keys")).getByText(/, 1 expired$/)).toBeTruthy()
     })
@@ -218,7 +236,9 @@ describe("OverviewPage", () => {
       const card = stat("Requests in the last 24h")
       expect(statValue("Requests in the last 24h")).toBe("Not recorded")
       expect(
-        within(card).getByText("Usage appears once your application calls RecordUsage."),
+        within(card).getByText(
+          "Usage appears once your application calls RecordUsage."
+        )
       ).toBeTruthy()
     })
 
@@ -228,7 +248,9 @@ describe("OverviewPage", () => {
       expect(statValue("Requests in the last 24h")).toBe("0")
       expect(screen.queryByText("Not recorded")).toBeNull()
       expect(
-        screen.queryByText("Usage appears once your application calls RecordUsage."),
+        screen.queryByText(
+          "Usage appears once your application calls RecordUsage."
+        )
       ).toBeNull()
     })
   })
@@ -247,16 +269,22 @@ describe("OverviewPage", () => {
       renderOverview(overview({ expiringWithin7Days: 2 }))
       await screen.findByText("Expiring within 7 days")
       expect(toneOf("Expiring within 7 days")).toBe("danger")
-      expect(stat("Expiring within 7 days").className).toContain("ring-destructive/50")
-      expect(title("Expiring within 7 days").className).toContain("text-destructive")
+      expect(stat("Expiring within 7 days").className).toContain(
+        "ring-destructive/50"
+      )
+      expect(title("Expiring within 7 days").className).toContain(
+        "text-destructive"
+      )
       // Colour is not the only cue: the card says what to do.
       expect(
-        within(stat("Expiring within 7 days")).getByText("Shown as Expires soon on Keys."),
+        within(stat("Expiring within 7 days")).getByText(
+          "Shown as Expires soon on Keys."
+        )
       ).toBeTruthy()
       // The tone is the card's own. Nothing on the grid aims at it by position.
-      expect(stat("Expiring within 7 days").parentElement!.className).not.toContain(
-        "destructive",
-      )
+      expect(
+        stat("Expiring within 7 days").parentElement!.className
+      ).not.toContain("destructive")
     })
 
     it("leaves the card plain at 0", async () => {
@@ -264,7 +292,9 @@ describe("OverviewPage", () => {
       await screen.findByText("Expiring within 7 days")
       expect(statValue("Expiring within 7 days")).toBe("0")
       expect(toneOf("Expiring within 7 days")).toBe("default")
-      expect(stat("Expiring within 7 days").className).not.toContain("destructive")
+      expect(stat("Expiring within 7 days").className).not.toContain(
+        "destructive"
+      )
       expect(screen.queryByText("Shown as Expires soon on Keys.")).toBeNull()
     })
 
@@ -275,10 +305,14 @@ describe("OverviewPage", () => {
           openGraceWindows: 40,
           expiringWithin7Days: 3,
           requestsLast24h: 99999,
-        }),
+        })
       )
       await screen.findByText("Expiring within 7 days")
-      for (const label of ["Active keys", "Open grace windows", "Requests in the last 24h"]) {
+      for (const label of [
+        "Active keys",
+        "Open grace windows",
+        "Requests in the last 24h",
+      ]) {
         expect(toneOf(label)).toBe("default")
         expect(stat(label).className).not.toContain("destructive")
         expect(title(label).className).not.toContain("destructive")
@@ -305,7 +339,7 @@ describe("OverviewPage", () => {
 
       expect(cellOf(table, row, "State").textContent).toBe("Active")
       expect(cellOf(table, row, "Created").textContent).toBe(
-        formatTimestamp("2026-10-01T09:00:00Z"),
+        formatTimestamp("2026-10-01T09:00:00Z")
       )
 
       const partner = rowWith(table, "Partner sandbox")
@@ -343,10 +377,10 @@ describe("OverviewPage", () => {
       expect(link.getAttribute("href")).toBe(keyPath("akey_billing"))
       expect(cellOf(table, open, "Reason").textContent).toBe("Manual")
       expect(cellOf(table, open, "Window").textContent).toBe(
-        `Window ends ${formatTimestamp("2026-10-06T12:00:00Z")}`,
+        `Window ends ${formatTimestamp("2026-10-06T12:00:00Z")}`
       )
       expect(cellOf(table, open, "When").textContent).toBe(
-        formatTimestamp("2026-10-05T12:00:00Z"),
+        formatTimestamp("2026-10-05T12:00:00Z")
       )
 
       const closed = rowWith(table, "Partner sandbox")
@@ -367,7 +401,9 @@ describe("OverviewPage", () => {
       const row = rowWith(table, "akey_deleted")
       const keyCell = cellOf(table, row, "Key")
       expect(within(keyCell).queryByRole("link")).toBeNull()
-      expect(within(keyCell).getByText("akey_deleted").className).toContain("font-mono")
+      expect(within(keyCell).getByText("akey_deleted").className).toContain(
+        "font-mono"
+      )
       expect(within(keyCell).getByText("Key no longer exists")).toBeTruthy()
       expect(cellOf(table, row, "Reason").textContent).toBe("Policy")
       expect(cellOf(table, row, "Window").textContent).toBe("Closed")
@@ -386,7 +422,9 @@ describe("OverviewPage", () => {
     it("says No rotations yet. when there are none", async () => {
       renderOverview(overview({ recentRotations: [] }))
       expect(await screen.findByText("No rotations yet.")).toBeTruthy()
-      expect(within(section("Recent rotations")).queryByRole("table")).toBeNull()
+      expect(
+        within(section("Recent rotations")).queryByRole("table")
+      ).toBeNull()
     })
   })
 
@@ -404,14 +442,16 @@ describe("OverviewPage", () => {
       expect(
         await screen.findByRole("link", {
           name: "This deployment enforces 5 of 13 policy fields.",
-        }),
+        })
       ).toBeTruthy()
     })
 
     it("takes the field total from the response", async () => {
       renderOverview(overview({ enforcedFields: 4, policyFields: 14 }))
       expect(
-        await screen.findByText("This deployment enforces 4 of 14 policy fields."),
+        await screen.findByText(
+          "This deployment enforces 4 of 14 policy fields."
+        )
       ).toBeTruthy()
     })
   })
@@ -419,7 +459,7 @@ describe("OverviewPage", () => {
   it("shows the error state with the message when the overview fails", async () => {
     renderPage(
       OverviewPage,
-      failingClient(new ContractError("INTERNAL", "overview store is down")),
+      failingClient(new ContractError("INTERNAL", "overview store is down"))
     )
     expect(await screen.findByText(/overview store is down/)).toBeTruthy()
     expect(screen.queryByText("Active keys")).toBeNull()

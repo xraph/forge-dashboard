@@ -16,7 +16,10 @@ function resolved(over: Record<string, unknown> = {}) {
   }
 }
 
-function setup(answer: Record<string, unknown> | ContractError, valueType = "string") {
+function setup(
+  answer: Record<string, unknown> | ContractError,
+  valueType = "string"
+) {
   const { client, sent } = recordingQueryClient({})
   const inner = client.query
   client.query = (async (intent: string, params?: Record<string, unknown>) => {
@@ -27,12 +30,17 @@ function setup(answer: Record<string, unknown> | ContractError, valueType = "str
   }) as typeof client.query
   // Only the resolve reads are counted below.
   const resolves = () => sent.filter((s) => s.intent === "config.resolve")
-  renderPage(() => <ResolvePanel entryKey={KEY} valueType={valueType} />, client)
+  renderPage(
+    () => <ResolvePanel entryKey={KEY} valueType={valueType} />,
+    client
+  )
   return { resolves }
 }
 
-const tenantBox = () => screen.getByLabelText("Resolve for tenant") as HTMLInputElement
-const press = () => fireEvent.click(screen.getByRole("button", { name: "Resolve" }))
+const tenantBox = () =>
+  screen.getByLabelText("Resolve for tenant") as HTMLInputElement
+const press = () =>
+  fireEvent.click(screen.getByRole("button", { name: "Resolve" }))
 const sentence = async (re: RegExp) =>
   waitFor(() => {
     const el = screen.getByRole("status")
@@ -50,13 +58,22 @@ describe("ResolvePanel", () => {
 
   it("says a tenant's value came from its override, and what the app default is", async () => {
     const { resolves } = setup(
-      resolved({ value: "howdy", source: "override", overrideValue: "howdy", tenantId: "acme" }),
+      resolved({
+        value: "howdy",
+        source: "override",
+        overrideValue: "howdy",
+        tenantId: "acme",
+      })
     )
     fireEvent.change(tenantBox(), { target: { value: " acme " } })
     press()
     await sentence(/Tenant acme gets "howdy", from its override\./)
-    expect(screen.getByRole("status").textContent).toMatch(/The app default is "hello"\./)
-    expect(resolves().map((r) => r.params)).toEqual([{ key: KEY, tenantId: "acme" }])
+    expect(screen.getByRole("status").textContent).toMatch(
+      /The app default is "hello"\./
+    )
+    expect(resolves().map((r) => r.params)).toEqual([
+      { key: KEY, tenantId: "acme" },
+    ])
   })
 
   it("says the app default answered, without repeating it as a second sentence", async () => {
@@ -64,7 +81,9 @@ describe("ResolvePanel", () => {
     fireEvent.change(tenantBox(), { target: { value: "acme" } })
     press()
     await sentence(/Tenant acme gets "hello", the app default\./)
-    expect(screen.getByRole("status").textContent).not.toMatch(/The app default is/)
+    expect(screen.getByRole("status").textContent).not.toMatch(
+      /The app default is/
+    )
   })
 
   it("asks with no tenant at all, and says so", async () => {
@@ -75,11 +94,20 @@ describe("ResolvePanel", () => {
   })
 
   it("shows an override of the empty string as quoted, not as no override", async () => {
-    setup(resolved({ value: "", source: "override", overrideValue: "", tenantId: "acme" }))
+    setup(
+      resolved({
+        value: "",
+        source: "override",
+        overrideValue: "",
+        tenantId: "acme",
+      })
+    )
     fireEvent.change(tenantBox(), { target: { value: "acme" } })
     press()
     await sentence(/Tenant acme gets "", from its override\./)
-    expect(screen.getByRole("status").textContent).toMatch(/The app default is "hello"\./)
+    expect(screen.getByRole("status").textContent).toMatch(
+      /The app default is "hello"\./
+    )
   })
 
   it("shows an override of false as false", async () => {
@@ -91,12 +119,14 @@ describe("ResolvePanel", () => {
         appValue: true,
         tenantId: "acme",
       }),
-      "bool",
+      "bool"
     )
     fireEvent.change(tenantBox(), { target: { value: "acme" } })
     press()
     await sentence(/Tenant acme gets false, from its override\./)
-    expect(screen.getByRole("status").textContent).toMatch(/The app default is true\./)
+    expect(screen.getByRole("status").textContent).toMatch(
+      /The app default is true\./
+    )
   })
 
   it("flags a resolved value that is not a value of the type", async () => {

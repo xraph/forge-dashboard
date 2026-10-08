@@ -141,10 +141,14 @@ function EncryptionLine({ stats }: { stats: OverviewStats }) {
       </p>
     )
   }
-  const how = stats.encryptionAlgorithm ? ` with ${stats.encryptionAlgorithm}` : ""
+  const how = stats.encryptionAlgorithm
+    ? ` with ${stats.encryptionAlgorithm}`
+    : ""
   const parts = [`New secrets are encrypted${how}.`]
   if (stats.unencryptedSecrets > 0) {
-    parts.push("Secrets stored without encryption stay that way until their values are replaced.")
+    parts.push(
+      "Secrets stored without encryption stay that way until their values are replaced."
+    )
   }
   if (stats.plaintextVersions > 0) {
     const n = stats.plaintextVersions
@@ -178,11 +182,16 @@ export const OverviewPage: ComponentType<PluginPageProps> = () => {
             <>
               {list.length > 0 ? (
                 <section className="flex flex-col gap-2">
-                  <h2 className="text-sm font-medium text-destructive">Needs attention</h2>
+                  <h2 className="text-sm font-medium text-destructive">
+                    Needs attention
+                  </h2>
                   <ul className="flex flex-col gap-1 text-sm">
                     {list.map((p) => (
                       <li key={p.id}>
-                        <PluginLink to={p.to} className="underline underline-offset-4">
+                        <PluginLink
+                          to={p.to}
+                          className="underline underline-offset-4"
+                        >
                           {p.text}
                         </PluginLink>
                       </li>
@@ -192,7 +201,9 @@ export const OverviewPage: ComponentType<PluginPageProps> = () => {
               ) : data.encryptionEnabled ? (
                 // A vault with no key is not one where nothing needs attention,
                 // and the line below says so, so this stays out of its way.
-                <p className="text-sm text-muted-foreground">Nothing needs attention.</p>
+                <p className="text-sm text-muted-foreground">
+                  Nothing needs attention.
+                </p>
               ) : null}
 
               <EncryptionLine stats={data} />
@@ -213,7 +224,10 @@ export const OverviewPage: ComponentType<PluginPageProps> = () => {
 
               <div className="flex flex-col gap-2">
                 <RecentActivity entries={data.recentActivity ?? []} showKey />
-                <PluginLink to="/audit" className="text-sm underline underline-offset-4">
+                <PluginLink
+                  to="/audit"
+                  className="text-sm underline underline-offset-4"
+                >
                   See the audit log
                 </PluginLink>
               </div>

@@ -36,13 +36,16 @@ beforeEach(() => {
  */
 export function stubClient(
   answers: Record<string, unknown>,
-  commands: Record<string, unknown> = {},
+  commands: Record<string, unknown> = {}
 ): ScopedClient {
   return {
     extension: "trove",
     query: async (intent: string) => {
       if (!(intent in answers)) {
-        throw new ContractError("NOT_FOUND", `no handler for intent "${intent}"`)
+        throw new ContractError(
+          "NOT_FOUND",
+          `no handler for intent "${intent}"`
+        )
       }
       return answers[intent]
     },
@@ -51,7 +54,10 @@ export function stubClient(
     // resolve to undefined and look like a success.
     command: async (intent: string) => {
       if (!(intent in commands)) {
-        throw new ContractError("NOT_FOUND", `no handler for command "${intent}"`)
+        throw new ContractError(
+          "NOT_FOUND",
+          `no handler for command "${intent}"`
+        )
       }
       return commands[intent]
     },
@@ -61,7 +67,7 @@ export function stubClient(
 /** Records every command a page sends, with its payload, in order. */
 export function recordingCommandClient(
   answers: Record<string, unknown>,
-  commands: Record<string, unknown> = {},
+  commands: Record<string, unknown> = {}
 ): { client: ScopedClient; sent: { intent: string; payload: unknown }[] } {
   const sent: { intent: string; payload: unknown }[] = []
   const inner = stubClient(answers, commands)
@@ -153,7 +159,7 @@ export function recordingClient(answers: Record<string, unknown>): {
 export function renderPage(
   Page: ComponentType<PluginPageProps>,
   client: ScopedClient,
-  params: PluginPageProps["params"] = {},
+  params: PluginPageProps["params"] = {}
 ) {
   return render(
     <PluginProvider client={client}>

@@ -34,7 +34,7 @@ describe("badges", () => {
         <InvoiceStatusBadge status="past_due" />
         <InvoiceStatusBadge status="draft" />
         <InvoiceStatusBadge status="voided" />
-      </>,
+      </>
     )
     expect(variantOf("Paid")).not.toMatch(/destructive|secondary/)
     expect(variantOf("Pending")).toMatch(/secondary/)
@@ -51,7 +51,7 @@ describe("badges", () => {
         <SubscriptionStatusBadge status="past_due" />
         <SubscriptionStatusBadge status="paused" />
         <SubscriptionStatusBadge status="canceled" />
-      </>,
+      </>
     )
     expect(variantOf("Active")).not.toMatch(/destructive|secondary/)
     expect(variantOf("Trialing")).toMatch(/secondary/)
@@ -66,11 +66,13 @@ describe("badges", () => {
         <PlanStatusBadge status="active" />
         <PlanStatusBadge status="draft" />
         <PlanStatusBadge status="archived" />
-      </>,
+      </>
     )
     expect(variantOf("Active")).toMatch(/bg-primary/)
     expect(variantOf("Draft")).toMatch(/secondary/)
-    expect(variantOf("Archived")).not.toMatch(/bg-primary|secondary|destructive/)
+    expect(variantOf("Archived")).not.toMatch(
+      /bg-primary|secondary|destructive/
+    )
   })
 
   it("labels catalog, coupon and shared states", () => {
@@ -79,11 +81,13 @@ describe("badges", () => {
         <FeatureStatusBadge status="draft" />
         <CouponStateBadge state="exhausted" />
         <SharedBadge />
-      </>,
+      </>
     )
     expect(variantOf("Draft")).toMatch(/secondary/)
     expect(variantOf("Exhausted")).toMatch(/secondary/)
-    expect(screen.getByText("Shared", { selector: '[data-slot="badge"]' })).toBeTruthy()
+    expect(
+      screen.getByText("Shared", { selector: '[data-slot="badge"]' })
+    ).toBeTruthy()
   })
 })
 
@@ -97,18 +101,31 @@ describe("MoneyText", () => {
 
 describe("OffsetPager", () => {
   it("renders nothing for a single page", () => {
-    const { container } = render(<OffsetPager page={1} hasMore={false} onPageChange={() => {}} />)
+    const { container } = render(
+      <OffsetPager page={1} hasMore={false} onPageChange={() => {}} />
+    )
     expect(container.innerHTML).toBe("")
   })
 
   it("disables Next on the last page and Previous on the first", () => {
     const onPage = vi.fn()
-    const { rerender } = render(<OffsetPager page={1} hasMore onPageChange={onPage} />)
-    expect((screen.getByRole("button", { name: "Previous page" }) as HTMLButtonElement).disabled).toBe(true)
+    const { rerender } = render(
+      <OffsetPager page={1} hasMore onPageChange={onPage} />
+    )
+    expect(
+      (
+        screen.getByRole("button", {
+          name: "Previous page",
+        }) as HTMLButtonElement
+      ).disabled
+    ).toBe(true)
     fireEvent.click(screen.getByRole("button", { name: "Next page" }))
     expect(onPage).toHaveBeenCalledWith(2)
     rerender(<OffsetPager page={2} hasMore={false} onPageChange={onPage} />)
-    expect((screen.getByRole("button", { name: "Next page" }) as HTMLButtonElement).disabled).toBe(true)
+    expect(
+      (screen.getByRole("button", { name: "Next page" }) as HTMLButtonElement)
+        .disabled
+    ).toBe(true)
     fireEvent.click(screen.getByRole("button", { name: "Previous page" }))
     expect(onPage).toHaveBeenCalledWith(1)
   })
@@ -116,16 +133,27 @@ describe("OffsetPager", () => {
 
 describe("NotFoundState", () => {
   it("matches the contract's not-found message, not just the code", () => {
-    expect(isNotFound({ code: "NOT_FOUND", message: "plan not found" }, "plan")).toBe(true)
-    expect(isNotFound({ code: "NOT_FOUND", message: 'intent plans.detial not registered' }, "plan")).toBe(false)
-    expect(isNotFound({ code: "CONFLICT", message: "plan not found" }, "plan")).toBe(false)
+    expect(
+      isNotFound({ code: "NOT_FOUND", message: "plan not found" }, "plan")
+    ).toBe(true)
+    expect(
+      isNotFound(
+        { code: "NOT_FOUND", message: "intent plans.detial not registered" },
+        "plan"
+      )
+    ).toBe(false)
+    expect(
+      isNotFound({ code: "CONFLICT", message: "plan not found" }, "plan")
+    ).toBe(false)
     expect(isNotFound(undefined, "plan")).toBe(false)
   })
 
   it("also matches the engine's own sentinel errors for a missing id", () => {
     const nf = (message: string) => ({ code: "NOT_FOUND", message })
     expect(isNotFound(nf("ledger: coupon not found"), "coupon")).toBe(true)
-    expect(isNotFound(nf("get coupon: ledger: coupon not found"), "coupon")).toBe(true)
+    expect(
+      isNotFound(nf("get coupon: ledger: coupon not found"), "coupon")
+    ).toBe(true)
     expect(isNotFound(nf("ledger: not found"), "coupon")).toBe(true)
     expect(isNotFound(nf("ledger: not found"), "plan")).toBe(true)
   })
@@ -134,13 +162,29 @@ describe("NotFoundState", () => {
     const nf = (message: string) => ({ code: "NOT_FOUND", message })
     expect(isNotFound(nf("provider not found"), "tenant")).toBe(false)
     expect(isNotFound(nf("ledger: plan not found"), "coupon")).toBe(false)
-    expect(isNotFound(nf("get plan: ledger: plan not found"), "coupon")).toBe(false)
-    expect(isNotFound({ code: "INTERNAL", message: "ledger: coupon not found" }, "coupon")).toBe(false)
+    expect(isNotFound(nf("get plan: ledger: plan not found"), "coupon")).toBe(
+      false
+    )
+    expect(
+      isNotFound(
+        { code: "INTERNAL", message: "ledger: coupon not found" },
+        "coupon"
+      )
+    ).toBe(false)
   })
 
   it("says what is missing and links back", () => {
-    render(<NotFoundState noun="plan" id="plan_x" backTo="/plans" backLabel="Back to plans" />)
+    render(
+      <NotFoundState
+        noun="plan"
+        id="plan_x"
+        backTo="/plans"
+        backLabel="Back to plans"
+      />
+    )
     expect(screen.getByText("No plan with the id plan_x.")).toBeTruthy()
-    expect(screen.getByRole("link", { name: "Back to plans" }).getAttribute("href")).toBe("/plans")
+    expect(
+      screen.getByRole("link", { name: "Back to plans" }).getAttribute("href")
+    ).toBe("/plans")
   })
 })

@@ -51,7 +51,7 @@ describe("readEvaluation cross-check", () => {
       }),
       RULES,
       [],
-      undefined,
+      undefined
     )
     expect(marks.decidedIndex).toBe(1)
     expect(marks.rules[1]?.decided).toBe(true)
@@ -70,7 +70,7 @@ describe("readEvaluation cross-check", () => {
       }),
       RULES,
       [],
-      undefined,
+      undefined
     )
     expect(marks.mismatch).toBe(true)
     expect(marks.decidedIndex).toBeUndefined()
@@ -86,7 +86,7 @@ describe("readEvaluation cross-check", () => {
       }),
       RULES,
       [],
-      undefined,
+      undefined
     )
     expect(marks.mismatch).toBe(true)
     expect(marks.decidedIndex).toBeUndefined()
@@ -101,8 +101,15 @@ describe("readEvaluation by rule id", () => {
     type: string,
     priority: number,
     matched: boolean,
-    reached = true,
-  ) => ({ ruleId, type, priority, matched, reached, note: reached ? `note ${ruleId}` : "" })
+    reached = true
+  ) => ({
+    ruleId,
+    type,
+    priority,
+    matched,
+    reached,
+    note: reached ? `note ${ruleId}` : "",
+  })
 
   it("marks the rule named by matchedRuleId when the trace is in another order", () => {
     // The page holds [r1, r2]. The engine walked [r2, r1]: the rules were
@@ -112,11 +119,14 @@ describe("readEvaluation by rule id", () => {
         reason: "rule",
         matchedRuleId: "r2",
         matchedRulePriority: 0,
-        trace: [idStep("r2", "rollout", 0, true), idStep("r1", "when_tenant", 1, false, false)],
+        trace: [
+          idStep("r2", "rollout", 0, true),
+          idStep("r1", "when_tenant", 1, false, false),
+        ],
       }),
       [r1, r2],
       [],
-      undefined,
+      undefined
     )
     expect(marks.decidedIndex).toBe(1)
     expect(marks.rules[1]?.decided).toBe(true)
@@ -130,11 +140,14 @@ describe("readEvaluation by rule id", () => {
         reason: "rule",
         matchedRuleId: "r1",
         matchedRulePriority: 0,
-        trace: [idStep("r1", "when_tenant", 0, true), idStep("r2", "rollout", 1, false, false)],
+        trace: [
+          idStep("r1", "when_tenant", 0, true),
+          idStep("r2", "rollout", 1, false, false),
+        ],
       }),
       [r1, r2],
       [],
-      undefined,
+      undefined
     )
     expect(marks.decidedIndex).toBe(0)
     expect(marks.mismatch).toBe(false)
@@ -145,11 +158,14 @@ describe("readEvaluation by rule id", () => {
       evaluation({
         reason: "rule",
         matchedRuleId: "r9",
-        trace: [idStep("r9", "when_tenant", 0, true), idStep("r2", "rollout", 1, false, false)],
+        trace: [
+          idStep("r9", "when_tenant", 0, true),
+          idStep("r2", "rollout", 1, false, false),
+        ],
       }),
       [r1, r2],
       [],
-      undefined,
+      undefined
     )
     expect(marks.mismatch).toBe(true)
     expect(marks.decidedIndex).toBeUndefined()
@@ -165,7 +181,7 @@ describe("readEvaluation by rule id", () => {
       }),
       [r1, r2],
       [],
-      undefined,
+      undefined
     )
     expect(marks.mismatch).toBe(true)
     expect(marks.decidedIndex).toBeUndefined()
@@ -176,11 +192,14 @@ describe("readEvaluation by rule id", () => {
       evaluation({
         reason: "rule",
         matchedRuleId: "r1",
-        trace: [idStep("r1", "when_user", 0, true), idStep("r2", "rollout", 1, false, false)],
+        trace: [
+          idStep("r1", "when_user", 0, true),
+          idStep("r2", "rollout", 1, false, false),
+        ],
       }),
       [r1, r2],
       [],
-      undefined,
+      undefined
     )
     expect(marks.mismatch).toBe(true)
     expect(marks.decidedIndex).toBeUndefined()
@@ -192,11 +211,14 @@ describe("readEvaluation by rule id", () => {
       evaluation({
         reason: "rule",
         matchedRuleId: "r2",
-        trace: [idStep("r1", "when_tenant", 0, true), idStep("r2", "rollout", 1, false, true)],
+        trace: [
+          idStep("r1", "when_tenant", 0, true),
+          idStep("r2", "rollout", 1, false, true),
+        ],
       }),
       [r1, r2],
       [],
-      undefined,
+      undefined
     )
     expect(marks.mismatch).toBe(true)
     expect(marks.decidedIndex).toBeUndefined()
@@ -206,11 +228,14 @@ describe("readEvaluation by rule id", () => {
     const marks = readEvaluation(
       evaluation({
         reason: "default",
-        trace: [idStep("r2", "rollout", 1, false), idStep("r1", "when_tenant", 0, false)],
+        trace: [
+          idStep("r2", "rollout", 1, false),
+          idStep("r1", "when_tenant", 0, false),
+        ],
       }),
       [r1, r2],
       [],
-      undefined,
+      undefined
     )
     expect(marks.mismatch).toBe(false)
     expect(marks.rules.map((v) => v.note)).toEqual(["note r1", "note r2"])
@@ -219,7 +244,12 @@ describe("readEvaluation by rule id", () => {
 
 describe("readEvaluation tenant overrides", () => {
   const overrides: FlagOverrideSummary[] = [
-    { tenantId: "t-acme", value: true, valueMatchesType: true, updatedAt: "2026-09-22T10:00:00Z" },
+    {
+      tenantId: "t-acme",
+      value: true,
+      valueMatchesType: true,
+      updatedAt: "2026-09-22T10:00:00Z",
+    },
   ]
 
   it("names the tenant whose override decided it", () => {
@@ -227,7 +257,7 @@ describe("readEvaluation tenant overrides", () => {
       evaluation({ reason: "tenantOverride" }),
       RULES,
       overrides,
-      "t-acme",
+      "t-acme"
     )
     expect(marks.overrideTenant).toBe("t-acme")
     expect(marks.mismatch).toBe(false)
@@ -239,7 +269,7 @@ describe("readEvaluation tenant overrides", () => {
       evaluation({ reason: "tenantOverride" }),
       RULES,
       overrides,
-      "t-gone",
+      "t-gone"
     )
     expect(marks.overrideTenant).toBeUndefined()
     expect(marks.mismatch).toBe(true)

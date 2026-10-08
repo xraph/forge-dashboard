@@ -28,7 +28,7 @@ describe("StreamingConfigPage", () => {
           // A key added by a newer server than this UI was written against.
           limits: { maxRooms: 100, maxWidgetsPerFrobnicator: 7 },
         },
-      }),
+      })
     )
     await waitFor(() => expect(screen.getByText("maxRooms")).toBeTruthy())
     // The whole point of iterating rather than hand-listing.
@@ -39,7 +39,7 @@ describe("StreamingConfigPage", () => {
   it("says a map is empty rather than rendering a bare heading", async () => {
     renderPage(
       StreamingConfigPage,
-      stubClient({ config: { ...config, timeouts: {} } }),
+      stubClient({ config: { ...config, timeouts: {} } })
     )
     await waitFor(() => expect(screen.getByText("maxRooms")).toBeTruthy())
     expect(screen.getByText("No timeouts configured.")).toBeTruthy()
@@ -54,13 +54,17 @@ describe("StreamingConfigPage", () => {
 
     renderPage(
       StreamingConfigPage,
-      stubClient({ config: { ...config, backendType: undefined, nodeID: undefined } }),
+      stubClient({
+        config: { ...config, backendType: undefined, nodeID: undefined },
+      })
     )
     // Kit's `NoneCell` builds the accessible label as "no <label>", the same
     // convention every other page in this package uses, rather than a
     // hand-rolled sentence of this page's own invention.
     await waitFor(() =>
-      expect(screen.getAllByLabelText("no backend type").length).toBeGreaterThan(0),
+      expect(
+        screen.getAllByLabelText("no backend type").length
+      ).toBeGreaterThan(0)
     )
     expect(screen.getAllByLabelText("no node ID").length).toBeGreaterThan(0)
   })

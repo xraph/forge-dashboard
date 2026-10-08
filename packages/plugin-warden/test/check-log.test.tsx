@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest"
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react"
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react"
 import { formatTimestamp } from "@forge-go/dashboard-kit/lib/format"
 import type { ScopedClient } from "@forge-go/dashboard-plugin"
 import {
@@ -64,7 +70,9 @@ function render_(extra: Record<string, unknown> = {}) {
   const { client, sent } = recordingQueryClient(answers(extra))
   const view = renderPage(WardenCheckLogPage, client)
   const lists = () =>
-    sent.filter((s) => s.intent === "checkLogs.list").map((s) => s.params as Record<string, unknown>)
+    sent
+      .filter((s) => s.intent === "checkLogs.list")
+      .map((s) => s.params as Record<string, unknown>)
   const last = () => lists()[lists().length - 1]
   return { ...view, client, sent, lists, last }
 }
@@ -143,16 +151,21 @@ describe("subject links in the check log", () => {
   })
 
   it("leaves a subject with no kind as plain text", async () => {
-    render_({ "checkLogs.list": list({ items: [{ ...DEPLOYER, subjectKind: "" }], total: 1 }) })
+    render_({
+      "checkLogs.list": list({
+        items: [{ ...DEPLOYER, subjectKind: "" }],
+        total: 1,
+      }),
+    })
     const text = await screen.findByText(":deployer")
     expect(text.closest("a")).toBeNull()
   })
 
   it("links the request line's subject too", () => {
     render(<CheckRequestLine check={ALICE} />)
-    expect(screen.getByRole("link", { name: "user:alice" }).getAttribute("href")).toBe(
-      "/subjects/user/alice",
-    )
+    expect(
+      screen.getByRole("link", { name: "user:alice" }).getAttribute("href")
+    ).toBe("/subjects/user/alice")
   })
 })
 
@@ -185,10 +198,16 @@ describe("WardenCheckLogPage rows", () => {
   it("badges the decision and whether the check was cached", async () => {
     render_()
     const row = (await screen.findByText("user:alice")).closest("tr")!
-    expect(within(row).getByText("allow").getAttribute("data-slot")).toBe("badge")
-    expect(within(row).getByText("not cached").getAttribute("data-slot")).toBe("badge")
+    expect(within(row).getByText("allow").getAttribute("data-slot")).toBe(
+      "badge"
+    )
+    expect(within(row).getByText("not cached").getAttribute("data-slot")).toBe(
+      "badge"
+    )
     const other = screen.getByText("service:deployer").closest("tr")!
-    expect(within(other).getByText("cached").getAttribute("data-slot")).toBe("badge")
+    expect(within(other).getByText("cached").getAttribute("data-slot")).toBe(
+      "badge"
+    )
   })
 
   it("counts the server's total in the caption, singular at one and 0 at zero", async () => {
@@ -196,7 +215,9 @@ describe("WardenCheckLogPage rows", () => {
     expect(await screen.findByText("60 checks")).toBeTruthy()
     many.unmount()
 
-    const one = render_({ "checkLogs.list": list({ items: [ALICE], total: 1 }) })
+    const one = render_({
+      "checkLogs.list": list({ items: [ALICE], total: 1 }),
+    })
     expect(await screen.findByText("1 check")).toBeTruthy()
     one.unmount()
 
@@ -207,8 +228,12 @@ describe("WardenCheckLogPage rows", () => {
   it("shows an error row's badge as destructive with its error text", async () => {
     render_()
     const row = (await screen.findByText("service:deployer")).closest("tr")!
-    expect(within(row).getByText("error").getAttribute("data-variant")).toBe("destructive")
-    expect(within(row).getByText("store unavailable").className).toContain("text-destructive")
+    expect(within(row).getByText("error").getAttribute("data-variant")).toBe(
+      "destructive"
+    )
+    expect(within(row).getByText("store unavailable").className).toContain(
+      "text-destructive"
+    )
   })
 })
 
@@ -225,7 +250,9 @@ describe("WardenCheckLogPage filters", () => {
     await settled()
     fireEvent.click(screen.getByRole("button", { name: "Next page" }))
     await waitFor(() => expect(t.last().offset).toBe(25))
-    fireEvent.change(screen.getByLabelText("Namespace"), { target: { value: "eng/platform" } })
+    fireEvent.change(screen.getByLabelText("Namespace"), {
+      target: { value: "eng/platform" },
+    })
     await waitFor(() => expect(t.last().namespacePath).toBe("eng/platform"))
     expect(t.last().offset).toBe(0)
   })
@@ -233,7 +260,9 @@ describe("WardenCheckLogPage filters", () => {
   it("sends the tenant root as an empty namespacePath, not as an absent key", async () => {
     const t = render_()
     await settled()
-    fireEvent.change(screen.getByLabelText("Namespace"), { target: { value: "" } })
+    fireEvent.change(screen.getByLabelText("Namespace"), {
+      target: { value: "" },
+    })
     await waitFor(() => expect("namespacePath" in t.last()).toBe(true))
     expect(t.last().namespacePath).toBe("")
   })
@@ -253,13 +282,23 @@ describe("WardenCheckLogPage filters", () => {
     fireEvent.click(screen.getByRole("button", { name: "Next page" }))
     await waitFor(() => expect(t.last().offset).toBe(25))
     for (const decision of DECISIONS) {
-      fireEvent.change(screen.getByLabelText("Decision"), { target: { value: decision } })
+      fireEvent.change(screen.getByLabelText("Decision"), {
+        target: { value: decision },
+      })
       await waitFor(() => expect(t.last().decision).toBe(decision))
       expect(t.last().offset).toBe(0)
-      expect(Object.keys(t.last()).sort()).toEqual(["decision", "limit", "offset"])
+      expect(Object.keys(t.last()).sort()).toEqual([
+        "decision",
+        "limit",
+        "offset",
+      ])
     }
-    fireEvent.change(screen.getByLabelText("Decision"), { target: { value: "" } })
-    await waitFor(() => expect(Object.keys(t.last()).sort()).toEqual(["limit", "offset"]))
+    fireEvent.change(screen.getByLabelText("Decision"), {
+      target: { value: "" },
+    })
+    await waitFor(() =>
+      expect(Object.keys(t.last()).sort()).toEqual(["limit", "offset"])
+    )
   })
 
   it("sends cached true, cached false, or no cached key at all", async () => {
@@ -340,7 +379,9 @@ describe("WardenCheckLogPage filters", () => {
     render_({ "checkLogs.list": list({ total: 60 }) })
     await settled()
     expect(screen.getByText("60 checks")).toBeTruthy()
-    fireEvent.change(screen.getByLabelText("Time"), { target: { value: "24h" } })
+    fireEvent.change(screen.getByLabelText("Time"), {
+      target: { value: "24h" },
+    })
     expect(await screen.findByText(/^60 checks since /)).toBeTruthy()
   })
 })
@@ -357,7 +398,12 @@ describe("WardenCheckLogPage exact-match fields", () => {
       "service",
       "service_acct",
     ])
-    for (const label of ["Subject id", "Action", "Resource type", "Resource id"]) {
+    for (const label of [
+      "Subject id",
+      "Action",
+      "Resource type",
+      "Resource id",
+    ]) {
       expect(screen.getByLabelText(label)).toBeTruthy()
     }
   })
@@ -369,11 +415,21 @@ describe("WardenCheckLogPage exact-match fields", () => {
     await waitFor(() => expect(t.last().offset).toBe(25))
     const before = t.lists().length
 
-    fireEvent.change(screen.getByLabelText("Subject kind"), { target: { value: "user" } })
-    fireEvent.change(screen.getByLabelText("Subject id"), { target: { value: "alice" } })
-    fireEvent.change(screen.getByLabelText("Action"), { target: { value: "read" } })
-    fireEvent.change(screen.getByLabelText("Resource type"), { target: { value: "document" } })
-    fireEvent.change(screen.getByLabelText("Resource id"), { target: { value: "readme" } })
+    fireEvent.change(screen.getByLabelText("Subject kind"), {
+      target: { value: "user" },
+    })
+    fireEvent.change(screen.getByLabelText("Subject id"), {
+      target: { value: "alice" },
+    })
+    fireEvent.change(screen.getByLabelText("Action"), {
+      target: { value: "read" },
+    })
+    fireEvent.change(screen.getByLabelText("Resource type"), {
+      target: { value: "document" },
+    })
+    fireEvent.change(screen.getByLabelText("Resource id"), {
+      target: { value: "readme" },
+    })
     await new Promise((r) => setTimeout(r, 30))
     expect(t.lists().length).toBe(before)
 
@@ -392,8 +448,12 @@ describe("WardenCheckLogPage exact-match fields", () => {
   it("sends no key for a blank exact-match field", async () => {
     const t = render_()
     await settled()
-    fireEvent.change(screen.getByLabelText("Action"), { target: { value: "read" } })
-    fireEvent.change(screen.getByLabelText("Resource id"), { target: { value: "   " } })
+    fireEvent.change(screen.getByLabelText("Action"), {
+      target: { value: "read" },
+    })
+    fireEvent.change(screen.getByLabelText("Resource id"), {
+      target: { value: "   " },
+    })
     fireEvent.click(screen.getByRole("button", { name: "Apply" }))
     await waitFor(() => expect(t.last().action).toBe("read"))
     expect(Object.keys(t.last()).sort()).toEqual(["action", "limit", "offset"])
@@ -402,11 +462,21 @@ describe("WardenCheckLogPage exact-match fields", () => {
   it("Clear removes all five and goes back to page 1", async () => {
     const t = render_({ "checkLogs.list": list({ total: 60 }) })
     await settled()
-    fireEvent.change(screen.getByLabelText("Subject kind"), { target: { value: "service" } })
-    fireEvent.change(screen.getByLabelText("Subject id"), { target: { value: "deployer" } })
-    fireEvent.change(screen.getByLabelText("Action"), { target: { value: "admin" } })
-    fireEvent.change(screen.getByLabelText("Resource type"), { target: { value: "cluster" } })
-    fireEvent.change(screen.getByLabelText("Resource id"), { target: { value: "prod" } })
+    fireEvent.change(screen.getByLabelText("Subject kind"), {
+      target: { value: "service" },
+    })
+    fireEvent.change(screen.getByLabelText("Subject id"), {
+      target: { value: "deployer" },
+    })
+    fireEvent.change(screen.getByLabelText("Action"), {
+      target: { value: "admin" },
+    })
+    fireEvent.change(screen.getByLabelText("Resource type"), {
+      target: { value: "cluster" },
+    })
+    fireEvent.change(screen.getByLabelText("Resource id"), {
+      target: { value: "prod" },
+    })
     fireEvent.click(screen.getByRole("button", { name: "Apply" }))
     await waitFor(() => expect(t.last().resourceId).toBe("prod"))
     fireEvent.click(await screen.findByRole("button", { name: "Next page" }))
@@ -416,15 +486,21 @@ describe("WardenCheckLogPage exact-match fields", () => {
     await waitFor(() => expect("resourceId" in t.last()).toBe(false))
     expect(Object.keys(t.last()).sort()).toEqual(["limit", "offset"])
     expect(t.last().offset).toBe(0)
-    expect((screen.getByLabelText("Subject id") as HTMLInputElement).value).toBe("")
-    expect((screen.getByLabelText("Subject kind") as HTMLSelectElement).value).toBe("")
+    expect(
+      (screen.getByLabelText("Subject id") as HTMLInputElement).value
+    ).toBe("")
+    expect(
+      (screen.getByLabelText("Subject kind") as HTMLSelectElement).value
+    ).toBe("")
   })
 
   it("says the deciding rule cannot be filtered yet", async () => {
     render_()
     await settled()
     expect(
-      screen.getByText("Checks cannot be filtered by the rule that decided them yet.")
+      screen.getByText(
+        "Checks cannot be filtered by the rule that decided them yet."
+      )
     ).toBeTruthy()
   })
 })
@@ -447,7 +523,9 @@ describe("WardenCheckLogPage paging", () => {
 
   it("goes back to page 1 when the current page has run past the end of the set", async () => {
     // Retention can shrink the set while an operator is on a later page.
-    const { client, sent } = recordingQueryClient(answers({ "checkLogs.list": list({ total: 60 }) }))
+    const { client, sent } = recordingQueryClient(
+      answers({ "checkLogs.list": list({ total: 60 }) })
+    )
     const shrunk = {
       ...client,
       query: (intent: string, params?: Record<string, unknown>) => {
@@ -463,8 +541,12 @@ describe("WardenCheckLogPage paging", () => {
     fireEvent.click(screen.getByRole("button", { name: "Next page" }))
     await waitFor(() => {
       const lists = sent.filter((s) => s.intent === "checkLogs.list")
-      expect(lists.some((s) => (s.params as { offset: number }).offset === 25)).toBe(true)
-      expect((lists[lists.length - 1].params as { offset: number }).offset).toBe(0)
+      expect(
+        lists.some((s) => (s.params as { offset: number }).offset === 25)
+      ).toBe(true)
+      expect(
+        (lists[lists.length - 1].params as { offset: number }).offset
+      ).toBe(0)
     })
     expect(await screen.findByText("user:alice")).toBeTruthy()
   })
@@ -472,14 +554,17 @@ describe("WardenCheckLogPage paging", () => {
 
 describe("WardenCheckLogPage empties", () => {
   const EMPTY = list({ items: [], total: 0 })
-  const LOGGING_OFF = "Check logging is off on this server, so it records no checks."
+  const LOGGING_OFF =
+    "Check logging is off on this server, so it records no checks."
   const WERE_RECORDED =
     "These rows were written by a server with logging on, or before logging was turned off."
 
   it("says logging is off, and that the rows predate it, when rows exist", async () => {
     render_({ "config.detail": config(false) })
     await settled()
-    expect(await screen.findByText(`${LOGGING_OFF} ${WERE_RECORDED}`)).toBeTruthy()
+    expect(
+      await screen.findByText(`${LOGGING_OFF} ${WERE_RECORDED}`)
+    ).toBeTruthy()
   })
 
   it("says logging is off, without the rows sentence, when there are none", async () => {
@@ -510,24 +595,36 @@ describe("WardenCheckLogPage empties", () => {
   it("says no checks match with logging on and a filter set", async () => {
     render_({ "checkLogs.list": EMPTY })
     await screen.findByText("No checks are in the log.")
-    fireEvent.change(screen.getByLabelText("Decision"), { target: { value: "deny_default" } })
-    expect(await screen.findByText("No checks match these filters.")).toBeTruthy()
+    fireEvent.change(screen.getByLabelText("Decision"), {
+      target: { value: "deny_default" },
+    })
+    expect(
+      await screen.findByText("No checks match these filters.")
+    ).toBeTruthy()
     expect(screen.queryByText("No checks are in the log.")).toBeNull()
   })
 
   it("says no checks match for an applied exact-match field", async () => {
     render_({ "checkLogs.list": EMPTY })
     await screen.findByText("No checks are in the log.")
-    fireEvent.change(screen.getByLabelText("Action"), { target: { value: "read" } })
+    fireEvent.change(screen.getByLabelText("Action"), {
+      target: { value: "read" },
+    })
     fireEvent.click(screen.getByRole("button", { name: "Apply" }))
-    expect(await screen.findByText("No checks match these filters.")).toBeTruthy()
+    expect(
+      await screen.findByText("No checks match these filters.")
+    ).toBeTruthy()
   })
 
   it("does not claim a filter with logging off and a filter set", async () => {
     render_({ "config.detail": config(false), "checkLogs.list": EMPTY })
     await screen.findByText(LOGGING_OFF)
-    fireEvent.change(screen.getByLabelText("Cached"), { target: { value: "cached" } })
-    expect(await screen.findByText("No checks match these filters.")).toBeTruthy()
+    fireEvent.change(screen.getByLabelText("Cached"), {
+      target: { value: "cached" },
+    })
+    expect(
+      await screen.findByText("No checks match these filters.")
+    ).toBeTruthy()
   })
 
   it("says only what the log holds when config.detail fails and the list is empty", async () => {
@@ -565,19 +662,27 @@ describe("WardenCheckLogPage loss line", () => {
 
   it("counts what the server failed to record, with both causes and the trailer", async () => {
     const { container } = render_({
-      "checkLogs.list": list({ notRecorded: { queueFull: 3, writeFailed: 1, since: SINCE } }),
+      "checkLogs.list": list({
+        notRecorded: { queueFull: 3, writeFailed: 1, since: SINCE },
+      }),
     })
     await settled()
     const text = container.textContent ?? ""
-    expect(text).toContain("This server failed to record 4 checks since it started")
-    expect(text).toContain("3 dropped before they reached the store, 1 because writing it to the store failed")
+    expect(text).toContain(
+      "This server failed to record 4 checks since it started"
+    )
+    expect(text).toContain(
+      "3 dropped before they reached the store, 1 because writing it to the store failed"
+    )
     expect(text).toContain(TRAILER)
     expect(text).toContain(formatTimestamp(SINCE))
   })
 
   it("puts the start time in one element of its own", async () => {
     render_({
-      "checkLogs.list": list({ notRecorded: { queueFull: 3, writeFailed: 1, since: SINCE } }),
+      "checkLogs.list": list({
+        notRecorded: { queueFull: 3, writeFailed: 1, since: SINCE },
+      }),
     })
     const since = await screen.findByText(formatTimestamp(SINCE))
     expect(since.tagName).toBe("SPAN")
@@ -585,7 +690,9 @@ describe("WardenCheckLogPage loss line", () => {
 
   it("says only the queue clause when nothing failed to write", async () => {
     const { container } = render_({
-      "checkLogs.list": list({ notRecorded: { queueFull: 3, writeFailed: 0, since: SINCE } }),
+      "checkLogs.list": list({
+        notRecorded: { queueFull: 3, writeFailed: 0, since: SINCE },
+      }),
     })
     await settled()
     const text = container.textContent ?? ""
@@ -596,7 +703,9 @@ describe("WardenCheckLogPage loss line", () => {
 
   it("says only the write clause when nothing overflowed, singular at one", async () => {
     const { container } = render_({
-      "checkLogs.list": list({ notRecorded: { queueFull: 0, writeFailed: 1, since: SINCE } }),
+      "checkLogs.list": list({
+        notRecorded: { queueFull: 0, writeFailed: 1, since: SINCE },
+      }),
     })
     await settled()
     const text = container.textContent ?? ""
@@ -609,7 +718,9 @@ describe("WardenCheckLogPage loss line", () => {
 
   it("shows no loss line when both counts are zero", async () => {
     const { container } = render_({
-      "checkLogs.list": list({ notRecorded: { queueFull: 0, writeFailed: 0, since: SINCE } }),
+      "checkLogs.list": list({
+        notRecorded: { queueFull: 0, writeFailed: 0, since: SINCE },
+      }),
     })
     await settled()
     expect(container.textContent).not.toContain("failed to record")
@@ -624,16 +735,24 @@ describe("WardenCheckLogPage loss line", () => {
 
   it("agrees in number at one dropped check and at several", async () => {
     const one = render_({
-      "checkLogs.list": list({ notRecorded: { queueFull: 1, writeFailed: 0, since: SINCE } }),
+      "checkLogs.list": list({
+        notRecorded: { queueFull: 1, writeFailed: 0, since: SINCE },
+      }),
     })
     await settled()
-    expect(one.container.textContent).toContain("failed to record 1 check since it started")
-    expect(one.container.textContent).toContain("1 dropped before it reached the store")
+    expect(one.container.textContent).toContain(
+      "failed to record 1 check since it started"
+    )
+    expect(one.container.textContent).toContain(
+      "1 dropped before it reached the store"
+    )
     expect(one.container.textContent).not.toContain("they reached")
     one.unmount()
 
     const many = render_({
-      "checkLogs.list": list({ notRecorded: { queueFull: 2, writeFailed: 5, since: SINCE } }),
+      "checkLogs.list": list({
+        notRecorded: { queueFull: 2, writeFailed: 5, since: SINCE },
+      }),
     })
     await settled()
     expect(many.container.textContent).toContain(

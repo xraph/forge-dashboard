@@ -94,7 +94,7 @@ describe("ConfigPage", () => {
     expect(within(first).queryByLabelText(/no update/i)).toBeNull()
   })
 
-  it("shows a string value quoted, so \"true\" is not read as true", async () => {
+  it('shows a string value quoted, so "true" is not read as true', async () => {
     renderPage(ConfigPage, stubClient({ "config.list": ENTRIES }))
     await screen.findByText("banner")
     expect(within(row("banner")).getByText('"true"')).toBeTruthy()
@@ -105,7 +105,9 @@ describe("ConfigPage", () => {
     const link = await screen.findByRole("link", { name: "http/timeout" })
     expect(link.getAttribute("href")).toBe(configPath("http/timeout"))
     expect(link.getAttribute("href")).toBe("/config/http%2Ftimeout")
-    expect(link.closest("td")?.className).toMatch(/font-mono text-xs font-medium/)
+    expect(link.closest("td")?.className).toMatch(
+      /font-mono text-xs font-medium/
+    )
   })
 
   it("marks a value that does not match its type, and only that one", async () => {
@@ -134,7 +136,7 @@ describe("ConfigPage", () => {
   it("shows the server total in the caption, not the page length", async () => {
     renderPage(
       ConfigPage,
-      stubClient({ "config.list": { entries: ENTRIES.entries, total: 31 } }),
+      stubClient({ "config.list": { entries: ENTRIES.entries, total: 31 } })
     )
     await screen.findByText("banner")
     expect(screen.getByText("31 entries")).toBeTruthy()
@@ -143,14 +145,17 @@ describe("ConfigPage", () => {
   it("uses the singular for a total of one", async () => {
     renderPage(
       ConfigPage,
-      stubClient({ "config.list": { entries: [entry()], total: 1 } }),
+      stubClient({ "config.list": { entries: [entry()], total: 1 } })
     )
     await screen.findByText("http/timeout")
     expect(screen.getByText("1 entry")).toBeTruthy()
   })
 
   it("says so and still counts when there is no config", async () => {
-    renderPage(ConfigPage, stubClient({ "config.list": { entries: [], total: 0 } }))
+    renderPage(
+      ConfigPage,
+      stubClient({ "config.list": { entries: [], total: 0 } })
+    )
     expect(await screen.findByText("No config yet.")).toBeTruthy()
     expect(screen.getByText("0 entries")).toBeTruthy()
     const links = screen.getAllByRole("link", { name: "New config" })
@@ -162,14 +167,14 @@ describe("ConfigPage", () => {
     renderPage(ConfigPage, stubClient({ "config.list": ENTRIES }))
     await screen.findByText("banner")
     expect(
-      screen.getByRole("link", { name: "New config" }).getAttribute("href"),
+      screen.getByRole("link", { name: "New config" }).getAttribute("href")
     ).toBe("/new-config")
   })
 
   it("renders the error card, not an empty table, when the list fails", async () => {
     renderPage(
       ConfigPage,
-      failingClient(new ContractError("INTERNAL", "vault store is down")),
+      failingClient(new ContractError("INTERNAL", "vault store is down"))
     )
     expect(await screen.findByText(/Config unavailable/i)).toBeTruthy()
     expect(screen.getByText(/vault store is down/)).toBeTruthy()
@@ -185,7 +190,8 @@ describe("ConfigPage", () => {
       vi.useRealTimers()
     })
 
-    const filter = () => screen.getByLabelText("Key starts with") as HTMLInputElement
+    const filter = () =>
+      screen.getByLabelText("Key starts with") as HTMLInputElement
 
     it("waits 300ms, trims, sends keyPrefix and resets the offset to 0", async () => {
       const { client, sent } = recordingQueryClient({
@@ -202,7 +208,9 @@ describe("ConfigPage", () => {
       act(() => {
         vi.advanceTimersByTime(299)
       })
-      expect(listParams(sent).some((p) => "keyPrefix" in (p as object))).toBe(false)
+      expect(listParams(sent).some((p) => "keyPrefix" in (p as object))).toBe(
+        false
+      )
       act(() => {
         vi.advanceTimersByTime(1)
       })
@@ -211,7 +219,7 @@ describe("ConfigPage", () => {
           keyPrefix: "http/",
           limit: 25,
           offset: 0,
-        }),
+        })
       )
       await screen.findByText(/Page 1 of 3/)
     })
@@ -234,7 +242,7 @@ describe("ConfigPage", () => {
           keyPrefix: "htt",
           limit: 25,
           offset: 0,
-        }),
+        })
       )
       const prefixes = listParams(sent)
         .map((p) => (p as { keyPrefix?: string }).keyPrefix)
@@ -255,14 +263,16 @@ describe("ConfigPage", () => {
           keyPrefix: "http",
           limit: 25,
           offset: 0,
-        }),
+        })
       )
       const before = listParams(sent).length
       fireEvent.change(filter(), { target: { value: "" } })
       act(() => {
         vi.advanceTimersByTime(300)
       })
-      await waitFor(() => expect(listParams(sent).length).toBeGreaterThan(before))
+      await waitFor(() =>
+        expect(listParams(sent).length).toBeGreaterThan(before)
+      )
       expect(listParams(sent).at(-1)).toEqual({ limit: 25, offset: 0 })
     })
 
@@ -278,7 +288,10 @@ describe("ConfigPage", () => {
     })
 
     it("names the prefix in the empty state", async () => {
-      renderPage(ConfigPage, stubClient({ "config.list": { entries: [], total: 0 } }))
+      renderPage(
+        ConfigPage,
+        stubClient({ "config.list": { entries: [], total: 0 } })
+      )
       await screen.findByText("No config yet.")
       fireEvent.change(filter(), { target: { value: " zzz " } })
       act(() => {

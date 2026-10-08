@@ -29,9 +29,19 @@ export function ChartFrame({
           <h2 id={id} className="text-sm font-medium">
             {title}
           </h2>
-          {description && <p className="text-sm text-muted-foreground">{description}</p>}
+          {description && (
+            <p className="text-sm text-muted-foreground">{description}</p>
+          )}
         </div>
-        <IconButton variant="ghost" onClick={() => setAsTable((on) => !on)} label={asTable ? `Show ${title.toLowerCase()} as a chart` : `Show ${title.toLowerCase()} as a table`} />
+        <IconButton
+          variant="ghost"
+          onClick={() => setAsTable((on) => !on)}
+          label={
+            asTable
+              ? `Show ${title.toLowerCase()} as a chart`
+              : `Show ${title.toLowerCase()} as a table`
+          }
+        />
       </div>
       {asTable ? table : children}
     </section>
@@ -42,7 +52,15 @@ export function ChartFrame({
  * A short stroke in a series' colour, the way a legend keys a line: 2px for a
  * data line, 1px for a reference line, as each is drawn.
  */
-export function LineKey({ color, label, thin = false }: { color: string; label: string; thin?: boolean }) {
+export function LineKey({
+  color,
+  label,
+  thin = false,
+}: {
+  color: string
+  label: string
+  thin?: boolean
+}) {
   return (
     <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
       <span

@@ -22,17 +22,31 @@ function columns(showSuite: boolean): Column<Run>[] {
       ? {
           id: "suite",
           header: "Suite",
-          cell: (r) => <PluginLink to={suitePath(r.suiteId)}>{r.suiteName || r.suiteId}</PluginLink>,
+          cell: (r) => (
+            <PluginLink to={suitePath(r.suiteId)}>
+              {r.suiteName || r.suiteId}
+            </PluginLink>
+          ),
         }
       : null,
-    { id: "state", header: "State", cell: (r) => <RunStateBadge state={r.state} /> },
+    {
+      id: "state",
+      header: "State",
+      cell: (r) => <RunStateBadge state={r.state} />,
+    },
     {
       id: "progress",
       header: "Cases scored",
       cell: (r) => (
         <span className="flex min-w-28 flex-col gap-1">
           <span className="tabular-nums">{`${r.completedCases} of ${r.totalCases}`}</span>
-          {r.state === "running" && <ProgressMeter done={r.completedCases} total={r.totalCases} label="Cases scored" />}
+          {r.state === "running" && (
+            <ProgressMeter
+              done={r.completedCases}
+              total={r.totalCases}
+              label="Cases scored"
+            />
+          )}
         </span>
       ),
     },
@@ -64,7 +78,11 @@ function columns(showSuite: boolean): Column<Run>[] {
       className: "tabular-nums",
       cell: (r) => formatCost(r.totalCost),
     },
-    { id: "started", header: "Started", cell: (r) => <Timestamp value={r.createdAt} label="start time" /> },
+    {
+      id: "started",
+      header: "Started",
+      cell: (r) => <Timestamp value={r.createdAt} label="start time" />,
+    },
   ]
   return all.filter((c): c is Column<Run> => c !== null)
 }

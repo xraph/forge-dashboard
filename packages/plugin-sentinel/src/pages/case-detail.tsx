@@ -1,7 +1,12 @@
 import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { useEffect, useRef, useState } from "react"
 import type { ComponentType } from "react"
-import { PluginLink, useCommand, useNavigateTo, useQuery } from "@forge-go/dashboard-plugin"
+import {
+  PluginLink,
+  useCommand,
+  useNavigateTo,
+  useQuery,
+} from "@forge-go/dashboard-plugin"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
 import { ConfirmDialog } from "@forge-go/dashboard-kit/components/confirm-dialog"
 import { DescriptionList } from "@forge-go/dashboard-kit/components/detail-layout"
@@ -30,7 +35,12 @@ function indexKey(rows: ScorerConfig[]): (row: ScorerConfig) => string {
 }
 
 const scorerColumns: Column<ScorerConfig>[] = [
-  { id: "name", header: "Scorer", className: "font-mono text-xs font-medium", cell: (s) => s.name },
+  {
+    id: "name",
+    header: "Scorer",
+    className: "font-mono text-xs font-medium",
+    cell: (s) => s.name,
+  },
   {
     id: "config",
     header: "Config",
@@ -64,7 +74,8 @@ const scorerColumns: Column<ScorerConfig>[] = [
 export const CaseDetailPage: ComponentType<PluginPageProps> = ({ params }) => {
   const suiteId = params.id
   const caseId = params.caseId
-  if (!suiteId || !caseId) return <p className="text-sm text-muted-foreground">No case selected.</p>
+  if (!suiteId || !caseId)
+    return <p className="text-sm text-muted-foreground">No case selected.</p>
   return <CaseDetailBody key={caseId} caseId={caseId} />
 }
 
@@ -72,7 +83,11 @@ function CaseDetailBody({ caseId }: { caseId: string }) {
   const testCase = useQuery<TestCase>("cases.detail", { caseId })
   // Asked for once the case has answered, because the case says which suite.
   const ownSuiteId = testCase.data?.suiteId
-  const suite = useQuery<Suite>("suites.detail", { suiteId: ownSuiteId }, { enabled: ownSuiteId !== undefined })
+  const suite = useQuery<Suite>(
+    "suites.detail",
+    { suiteId: ownSuiteId },
+    { enabled: ownSuiteId !== undefined }
+  )
   const [editing, setEditing] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [target, setTarget] = useState<TestCase | null>(null)
@@ -86,46 +101,84 @@ function CaseDetailBody({ caseId }: { caseId: string }) {
                 title={c.name}
                 actions={
                   <>
-                    <IconButton variant="outline" onClick={() => {
+                    <IconButton
+                      variant="outline"
+                      onClick={() => {
                         setTarget(c)
                         setEditing(true)
-                      }} label="Edit" />
-                    <IconButton variant="outline" onClick={() => {
+                      }}
+                      label="Edit"
+                    />
+                    <IconButton
+                      variant="outline"
+                      onClick={() => {
                         setTarget(c)
                         setDeleting(true)
-                      }} label="Delete" />
+                      }}
+                      label="Delete"
+                    />
                   </>
                 }
               />
               <div className="flex flex-wrap items-center gap-2">
                 <ScenarioBadge type={c.scenarioType} />
-                {c.redTeam && <RedTeamBadge attackType={c.redTeam.attackType} />}
+                {c.redTeam && (
+                  <RedTeamBadge attackType={c.redTeam.attackType} />
+                )}
               </div>
             </div>
             <DescriptionList
               items={[
                 {
                   term: "Suite",
-                  value: <PluginLink to={suitePath(c.suiteId)}>{suite.data?.name ?? "Back to the suite"}</PluginLink>,
+                  value: (
+                    <PluginLink to={suitePath(c.suiteId)}>
+                      {suite.data?.name ?? "Back to the suite"}
+                    </PluginLink>
+                  ),
                 },
-                { term: "Tags", value: <TagList values={c.tags} label="tags" /> },
-                { term: "Created", value: <Timestamp value={c.createdAt} label="creation time" /> },
-                { term: "Updated", value: <Timestamp value={c.updatedAt} label="update" /> },
+                {
+                  term: "Tags",
+                  value: <TagList values={c.tags} label="tags" />,
+                },
+                {
+                  term: "Created",
+                  value: (
+                    <Timestamp value={c.createdAt} label="creation time" />
+                  ),
+                },
+                {
+                  term: "Updated",
+                  value: <Timestamp value={c.updatedAt} label="update" />,
+                },
               ]}
             />
-            <section aria-labelledby="sentinel-case-input" className="flex flex-col gap-2">
+            <section
+              aria-labelledby="sentinel-case-input"
+              className="flex flex-col gap-2"
+            >
               <h2 id="sentinel-case-input" className="text-sm font-medium">
                 Input
               </h2>
               <PlainText value={c.input} label="Input" />
             </section>
-            <section aria-labelledby="sentinel-case-expected" className="flex flex-col gap-2">
+            <section
+              aria-labelledby="sentinel-case-expected"
+              className="flex flex-col gap-2"
+            >
               <h2 id="sentinel-case-expected" className="text-sm font-medium">
                 Expected output
               </h2>
-              {c.expected ? <PlainText value={c.expected} label="Expected output" /> : <NoneCell label="expected output" />}
+              {c.expected ? (
+                <PlainText value={c.expected} label="Expected output" />
+              ) : (
+                <NoneCell label="expected output" />
+              )}
             </section>
-            <section aria-labelledby="sentinel-case-scorers" className="flex flex-col gap-2">
+            <section
+              aria-labelledby="sentinel-case-scorers"
+              className="flex flex-col gap-2"
+            >
               <h2 id="sentinel-case-scorers" className="text-sm font-medium">
                 Its own scorers
               </h2>
@@ -138,24 +191,37 @@ function CaseDetailBody({ caseId }: { caseId: string }) {
               />
               {c.scorers.some((s) => s.redacted) && (
                 <p className="text-xs text-muted-foreground">
-                  A withheld substring is the system prompt this case checks for, so the server never sends it.
+                  A withheld substring is the system prompt this case checks
+                  for, so the server never sends it.
                 </p>
               )}
             </section>
             {Object.keys(c.context).length > 0 && (
-              <section aria-labelledby="sentinel-case-context" className="flex flex-col gap-2">
+              <section
+                aria-labelledby="sentinel-case-context"
+                className="flex flex-col gap-2"
+              >
                 <h2 id="sentinel-case-context" className="text-sm font-medium">
                   Context
                 </h2>
-                <PlainText value={JSON.stringify(c.context, null, 2)} label="Context" />
+                <PlainText
+                  value={JSON.stringify(c.context, null, 2)}
+                  label="Context"
+                />
               </section>
             )}
             {Object.keys(c.metadata).length > 0 && (
-              <section aria-labelledby="sentinel-case-metadata" className="flex flex-col gap-2">
+              <section
+                aria-labelledby="sentinel-case-metadata"
+                className="flex flex-col gap-2"
+              >
                 <h2 id="sentinel-case-metadata" className="text-sm font-medium">
                   Metadata
                 </h2>
-                <PlainText value={JSON.stringify(c.metadata, null, 2)} label="Metadata" />
+                <PlainText
+                  value={JSON.stringify(c.metadata, null, 2)}
+                  label="Metadata"
+                />
               </section>
             )}
           </div>
@@ -163,8 +229,17 @@ function CaseDetailBody({ caseId }: { caseId: string }) {
       </SettledBoundary>
       {target && (
         <>
-          <CaseFormDialog open={editing} onOpenChange={setEditing} suiteId={target.suiteId} testCase={target} />
-          <DeleteCaseDialog open={deleting} onOpenChange={setDeleting} testCase={target} />
+          <CaseFormDialog
+            open={editing}
+            onOpenChange={setEditing}
+            suiteId={target.suiteId}
+            testCase={target}
+          />
+          <DeleteCaseDialog
+            open={deleting}
+            onOpenChange={setDeleting}
+            testCase={target}
+          />
         </>
       )}
     </section>

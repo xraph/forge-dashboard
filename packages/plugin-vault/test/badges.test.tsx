@@ -33,7 +33,7 @@ describe("EncryptionBadge", () => {
     const { container } = render(<EncryptionBadge alg="" />)
     const text = container.textContent ?? ""
     expect(text.replace("Not encrypted", "")).not.toMatch(
-      /encrypted|secure|protected/i,
+      /encrypted|secure|protected/i
     )
   })
 

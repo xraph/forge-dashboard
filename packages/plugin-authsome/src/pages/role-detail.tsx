@@ -32,7 +32,11 @@ import type { PermissionRecord, RoleDetail } from "./roles"
  * reader instead of both reading back the same bare "None".
  */
 function IdCell({ value, label }: { value?: string; label: string }) {
-  return value ? <span className="font-mono text-xs">{value}</span> : <NoneCell label={label} />
+  return value ? (
+    <span className="font-mono text-xs">{value}</span>
+  ) : (
+    <NoneCell label={label} />
+  )
 }
 
 const permissionColumns: Column<PermissionRecord>[] = [
@@ -52,7 +56,8 @@ function EditRole({ role }: { role: RoleDetail }) {
   // the pointer-semantics test in roles.test.tsx pins.
   const changed: Record<string, unknown> = { id: role.id }
   if (name !== role.name) changed.name = name
-  if (description !== (role.description ?? "")) changed.description = description
+  if (description !== (role.description ?? ""))
+    changed.description = description
   const dirty = Object.keys(changed).length > 1
 
   return (
@@ -61,7 +66,11 @@ function EditRole({ role }: { role: RoleDetail }) {
       <CommandAlert error={update.error} title="Could not save" />
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="role-edit-name">Name</Label>
-        <Input id="role-edit-name" value={name} onChange={(e) => setName(e.target.value)} />
+        <Input
+          id="role-edit-name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+        />
       </div>
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="role-edit-description">Description</Label>
@@ -71,7 +80,10 @@ function EditRole({ role }: { role: RoleDetail }) {
           onChange={(e) => setDescription(e.target.value)}
         />
       </div>
-      <Button onClick={() => void update.execute(changed)} disabled={update.loading || !dirty}>
+      <Button
+        onClick={() => void update.execute(changed)}
+        disabled={update.loading || !dirty}
+      >
         {update.loading ? "Saving…" : "Save changes"}
       </Button>
     </div>
@@ -107,7 +119,10 @@ function AssignRole({ roleId }: { roleId: string }) {
           onChange={(e) => setUserId(e.target.value)}
         />
       </div>
-      <Button onClick={() => void submit()} disabled={assign.loading || userId.trim() === ""}>
+      <Button
+        onClick={() => void submit()}
+        disabled={assign.loading || userId.trim() === ""}
+      >
         {assign.loading ? "Assigning…" : "Assign"}
       </Button>
     </div>
@@ -182,22 +197,44 @@ function RoleDetailBody({ roleId }: { roleId: string }) {
                   <>
                     <DescriptionList
                       items={[
-                        { term: "Slug", value: <span className="font-mono text-xs">{role.slug}</span> },
+                        {
+                          term: "Slug",
+                          value: (
+                            <span className="font-mono text-xs">
+                              {role.slug}
+                            </span>
+                          ),
+                        },
                         {
                           term: "Description",
-                          value: role.description || <NoneCell label="description" />,
+                          value: role.description || (
+                            <NoneCell label="description" />
+                          ),
                         },
                         {
                           term: "Parent",
-                          value: <IdCell value={role.parentId} label="parent role" />,
+                          value: (
+                            <IdCell value={role.parentId} label="parent role" />
+                          ),
                         },
-                        { term: "App", value: <IdCell value={role.appId} label="app" /> },
+                        {
+                          term: "App",
+                          value: <IdCell value={role.appId} label="app" />,
+                        },
                         {
                           term: "Environment",
-                          value: <IdCell value={role.envId} label="environment" />,
+                          value: (
+                            <IdCell value={role.envId} label="environment" />
+                          ),
                         },
-                        { term: "Created", value: formatTimestamp(role.createdAt) },
-                        { term: "Updated", value: formatTimestamp(role.updatedAt) },
+                        {
+                          term: "Created",
+                          value: formatTimestamp(role.createdAt),
+                        },
+                        {
+                          term: "Updated",
+                          value: formatTimestamp(role.updatedAt),
+                        },
                       ]}
                     />
                     <ResourceTable<PermissionRecord>

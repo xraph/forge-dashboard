@@ -5,31 +5,81 @@ import type { QueryState } from "@forge-go/dashboard-plugin"
 import { Button } from "@forge-go/dashboard-kit/components/button"
 import { Input } from "@forge-go/dashboard-kit/components/input"
 import { Label } from "@forge-go/dashboard-kit/components/label"
-import { NativeSelect, NativeSelectOption } from "@forge-go/dashboard-kit/components/native-select"
+import {
+  NativeSelect,
+  NativeSelectOption,
+} from "@forge-go/dashboard-kit/components/native-select"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
-import { CommandAlert, QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
+import {
+  CommandAlert,
+  QueryBoundary,
+} from "@forge-go/dashboard-kit/components/query-boundary"
 import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
-import { ResourceTable, type Column } from "@forge-go/dashboard-kit/components/resource-table"
+import {
+  ResourceTable,
+  type Column,
+} from "@forge-go/dashboard-kit/components/resource-table"
 import { StatGrid } from "@forge-go/dashboard-kit/components/stat-grid"
 import { OffsetPager } from "../components/offset-pager"
-import { dailyTotals, UsageChart, windowStart, type DayTotal } from "../components/usage-chart"
+import {
+  dailyTotals,
+  UsageChart,
+  windowStart,
+  type DayTotal,
+} from "../components/usage-chart"
 import { formatUTCInstant } from "../lib/datetime"
 import { pageCaption, pageParams } from "../lib/paging"
-import type { Ack, EntitlementResult, Page, SettingsDetail, UsageEvent, UsageTotals } from "../types"
+import type {
+  Ack,
+  EntitlementResult,
+  Page,
+  SettingsDetail,
+  UsageEvent,
+  UsageTotals,
+} from "../types"
 
 const CHART_READ = 200
 const number = new Intl.NumberFormat()
 
 const columns: Column<UsageEvent>[] = [
-  { id: "time", header: "When (UTC)", cell: (e) => formatUTCInstant(e.timestamp) ?? <NoneCell label="time" /> },
-  { id: "tenant", header: "Tenant", className: "font-mono text-xs", cell: (e) => e.tenant_id },
-  { id: "feature", header: "Feature", className: "font-mono text-xs", cell: (e) => e.feature_key },
-  { id: "quantity", header: "Units", align: "end", className: "font-medium tabular-nums", cell: (e) => number.format(e.quantity) },
-  { id: "id", header: "Event", className: "font-mono text-xs", cell: (e) => e.id },
+  {
+    id: "time",
+    header: "When (UTC)",
+    cell: (e) => formatUTCInstant(e.timestamp) ?? <NoneCell label="time" />,
+  },
+  {
+    id: "tenant",
+    header: "Tenant",
+    className: "font-mono text-xs",
+    cell: (e) => e.tenant_id,
+  },
+  {
+    id: "feature",
+    header: "Feature",
+    className: "font-mono text-xs",
+    cell: (e) => e.feature_key,
+  },
+  {
+    id: "quantity",
+    header: "Units",
+    align: "end",
+    className: "font-medium tabular-nums",
+    cell: (e) => number.format(e.quantity),
+  },
+  {
+    id: "id",
+    header: "Event",
+    className: "font-mono text-xs",
+    cell: (e) => e.id,
+  },
 ]
 
 function MonthTotal({ tenant, feature }: { tenant: string; feature: string }) {
-  const totals = useQuery<UsageTotals>("usage.aggregate", { tenant_id: tenant, feature_keys: [feature], period: "monthly" })
+  const totals = useQuery<UsageTotals>("usage.aggregate", {
+    tenant_id: tenant,
+    feature_keys: [feature],
+    period: "monthly",
+  })
   // A ledger that sends lifecycle_interval (a number, or "off") opens months at
   // midnight UTC in every store. An older one opened them in the server's own
   // zone, so until the settings answer says otherwise, or when it is refused,
@@ -44,7 +94,9 @@ function MonthTotal({ tenant, feature }: { tenant: string; feature: string }) {
             {
               label: `${feature} this month, ${tenant}`,
               value: number.format(t.totals?.[feature] ?? 0),
-              hint: utc ? "Since the start of the month, UTC" : "Since the start of the month",
+              hint: utc
+                ? "Since the start of the month, UTC"
+                : "Since the start of the month",
             },
           ]}
         />
@@ -58,7 +110,11 @@ function MonthTotal({ tenant, feature }: { tenant: string; feature: string }) {
  * engine answers them with a zero limit and zero use, and "0 of 0 used" would
  * read as an empty quota rather than as no quota at all.
  */
-const UNMEASURED = new Set(["no active subscription", "plan not found", "feature not in plan"])
+const UNMEASURED = new Set([
+  "no active subscription",
+  "plan not found",
+  "feature not in plan",
+])
 
 /**
  * One entitlement answer, read the way the engine words it
@@ -77,24 +133,45 @@ export function EntitlementAnswerView({ r }: { r: EntitlementResult }) {
   const switchedOff = !r.allowed && reason === ""
   const boolean = r.allowed && reason === "" && r.remaining === 0
   const unmeasured = UNMEASURED.has(reason)
-  const refusal = switchedOff ? "this feature is switched off in the tenant's plan" : reason
+  const refusal = switchedOff
+    ? "this feature is switched off in the tenant's plan"
+    : reason
 
   let usage: string | undefined
   if (boolean) usage = "Included in the plan. There is nothing to count."
-  else if (!switchedOff && !unmeasured) usage = r.limit === -1 ? `${number.format(r.used)} used, no limit` : `${number.format(r.used)} of ${number.format(r.limit)} used`
-  const showRemaining = !switchedOff && !unmeasured && !boolean && r.limit !== -1
+  else if (!switchedOff && !unmeasured)
+    usage =
+      r.limit === -1
+        ? `${number.format(r.used)} used, no limit`
+        : `${number.format(r.used)} of ${number.format(r.limit)} used`
+  const showRemaining =
+    !switchedOff && !unmeasured && !boolean && r.limit !== -1
 
   return (
     <div className="flex flex-col gap-1 text-sm">
-      <span className={r.allowed ? "font-medium" : "font-medium text-destructive"}>{r.allowed ? "Allowed" : `Refused: ${refusal}`}</span>
+      <span
+        className={r.allowed ? "font-medium" : "font-medium text-destructive"}
+      >
+        {r.allowed ? "Allowed" : `Refused: ${refusal}`}
+      </span>
       {usage && <span className="tabular-nums">{usage}</span>}
-      {showRemaining && <span className="tabular-nums">{`${number.format(r.remaining)} remaining`}</span>}
-      {r.allowed && reason === "over soft limit" && <span className="text-muted-foreground">At or past the soft limit. Use is not blocked.</span>}
+      {showRemaining && (
+        <span className="tabular-nums">{`${number.format(r.remaining)} remaining`}</span>
+      )}
+      {r.allowed && reason === "over soft limit" && (
+        <span className="text-muted-foreground">
+          At or past the soft limit. Use is not blocked.
+        </span>
+      )}
     </div>
   )
 }
 
-function EntitlementAnswer({ check }: { check: QueryState<EntitlementResult> }) {
+function EntitlementAnswer({
+  check,
+}: {
+  check: QueryState<EntitlementResult>
+}) {
   return (
     <QueryBoundary title="Entitlement" query={check} skeletonRows={1}>
       {(r) => <EntitlementAnswerView r={r} />}
@@ -126,20 +203,36 @@ export function LedgerUsagePage() {
   // window until the operator changes it.
   const [anchor, setAnchor] = useState(() => Date.now())
   const [page, setPage] = useState(1)
-  const [checking, setChecking] = useState<{ tenant: string; feature: string } | null>(null)
+  const [checking, setChecking] = useState<{
+    tenant: string
+    feature: string
+  } | null>(null)
   const invalidate = useCommand<Ack>("entitlements.invalidate")
   const [cleared, setCleared] = useState<string | null>(null)
 
   const tenantId = tenant.trim()
   const featureKey = feature.trim()
   const startMs = useMemo(() => windowStart(days, anchor), [days, anchor])
-  const filters = { tenant_id: tenantId || undefined, feature_key: featureKey || undefined, start: new Date(startMs).toISOString() }
-  const chart = useQuery<Page<UsageEvent>>("usage.events", { ...filters, limit: CHART_READ, offset: 0 })
-  const log = useQuery<Page<UsageEvent>>("usage.events", { ...filters, ...pageParams(page) })
+  const filters = {
+    tenant_id: tenantId || undefined,
+    feature_key: featureKey || undefined,
+    start: new Date(startMs).toISOString(),
+  }
+  const chart = useQuery<Page<UsageEvent>>("usage.events", {
+    ...filters,
+    limit: CHART_READ,
+    offset: 0,
+  })
+  const log = useQuery<Page<UsageEvent>>("usage.events", {
+    ...filters,
+    ...pageParams(page),
+  })
   const check = useQuery<EntitlementResult>(
     "entitlements.check",
-    checking ? { tenant_id: checking.tenant, feature_key: checking.feature } : undefined,
-    { enabled: checking !== null },
+    checking
+      ? { tenant_id: checking.tenant, feature_key: checking.feature }
+      : undefined,
+    { enabled: checking !== null }
   )
 
   // The last chart that settled, bucketed against the window it was read for.
@@ -148,7 +241,11 @@ export function LedgerUsagePage() {
   // stays up, dimmed, until the new read lands or fails.
   const [held, setHeld] = useState<Held | undefined>()
   if (chart.data !== undefined && held?.source !== chart.data) {
-    setHeld({ source: chart.data, totals: dailyTotals(chart.data.items ?? [], startMs, days), truncated: chart.data.has_more })
+    setHeld({
+      source: chart.data,
+      totals: dailyTotals(chart.data.items ?? [], startMs, days),
+      truncated: chart.data.has_more,
+    })
   }
 
   // One UsageChart element in one place, whether it shows fresh data or the
@@ -158,7 +255,11 @@ export function LedgerUsagePage() {
     chart.loading && held
       ? { totals: held.totals, truncated: held.truncated, refreshing: true }
       : chart.data !== undefined
-        ? { totals: dailyTotals(chart.data.items ?? [], startMs, days), truncated: chart.data.has_more, refreshing: false }
+        ? {
+            totals: dailyTotals(chart.data.items ?? [], startMs, days),
+            truncated: chart.data.has_more,
+            refreshing: false,
+          }
         : undefined
 
   function narrow(set: (v: string) => void) {
@@ -178,25 +279,50 @@ export function LedgerUsagePage() {
     const payload: Record<string, unknown> = { tenant_id: tenantId }
     if (featureKey) payload.feature_key = featureKey
     const result = await invalidate.execute(payload)
-    if (result !== undefined) setCleared(featureKey ? `${tenantId} (${featureKey})` : tenantId)
+    if (result !== undefined)
+      setCleared(featureKey ? `${tenantId} (${featureKey})` : tenantId)
   }
 
-  const hint = tenantId === "" ? "Name a tenant above to use these." : featureKey === "" ? "Name a feature key above to check one. Clearing works with a tenant alone." : undefined
+  const hint =
+    tenantId === ""
+      ? "Name a tenant above to use these."
+      : featureKey === ""
+        ? "Name a feature key above to check one. Clearing works with a tenant alone."
+        : undefined
   const describedBy = hint ? `${toolsHelpId} ${toolsHintId}` : toolsHelpId
 
   return (
     <section className="flex flex-col gap-6">
-      <PageHeader title="Usage" description="Metered events as they were ingested, newest first." />
+      <PageHeader
+        title="Usage"
+        description="Metered events as they were ingested, newest first."
+      />
 
       <div className="flex flex-col gap-2">
         <div className="flex flex-wrap items-end gap-3">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="usage-tenant">Tenant ID</Label>
-            <Input id="usage-tenant" className="h-8 w-48 font-mono" autoComplete="off" spellCheck={false} aria-describedby={helpId} value={tenant} onChange={(e) => narrow(setTenant)(e.target.value)} />
+            <Input
+              id="usage-tenant"
+              className="h-8 w-48 font-mono"
+              autoComplete="off"
+              spellCheck={false}
+              aria-describedby={helpId}
+              value={tenant}
+              onChange={(e) => narrow(setTenant)(e.target.value)}
+            />
           </div>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="usage-feature">Feature key</Label>
-            <Input id="usage-feature" className="h-8 w-48 font-mono" autoComplete="off" spellCheck={false} aria-describedby={helpId} value={feature} onChange={(e) => narrow(setFeature)(e.target.value)} />
+            <Input
+              id="usage-feature"
+              className="h-8 w-48 font-mono"
+              autoComplete="off"
+              spellCheck={false}
+              aria-describedby={helpId}
+              value={feature}
+              onChange={(e) => narrow(setFeature)(e.target.value)}
+            />
           </div>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="usage-window">Window</Label>
@@ -215,14 +341,21 @@ export function LedgerUsagePage() {
           </div>
         </div>
         <p id={helpId} className="text-sm text-muted-foreground">
-          Tenant and feature match exactly. Leave them blank to read every tenant and feature.
+          Tenant and feature match exactly. Leave them blank to read every
+          tenant and feature.
         </p>
       </div>
 
-      {tenantId && featureKey && <MonthTotal tenant={tenantId} feature={featureKey} />}
+      {tenantId && featureKey && (
+        <MonthTotal tenant={tenantId} feature={featureKey} />
+      )}
 
       {shownChart ? (
-        <UsageChart totals={shownChart.totals} truncated={shownChart.truncated} refreshing={shownChart.refreshing} />
+        <UsageChart
+          totals={shownChart.totals}
+          truncated={shownChart.truncated}
+          refreshing={shownChart.refreshing}
+        />
       ) : (
         // Loading with nothing to hold yet, or failed: the boundary's own
         // skeleton or error card. Its children never run, because there is
@@ -243,10 +376,26 @@ export function LedgerUsagePage() {
                   columns={columns}
                   rows={rows}
                   rowKey={(e) => e.id}
-                  caption={pageCaption({ page, shown: rows.length, hasMore: data.has_more, singular: "event", plural: "events" })}
-                  emptyMessage={page > 1 ? `Nothing on page ${page}.` : tenantId || featureKey ? "No events match these filters in this window." : "No usage in this window."}
+                  caption={pageCaption({
+                    page,
+                    shown: rows.length,
+                    hasMore: data.has_more,
+                    singular: "event",
+                    plural: "events",
+                  })}
+                  emptyMessage={
+                    page > 1
+                      ? `Nothing on page ${page}.`
+                      : tenantId || featureKey
+                        ? "No events match these filters in this window."
+                        : "No usage in this window."
+                  }
                 />
-                <OffsetPager page={page} hasMore={data.has_more} onPageChange={setPage} />
+                <OffsetPager
+                  page={page}
+                  hasMore={data.has_more}
+                  onPageChange={setPage}
+                />
               </div>
             )
           }}
@@ -256,18 +405,32 @@ export function LedgerUsagePage() {
       <section className="flex flex-col gap-3" aria-label="Entitlement tools">
         <h2 className="text-base font-medium">Entitlements</h2>
         <p id={toolsHelpId} className="text-sm text-muted-foreground">
-          A check reads the store directly, skipping the cache enforcement uses. Clearing drops cached answers for the tenant, or for one feature when a key is named, so the next enforcement check reads fresh too.
+          A check reads the store directly, skipping the cache enforcement uses.
+          Clearing drops cached answers for the tenant, or for one feature when
+          a key is named, so the next enforcement check reads fresh too.
         </p>
-        <form onSubmit={(e) => void clearCache(e)} className="flex flex-wrap gap-2">
+        <form
+          onSubmit={(e) => void clearCache(e)}
+          className="flex flex-wrap gap-2"
+        >
           <Button
             type="button"
             aria-describedby={describedBy}
             disabled={tenantId === "" || featureKey === ""}
-            onClick={() => (checking ? check.refetch() : setChecking({ tenant: tenantId, feature: featureKey }))}
+            onClick={() =>
+              checking
+                ? check.refetch()
+                : setChecking({ tenant: tenantId, feature: featureKey })
+            }
           >
             Check entitlement
           </Button>
-          <Button type="submit" variant="outline" aria-describedby={describedBy} disabled={tenantId === "" || invalidate.loading}>
+          <Button
+            type="submit"
+            variant="outline"
+            aria-describedby={describedBy}
+            disabled={tenantId === "" || invalidate.loading}
+          >
             Clear cached answers
           </Button>
         </form>
@@ -276,7 +439,10 @@ export function LedgerUsagePage() {
             {hint}
           </p>
         )}
-        <CommandAlert error={invalidate.error} title="Could not clear the cache" />
+        <CommandAlert
+          error={invalidate.error}
+          title="Could not clear the cache"
+        />
         {/*
           Both live regions stay mounted, empty, from the first render: a
           region inserted already holding its text is often not announced, one

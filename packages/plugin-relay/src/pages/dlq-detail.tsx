@@ -51,10 +51,14 @@ function DLQDetailView({ id }: { id: string }) {
               description={`Failed after ${e.attemptCount} ${e.attemptCount === 1 ? "attempt" : "attempts"} to ${e.url}`}
               actions={
                 e.replayedAt ? null : (
-                  <IconButton variant="destructive" onClick={() => {
+                  <IconButton
+                    variant="destructive"
+                    onClick={() => {
                       replay.reset()
                       setConfirming(true)
-                    }} label="Replay" />
+                    }}
+                    label="Replay"
+                  />
                 )
               }
             />

@@ -8,7 +8,11 @@ const page = passwordSubPlugin.routes[0].element
 describe("password policy", () => {
   it("shows the policy from its own contributor and the panel from the host", async () => {
     const own = subStubClient({
-      "password.policy": { minLength: 12, requireSpecial: true, hashAlgorithm: "argon2id" },
+      "password.policy": {
+        minLength: 12,
+        requireSpecial: true,
+        hashAlgorithm: "argon2id",
+      },
     })
     const host = subStubClient({
       "settings.namespace": {
@@ -52,7 +56,11 @@ describe("password policy", () => {
 
   it("labels the hash algorithm as compiled rather than as a live reading", async () => {
     const own = subStubClient({
-      "password.policy": { minLength: 12, requireSpecial: true, hashAlgorithm: "argon2id" },
+      "password.policy": {
+        minLength: 12,
+        requireSpecial: true,
+        hashAlgorithm: "argon2id",
+      },
     })
     renderSubPage(page, {
       client: own.client,
@@ -67,7 +75,11 @@ describe("password policy", () => {
 
   it("says engine default rather than zero when no minimum is set", async () => {
     const own = subStubClient({
-      "password.policy": { minLength: 0, requireSpecial: false, hashAlgorithm: "argon2id" },
+      "password.policy": {
+        minLength: 0,
+        requireSpecial: false,
+        hashAlgorithm: "argon2id",
+      },
     })
     renderSubPage(page, {
       client: own.client,
@@ -75,6 +87,8 @@ describe("password policy", () => {
       allowed: passwordSubPlugin.hostIntents,
     })
     // "0 characters" reads as a policy allowing empty passwords. It is not one.
-    await waitFor(() => expect(screen.getByText(/engine default/i)).toBeTruthy())
+    await waitFor(() =>
+      expect(screen.getByText(/engine default/i)).toBeTruthy()
+    )
   })
 })

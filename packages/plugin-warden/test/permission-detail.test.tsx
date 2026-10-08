@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest"
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react"
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react"
 import {
   ContractError,
   NavigationProvider,
@@ -72,7 +78,9 @@ function client(detail: PermissionDetail = DETAIL, commands = {}) {
 }
 
 function show(detail: PermissionDetail = DETAIL, commands = {}) {
-  return renderPage(WardenPermissionDetailPage, client(detail, commands), { id: "perm_01a" })
+  return renderPage(WardenPermissionDetailPage, client(detail, commands), {
+    id: "perm_01a",
+  })
 }
 
 /** A link the way the shell renders one, so a test can tell it from a bare anchor. */
@@ -105,7 +113,9 @@ function showInHost(c: ScopedClient, detail = "perm_01a") {
 
 /** A client that reads the detail and refuses every command with `error`. */
 function refusing(error: ContractError, detail: PermissionDetail = DETAIL) {
-  const { client: c, sent } = recordingCommandClient({ "permissions.detail": detail })
+  const { client: c, sent } = recordingCommandClient({
+    "permissions.detail": detail,
+  })
   const client = {
     ...c,
     command: (intent: string, payload?: unknown) => {
@@ -124,7 +134,8 @@ function commandsNeverSettle(detail: PermissionDetail = DETAIL): ScopedClient {
   } as ScopedClient
 }
 
-const rowOf = async (text: string) => (await screen.findByText(text)).closest("tr")!
+const rowOf = async (text: string) =>
+  (await screen.findByText(text)).closest("tr")!
 const dialog = () => within(screen.getByRole("alertdialog"))
 
 async function openDelete() {
@@ -153,7 +164,9 @@ describe("WardenPermissionDetailPage", () => {
 
     it("counts one attaching role in the singular", async () => {
       show(detailOf({ grantedBy: [READER] }))
-      expect(await screen.findByText("1 role attaches it directly")).toBeTruthy()
+      expect(
+        await screen.findByText("1 role attaches it directly")
+      ).toBeTruthy()
     })
 
     it("says what else grants its check and is not listed: a parent, a wildcard, or the same resource and action", async () => {
@@ -170,19 +183,28 @@ describe("WardenPermissionDetailPage", () => {
     })
 
     it("asks permissions.detail for exactly the id in the route", async () => {
-      const { client: c, sent } = recordingQueryClient({ "permissions.detail": DETAIL })
+      const { client: c, sent } = recordingQueryClient({
+        "permissions.detail": DETAIL,
+      })
       renderPage(WardenPermissionDetailPage, c, { id: "perm_01a" })
       await screen.findByText("reader")
-      expect(sent).toEqual([{ intent: "permissions.detail", params: { id: "perm_01a" } }])
+      expect(sent).toEqual([
+        { intent: "permissions.detail", params: { id: "perm_01a" } },
+      ])
     })
 
     it("asks for a different permission when the route names a different id", async () => {
       // Guards the request payload from being a constant: the id sent is
       // the one in the route, not whatever the fixture happens to carry.
-      const { client: c, sent } = recordingQueryClient({ "permissions.detail": DETAIL })
+      const { client: c, sent } = recordingQueryClient({
+        "permissions.detail": DETAIL,
+      })
       renderPage(WardenPermissionDetailPage, c, { id: "perm_09z" })
       await screen.findByText("reader")
-      expect(sent[0]).toEqual({ intent: "permissions.detail", params: { id: "perm_09z" } })
+      expect(sent[0]).toEqual({
+        intent: "permissions.detail",
+        params: { id: "perm_09z" },
+      })
     })
 
     it("sets the role name in the weight an operator scans for, and the slug as an identifier", async () => {
@@ -196,7 +218,9 @@ describe("WardenPermissionDetailPage", () => {
 
     it("names the permission in the heading", async () => {
       show()
-      expect(await screen.findByRole("heading", { name: "document:read" })).toBeTruthy()
+      expect(
+        await screen.findByRole("heading", { name: "document:read" })
+      ).toBeTruthy()
     })
   })
 
@@ -205,7 +229,9 @@ describe("WardenPermissionDetailPage", () => {
       show(detailOf({ grantedBy: [] }))
       // Not "No role grants this permission": a role inheriting it from a
       // parent, or holding a matching wildcard, grants it and is not listed.
-      expect(await screen.findByText("No role attaches this permission directly.")).toBeTruthy()
+      expect(
+        await screen.findByText("No role attaches this permission directly.")
+      ).toBeTruthy()
       expect(await screen.findByText("0 roles attach it directly")).toBeTruthy()
       expect(screen.queryByText("No role grants this permission.")).toBeNull()
       expect(
@@ -231,7 +257,9 @@ describe("WardenPermissionDetailPage", () => {
 
     it("survives a null grantedBy rather than throwing", async () => {
       show(detailOf({ grantedBy: null as unknown as [] }))
-      expect(await screen.findByText("No role attaches this permission directly.")).toBeTruthy()
+      expect(
+        await screen.findByText("No role attaches this permission directly.")
+      ).toBeTruthy()
     })
   })
 
@@ -245,8 +273,12 @@ describe("WardenPermissionDetailPage", () => {
       expect(resource.textContent).toBe("document")
       expect(action.textContent).toBe("read")
       // Each under its own term in the field list, not folded into the name.
-      expect(resource.closest("dd")!.previousElementSibling!.textContent).toBe("Resource")
-      expect(action.closest("dd")!.previousElementSibling!.textContent).toBe("Action")
+      expect(resource.closest("dd")!.previousElementSibling!.textContent).toBe(
+        "Resource"
+      )
+      expect(action.closest("dd")!.previousElementSibling!.textContent).toBe(
+        "Action"
+      )
     })
 
     it("sets resource and action as identifiers, in monospace", async () => {
@@ -300,7 +332,9 @@ describe("WardenPermissionDetailPage", () => {
       expect(await screen.findByText(/system permission/i)).toBeTruthy()
       // The same badge the list page uses, in the field list. Scoped to the
       // aside: a granting role can be a system role and carry its own.
-      expect(within(screen.getByRole("complementary")).getByText("system")).toBeTruthy()
+      expect(
+        within(screen.getByRole("complementary")).getByText("system")
+      ).toBeTruthy()
     })
 
     it("offers no delete", async () => {
@@ -314,7 +348,9 @@ describe("WardenPermissionDetailPage", () => {
       // PERMISSION_DENIED), so an edit control would promise a refusal.
       show(SYSTEM)
       expect(
-        await screen.findByText("This is a system permission. It cannot be changed or deleted.")
+        await screen.findByText(
+          "This is a system permission. It cannot be changed or deleted."
+        )
       ).toBeTruthy()
       expect(screen.queryByRole("button", { name: /edit/i })).toBeNull()
     })
@@ -325,7 +361,9 @@ describe("WardenPermissionDetailPage", () => {
       show()
       await screen.findByText("reader")
       expect(screen.queryByText(/system permission/i)).toBeNull()
-      expect(within(screen.getByRole("complementary")).queryByText("system")).toBeNull()
+      expect(
+        within(screen.getByRole("complementary")).queryByText("system")
+      ).toBeNull()
       expect(screen.getByRole("button", { name: "Delete" })).toBeTruthy()
     })
   })
@@ -341,16 +379,18 @@ describe("WardenPermissionDetailPage", () => {
       expect(link.getAttribute("data-router")).toBe("yes")
       const auditor = await rowOf("auditor")
       expect(
-        within(auditor).getByRole("link", { name: "Details" }).getAttribute("href")
+        within(auditor)
+          .getByRole("link", { name: "Details" })
+          .getAttribute("href")
       ).toBe("/@warden/acme/roles/role_01a")
     })
 
     it("still renders a real link with no host around it", async () => {
       show()
       const row = await rowOf("reader")
-      expect(within(row).getByRole("link", { name: "Details" }).getAttribute("href")).toBe(
-        "/roles/role_01r"
-      )
+      expect(
+        within(row).getByRole("link", { name: "Details" }).getAttribute("href")
+      ).toBe("/roles/role_01r")
     })
   })
 
@@ -369,8 +409,12 @@ describe("WardenPermissionDetailPage", () => {
     })
 
     it("shows a loading state while the read is in flight", async () => {
-      renderPage(WardenPermissionDetailPage, pendingClient(), { id: "perm_01a" })
-      expect(await screen.findByRole("status", { name: /loading permission/i })).toBeTruthy()
+      renderPage(WardenPermissionDetailPage, pendingClient(), {
+        id: "perm_01a",
+      })
+      expect(
+        await screen.findByRole("status", { name: /loading permission/i })
+      ).toBeTruthy()
     })
   })
 
@@ -406,7 +450,10 @@ describe("WardenPermissionDetailPage", () => {
       await openDelete()
       fireEvent.click(dialog().getByRole("button", { name: "Delete" }))
       await waitFor(() => expect(sent.length).toBe(1))
-      expect(sent[0]).toEqual({ intent: "permissions.delete", payload: { id: "perm_01a" } })
+      expect(sent[0]).toEqual({
+        intent: "permissions.delete",
+        payload: { id: "perm_01a" },
+      })
     })
 
     it("leaves for the permissions list once the delete succeeds", async () => {
@@ -417,29 +464,36 @@ describe("WardenPermissionDetailPage", () => {
       const { navigated } = showInHost(c)
       await openDelete()
       fireEvent.click(dialog().getByRole("button", { name: "Delete" }))
-      expect(await screen.findByText("This permission has been deleted.")).toBeTruthy()
+      expect(
+        await screen.findByText("This permission has been deleted.")
+      ).toBeTruthy()
       expect(navigated).toEqual(["/@warden/acme/permissions"])
       // The page no longer presents a permission that is gone.
       expect(screen.queryByRole("button", { name: "Delete" })).toBeNull()
       expect(screen.queryByText("reader")).toBeNull()
       expect(
-        screen.getByRole("link", { name: "Back to permissions" }).getAttribute("href")
+        screen
+          .getByRole("link", { name: "Back to permissions" })
+          .getAttribute("href")
       ).toBe("/@warden/acme/permissions")
     })
 
     it("shows the dialog as pending while the command is in flight", async () => {
       // Removing `pending` from the ConfirmDialog left every other test
       // green on two earlier pages, so this one asserts it directly.
-      renderPage(WardenPermissionDetailPage, commandsNeverSettle(), { id: "perm_01a" })
+      renderPage(WardenPermissionDetailPage, commandsNeverSettle(), {
+        id: "perm_01a",
+      })
       await openDelete()
       fireEvent.click(dialog().getByRole("button", { name: "Delete" }))
       const working = (await dialog().findByRole("button", {
         name: "Working…",
       })) as HTMLButtonElement
       expect(working.disabled).toBe(true)
-      expect((dialog().getByRole("button", { name: "Cancel" }) as HTMLButtonElement).disabled).toBe(
-        true
-      )
+      expect(
+        (dialog().getByRole("button", { name: "Cancel" }) as HTMLButtonElement)
+          .disabled
+      ).toBe(true)
     })
 
     it("shows a refusal inside the dialog, names the roles, and stays open", async () => {
@@ -462,7 +516,9 @@ describe("WardenPermissionDetailPage", () => {
     })
 
     it("clears an earlier refusal when the dialog opens again", async () => {
-      const { client: c } = refusing(new ContractError("CONFLICT", "still granted by reader"))
+      const { client: c } = refusing(
+        new ContractError("CONFLICT", "still granted by reader")
+      )
       renderPage(WardenPermissionDetailPage, c, { id: "perm_01a" })
       await openDelete()
       fireEvent.click(dialog().getByRole("button", { name: "Delete" }))
@@ -502,7 +558,11 @@ describe("WardenPermissionDetailPage", () => {
       show()
       await openEdit()
       expect(
-        (screen.getByRole("button", { name: "Save description" }) as HTMLButtonElement).disabled
+        (
+          screen.getByRole("button", {
+            name: "Save description",
+          }) as HTMLButtonElement
+        ).disabled
       ).toBe(true)
     })
 
@@ -529,7 +589,9 @@ describe("WardenPermissionDetailPage", () => {
       )
       renderPage(WardenPermissionDetailPage, c, { id: "perm_01a" })
       const input = await openEdit()
-      expect(screen.getByText("Leave it empty to remove the description.")).toBeTruthy()
+      expect(
+        screen.getByText("Leave it empty to remove the description.")
+      ).toBeTruthy()
       fireEvent.change(input, { target: { value: "   " } })
       fireEvent.click(screen.getByRole("button", { name: "Save description" }))
       await waitFor(() => expect(sent.length).toBe(1))
@@ -572,7 +634,9 @@ describe("WardenPermissionDetailPage", () => {
       show()
       await openEdit()
       expect(screen.queryByRole("button", { name: "Delete" })).toBeNull()
-      expect(screen.queryByRole("button", { name: "Edit description" })).toBeNull()
+      expect(
+        screen.queryByRole("button", { name: "Edit description" })
+      ).toBeNull()
     })
 
     it("cancels without sending anything", async () => {
@@ -584,7 +648,9 @@ describe("WardenPermissionDetailPage", () => {
       const input = await openEdit()
       fireEvent.change(input, { target: { value: "something else" } })
       fireEvent.click(screen.getByRole("button", { name: "Cancel" }))
-      await waitFor(() => expect(screen.queryByLabelText("Description")).toBeNull())
+      await waitFor(() =>
+        expect(screen.queryByLabelText("Description")).toBeNull()
+      )
       expect(sent).toEqual([])
       expect(screen.getByText("read a document")).toBeTruthy()
     })
@@ -607,17 +673,21 @@ describe("WardenPermissionDetailPage", () => {
       expect(alert.textContent).toContain("Could not save the description")
       expect(alert.textContent).toContain("permission not found")
       expect(alert.textContent).toContain("NOT_FOUND")
-      expect((screen.getByLabelText("Description") as HTMLInputElement).value).toBe(
-        "read any document"
-      )
+      expect(
+        (screen.getByLabelText("Description") as HTMLInputElement).value
+      ).toBe("read any document")
     })
 
     it("shows the save as pending while the command is in flight", async () => {
-      renderPage(WardenPermissionDetailPage, commandsNeverSettle(), { id: "perm_01a" })
+      renderPage(WardenPermissionDetailPage, commandsNeverSettle(), {
+        id: "perm_01a",
+      })
       const input = await openEdit()
       fireEvent.change(input, { target: { value: "read any document" } })
       fireEvent.click(screen.getByRole("button", { name: "Save description" }))
-      const saving = (await screen.findByRole("button", { name: "Saving…" })) as HTMLButtonElement
+      const saving = (await screen.findByRole("button", {
+        name: "Saving…",
+      })) as HTMLButtonElement
       expect(saving.disabled).toBe(true)
     })
 
@@ -631,16 +701,26 @@ describe("WardenPermissionDetailPage", () => {
         query: async (intent: string) => {
           queried.push(intent)
           if (intent !== "permissions.detail") {
-            throw new ContractError("NOT_FOUND", `no handler for intent "${intent}"`)
+            throw new ContractError(
+              "NOT_FOUND",
+              `no handler for intent "${intent}"`
+            )
           }
           return { ...DETAIL, description }
         },
         command: async (intent: string, payload?: unknown) => {
           if (intent !== "permissions.update") {
-            throw new ContractError("NOT_FOUND", `no handler for command "${intent}"`)
+            throw new ContractError(
+              "NOT_FOUND",
+              `no handler for command "${intent}"`
+            )
           }
           description = (payload as { description: string }).description
-          queryStore.invalidate("warden", ["permissions.list", "permissions.detail", "subjects.detail"])
+          queryStore.invalidate("warden", [
+            "permissions.list",
+            "permissions.detail",
+            "subjects.detail",
+          ])
           return { id: "perm_01a" }
         },
       } as ScopedClient
@@ -649,21 +729,27 @@ describe("WardenPermissionDetailPage", () => {
       fireEvent.change(input, { target: { value: "read any document" } })
       fireEvent.click(screen.getByRole("button", { name: "Save description" }))
       expect(await screen.findByText("read any document")).toBeTruthy()
-      await waitFor(() => expect(screen.queryByLabelText("Description")).toBeNull())
+      await waitFor(() =>
+        expect(screen.queryByLabelText("Description")).toBeNull()
+      )
       expect(queried.filter((q) => q === "permissions.detail").length).toBe(2)
       const trigger = screen.getByRole("button", { name: "Edit description" })
       await waitFor(() => expect(document.activeElement).toBe(trigger))
     })
 
     it("clears an earlier refusal when the form opens again", async () => {
-      const { client: c } = refusing(new ContractError("INTERNAL", "store down"))
+      const { client: c } = refusing(
+        new ContractError("INTERNAL", "store down")
+      )
       renderPage(WardenPermissionDetailPage, c, { id: "perm_01a" })
       const input = await openEdit()
       fireEvent.change(input, { target: { value: "read any document" } })
       fireEvent.click(screen.getByRole("button", { name: "Save description" }))
       await screen.findByRole("alert")
       fireEvent.click(screen.getByRole("button", { name: "Cancel" }))
-      await waitFor(() => expect(screen.queryByLabelText("Description")).toBeNull())
+      await waitFor(() =>
+        expect(screen.queryByLabelText("Description")).toBeNull()
+      )
       fireEvent.click(screen.getByRole("button", { name: "Edit description" }))
       await screen.findByLabelText("Description")
       expect(screen.queryByRole("alert")).toBeNull()

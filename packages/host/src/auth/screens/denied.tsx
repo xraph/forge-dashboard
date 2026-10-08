@@ -39,9 +39,16 @@ function SignOutButton({
 
   return (
     <>
-      <CommandAlert error={logout.error} showCode={false} title="Sign out failed" />
+      <CommandAlert
+        error={logout.error}
+        showCode={false}
+        title="Sign out failed"
+      />
       <button
-        className={buttonVariants({ variant: "outline", className: "mt-4 w-full" })}
+        className={buttonVariants({
+          variant: "outline",
+          className: "mt-4 w-full",
+        })}
         disabled={logout.loading}
         onClick={handleSignOut}
         type="button"
@@ -81,7 +88,7 @@ export function DeniedScreen({
       {signOutIntent ? (
         <SignOutButton intent={signOutIntent} onSignedOut={onSignedOut} />
       ) : null}
-      <p className="mt-4 text-center text-muted-foreground text-sm">
+      <p className="mt-4 text-center text-sm text-muted-foreground">
         Or ask whoever manages this dashboard to grant you access.
       </p>
     </AuthLayout>

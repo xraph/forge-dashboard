@@ -72,7 +72,11 @@ export function QueryBoundary<T>({
   className,
   keepPreviousData = false,
 }: QueryBoundaryProps<T>) {
-  if (keepPreviousData && query.data !== undefined && (query.loading || !query.error)) {
+  if (
+    keepPreviousData &&
+    query.data !== undefined &&
+    (query.loading || !query.error)
+  ) {
     return (
       <div aria-busy={query.loading} className="contents">
         {children(query.data)}
@@ -122,7 +126,10 @@ export function QueryBoundary<T>({
 
   if (query.data === undefined) {
     return (
-      <p role="status" className={cn("text-sm text-muted-foreground", className)}>
+      <p
+        role="status"
+        className={cn("text-sm text-muted-foreground", className)}
+      >
         {title} returned no data.
       </p>
     )
@@ -161,7 +168,12 @@ export interface CommandAlertProps {
  * Renders nothing when there is no error, so callers drop it in
  * unconditionally.
  */
-export function CommandAlert({ error, title, className, showCode = true }: CommandAlertProps) {
+export function CommandAlert({
+  error,
+  title,
+  className,
+  showCode = true,
+}: CommandAlertProps) {
   if (!error) return null
 
   return (
@@ -169,12 +181,14 @@ export function CommandAlert({ error, title, className, showCode = true }: Comma
       role="alert"
       className={cn(
         "flex flex-col gap-0.5 rounded-md border border-destructive/50 px-3 py-2 text-sm text-destructive",
-        className,
+        className
       )}
     >
       <span className="font-medium">{title}</span>
       <span>{error.message}</span>
-      {showCode ? <span className="font-mono text-xs opacity-70">{error.code}</span> : null}
+      {showCode ? (
+        <span className="font-mono text-xs opacity-70">{error.code}</span>
+      ) : null}
     </div>
   )
 }

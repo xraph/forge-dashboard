@@ -19,7 +19,7 @@ export function SectionLabel({ children }: { children: string }) {
     <SidebarGroupLabel
       aria-expanded={expanded}
       aria-label={action}
-      className="w-full cursor-pointer justify-start text-start hover:bg-sidebar-accent hover:text-sidebar-accent-foreground group-data-[collapsible=icon]:mt-0 group-data-[collapsible=icon]:h-auto group-data-[collapsible=icon]:max-h-48 group-data-[collapsible=icon]:w-full group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:truncate group-data-[collapsible=icon]:rotate-180 group-data-[collapsible=icon]:py-2 group-data-[collapsible=icon]:opacity-100 group-data-[collapsible=icon]:[writing-mode:vertical-rl]"
+      className="w-full cursor-pointer justify-start text-start group-data-[collapsible=icon]:mt-0 group-data-[collapsible=icon]:h-auto group-data-[collapsible=icon]:max-h-48 group-data-[collapsible=icon]:w-full group-data-[collapsible=icon]:rotate-180 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:truncate group-data-[collapsible=icon]:py-2 group-data-[collapsible=icon]:opacity-100 group-data-[collapsible=icon]:[writing-mode:vertical-rl] hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
       onClick={toggleSidebar}
       render={<button type="button" />}
       title={action}

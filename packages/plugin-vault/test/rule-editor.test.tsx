@@ -1,5 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react"
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react"
 import {
   ContractError,
   NavigationProvider,
@@ -48,8 +55,19 @@ function rule(over: Record<string, unknown> = {}) {
 }
 
 const RULES = [
-  rule({ id: "rul_1", priority: 0, type: "when_tenant", tenantIds: ["t-beta"] }),
-  rule({ id: "rul_2", priority: 1, type: "when_user", userIds: ["u-1"], returnValue: false }),
+  rule({
+    id: "rul_1",
+    priority: 0,
+    type: "when_tenant",
+    tenantIds: ["t-beta"],
+  }),
+  rule({
+    id: "rul_2",
+    priority: 1,
+    type: "when_user",
+    userIds: ["u-1"],
+    returnValue: false,
+  }),
   rule({ id: "rul_3", priority: 2, type: "rollout", percentage: 25 }),
 ]
 
@@ -84,7 +102,7 @@ type Commands = (intent: string, payload: unknown) => unknown | Promise<unknown>
 function setup(
   page: unknown = detail(),
   commands: Commands = () => ({ rules: [] }),
-  extra: Record<string, unknown> = {},
+  extra: Record<string, unknown> = {}
 ): Setup {
   const sent: Sent[] = []
   const queries: Setup["queries"] = []
@@ -115,7 +133,7 @@ function setup(
         <a href="/@vault/flags">Elsewhere</a>
         <FlagDetailPage params={{ key: KEY }} />
       </NavigationProvider>
-    </PluginProvider>,
+    </PluginProvider>
   )
   return {
     sent,
@@ -123,14 +141,18 @@ function setup(
     saves: () =>
       sent
         .filter((s) => s.intent === "flags.setRules")
-        .map((s) => s.payload as { key: string; rules: Record<string, unknown>[] }),
+        .map(
+          (s) => s.payload as { key: string; rules: Record<string, unknown>[] }
+        ),
   }
 }
 
 const rung = () => document.querySelector('[data-rung="rules"]') as HTMLElement
 const ready = () => screen.findByRole("heading", { name: KEY })
-const rows = () => Array.from(rung().querySelectorAll("[data-rule-row]")) as HTMLElement[]
-const rowText = (row: HTMLElement) => row.querySelector('[data-slot="row-lead"]')?.textContent
+const rows = () =>
+  Array.from(rung().querySelectorAll("[data-rule-row]")) as HTMLElement[]
+const rowText = (row: HTMLElement) =>
+  row.querySelector('[data-slot="row-lead"]')?.textContent
 
 async function edit() {
   await ready()
@@ -138,8 +160,10 @@ async function edit() {
   await waitFor(() => expect(rows().length).toBeGreaterThanOrEqual(0))
 }
 
-const save = () => screen.getByRole("button", { name: "Save rules" }) as HTMLButtonElement
-const openRow = (n: number) => fireEvent.click(screen.getByRole("button", { name: `Edit rule ${n}` }))
+const save = () =>
+  screen.getByRole("button", { name: "Save rules" }) as HTMLButtonElement
+const openRow = (n: number) =>
+  fireEvent.click(screen.getByRole("button", { name: `Edit rule ${n}` }))
 
 beforeEach(() => {
   vi.spyOn(window, "confirm").mockReturnValue(true)
@@ -154,23 +178,25 @@ afterEach(() => {
  */
 function stackRows() {
   const original = Element.prototype.getBoundingClientRect
-  vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function (this: Element) {
-    const row = this.closest("[data-rule-row]")
-    if (row === null || row !== this) return original.call(this)
-    const list = Array.from(document.querySelectorAll("[data-rule-row]"))
-    const top = list.indexOf(row) * 100
-    return {
-      x: 0,
-      y: top,
-      top,
-      left: 0,
-      width: 400,
-      height: 50,
-      right: 400,
-      bottom: top + 50,
-      toJSON: () => ({}),
-    } as DOMRect
-  })
+  vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(
+    function (this: Element) {
+      const row = this.closest("[data-rule-row]")
+      if (row === null || row !== this) return original.call(this)
+      const list = Array.from(document.querySelectorAll("[data-rule-row]"))
+      const top = list.indexOf(row) * 100
+      return {
+        x: 0,
+        y: top,
+        top,
+        left: 0,
+        width: 400,
+        height: 50,
+        right: 400,
+        bottom: top + 50,
+        toJSON: () => ({}),
+      } as DOMRect
+    }
+  )
 }
 
 /**
@@ -182,7 +208,9 @@ async function drag(n: number, keys: string[], beforeDrop?: () => void) {
     act(async () => {
       await new Promise((r) => setTimeout(r, 10))
     })
-  const handle = screen.getByRole("button", { name: `Drag to reorder rule ${n}` })
+  const handle = screen.getByRole("button", {
+    name: `Drag to reorder rule ${n}`,
+  })
   handle.focus()
   fireEvent.keyDown(handle, { code: "Space", key: " " })
   await tick()
@@ -194,7 +222,6 @@ async function drag(n: number, keys: string[], beforeDrop?: () => void) {
   fireEvent.keyDown(document, { code: "Space", key: " " })
   await tick()
 }
-
 
 const words = (row: HTMLElement) => row.textContent ?? ""
 
@@ -208,7 +235,11 @@ describe("rule editor: drag reorder", () => {
     expect(words(rows()[1]!)).toContain("Tenant is one of")
     fireEvent.click(save())
     await waitFor(() => expect(saves()).toHaveLength(1))
-    expect(saves()[0]!.rules.map((r) => r.type)).toEqual(["when_user", "when_tenant", "rollout"])
+    expect(saves()[0]!.rules.map((r) => r.type)).toEqual([
+      "when_user",
+      "when_tenant",
+      "rollout",
+    ])
   })
 
   it("moves a rule to the end and sends that order", async () => {
@@ -218,7 +249,11 @@ describe("rule editor: drag reorder", () => {
     await drag(1, ["ArrowDown", "ArrowDown"])
     fireEvent.click(save())
     await waitFor(() => expect(saves()).toHaveLength(1))
-    expect(saves()[0]!.rules.map((r) => r.type)).toEqual(["when_user", "rollout", "when_tenant"])
+    expect(saves()[0]!.rules.map((r) => r.type)).toEqual([
+      "when_user",
+      "rollout",
+      "when_tenant",
+    ])
   })
 
   it("moves a rule up", async () => {
@@ -228,7 +263,11 @@ describe("rule editor: drag reorder", () => {
     await drag(3, ["ArrowUp", "ArrowUp"])
     fireEvent.click(save())
     await waitFor(() => expect(saves()).toHaveLength(1))
-    expect(saves()[0]!.rules.map((r) => r.type)).toEqual(["rollout", "when_tenant", "when_user"])
+    expect(saves()[0]!.rules.map((r) => r.type)).toEqual([
+      "rollout",
+      "when_tenant",
+      "when_user",
+    ])
   })
 
   it("renumbers the rows while the drag is still going", async () => {
@@ -250,7 +289,9 @@ describe("rule editor: drag reorder", () => {
     stackRows()
     const { saves } = setup()
     await edit()
-    const handle = screen.getByRole("button", { name: "Drag to reorder rule 1" })
+    const handle = screen.getByRole("button", {
+      name: "Drag to reorder rule 1",
+    })
     handle.focus()
     fireEvent.keyDown(handle, { code: "Space", key: " " })
     await act(async () => {
@@ -264,7 +305,11 @@ describe("rule editor: drag reorder", () => {
     expect(rows().map((r) => rowText(r))).toEqual(["1", "2", "3"])
     fireEvent.click(save())
     await waitFor(() => expect(saves()).toHaveLength(1))
-    expect(saves()[0]!.rules.map((r) => r.type)).toEqual(["when_tenant", "when_user", "rollout"])
+    expect(saves()[0]!.rules.map((r) => r.type)).toEqual([
+      "when_tenant",
+      "when_user",
+      "rollout",
+    ])
   })
 
   it("keeps what was typed in a row when the row moves", async () => {
@@ -272,11 +317,17 @@ describe("rule editor: drag reorder", () => {
     const { saves } = setup()
     await edit()
     openRow(3)
-    fireEvent.change(screen.getByRole("textbox", { name: "Percentage of tenants" }), { target: { value: "60" } })
+    fireEvent.change(
+      screen.getByRole("textbox", { name: "Percentage of tenants" }),
+      { target: { value: "60" } }
+    )
     await drag(3, ["ArrowUp", "ArrowUp"])
     fireEvent.click(save())
     await waitFor(() => expect(saves()).toHaveLength(1))
-    expect(saves()[0]!.rules[0]).toMatchObject({ type: "rollout", percentage: 60 })
+    expect(saves()[0]!.rules[0]).toMatchObject({
+      type: "rollout",
+      percentage: 60,
+    })
   })
 })
 
@@ -303,13 +354,19 @@ describe("rule editor: opening and saving", () => {
   it("offers Edit rules in rung 3's actions, and no editor until it is pressed", async () => {
     setup()
     await ready()
-    const header = rung().querySelector('[data-slot="rung-body"] > div') as HTMLElement
+    const header = rung().querySelector(
+      '[data-slot="rung-body"] > div'
+    ) as HTMLElement
     const actions = header.lastElementChild as HTMLElement
-    expect(within(actions).getByRole("button", { name: "Edit rules" })).toBeTruthy()
+    expect(
+      within(actions).getByRole("button", { name: "Edit rules" })
+    ).toBeTruthy()
     // Nothing else on the page is called that, and no draft is open.
     expect(screen.queryByRole("button", { name: "Save rules" })).toBeNull()
     expect(screen.queryByRole("button", { name: "Add rule" })).toBeNull()
-    expect(screen.getAllByRole("button", { name: "Edit rules" })).toHaveLength(1)
+    expect(screen.getAllByRole("button", { name: "Edit rules" })).toHaveLength(
+      1
+    )
   })
 
   it("swaps the rules for a draft, with Save, Discard and Add", async () => {
@@ -319,7 +376,9 @@ describe("rule editor: opening and saving", () => {
     expect(screen.getByRole("button", { name: "Save rules" })).toBeTruthy()
     expect(screen.getByRole("button", { name: "Discard" })).toBeTruthy()
     expect(screen.getByRole("button", { name: "Add rule" })).toBeTruthy()
-    expect(within(rung()).queryByRole("button", { name: "Edit rules" })).toBeNull()
+    expect(
+      within(rung()).queryByRole("button", { name: "Edit rules" })
+    ).toBeNull()
   })
 
   it("sends the whole list, in order, each rule with only its own fields", async () => {
@@ -380,8 +439,12 @@ describe("rule editor: opening and saving", () => {
     expect(within(tag!).getByText(/Tenant tag/)).toBeTruthy()
     // Their form has a return value and nothing else to edit.
     expect(within(custom!).queryByRole("textbox")).toBeNull()
-    expect(within(custom!).getByRole("button", { name: "Remove rule 1" })).toBeTruthy()
-    fireEvent.click(within(custom!).getByRole("button", { name: "Remove rule 1" }))
+    expect(
+      within(custom!).getByRole("button", { name: "Remove rule 1" })
+    ).toBeTruthy()
+    fireEvent.click(
+      within(custom!).getByRole("button", { name: "Remove rule 1" })
+    )
     expect(rows()).toHaveLength(1)
   })
 
@@ -400,13 +463,20 @@ describe("rule editor: opening and saving", () => {
     setup()
     await edit()
     fireEvent.click(save())
-    await waitFor(() => expect(screen.queryByRole("button", { name: "Save rules" })).toBeNull())
-    expect(within(rung()).getByRole("button", { name: "Edit rules" })).toBeTruthy()
+    await waitFor(() =>
+      expect(screen.queryByRole("button", { name: "Save rules" })).toBeNull()
+    )
+    expect(
+      within(rung()).getByRole("button", { name: "Edit rules" })
+    ).toBeTruthy()
   })
 
   it("keeps the draft and shows the error above the list when the save fails", async () => {
     const { saves } = setup(detail(), () => {
-      throw new ContractError("BAD_REQUEST", "flag: rules[1].config.userIds: must list at least one id")
+      throw new ContractError(
+        "BAD_REQUEST",
+        "flag: rules[1].config.userIds: must list at least one id"
+      )
     })
     await edit()
     fireEvent.click(screen.getByRole("button", { name: "Remove rule 1" }))
@@ -416,8 +486,12 @@ describe("rule editor: opening and saving", () => {
     expect(alert.textContent).toContain("Could not save the rules")
     expect(alert.textContent).toContain("rules[1].config.userIds")
     // Above the list, and the draft as it was: rule 1 is still gone.
-    const list = rung().querySelector("ul[role='list'][aria-label='Rules']") as HTMLElement
-    expect(alert.compareDocumentPosition(list) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    const list = rung().querySelector(
+      "ul[role='list'][aria-label='Rules']"
+    ) as HTMLElement
+    expect(
+      alert.compareDocumentPosition(list) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy()
     expect(rows()).toHaveLength(2)
     expect((save() as HTMLButtonElement).disabled).toBe(false)
     // And a retry sends the same draft again.
@@ -431,13 +505,28 @@ describe("rule editor: opening and saving", () => {
     await edit()
     fireEvent.click(save())
     await waitFor(() => expect(saves()).toHaveLength(1))
-    expect(screen.getByRole("button", { name: "Saving…" })).toHaveProperty("disabled", true)
-    expect(screen.getByRole("button", { name: "Discard" })).toHaveProperty("disabled", true)
-    expect(screen.getByRole("button", { name: "Add rule" })).toHaveProperty("disabled", true)
+    expect(screen.getByRole("button", { name: "Saving…" })).toHaveProperty(
+      "disabled",
+      true
+    )
+    expect(screen.getByRole("button", { name: "Discard" })).toHaveProperty(
+      "disabled",
+      true
+    )
+    expect(screen.getByRole("button", { name: "Add rule" })).toHaveProperty(
+      "disabled",
+      true
+    )
     // The row controls sit in a disabled fieldset: a button's own `disabled`
     // stays false there, `:disabled` is what a user experiences.
-    expect(screen.getByRole("button", { name: "Drag to reorder rule 1" }).matches(":disabled")).toBe(true)
-    expect(screen.getByRole("button", { name: "Remove rule 1" }).matches(":disabled")).toBe(true)
+    expect(
+      screen
+        .getByRole("button", { name: "Drag to reorder rule 1" })
+        .matches(":disabled")
+    ).toBe(true)
+    expect(
+      screen.getByRole("button", { name: "Remove rule 1" }).matches(":disabled")
+    ).toBe(true)
     fireEvent.click(screen.getByRole("button", { name: "Saving…" }))
     expect(saves()).toHaveLength(1)
   })
@@ -445,7 +534,13 @@ describe("rule editor: opening and saving", () => {
 
 describe("rule editor: return value", () => {
   it("sends a bool flag's return value as a boolean", async () => {
-    const { saves } = setup(detail({ rules: [rule({ type: "when_user", userIds: ["u-1"], returnValue: true })] }))
+    const { saves } = setup(
+      detail({
+        rules: [
+          rule({ type: "when_user", userIds: ["u-1"], returnValue: true }),
+        ],
+      })
+    )
     await edit()
     openRow(1)
     fireEvent.click(within(rows()[0]!).getByRole("button", { name: "false" }))
@@ -459,11 +554,13 @@ describe("rule editor: return value", () => {
       detail({
         flag: flag({ type: "int", defaultValue: 1 }),
         rules: [rule({ type: "when_user", userIds: ["u-1"], returnValue: 3 })],
-      }),
+      })
     )
     await edit()
     openRow(1)
-    fireEvent.change(within(rows()[0]!).getByLabelText("Return value"), { target: { value: "42" } })
+    fireEvent.change(within(rows()[0]!).getByLabelText("Return value"), {
+      target: { value: "42" },
+    })
     fireEvent.click(save())
     await waitFor(() => expect(saves()).toHaveLength(1))
     expect(saves()[0]!.rules[0]!.returnValue).toBe(42)
@@ -473,12 +570,16 @@ describe("rule editor: return value", () => {
     setup(
       detail({
         flag: flag({ type: "json", defaultValue: {} }),
-        rules: [rule({ type: "when_user", userIds: ["u-1"], returnValue: { a: 1 } })],
-      }),
+        rules: [
+          rule({ type: "when_user", userIds: ["u-1"], returnValue: { a: 1 } }),
+        ],
+      })
     )
     await edit()
     openRow(1)
-    fireEvent.change(within(rows()[0]!).getByLabelText("Return value"), { target: { value: "{" } })
+    fireEvent.change(within(rows()[0]!).getByLabelText("Return value"), {
+      target: { value: "{" },
+    })
     expect(save().disabled).toBe(true)
     expect(screen.getByText("Rule 1: It needs a return value.")).toBeTruthy()
   })
@@ -486,8 +587,15 @@ describe("rule editor: return value", () => {
   it("makes an operator choose a value for a rule whose saved one is the wrong type", async () => {
     setup(
       detail({
-        rules: [rule({ type: "when_user", userIds: ["u-1"], returnValue: "yes", returnMatchesType: false })],
-      }),
+        rules: [
+          rule({
+            type: "when_user",
+            userIds: ["u-1"],
+            returnValue: "yes",
+            returnMatchesType: false,
+          }),
+        ],
+      })
     )
     await edit()
     expect(save().disabled).toBe(true)
@@ -517,21 +625,28 @@ describe("rule editor: add menu", () => {
     ["User is one of", "User ids"],
     ["Rollout", "Percentage of tenants"],
     ["Schedule", "Start (UTC)"],
-  ])("adds a %s rule at the end, open on its own field", async (item, field) => {
-    setup()
-    await edit()
-    fireEvent.click(screen.getByRole("button", { name: "Add rule" }))
-    fireEvent.click(await screen.findByRole("menuitem", { name: item }))
-    expect(rows()).toHaveLength(4)
-    expect(within(rows()[3]!).getByText(field)).toBeTruthy()
-    expect(within(rows()[3]!).getByRole("button", { name: "Close rule 4" })).toBeTruthy()
-  })
+  ])(
+    "adds a %s rule at the end, open on its own field",
+    async (item, field) => {
+      setup()
+      await edit()
+      fireEvent.click(screen.getByRole("button", { name: "Add rule" }))
+      fireEvent.click(await screen.findByRole("menuitem", { name: item }))
+      expect(rows()).toHaveLength(4)
+      expect(within(rows()[3]!).getByText(field)).toBeTruthy()
+      expect(
+        within(rows()[3]!).getByRole("button", { name: "Close rule 4" })
+      ).toBeTruthy()
+    }
+  )
 
   it("holds Save until a new rule is filled in, then sends it", async () => {
     const { saves } = setup(detail({ rules: [] }))
     await edit()
     fireEvent.click(screen.getByRole("button", { name: "Add rule" }))
-    fireEvent.click(await screen.findByRole("menuitem", { name: "Tenant is one of" }))
+    fireEvent.click(
+      await screen.findByRole("menuitem", { name: "Tenant is one of" })
+    )
     expect(save().disabled).toBe(true)
     expect(screen.getByText("Rule 1: Add at least one tenant id.")).toBeTruthy()
     const row = rows()[0]!
@@ -546,12 +661,22 @@ describe("rule editor: add menu", () => {
     await waitFor(() => expect(saves()).toHaveLength(1))
     expect(saves()[0]).toEqual({
       key: KEY,
-      rules: [{ type: "when_tenant", tenantIds: ["t-acme"], returnValue: true }],
+      rules: [
+        { type: "when_tenant", tenantIds: ["t-acme"], returnValue: true },
+      ],
     })
   })
 
   it("names the FIRST invalid rule", async () => {
-    setup(detail({ rules: [RULES[0], rule({ type: "when_user", userIds: [] }), rule({ type: "when_tenant", tenantIds: [] })] }))
+    setup(
+      detail({
+        rules: [
+          RULES[0],
+          rule({ type: "when_user", userIds: [] }),
+          rule({ type: "when_tenant", tenantIds: [] }),
+        ],
+      })
+    )
     await edit()
     expect(screen.getByText("Rule 2: Add at least one user id.")).toBeTruthy()
     expect(screen.queryByText(/^Rule 3:/)).toBeNull()
@@ -560,7 +685,9 @@ describe("rule editor: add menu", () => {
 
 describe("rule editor: chip input", () => {
   async function tenantsField() {
-    setup(detail({ rules: [rule({ type: "when_tenant", tenantIds: ["t-1"] })] }))
+    setup(
+      detail({ rules: [rule({ type: "when_tenant", tenantIds: ["t-1"] })] })
+    )
     await edit()
     openRow(1)
     return within(rows()[0]!).getByLabelText("Tenant ids") as HTMLInputElement
@@ -568,7 +695,9 @@ describe("rule editor: chip input", () => {
   const chips = () =>
     within(rows()[0]!)
       .queryAllByRole("button", { name: /^Remove tenant id / })
-      .map((b) => b.getAttribute("aria-label")?.replace("Remove tenant id ", ""))
+      .map((b) =>
+        b.getAttribute("aria-label")?.replace("Remove tenant id ", "")
+      )
 
   it("adds a trimmed id on Enter", async () => {
     const box = await tenantsField()
@@ -612,7 +741,9 @@ describe("rule editor: chip input", () => {
     const box = await tenantsField()
     fireEvent.change(box, { target: { value: "t-2" } })
     fireEvent.keyDown(box, { key: "Enter" })
-    fireEvent.click(within(rows()[0]!).getByRole("button", { name: "Remove tenant id t-1" }))
+    fireEvent.click(
+      within(rows()[0]!).getByRole("button", { name: "Remove tenant id t-1" })
+    )
     expect(chips()).toEqual(["t-2"])
   })
 
@@ -624,7 +755,9 @@ describe("rule editor: chip input", () => {
   })
 
   it("does not submit or save on Enter", async () => {
-    const { saves } = setup(detail({ rules: [rule({ type: "when_tenant", tenantIds: ["t-1"] })] }))
+    const { saves } = setup(
+      detail({ rules: [rule({ type: "when_tenant", tenantIds: ["t-1"] })] })
+    )
     await edit()
     openRow(1)
     const box = within(rows()[0]!).getByLabelText("Tenant ids")
@@ -634,7 +767,9 @@ describe("rule editor: chip input", () => {
   })
 
   it("sends the ids in the order they were added", async () => {
-    const { saves } = setup(detail({ rules: [rule({ type: "when_tenant", tenantIds: ["t-1"] })] }))
+    const { saves } = setup(
+      detail({ rules: [rule({ type: "when_tenant", tenantIds: ["t-1"] })] })
+    )
     await edit()
     openRow(1)
     const box = within(rows()[0]!).getByLabelText("Tenant ids")
@@ -646,14 +781,19 @@ describe("rule editor: chip input", () => {
 })
 
 describe("rule editor: rollout", () => {
-  const percent = () => screen.getByRole("textbox", { name: "Percentage of tenants" }) as HTMLInputElement
+  const percent = () =>
+    screen.getByRole("textbox", {
+      name: "Percentage of tenants",
+    }) as HTMLInputElement
   // Base UI draws the thumb hidden until it has measured a layout, and jsdom
   // never does, so the accessible tree has no slider to query by role here.
   const slider = () =>
     rows()[0]!.querySelector('input[type="range"]') as HTMLInputElement
 
   async function rollout(n = 25) {
-    const s = setup(detail({ rules: [rule({ type: "rollout", percentage: n })] }))
+    const s = setup(
+      detail({ rules: [rule({ type: "rollout", percentage: n })] })
+    )
     await edit()
     openRow(1)
     return s
@@ -664,7 +804,9 @@ describe("rule editor: rollout", () => {
     expect(percent().value).toBe("25")
     expect(slider().value).toBe("25")
     expect(
-      screen.getByText("Tenants whose bucket is under 25 get this value. Users without a tenant never match."),
+      screen.getByText(
+        "Tenants whose bucket is under 25 get this value. Users without a tenant never match."
+      )
     ).toBeTruthy()
   })
 
@@ -686,14 +828,22 @@ describe("rule editor: rollout", () => {
     fireEvent.change(percent(), { target: { value: "40" } })
     fireEvent.click(save())
     await waitFor(() => expect(saves()).toHaveLength(1))
-    expect(saves()[0]!.rules[0]).toEqual({ type: "rollout", percentage: 40, returnValue: true })
+    expect(saves()[0]!.rules[0]).toEqual({
+      type: "rollout",
+      percentage: 40,
+      returnValue: true,
+    })
   })
 
   it("holds Save for a number outside 0 to 100, or an empty one", async () => {
     await rollout(25)
     fireEvent.change(percent(), { target: { value: "101" } })
     expect(save().disabled).toBe(true)
-    expect(screen.getByText("Rule 1: The percentage must be a whole number from 0 to 100.")).toBeTruthy()
+    expect(
+      screen.getByText(
+        "Rule 1: The percentage must be a whole number from 0 to 100."
+      )
+    ).toBeTruthy()
     fireEvent.change(percent(), { target: { value: "" } })
     expect(save().disabled).toBe(true)
     fireEvent.change(percent(), { target: { value: "100" } })
@@ -730,13 +880,21 @@ describe("rule editor: schedule", () => {
   })
 
   it("blocks Save, inline, when the start is not before the end", async () => {
-    await schedule({ startAt: "2026-03-01T09:00:00Z", endAt: "2026-03-14T17:30:00Z" })
+    await schedule({
+      startAt: "2026-03-01T09:00:00Z",
+      endAt: "2026-03-14T17:30:00Z",
+    })
     expect(save().disabled).toBe(false)
     fireEvent.change(end(), { target: { value: "2026-03-01T09:00" } })
     expect(save().disabled).toBe(true)
     // In the form, under the fields, and named again beside Save.
-    expect(within(rows()[0]!).getAllByText("The start must be before the end.").length).toBeGreaterThan(0)
-    expect(screen.getByText("Rule 1: The start must be before the end.")).toBeTruthy()
+    expect(
+      within(rows()[0]!).getAllByText("The start must be before the end.")
+        .length
+    ).toBeGreaterThan(0)
+    expect(
+      screen.getByText("Rule 1: The start must be before the end.")
+    ).toBeTruthy()
     expect(start().getAttribute("aria-invalid")).toBe("true")
     fireEvent.change(end(), { target: { value: "2026-03-01T09:01" } })
     expect(save().disabled).toBe(false)
@@ -746,7 +904,9 @@ describe("rule editor: schedule", () => {
     await schedule({ startAt: "2026-03-01T09:00:00Z" })
     fireEvent.change(start(), { target: { value: "" } })
     expect(save().disabled).toBe(true)
-    expect(screen.getByText("Rule 1: A schedule needs a start, an end, or both.")).toBeTruthy()
+    expect(
+      screen.getByText("Rule 1: A schedule needs a start, an end, or both.")
+    ).toBeTruthy()
   })
 
   it("sends the times as RFC3339 UTC, and an empty end as no end", async () => {
@@ -783,25 +943,51 @@ function evaluation() {
     reason: "rule",
     matchedRulePriority: 1,
     trace: [
-      { priority: 0, type: "when_tenant", matched: false, reached: true, note: "tenant t-x is not listed" },
-      { priority: 1, type: "when_user", matched: true, reached: true, note: "user u-1 is listed" },
-      { priority: 2, type: "rollout", matched: false, reached: false, note: "" },
+      {
+        priority: 0,
+        type: "when_tenant",
+        matched: false,
+        reached: true,
+        note: "tenant t-x is not listed",
+      },
+      {
+        priority: 1,
+        type: "when_user",
+        matched: true,
+        reached: true,
+        note: "user u-1 is listed",
+      },
+      {
+        priority: 2,
+        type: "rollout",
+        matched: false,
+        reached: false,
+        note: "",
+      },
     ],
     evaluatedAt: "2026-09-29T10:00:00Z",
   }
 }
 
 async function evaluateAs(user = "u-1") {
-  fireEvent.change(screen.getByLabelText("User id"), { target: { value: user } })
+  fireEvent.change(screen.getByLabelText("User id"), {
+    target: { value: user },
+  })
   fireEvent.click(screen.getByRole("button", { name: "Evaluate" }))
-  await waitFor(() => expect(document.querySelector('[data-slot="evaluation-result"]')).toBeTruthy())
+  await waitFor(() =>
+    expect(
+      document.querySelector('[data-slot="evaluation-result"]')
+    ).toBeTruthy()
+  )
 }
 
 const REASON = "Save or discard the rule changes to evaluate."
 
 describe("rule editor and evaluation", () => {
   it("hides every mark and the result, and disables Evaluate with the reason, while a draft is open", async () => {
-    const { queries } = setup(detail(), undefined, { "flags.evaluate": evaluation() })
+    const { queries } = setup(detail(), undefined, {
+      "flags.evaluate": evaluation(),
+    })
     await ready()
     await evaluateAs()
     expect(screen.getAllByText("Decided here").length).toBeGreaterThan(0)
@@ -811,16 +997,22 @@ describe("rule editor and evaluation", () => {
     expect(screen.queryByText("Not reached")).toBeNull()
     expect(document.querySelector('[data-slot="evaluation-result"]')).toBeNull()
     expect(document.querySelector("[data-decided]")).toBeNull()
-    const button = screen.getByRole("button", { name: "Evaluate" }) as HTMLButtonElement
+    const button = screen.getByRole("button", {
+      name: "Evaluate",
+    }) as HTMLButtonElement
     expect(button.disabled).toBe(true)
     expect(screen.getByText(REASON)).toBeTruthy()
-    expect(button.getAttribute("aria-describedby")).toBe(screen.getByText(REASON).id)
+    expect(button.getAttribute("aria-describedby")).toBe(
+      screen.getByText(REASON).id
+    )
 
     // Enter in an input must not slip past the disabled button.
     const before = queries.filter((q) => q.intent === "flags.evaluate").length
     fireEvent.submit(screen.getByRole("form", { name: "Evaluate as" }))
     await new Promise((r) => setTimeout(r, 20))
-    expect(queries.filter((q) => q.intent === "flags.evaluate")).toHaveLength(before)
+    expect(queries.filter((q) => q.intent === "flags.evaluate")).toHaveLength(
+      before
+    )
   })
 
   it("brings the marks back when the draft is discarded", async () => {
@@ -829,10 +1021,15 @@ describe("rule editor and evaluation", () => {
     await evaluateAs()
     fireEvent.click(within(rung()).getByRole("button", { name: "Edit rules" }))
     fireEvent.click(screen.getByRole("button", { name: "Discard" }))
-    await waitFor(() => expect(screen.queryByRole("button", { name: "Save rules" })).toBeNull())
+    await waitFor(() =>
+      expect(screen.queryByRole("button", { name: "Save rules" })).toBeNull()
+    )
     expect(screen.getAllByText("Decided here").length).toBeGreaterThan(0)
     expect(screen.queryByText(REASON)).toBeNull()
-    expect((screen.getByRole("button", { name: "Evaluate" }) as HTMLButtonElement).disabled).toBe(false)
+    expect(
+      (screen.getByRole("button", { name: "Evaluate" }) as HTMLButtonElement)
+        .disabled
+    ).toBe(false)
   })
 
   it("drops an evaluation once its rules were replaced by a save", async () => {
@@ -841,7 +1038,9 @@ describe("rule editor and evaluation", () => {
     await evaluateAs()
     fireEvent.click(within(rung()).getByRole("button", { name: "Edit rules" }))
     fireEvent.click(save())
-    await waitFor(() => expect(screen.queryByRole("button", { name: "Save rules" })).toBeNull())
+    await waitFor(() =>
+      expect(screen.queryByRole("button", { name: "Save rules" })).toBeNull()
+    )
     expect(document.querySelector('[data-slot="evaluation-result"]')).toBeNull()
     expect(screen.queryByText("Decided here")).toBeNull()
   })
@@ -873,8 +1072,14 @@ describe("rule editor: discard", () => {
     await edit()
     fireEvent.click(screen.getByRole("button", { name: "Remove rule 1" }))
     fireEvent.click(screen.getByRole("button", { name: "Discard" }))
-    fireEvent.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Discard" }))
-    await waitFor(() => expect(screen.queryByRole("button", { name: "Save rules" })).toBeNull())
+    fireEvent.click(
+      within(await screen.findByRole("alertdialog")).getByRole("button", {
+        name: "Discard",
+      })
+    )
+    await waitFor(() =>
+      expect(screen.queryByRole("button", { name: "Save rules" })).toBeNull()
+    )
     expect(saves()).toHaveLength(0)
     expect(within(rung()).getAllByRole("listitem")).toHaveLength(3)
     fireEvent.click(within(rung()).getByRole("button", { name: "Edit rules" }))
@@ -918,7 +1123,9 @@ describe("rule editor: leaving with unsaved changes", () => {
   function clickLink(): boolean {
     reached = false
     const link = screen.getByRole("link", { name: "Elsewhere" })
-    link.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, button: 0 }))
+    link.dispatchEvent(
+      new MouseEvent("click", { bubbles: true, cancelable: true, button: 0 })
+    )
     return !reached
   }
 
@@ -969,7 +1176,9 @@ describe("rule editor: leaving with unsaved changes", () => {
     await edit()
     fireEvent.click(screen.getByRole("button", { name: "Remove rule 1" }))
     fireEvent.click(save())
-    await waitFor(() => expect(screen.queryByRole("button", { name: "Save rules" })).toBeNull())
+    await waitFor(() =>
+      expect(screen.queryByRole("button", { name: "Save rules" })).toBeNull()
+    )
     expect(beforeUnload()).toBe(false)
     expect(clickLink()).toBe(false)
     expect(window.confirm).not.toHaveBeenCalled()
@@ -980,9 +1189,18 @@ describe("rule editor: leaving with unsaved changes", () => {
     await edit()
     fireEvent.click(screen.getByRole("button", { name: "Remove rule 1" }))
     const link = screen.getByRole("link", { name: "Elsewhere" })
-    link.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, button: 0, ctrlKey: true }))
+    link.dispatchEvent(
+      new MouseEvent("click", {
+        bubbles: true,
+        cancelable: true,
+        button: 0,
+        ctrlKey: true,
+      })
+    )
     link.setAttribute("target", "_blank")
-    link.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, button: 0 }))
+    link.dispatchEvent(
+      new MouseEvent("click", { bubbles: true, cancelable: true, button: 0 })
+    )
     expect(window.confirm).not.toHaveBeenCalled()
   })
 })
@@ -1056,7 +1274,9 @@ describe("rule editor: a saved return value is never rewritten on open", () => {
     expect(screen.getByText(NEEDS)).toBeTruthy()
     expect(beforeUnloadPrevented()).toBe(false)
     openRow(1)
-    fireEvent.change(within(rows()[0]!).getByLabelText("Return value"), { target: { value: "x" } })
+    fireEvent.change(within(rows()[0]!).getByLabelText("Return value"), {
+      target: { value: "x" },
+    })
     expect(save().disabled).toBe(false)
     fireEvent.click(save())
     await waitFor(() => expect(saves()).toHaveLength(1))
@@ -1082,7 +1302,13 @@ describe("rule editor: a saved return value is never rewritten on open", () => {
 
   it("sends saved string return values, the empty string included, back unchanged after a reorder", async () => {
     stackRows()
-    const empty = rule({ id: "rul_e", priority: 0, type: "when_user", userIds: ["u-1"], returnValue: "" })
+    const empty = rule({
+      id: "rul_e",
+      priority: 0,
+      type: "when_user",
+      userIds: ["u-1"],
+      returnValue: "",
+    })
     const dead = rule({
       id: "rul_c",
       priority: 2,
@@ -1092,7 +1318,9 @@ describe("rule editor: a saved return value is never rewritten on open", () => {
       params: { n: 1 },
       returnValue: "",
     })
-    const { saves } = setup(detail({ flag: STRING_FLAG, rules: [empty, OK, dead] }))
+    const { saves } = setup(
+      detail({ flag: STRING_FLAG, rules: [empty, OK, dead] })
+    )
     await edit()
     // Untouched: nothing to save, nothing to lose.
     expect(beforeUnloadPrevented()).toBe(false)
@@ -1103,7 +1331,12 @@ describe("rule editor: a saved return value is never rewritten on open", () => {
     expect(saves()[0]!.rules).toEqual([
       { type: "when_tenant", tenantIds: ["t-1"], returnValue: "on" },
       { type: "when_user", userIds: ["u-1"], returnValue: "" },
-      { type: "custom", evaluator: "beta-users", params: { n: 1 }, returnValue: "" },
+      {
+        type: "custom",
+        evaluator: "beta-users",
+        params: { n: 1 },
+        returnValue: "",
+      },
     ])
   })
 
@@ -1111,13 +1344,17 @@ describe("rule editor: a saved return value is never rewritten on open", () => {
     const { saves } = setup(detail({ flag: STRING_FLAG, rules: [] }))
     await edit()
     fireEvent.click(screen.getByRole("button", { name: "Add rule" }))
-    fireEvent.click(await screen.findByRole("menuitem", { name: "Tenant is one of" }))
+    fireEvent.click(
+      await screen.findByRole("menuitem", { name: "Tenant is one of" })
+    )
     const ids = within(rows()[0]!).getByLabelText("Tenant ids")
     fireEvent.change(ids, { target: { value: "t-acme" } })
     fireEvent.keyDown(ids, { key: "Enter" })
     expect(save().disabled).toBe(false)
     fireEvent.click(save())
     await waitFor(() => expect(saves()).toHaveLength(1))
-    expect(saves()[0]!.rules).toEqual([{ type: "when_tenant", tenantIds: ["t-acme"], returnValue: "" }])
+    expect(saves()[0]!.rules).toEqual([
+      { type: "when_tenant", tenantIds: ["t-acme"], returnValue: "" },
+    ])
   })
 })

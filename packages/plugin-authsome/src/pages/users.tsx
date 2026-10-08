@@ -110,9 +110,19 @@ export function AuthUsersPage() {
   }
 
   const columns: Column<UserSummary>[] = [
-    { id: "email", header: "Email", cell: (u) => u.email, className: "font-medium" },
+    {
+      id: "email",
+      header: "Email",
+      cell: (u) => u.email,
+      className: "font-medium",
+    },
     { id: "name", header: "Name", cell: (u) => displayName(u) },
-    { id: "id", header: "ID", cell: (u) => u.id, className: "font-mono text-xs" },
+    {
+      id: "id",
+      header: "ID",
+      cell: (u) => u.id,
+      className: "font-mono text-xs",
+    },
     {
       id: "emailVerified",
       header: "Verified",
@@ -131,18 +141,34 @@ export function AuthUsersPage() {
         </Badge>
       ),
     },
-    { id: "createdAt", header: "Created", cell: (u) => formatTimestamp(u.createdAt) },
+    {
+      id: "createdAt",
+      header: "Created",
+      cell: (u) => formatTimestamp(u.createdAt),
+    },
   ]
 
   return (
     <section className="flex flex-col gap-4">
       <PageHeader
         title="Users"
-        actions={<PluginLink to="/users/create" className="underline underline-offset-4">New user</PluginLink>}
+        actions={
+          <PluginLink
+            to="/users/create"
+            className="underline underline-offset-4"
+          >
+            New user
+          </PluginLink>
+        }
       />
 
       <FilterBar
-        search={{ value: searchInput, onChange: setSearchInput, label: "Search users", placeholder: "Search by email" }}
+        search={{
+          value: searchInput,
+          onChange: setSearchInput,
+          label: "Search users",
+          placeholder: "Search by email",
+        }}
       />
 
       {/*
@@ -173,7 +199,9 @@ export function AuthUsersPage() {
                 rows={users}
                 rowKey={(u) => u.id}
                 caption={caption}
-                emptyMessage={search ? `No users match “${search}”.` : "No users yet."}
+                emptyMessage={
+                  search ? `No users match “${search}”.` : "No users yet."
+                }
                 rowActions={(user) => (
                   <>
                     <PluginLink

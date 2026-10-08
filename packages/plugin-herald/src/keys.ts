@@ -9,7 +9,8 @@ export const providersPath = "/providers"
 export const newProviderPath = "/new-provider"
 export const providerPath = (id: string) => `/providers/${seg(id)}`
 export const providerEditPath = (id: string) => `/providers/${seg(id)}/edit`
-export const providerSendTestPath = (id: string) => `/providers/${seg(id)}/send-test`
+export const providerSendTestPath = (id: string) =>
+  `/providers/${seg(id)}/send-test`
 export const templatesPath = "/templates"
 export const templatesWithoutFallbackPath = "/templates-without-fallback"
 export const newTemplatePath = "/new-template"
@@ -17,7 +18,8 @@ export const templatePath = (id: string) => `/templates/${seg(id)}`
 export const messagesPath = "/messages"
 export const inboxPath = "/inbox"
 export const messagePath = (id: string) => `/messages/${seg(id)}`
-export const messageSendTestPath = (id: string) => `/messages/${seg(id)}/send-test`
+export const messageSendTestPath = (id: string) =>
+  `/messages/${seg(id)}/send-test`
 export const preferencesPath = "/preferences"
 export const routingPath = "/routing"
 export const sendTestPath = "/send-test"

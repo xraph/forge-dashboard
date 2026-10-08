@@ -40,13 +40,13 @@ describe("keysmithPlugin", () => {
    */
   it("resolves to ready against a host reporting keysmith's contributor", () => {
     expect(
-      resolvePluginState(keysmithPlugin, capabilities({ name: "keysmith" })),
+      resolvePluginState(keysmithPlugin, capabilities({ name: "keysmith" }))
     ).toEqual({ kind: "ready" })
   })
 
   it("is hidden when the host reports only vault", () => {
     expect(
-      resolvePluginState(keysmithPlugin, capabilities({ name: "vault" })).kind,
+      resolvePluginState(keysmithPlugin, capabilities({ name: "vault" })).kind
     ).toBe("hidden")
   })
 
@@ -102,7 +102,7 @@ describe("keysmithPlugin", () => {
     expect(PolicyDetailPage).toBeTypeOf("function")
     expect(route?.element).toBe(PolicyDetailPage)
     expect((keysmithPlugin.nav ?? []).map((n) => n.to)).not.toContain(
-      "/policies/:id",
+      "/policies/:id"
     )
   })
 
@@ -154,7 +154,7 @@ describe("keysmithPlugin", () => {
       .filter(
         (r) =>
           (r.element as unknown as { $$typeof?: symbol }).$$typeof ===
-          Symbol.for("react.lazy"),
+          Symbol.for("react.lazy")
       )
       .map((r) => r.path)
     expect(lazyPaths).toEqual(["/usage"])
@@ -176,7 +176,7 @@ describe("keysmithPlugin", () => {
         <Suspense fallback={null}>
           <Page params={{}} />
         </Suspense>
-      </PluginProvider>,
+      </PluginProvider>
     )
     expect(await screen.findByRole("heading", { name: "Usage" })).toBeTruthy()
     expect(await screen.findByText("No usage recorded yet.")).toBeTruthy()
@@ -202,7 +202,7 @@ describe("keysmithPlugin", () => {
 
   it("orders the nav as the spec does", () => {
     const nav = [...(keysmithPlugin.nav ?? [])].sort(
-      (a, b) => (a.priority ?? 0) - (b.priority ?? 0),
+      (a, b) => (a.priority ?? 0) - (b.priority ?? 0)
     )
     expect(nav.map((n) => n.label)).toEqual([
       "Overview",
@@ -224,7 +224,9 @@ describe("keysmithPlugin", () => {
   it("names a route for every nav entry", () => {
     const paths = new Set(keysmithPlugin.routes.map((r) => r.path))
     for (const item of keysmithPlugin.nav ?? []) {
-      expect(paths, `nav "${item.label}" points at ${item.to}`).toContain(item.to)
+      expect(paths, `nav "${item.label}" points at ${item.to}`).toContain(
+        item.to
+      )
     }
   })
 })

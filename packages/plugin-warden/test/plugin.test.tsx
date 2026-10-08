@@ -60,7 +60,9 @@ describe("wardenPlugin", () => {
     for (const path of wanted) expect(paths).toContain(path)
     const routes = wardenPlugin.routes.filter((r) => wanted.includes(r.path))
     expect(new Set(routes.map((r) => r.element)).size).toBe(1)
-    expect((wardenPlugin.nav ?? []).some((n) => n.to.startsWith("/relations/graph"))).toBe(false)
+    expect(
+      (wardenPlugin.nav ?? []).some((n) => n.to.startsWith("/relations/graph"))
+    ).toBe(false)
   })
 
   it("names a route for every nav entry", () => {
@@ -68,7 +70,9 @@ describe("wardenPlugin", () => {
     // other test would catch, because nav and routes are independent lists.
     const paths = new Set(wardenPlugin.routes.map((r) => r.path))
     for (const item of wardenPlugin.nav ?? []) {
-      expect(paths, `nav "${item.label}" points at ${item.to}`).toContain(item.to)
+      expect(paths, `nav "${item.label}" points at ${item.to}`).toContain(
+        item.to
+      )
     }
   })
 
@@ -93,7 +97,9 @@ describe("wardenPlugin", () => {
       group: "Authorization",
     })
     expect(at("Policies")?.icon).toBeTruthy()
-    expect(at("Policies")?.priority).toBeGreaterThan(at("Assignments")?.priority ?? 0)
+    expect(at("Policies")?.priority).toBeGreaterThan(
+      at("Assignments")?.priority ?? 0
+    )
     expect(wardenPlugin.routes.map((r) => r.path)).toContain("/policies")
   })
 
@@ -116,10 +122,14 @@ describe("wardenPlugin", () => {
       priority: 10,
       group: "Relationships",
     })
-    expect(at("Resource types")?.priority).toBeLessThan(at("Relations")?.priority ?? 0)
+    expect(at("Resource types")?.priority).toBeLessThan(
+      at("Relations")?.priority ?? 0
+    )
     // The detail route exists, but a sidebar link to "a resource type" with
     // none chosen would point nowhere.
-    expect(wardenPlugin.routes.map((r) => r.path)).toContain("/resource-types/:id")
+    expect(wardenPlugin.routes.map((r) => r.path)).toContain(
+      "/resource-types/:id"
+    )
     expect(nav.map((n) => n.to)).not.toContain("/resource-types/:id")
   })
 
@@ -162,14 +172,18 @@ describe("wardenPlugin", () => {
       group: "Operations",
     })
     expect(at("Playground")?.icon).toBeTruthy()
-    expect(at("Playground")?.priority).toBeLessThan(at("Check log")?.priority ?? 0)
+    expect(at("Playground")?.priority).toBeLessThan(
+      at("Check log")?.priority ?? 0
+    )
     expect(wardenPlugin.routes.map((r) => r.path)).toContain("/playground")
   })
 
   it("routes the playground for one check, with no nav entry for it", () => {
     // A sidebar link to "a check" with none chosen would point nowhere.
     const nav = wardenPlugin.nav ?? []
-    expect(wardenPlugin.routes.map((r) => r.path)).toContain("/playground/check/:checkId")
+    expect(wardenPlugin.routes.map((r) => r.path)).toContain(
+      "/playground/check/:checkId"
+    )
     expect(nav.map((n) => n.to)).not.toContain("/playground/check/:checkId")
     expect(nav.find((n) => n.label === "Playground")?.to).toBe("/playground")
   })
@@ -177,7 +191,9 @@ describe("wardenPlugin", () => {
   it("routes one subject's access page to the page itself, with no nav entry for it", () => {
     // A sidebar link to "a subject" with none chosen would point nowhere.
     const nav = wardenPlugin.nav ?? []
-    const route = wardenPlugin.routes.find((r) => r.path === "/subjects/:kind/:id")
+    const route = wardenPlugin.routes.find(
+      (r) => r.path === "/subjects/:kind/:id"
+    )
     expect(route?.element).toBe(WardenSubjectDetailPage)
     expect(nav.map((n) => n.to)).not.toContain("/subjects/:kind/:id")
   })
@@ -191,13 +207,17 @@ describe("wardenPlugin", () => {
       group: "Operations",
     })
     expect(at("Schema")?.icon).toBeTruthy()
-    expect(at("Schema")?.priority).toBeGreaterThan(at("Check log")?.priority ?? 0)
+    expect(at("Schema")?.priority).toBeGreaterThan(
+      at("Check log")?.priority ?? 0
+    )
     expect(at("Schema")?.priority).toBeLessThan(at("Config")?.priority ?? 0)
     const route = wardenPlugin.routes.find((r) => r.path === "/schema")
     expect(route).toBeDefined()
     // A lazy component, not the page: the page's module is what holds
     // CodeMirror, and a route holding it directly would put it in the entry.
     expect(route?.element).not.toBe(WardenSchemaPage)
-    expect((route?.element as unknown as { $$typeof: symbol }).$$typeof).toBe(Symbol.for("react.lazy"))
+    expect((route?.element as unknown as { $$typeof: symbol }).$$typeof).toBe(
+      Symbol.for("react.lazy")
+    )
   })
 })

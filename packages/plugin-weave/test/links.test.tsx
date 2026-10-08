@@ -1,7 +1,10 @@
 import { act, renderHook } from "@testing-library/react"
 import { afterEach, describe, expect, it } from "vitest"
 import { NavigationProvider, mountPath } from "@forge-go/dashboard-plugin"
-import type { NavigateOptions, PluginLinkProps } from "@forge-go/dashboard-plugin"
+import type {
+  NavigateOptions,
+  PluginLinkProps,
+} from "@forge-go/dashboard-plugin"
 import type { ReactNode } from "react"
 import weavePlugin from "../src/index"
 import {
@@ -23,7 +26,9 @@ afterEach(() => {
 
 describe("links", () => {
   it("start the query-carrying ones at the plugin's real mount point", () => {
-    expect(`${WEAVE_MOUNT}/documents`).toBe(mountPath(weavePlugin, "/documents"))
+    expect(`${WEAVE_MOUNT}/documents`).toBe(
+      mountPath(weavePlugin, "/documents")
+    )
     expect(`${WEAVE_MOUNT}/chunks`).toBe(mountPath(weavePlugin, "/chunks"))
   })
 
@@ -37,8 +42,12 @@ describe("links", () => {
 
   it("put only the filters that are set into the query, in a fixed order", () => {
     expect(documentsHref({})).toBe("/@weave/documents")
-    expect(documentsHref({ state: "failed", collection_id: "col_1" })).toBe("/@weave/documents?collection_id=col_1&state=failed")
-    expect(documentsHref({ collection_id: "", state: "" })).toBe("/@weave/documents")
+    expect(documentsHref({ state: "failed", collection_id: "col_1" })).toBe(
+      "/@weave/documents?collection_id=col_1&state=failed"
+    )
+    expect(documentsHref({ collection_id: "", state: "" })).toBe(
+      "/@weave/documents"
+    )
     expect(chunksHref("col_1")).toBe("/@weave/chunks?collection_id=col_1")
     expect(chunksHref()).toBe("/@weave/chunks")
   })
@@ -52,7 +61,11 @@ describe("search params", () => {
   })
 
   it("sets and clears params through the host, replacing the entry and keeping the others", () => {
-    window.history.replaceState(null, "", "/@weave/documents?state=failed&collection_id=col_1")
+    window.history.replaceState(
+      null,
+      "",
+      "/@weave/documents?state=failed&collection_id=col_1"
+    )
     const calls: { to: string; options?: NavigateOptions }[] = []
     const wrapper = ({ children }: { children: ReactNode }) => (
       <NavigationProvider
@@ -67,9 +80,20 @@ describe("search params", () => {
         {children}
       </NavigationProvider>
     )
-    const { result } = renderHook(() => ({ set: useSetSearchParams("/documents"), state: useSearchParam("state") }), { wrapper })
+    const { result } = renderHook(
+      () => ({
+        set: useSetSearchParams("/documents"),
+        state: useSearchParam("state"),
+      }),
+      { wrapper }
+    )
     act(() => result.current.set({ state: "" }))
-    expect(calls).toEqual([{ to: "/@weave/documents?collection_id=col_1", options: { replace: true } }])
+    expect(calls).toEqual([
+      {
+        to: "/@weave/documents?collection_id=col_1",
+        options: { replace: true },
+      },
+    ])
     expect(result.current.state).toBe("")
   })
 })

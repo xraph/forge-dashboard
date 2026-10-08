@@ -56,12 +56,16 @@ function client(detail: ResourceTypeDetail = DETAIL, commands = {}) {
 }
 
 function render(detail: ResourceTypeDetail = DETAIL, commands = {}) {
-  return renderPage(WardenResourceTypeDetailPage, client(detail, commands), { id: "rt_01a" })
+  return renderPage(WardenResourceTypeDetailPage, client(detail, commands), {
+    id: "rt_01a",
+  })
 }
 
 /** A client that reads the detail and refuses every command with `error`. */
 function refusing(error: ContractError, detail: ResourceTypeDetail = DETAIL) {
-  const { client: c, sent } = recordingCommandClient({ "resourceTypes.detail": detail })
+  const { client: c, sent } = recordingCommandClient({
+    "resourceTypes.detail": detail,
+  })
   const client = {
     ...c,
     command: (intent: string, payload?: unknown) => {
@@ -72,12 +76,15 @@ function refusing(error: ContractError, detail: ResourceTypeDetail = DETAIL) {
   return { client, sent }
 }
 
-const rowOf = async (text: string) => (await screen.findByText(text)).closest("tr")!
+const rowOf = async (text: string) =>
+  (await screen.findByText(text)).closest("tr")!
 
 /** The same detail with one permission's expression replaced. */
 function withExpression(name: string, expression: string): ResourceTypeDetail {
   return detailOf({
-    permissions: DETAIL.permissions.map((p) => (p.name === name ? { ...p, expression } : p)),
+    permissions: DETAIL.permissions.map((p) =>
+      p.name === name ? { ...p, expression } : p
+    ),
   })
 }
 
@@ -86,13 +93,17 @@ async function openEdit() {
   // Exact name: this type declares an `editor` relation, and /edit/i would
   // match an accessible name mentioning one.
   fireEvent.click(screen.getByRole("button", { name: "Edit" }))
-  return screen.findByRole("button", { name: "Save changes" }) as Promise<HTMLButtonElement>
+  return screen.findByRole("button", {
+    name: "Save changes",
+  }) as Promise<HTMLButtonElement>
 }
 
-const field = (label: string) => screen.getByLabelText(label) as HTMLInputElement
+const field = (label: string) =>
+  screen.getByLabelText(label) as HTMLInputElement
 const type = (label: string, value: string) =>
   fireEvent.change(field(label), { target: { value } })
-const group = (label: string) => within(screen.getByRole("group", { name: label }))
+const group = (label: string) =>
+  within(screen.getByRole("group", { name: label }))
 
 function diag(over: Partial<ExpressionDiagnostic> = {}): ExpressionDiagnostic {
   return {
@@ -139,9 +150,13 @@ describe("WardenResourceTypeDetailPage", () => {
 
     it("lists each relation with the subject types it allows", async () => {
       render()
-      const viewer = (await screen.findByText("viewer", { selector: "td" })).closest("tr")!
+      const viewer = (
+        await screen.findByText("viewer", { selector: "td" })
+      ).closest("tr")!
       expect(within(viewer).getByText("user")).toBeTruthy()
-      const editor = (await screen.findByText("editor", { selector: "td" })).closest("tr")!
+      const editor = (
+        await screen.findByText("editor", { selector: "td" })
+      ).closest("tr")!
       expect(within(editor).getByText("user")).toBeTruthy()
       // A userset subject type keeps its relation.
       expect(within(editor).getByText("group#member")).toBeTruthy()
@@ -161,11 +176,17 @@ describe("WardenResourceTypeDetailPage", () => {
           permissions: [],
         })
       )
-      const open = (await screen.findByText("watcher", { selector: "td" })).closest("tr")!
+      const open = (
+        await screen.findByText("watcher", { selector: "td" })
+      ).closest("tr")!
       expect(within(open).getByText("Any subject type")).toBeTruthy()
-      expect(within(open).queryByLabelText("no allowed subject types")).toBeNull()
+      expect(
+        within(open).queryByLabelText("no allowed subject types")
+      ).toBeNull()
       // A listed relation still shows its list.
-      const listed = screen.getByText("viewer", { selector: "td" }).closest("tr")!
+      const listed = screen
+        .getByText("viewer", { selector: "td" })
+        .closest("tr")!
       expect(within(listed).getByText("user")).toBeTruthy()
       expect(within(listed).queryByText("Any subject type")).toBeNull()
     })
@@ -190,8 +211,12 @@ describe("WardenResourceTypeDetailPage", () => {
 
     it("still counts at zero, and says which kind of empty a type with no relations is", async () => {
       render(detailOf({ relations: [], permissions: [] }))
-      expect(await screen.findByText("This type declares no relations.")).toBeTruthy()
-      expect(await screen.findByText("This type declares no permissions.")).toBeTruthy()
+      expect(
+        await screen.findByText("This type declares no relations.")
+      ).toBeTruthy()
+      expect(
+        await screen.findByText("This type declares no permissions.")
+      ).toBeTruthy()
       expect(screen.getAllByText(/^0 relations$/).length).toBeGreaterThan(0)
       expect(screen.getAllByText(/^0 permissions$/).length).toBeGreaterThan(0)
       // Not the generic empty state.
@@ -202,7 +227,9 @@ describe("WardenResourceTypeDetailPage", () => {
       // A type with relations but no permissions is a different situation
       // from one with neither, and the page must not blur them.
       render(detailOf({ permissions: [] }))
-      expect(await screen.findByText("This type declares no permissions.")).toBeTruthy()
+      expect(
+        await screen.findByText("This type declares no permissions.")
+      ).toBeTruthy()
       expect(screen.queryByText("This type declares no relations.")).toBeNull()
     })
 
@@ -213,13 +240,19 @@ describe("WardenResourceTypeDetailPage", () => {
         permissions: null,
       } as unknown as ResourceTypeDetail
       render(broken)
-      expect(await screen.findByText("This type declares no relations.")).toBeTruthy()
-      expect(screen.getByText("This type declares no permissions.")).toBeTruthy()
+      expect(
+        await screen.findByText("This type declares no relations.")
+      ).toBeTruthy()
+      expect(
+        screen.getByText("This type declares no permissions.")
+      ).toBeTruthy()
     })
 
     it("shows the type's own fields", async () => {
       render()
-      expect(await screen.findByRole("heading", { name: "document" })).toBeTruthy()
+      expect(
+        await screen.findByRole("heading", { name: "document" })
+      ).toBeTruthy()
       expect(screen.getByText("a file")).toBeTruthy()
       expect(screen.getByText("usr_1")).toBeTruthy()
       expect(screen.getByText("usr_2")).toBeTruthy()
@@ -227,7 +260,9 @@ describe("WardenResourceTypeDetailPage", () => {
 
     it("renders the tenant root as a slash and a real path as itself", async () => {
       const { unmount } = render()
-      await screen.findByText("document", { selector: "h1, h2, h3" }).catch(() => undefined)
+      await screen
+        .findByText("document", { selector: "h1, h2, h3" })
+        .catch(() => undefined)
       await screen.findByText("a file")
       expect(screen.getByText("/")).toBeTruthy()
       expect(screen.queryByText("root")).toBeNull()
@@ -241,7 +276,13 @@ describe("WardenResourceTypeDetailPage", () => {
     })
 
     it("labels an absent description and absent authors instead of leaving blanks", async () => {
-      render(detailOf({ description: undefined, createdBy: undefined, updatedBy: undefined }))
+      render(
+        detailOf({
+          description: undefined,
+          createdBy: undefined,
+          updatedBy: undefined,
+        })
+      )
       expect(await screen.findByLabelText("no description")).toBeTruthy()
       expect(screen.getByLabelText("no creator")).toBeTruthy()
       expect(screen.getByLabelText("no updater")).toBeTruthy()
@@ -258,7 +299,10 @@ describe("WardenResourceTypeDetailPage", () => {
       } as ScopedClient
       renderPage(WardenResourceTypeDetailPage, c, { id: "rt_01a" })
       await screen.findByText("a file")
-      expect(seen[0]).toEqual({ intent: "resourceTypes.detail", params: { id: "rt_01a" } })
+      expect(seen[0]).toEqual({
+        intent: "resourceTypes.detail",
+        params: { id: "rt_01a" },
+      })
     })
 
     it("surfaces a failure instead of rendering an empty type", async () => {
@@ -271,8 +315,12 @@ describe("WardenResourceTypeDetailPage", () => {
     })
 
     it("shows a loading state while the read is in flight", async () => {
-      renderPage(WardenResourceTypeDetailPage, pendingClient(), { id: "rt_01a" })
-      expect(await screen.findByRole("status", { name: /loading resource type/i })).toBeTruthy()
+      renderPage(WardenResourceTypeDetailPage, pendingClient(), {
+        id: "rt_01a",
+      })
+      expect(
+        await screen.findByRole("status", { name: /loading resource type/i })
+      ).toBeTruthy()
     })
 
     it("offers no delete: the list page owns that", async () => {
@@ -317,7 +365,14 @@ describe("WardenResourceTypeDetailPage", () => {
       expect(row.queryByText(/inert|dead|cannot match/i)).toBeNull()
     })
 
-    it.each(["ghost or viewer", "viewer + ghost", "viewer and ghost", "viewer & ghost", "(ghost)", "ghost->read"])(
+    it.each([
+      "ghost or viewer",
+      "viewer + ghost",
+      "viewer and ghost",
+      "viewer & ghost",
+      "(ghost)",
+      "ghost->read",
+    ])(
       "warns about the reference and claims nothing about the whole of %j",
       async (expression) => {
         const row = await rowFor(expression)
@@ -327,7 +382,14 @@ describe("WardenResourceTypeDetailPage", () => {
       }
     )
 
-    it.each(["not ghost", "!ghost", "-ghost", "viewer and not ghost", "viewer and !ghost", "not (viewer or ghost)"])(
+    it.each([
+      "not ghost",
+      "!ghost",
+      "-ghost",
+      "viewer and not ghost",
+      "viewer and !ghost",
+      "not (viewer or ghost)",
+    ])(
       "adds the broad-grant warning when the reference is negated, in %j",
       async (expression) => {
         const row = await rowFor(expression)
@@ -338,7 +400,12 @@ describe("WardenResourceTypeDetailPage", () => {
       }
     )
 
-    it.each(["not not ghost", "!!ghost", "not (not ghost)", "viewer and not not ghost"])(
+    it.each([
+      "not not ghost",
+      "!!ghost",
+      "not (not ghost)",
+      "viewer and not not ghost",
+    ])(
       "does not add the broad-grant warning under an even number of negations, in %j",
       async (expression) => {
         const row = await rowFor(expression)
@@ -369,9 +436,13 @@ describe("WardenResourceTypeDetailPage", () => {
     it("marks only the expression that is wrong", async () => {
       render(withExpression("read", "viewer or ghost"))
       await screen.findByText("viewer or ghost")
-      expect(screen.getAllByText(/is not declared on this type/)).toHaveLength(1)
+      expect(screen.getAllByText(/is not declared on this type/)).toHaveLength(
+        1
+      )
       const write = await rowOf("write")
-      expect(within(write).queryByText(/is not declared on this type/)).toBeNull()
+      expect(
+        within(write).queryByText(/is not declared on this type/)
+      ).toBeNull()
     })
 
     it("marks every undeclared relation once, however often it is named", async () => {
@@ -425,7 +496,9 @@ describe("WardenResourceTypeDetailPage", () => {
 
     it("warns about the broad grant when a permission name is negated", async () => {
       const row = await rowFor("not write")
-      expect(row.getByText(/write is a permission on this type, not a relation/)).toBeTruthy()
+      expect(
+        row.getByText(/write is a permission on this type, not a relation/)
+      ).toBeTruthy()
       expect(
         row.getByText(
           "Because write is negated here, that part of the expression is true for almost every subject, which can grant this permission far more widely than intended."
@@ -437,7 +510,9 @@ describe("WardenResourceTypeDetailPage", () => {
       // An expression that fails to compile is refused at check time and
       // never matches, so this one IS about the whole expression.
       const row = await rowFor("viewer or or")
-      expect(row.getByText("This expression does not parse, so it can never match.")).toBeTruthy()
+      expect(
+        row.getByText("This expression does not parse, so it can never match.")
+      ).toBeTruthy()
     })
 
     it("does not also blame a relation in an expression that does not parse", async () => {
@@ -451,7 +526,11 @@ describe("WardenResourceTypeDetailPage", () => {
       render(withExpression("read", ""))
       const row = (await screen.findByText("read")).closest("tr")!
       expect(within(row).getByLabelText("no expression")).toBeTruthy()
-      expect(within(row).getByText("This expression does not parse, so it can never match.")).toBeTruthy()
+      expect(
+        within(row).getByText(
+          "This expression does not parse, so it can never match."
+        )
+      ).toBeTruthy()
     })
 
     it("marks nothing on a healthy type", async () => {
@@ -470,9 +549,13 @@ describe("WardenResourceTypeDetailPage", () => {
       { name: "parent", allowedSubjects: ["folder"] },
       { name: "billing-admin", allowedSubjects: ["user"] },
     ]
-    const permissions: PermissionDef[] = [{ name: "read", expression: "viewer" }]
+    const permissions: PermissionDef[] = [
+      { name: "read", expression: "viewer" },
+    ]
     const undeclared = (expression: string) =>
-      analyseExpression(expression, relations, permissions).undeclared.map((u) => u.name)
+      analyseExpression(expression, relations, permissions).undeclared.map(
+        (u) => u.name
+      )
 
     // The cases warden's own referencedRelations documents, and the ones its
     // parser's precedence and lexer make easy to get wrong.
@@ -576,7 +659,11 @@ describe("WardenResourceTypeDetailPage", () => {
     })
 
     it("negates only the reference a not binds to", () => {
-      const result = analyseExpression("not ghost or spectre", relations, permissions)
+      const result = analyseExpression(
+        "not ghost or spectre",
+        relations,
+        permissions
+      )
       expect(result.undeclared).toEqual([
         { name: "ghost", isPermission: false, negated: true },
         { name: "spectre", isPermission: false, negated: false },
@@ -584,14 +671,17 @@ describe("WardenResourceTypeDetailPage", () => {
     })
 
     it("never marks a declared relation as negated", () => {
-      expect(analyseExpression("not viewer", relations, permissions).undeclared).toEqual([])
+      expect(
+        analyseExpression("not viewer", relations, permissions).undeclared
+      ).toEqual([])
     })
 
     it("flags every name when the type declares no relations at all", () => {
-      expect(analyseExpression("viewer or parent->read", [], []).undeclared.map((u) => u.name)).toEqual([
-        "viewer",
-        "parent",
-      ])
+      expect(
+        analyseExpression("viewer or parent->read", [], []).undeclared.map(
+          (u) => u.name
+        )
+      ).toEqual(["viewer", "parent"])
     })
   })
 
@@ -604,13 +694,25 @@ describe("WardenResourceTypeDetailPage", () => {
     it("returns nothing for an error with no details, or other details", () => {
       expect(diagnosticsOf(undefined)).toEqual([])
       expect(diagnosticsOf(new ContractError("BAD_REQUEST", "x"))).toEqual([])
-      expect(diagnosticsOf(new ContractError("BAD_REQUEST", "x", { field: "name" }))).toEqual([])
-      expect(diagnosticsOf(new ContractError("BAD_REQUEST", "x", { diagnostics: "nope" }))).toEqual([])
+      expect(
+        diagnosticsOf(new ContractError("BAD_REQUEST", "x", { field: "name" }))
+      ).toEqual([])
+      expect(
+        diagnosticsOf(
+          new ContractError("BAD_REQUEST", "x", { diagnostics: "nope" })
+        )
+      ).toEqual([])
     })
 
     it("skips an entry that is not a diagnostic and keeps the rest", () => {
       const error = new ContractError("BAD_REQUEST", "x", {
-        diagnostics: [null, 7, { permission: 3, message: "m" }, { permission: "read" }, diag()],
+        diagnostics: [
+          null,
+          7,
+          { permission: 3, message: "m" },
+          { permission: "read" },
+          diag(),
+        ],
       })
       expect(diagnosticsOf(error)).toEqual([diag()])
     })
@@ -745,7 +847,9 @@ describe("WardenResourceTypeDetailPage", () => {
       const save = await openEdit()
       // Removing a row renumbers the ones after it, so always remove the first.
       for (let n = 0; n < 3; n++) {
-        fireEvent.click(screen.getByRole("button", { name: "Remove permission 1" }))
+        fireEvent.click(
+          screen.getByRole("button", { name: "Remove permission 1" })
+        )
       }
       expect(screen.queryByLabelText("Permission 1 name")).toBeNull()
       fireEvent.click(save)
@@ -764,7 +868,9 @@ describe("WardenResourceTypeDetailPage", () => {
       renderPage(WardenResourceTypeDetailPage, c, { id: "rt_01a" })
       const save = await openEdit()
       for (let n = 0; n < 3; n++) {
-        fireEvent.click(screen.getByRole("button", { name: "Remove relation 1" }))
+        fireEvent.click(
+          screen.getByRole("button", { name: "Remove relation 1" })
+        )
       }
       fireEvent.click(save)
       await waitFor(() => expect(sent).toHaveLength(1))
@@ -797,12 +903,19 @@ describe("WardenResourceTypeDetailPage", () => {
       fireEvent.click(save)
       await waitFor(() => expect(sent).toHaveLength(1))
       const payload = sent[0]?.payload as Record<string, unknown>
-      expect(Object.keys(payload).sort()).toEqual(["description", "id", "permissions", "relations"])
+      expect(Object.keys(payload).sort()).toEqual([
+        "description",
+        "id",
+        "permissions",
+        "relations",
+      ])
     })
 
     it("adds a relation and a permission, trimming names and splitting subject types", async () => {
       const { client: c, sent } = recordingCommandClient(
-        { "resourceTypes.detail": detailOf({ relations: [], permissions: [] }) },
+        {
+          "resourceTypes.detail": detailOf({ relations: [], permissions: [] }),
+        },
         { "resourceTypes.update": { id: "rt_01a" } }
       )
       renderPage(WardenResourceTypeDetailPage, c, { id: "rt_01a" })
@@ -818,14 +931,18 @@ describe("WardenResourceTypeDetailPage", () => {
       await waitFor(() => expect(sent).toHaveLength(1))
       expect(sent[0]?.payload).toEqual({
         id: "rt_01a",
-        relations: [{ name: "owner", allowedSubjects: ["user", "group#member"] }],
+        relations: [
+          { name: "owner", allowedSubjects: ["user", "group#member"] },
+        ],
         permissions: [{ name: "manage", expression: "owner" }],
       })
     })
 
     it("sends a relation with no subject types as an empty list, not as an absent key", async () => {
       const { client: c, sent } = recordingCommandClient(
-        { "resourceTypes.detail": detailOf({ relations: [], permissions: [] }) },
+        {
+          "resourceTypes.detail": detailOf({ relations: [], permissions: [] }),
+        },
         { "resourceTypes.update": { id: "rt_01a" } }
       )
       renderPage(WardenResourceTypeDetailPage, c, { id: "rt_01a" })
@@ -862,10 +979,14 @@ describe("WardenResourceTypeDetailPage", () => {
       fireEvent.click(screen.getByRole("button", { name: "Add permission" }))
       type("Permission 4 expression", "viewer")
       expect(save.disabled).toBe(true)
-      expect(screen.getByText("Every relation and permission needs a name.")).toBeTruthy()
+      expect(
+        screen.getByText("Every relation and permission needs a name.")
+      ).toBeTruthy()
       type("Permission 4 name", "peek")
       expect(save.disabled).toBe(false)
-      expect(screen.queryByText("Every relation and permission needs a name.")).toBeNull()
+      expect(
+        screen.queryByText("Every relation and permission needs a name.")
+      ).toBeNull()
     })
 
     it("closes the form and returns to the tables once the save succeeds", async () => {
@@ -883,7 +1004,9 @@ describe("WardenResourceTypeDetailPage", () => {
     })
 
     it("closes the form on cancel without sending anything", async () => {
-      const { client: c, sent } = recordingCommandClient({ "resourceTypes.detail": DETAIL })
+      const { client: c, sent } = recordingCommandClient({
+        "resourceTypes.detail": DETAIL,
+      })
       renderPage(WardenResourceTypeDetailPage, c, { id: "rt_01a" })
       await openEdit()
       type("Description", "docs")
@@ -910,14 +1033,22 @@ describe("WardenResourceTypeDetailPage", () => {
       const save = await openEdit()
       type("Description", "docs")
       fireEvent.click(save)
-      const working = (await screen.findByRole("button", { name: "Saving…" })) as HTMLButtonElement
+      const working = (await screen.findByRole("button", {
+        name: "Saving…",
+      })) as HTMLButtonElement
       expect(working.disabled).toBe(true)
-      expect((screen.getByRole("button", { name: "Cancel" }) as HTMLButtonElement).disabled).toBe(true)
+      expect(
+        (screen.getByRole("button", { name: "Cancel" }) as HTMLButtonElement)
+          .disabled
+      ).toBe(true)
     })
 
     it("shows an ordinary refusal in the form and keeps what was typed", async () => {
       const { client: c } = refusing(
-        new ContractError("PERMISSION_DENIED", "you may not change resource types")
+        new ContractError(
+          "PERMISSION_DENIED",
+          "you may not change resource types"
+        )
       )
       renderPage(WardenResourceTypeDetailPage, c, { id: "rt_01a" })
       const save = await openEdit()
@@ -931,7 +1062,9 @@ describe("WardenResourceTypeDetailPage", () => {
 
     it("falls back to the ordinary alert for a refusal whose details are not diagnostics", async () => {
       const { client: c } = refusing(
-        new ContractError("BAD_REQUEST", "relation viewer is declared twice", { field: "relations" })
+        new ContractError("BAD_REQUEST", "relation viewer is declared twice", {
+          field: "relations",
+        })
       )
       renderPage(WardenResourceTypeDetailPage, c, { id: "rt_01a" })
       const save = await openEdit()
@@ -973,7 +1106,9 @@ describe("WardenResourceTypeDetailPage", () => {
         g.getByText(/relation ghost is not declared on this type/)
         return g
       })
-      expect(row.getByText(/relation ghost is not declared on this type/)).toBeTruthy()
+      expect(
+        row.getByText(/relation ghost is not declared on this type/)
+      ).toBeTruthy()
     })
 
     it("anchors the diagnostic by permission name, not to the first row or the last", async () => {
@@ -982,8 +1117,16 @@ describe("WardenResourceTypeDetailPage", () => {
       // middle must carry neither.
       await refuse(
         badExpression(
-          diag({ permission: "inherited", col: 1, message: "relation spectre is not declared on this type" }),
-          diag({ permission: "read", col: 11, message: "relation ghost is not declared on this type" })
+          diag({
+            permission: "inherited",
+            col: 1,
+            message: "relation spectre is not declared on this type",
+          }),
+          diag({
+            permission: "read",
+            col: 11,
+            message: "relation ghost is not declared on this type",
+          })
         ),
         () => {
           type("Permission 1 expression", "viewer or ghost")
@@ -1002,28 +1145,40 @@ describe("WardenResourceTypeDetailPage", () => {
     })
 
     it("puts the diagnostic on the row and not in a banner", async () => {
-      await refuse(badExpression(diag()), () => type("Permission 1 expression", "viewer or ghost"))
+      await refuse(badExpression(diag()), () =>
+        type("Permission 1 expression", "viewer or ghost")
+      )
       await screen.findByText(/relation ghost is not declared/)
       // Exactly one place says it: the row. The alert says only that the save
       // did not happen, so no problem is reported twice.
-      expect(screen.getAllByText(/relation ghost is not declared/)).toHaveLength(1)
+      expect(
+        screen.getAllByText(/relation ghost is not declared/)
+      ).toHaveLength(1)
       const alert = screen.getByRole("alert")
       expect(alert.textContent).toContain("Not saved")
       expect(alert.textContent).not.toContain("ghost")
       expect(alert.closest('[role="group"]')).toBeNull()
-      expect(group("Permission 1").getByText(/relation ghost is not declared/)).toBeTruthy()
+      expect(
+        group("Permission 1").getByText(/relation ghost is not declared/)
+      ).toBeTruthy()
     })
 
     it("marks the input invalid and ties the message to it", async () => {
-      await refuse(badExpression(diag()), () => type("Permission 1 expression", "viewer or ghost"))
+      await refuse(badExpression(diag()), () =>
+        type("Permission 1 expression", "viewer or ghost")
+      )
       await screen.findByText(/relation ghost is not declared/)
       const input = field("Permission 1 expression")
       expect(input.getAttribute("aria-invalid")).toBe("true")
       const describedBy = input.getAttribute("aria-describedby")
       expect(describedBy).toBeTruthy()
-      expect(document.getElementById(describedBy!)?.textContent).toContain("relation ghost is not declared")
+      expect(document.getElementById(describedBy!)?.textContent).toContain(
+        "relation ghost is not declared"
+      )
       // The rows that were fine are not marked.
-      expect(field("Permission 2 expression").getAttribute("aria-invalid")).toBeNull()
+      expect(
+        field("Permission 2 expression").getAttribute("aria-invalid")
+      ).toBeNull()
     })
 
     it("points at a column, and does not present line 1 as though it meant something", async () => {
@@ -1031,7 +1186,9 @@ describe("WardenResourceTypeDetailPage", () => {
         type("Permission 1 expression", "viewer or ghost")
       )
       const message = await screen.findByText(/relation ghost is not declared/)
-      expect(message.textContent).toBe("At column 11: relation ghost is not declared on this type")
+      expect(message.textContent).toBe(
+        "At column 11: relation ghost is not declared on this type"
+      )
       expect(screen.queryByText(/line 1/i)).toBeNull()
     })
 
@@ -1040,7 +1197,9 @@ describe("WardenResourceTypeDetailPage", () => {
         type("Permission 1 expression", "viewer or\n  ghost")
       )
       const message = await screen.findByText(/relation ghost is not declared/)
-      expect(message.textContent).toBe("At line 2, column 3: relation ghost is not declared on this type")
+      expect(message.textContent).toBe(
+        "At line 2, column 3: relation ghost is not declared on this type"
+      )
     })
 
     it("draws a pointer under the column while the text is still what was sent", async () => {
@@ -1072,13 +1231,24 @@ describe("WardenResourceTypeDetailPage", () => {
       // a stored expression that referenced the removed relation is refused.
       // The row exists in the form, so the diagnostic belongs on it.
       const { sent } = await refuse(
-        badExpression(diag({ permission: "write", col: 1, message: "relation editor is not declared on this type" })),
-        () => fireEvent.click(screen.getByRole("button", { name: "Remove relation 2" }))
+        badExpression(
+          diag({
+            permission: "write",
+            col: 1,
+            message: "relation editor is not declared on this type",
+          })
+        ),
+        () =>
+          fireEvent.click(
+            screen.getByRole("button", { name: "Remove relation 2" })
+          )
       )
       const payload = sent[0]?.payload as Record<string, unknown>
       expect(Object.keys(payload)).not.toContain("permissions")
       await screen.findByText(/relation editor is not declared/)
-      expect(group("Permission 2").getByText(/relation editor is not declared/)).toBeTruthy()
+      expect(
+        group("Permission 2").getByText(/relation editor is not declared/)
+      ).toBeTruthy()
       expect(group("Permission 1").queryByText(/not declared/)).toBeNull()
     })
 
@@ -1099,13 +1269,25 @@ describe("WardenResourceTypeDetailPage", () => {
 
     it("does not lose a diagnostic that names a permission the form no longer has", async () => {
       await refuse(
-        badExpression(diag({ permission: "ghostly", col: 1, message: "expected expression, got EOF" })),
+        badExpression(
+          diag({
+            permission: "ghostly",
+            col: 1,
+            message: "expected expression, got EOF",
+          })
+        ),
         () => type("Description", "docs")
       )
       // Nothing on any row names `ghostly`, so it is listed rather than dropped.
-      expect(await screen.findByText(/ghostly, column 1: expected expression, got EOF/)).toBeTruthy()
+      expect(
+        await screen.findByText(
+          /ghostly, column 1: expected expression, got EOF/
+        )
+      ).toBeTruthy()
       for (const n of [1, 2, 3]) {
-        expect(group(`Permission ${n}`).queryByText(/expected expression/)).toBeNull()
+        expect(
+          group(`Permission ${n}`).queryByText(/expected expression/)
+        ).toBeNull()
       }
     })
 
@@ -1147,7 +1329,9 @@ describe("WardenResourceTypeDetailPage", () => {
     it("does not present a diagnostic when the refusal carries none for this form", async () => {
       // Details present but empty: an ordinary refusal, in the ordinary alert.
       await refuse(
-        new ContractError("BAD_REQUEST", "a permission needs a name", { diagnostics: [] }),
+        new ContractError("BAD_REQUEST", "a permission needs a name", {
+          diagnostics: [],
+        }),
         () => type("Description", "docs")
       )
       const alert = await screen.findByRole("alert")

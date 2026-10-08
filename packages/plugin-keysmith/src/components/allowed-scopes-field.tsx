@@ -66,7 +66,7 @@ export function AllowedScopesField({
                   onChange(
                     on === true
                       ? [...picked.filter((n) => n !== row.name), row.name]
-                      : picked.filter((n) => n !== row.name),
+                      : picked.filter((n) => n !== row.name)
                   )
                 }
               />
@@ -94,7 +94,7 @@ export function AllowedScopesField({
 function allowedRows(
   data: ScopesList | undefined,
   stored: string[],
-  picked: string[],
+  picked: string[]
 ): { name: string; note?: string }[] {
   const listed = data?.scopes ?? []
   const seen = new Set(listed.map((s) => s.name))

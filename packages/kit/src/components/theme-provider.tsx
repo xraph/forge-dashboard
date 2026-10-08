@@ -11,7 +11,7 @@ type ThemeProviderProps = ComponentProps<typeof NextThemesProvider>
 export type ResolvedTheme = "light" | "dark"
 
 export function resolveDocumentTheme(
-  root: Element | null | undefined,
+  root: Element | null | undefined
 ): ResolvedTheme {
   return root?.classList.contains("dark") ? "dark" : "light"
 }
@@ -43,7 +43,7 @@ export function setDocumentTheme(theme: ResolvedTheme) {
   // Keep any host-owned next-themes provider in sync even when a linked
   // dashboard package resolves a separate copy of its React context.
   window.dispatchEvent(
-    new StorageEvent("storage", { key: "theme", newValue: theme }),
+    new StorageEvent("storage", { key: "theme", newValue: theme })
   )
 }
 
@@ -51,7 +51,7 @@ function isEditableTarget(target: EventTarget | null) {
   if (!(target instanceof HTMLElement)) return false
   if (target.isContentEditable) return true
   return Boolean(
-    target.closest("input, textarea, select, [contenteditable='true']"),
+    target.closest("input, textarea, select, [contenteditable='true']")
   )
 }
 

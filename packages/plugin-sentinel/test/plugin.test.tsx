@@ -15,7 +15,9 @@ import sentinelPlugin, {
   SuitesPage,
 } from "../src/index"
 
-function capabilities(...contributors: { name: string; configured?: boolean }[]): Capabilities {
+function capabilities(
+  ...contributors: { name: string; configured?: boolean }[]
+): Capabilities {
   return {
     shellEnvelopes: ["v1"],
     contributors: contributors.map((c) => ({
@@ -37,15 +39,21 @@ describe("sentinelPlugin", () => {
    * silently, which is why this test exists.
    */
   it("resolves to ready against a host reporting sentinel's contributor", () => {
-    expect(resolvePluginState(sentinelPlugin, capabilities({ name: "sentinel" }))).toEqual({ kind: "ready" })
+    expect(
+      resolvePluginState(sentinelPlugin, capabilities({ name: "sentinel" }))
+    ).toEqual({ kind: "ready" })
   })
 
   it("is hidden when the host reports only vault", () => {
-    expect(resolvePluginState(sentinelPlugin, capabilities({ name: "vault" })).kind).toBe("hidden")
+    expect(
+      resolvePluginState(sentinelPlugin, capabilities({ name: "vault" })).kind
+    ).toBe("hidden")
   })
 
   it("orders the Evaluation group Overview, Suites, Runs, Baselines, then Setup last", () => {
-    const nav = [...(sentinelPlugin.nav ?? [])].sort((a, b) => (a.priority ?? 0) - (b.priority ?? 0))
+    const nav = [...(sentinelPlugin.nav ?? [])].sort(
+      (a, b) => (a.priority ?? 0) - (b.priority ?? 0)
+    )
     expect(nav.map((n) => [n.label, n.to])).toEqual([
       ["Overview", "/"],
       ["Suites", "/suites"],
@@ -57,7 +65,8 @@ describe("sentinelPlugin", () => {
   })
 
   it("mounts each page at its route", () => {
-    const element = (path: string) => sentinelPlugin.routes.find((r) => r.path === path)?.element
+    const element = (path: string) =>
+      sentinelPlugin.routes.find((r) => r.path === path)?.element
     expect(element("/suites")).toBe(SuitesPage)
     expect(element("/suites/:id")).toBe(SuiteDetailPage)
     expect(element("/suites/:id/cases/:caseId")).toBe(CaseDetailPage)
@@ -91,7 +100,9 @@ describe("sentinelPlugin", () => {
     const paths = new Set(sentinelPlugin.routes.map((r) => r.path))
     for (const item of sentinelPlugin.nav ?? []) {
       expect(item.icon, `nav "${item.label}" has no icon`).toBeTruthy()
-      expect(paths, `nav "${item.label}" points at ${item.to}`).toContain(item.to)
+      expect(paths, `nav "${item.label}" points at ${item.to}`).toContain(
+        item.to
+      )
     }
   })
 })

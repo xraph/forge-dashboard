@@ -9,7 +9,8 @@ export const VIA_TEXT: Record<ResolveVia, string> = {
   user: "The user's routing rule names it.",
   org: "The org's routing rule names it.",
   app: "The app's routing rule names it.",
-  fallback: "No rule names one, so Herald takes the first enabled provider for the channel by priority.",
+  fallback:
+    "No rule names one, so Herald takes the first enabled provider for the channel by priority.",
   chosen: "It was chosen explicitly.",
   none: "No provider would send it.",
 }
@@ -25,10 +26,27 @@ export function ProviderLabel({ id, name }: { id: string; name: string }) {
  * `lead` opens the first line ("Sends through"), `link` makes the name a link
  * to the provider's page, and `from` adds the sender line.
  */
-export function ResolvedProvider({ answer, channel, lead, link = false, from = false }: { answer: SendResolveResponse; channel: string; lead?: ReactNode; link?: boolean; from?: boolean }) {
+export function ResolvedProvider({
+  answer,
+  channel,
+  lead,
+  link = false,
+  from = false,
+}: {
+  answer: SendResolveResponse
+  channel: string
+  lead?: ReactNode
+  link?: boolean
+  from?: boolean
+}) {
   const { provider } = answer
   if (provider === null) {
-    return <p className="text-sm">Nothing would send it: no rule names a usable provider for {channel}, and no enabled provider handles it.</p>
+    return (
+      <p className="text-sm">
+        Nothing would send it: no rule names a usable provider for {channel},
+        and no enabled provider handles it.
+      </p>
+    )
   }
   const name = (
     <span className="font-medium">
@@ -47,7 +65,9 @@ export function ResolvedProvider({ answer, channel, lead, link = false, from = f
         ) : (
           name
         )}
-        {provider.driver && <span className="font-mono text-xs">{provider.driver}</span>}
+        {provider.driver && (
+          <span className="font-mono text-xs">{provider.driver}</span>
+        )}
         {provider.enabled === false && <DisabledProviderBadge />}
       </p>
       <p>{VIA_TEXT[answer.via]}</p>

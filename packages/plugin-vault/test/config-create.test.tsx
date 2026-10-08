@@ -51,7 +51,7 @@ function renderCreate(client: ScopedClient) {
       >
         <ConfigCreatePage params={{}} />
       </NavigationProvider>
-    </PluginProvider>,
+    </PluginProvider>
   )
   return { navigate }
 }
@@ -74,7 +74,9 @@ describe("ConfigCreatePage", () => {
   it("starts as a string entry with nothing to submit until there is a key", () => {
     const { client } = ready()
     renderCreate(client)
-    expect((screen.getByLabelText("Type") as HTMLSelectElement).value).toBe("string")
+    expect((screen.getByLabelText("Type") as HTMLSelectElement).value).toBe(
+      "string"
+    )
     expect(submit().disabled).toBe(true)
     setKey("k")
     // A string starts as "", which is a value.
@@ -128,11 +130,15 @@ describe("ConfigCreatePage", () => {
     await waitFor(() => expect(sent).toHaveLength(1))
     expect(sent[0]?.intent).toBe("config.create")
     const payload = sent[0]?.payload as Record<string, unknown>
-    expect(payload).toEqual({ key: "banner", valueType: "string", value: "true" })
+    expect(payload).toEqual({
+      key: "banner",
+      valueType: "string",
+      value: "true",
+    })
     expect(Object.keys(payload).sort()).toEqual(["key", "value", "valueType"])
   })
 
-  it("sends an empty string as \"\", not omitted", async () => {
+  it('sends an empty string as "", not omitted', async () => {
     const { client, sent } = ready()
     renderCreate(client)
     setKey("banner")
@@ -197,7 +203,9 @@ describe("ConfigCreatePage", () => {
     fireEvent.change(valueBox(), { target: { value: '{"a": [1, 2]}' } })
     fireEvent.click(submit())
     await waitFor(() => expect(sent).toHaveLength(1))
-    expect((sent[0]?.payload as Record<string, unknown>).value).toEqual({ a: [1, 2] })
+    expect((sent[0]?.payload as Record<string, unknown>).value).toEqual({
+      a: [1, 2],
+    })
   })
 
   it("sends json null as null, present", async () => {
@@ -259,8 +267,8 @@ describe("ConfigCreatePage", () => {
   it("keeps the form and shows the server's message when the client throws", async () => {
     const { navigate } = renderCreate(
       failingClient(
-        new ContractError("BAD_REQUEST", "config: value: expected an integer"),
-      ),
+        new ContractError("BAD_REQUEST", "config: value: expected an integer")
+      )
     )
     setKey("k")
     setType("int")
@@ -272,7 +280,9 @@ describe("ConfigCreatePage", () => {
     expect((screen.getByLabelText("Key") as HTMLInputElement).value).toBe("k")
     expect(valueBox().value).toBe("5")
     expect(submit().disabled).toBe(false)
-    expect(screen.queryByRole("link", { name: "Open the existing entry" })).toBeNull()
+    expect(
+      screen.queryByRole("link", { name: "Open the existing entry" })
+    ).toBeNull()
   })
 
   it("explains a CONFLICT and links to the existing entry", async () => {
@@ -280,15 +290,15 @@ describe("ConfigCreatePage", () => {
       failingClient(
         new ContractError(
           "CONFLICT",
-          "a config entry with this key already exists",
-        ),
-      ),
+          "a config entry with this key already exists"
+        )
+      )
     )
     setKey("http/timeout")
     fireEvent.click(submit())
     const alert = await screen.findByRole("alert")
     expect(alert.textContent).toContain(
-      'A config entry with the key "http/timeout" already exists.',
+      'A config entry with the key "http/timeout" already exists.'
     )
     expect(alert.textContent).toContain("CONFLICT")
     const link = screen.getByRole("link", { name: "Open the existing entry" })
@@ -301,9 +311,9 @@ describe("ConfigCreatePage", () => {
       failingClient(
         new ContractError(
           "CONFLICT",
-          "a config entry with this key already exists",
-        ),
-      ),
+          "a config entry with this key already exists"
+        )
+      )
     )
     setKey("http/timeout")
     fireEvent.click(submit())
@@ -329,8 +339,8 @@ describe("ConfigCreatePage", () => {
   it("has a Cancel link back to the list", () => {
     const { client } = ready()
     renderCreate(client)
-    expect(screen.getByRole("link", { name: "Cancel" }).getAttribute("href")).toBe(
-      "/config",
-    )
+    expect(
+      screen.getByRole("link", { name: "Cancel" }).getAttribute("href")
+    ).toBe("/config")
   })
 })

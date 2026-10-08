@@ -10,20 +10,38 @@ export type ListingRow =
 
 /** One page's folders and objects as a single list in key order. */
 export function mergePage(page: ObjectsList): ListingRow[] {
-  const folders: ListingRow[] = (page.prefixes ?? []).map((key) => ({ kind: "folder", key }))
-  const objects: ListingRow[] = page.objects.map((object) => ({ kind: "object", key: object.key, object }))
-  return [...folders, ...objects].sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : a.kind === "folder" ? -1 : 1))
+  const folders: ListingRow[] = (page.prefixes ?? []).map((key) => ({
+    kind: "folder",
+    key,
+  }))
+  const objects: ListingRow[] = page.objects.map((object) => ({
+    kind: "object",
+    key: object.key,
+    object,
+  }))
+  return [...folders, ...objects].sort((a, b) =>
+    a.key < b.key ? -1 : a.key > b.key ? 1 : a.kind === "folder" ? -1 : 1
+  )
 }
 
 /** What the caption says. A count of what is shown, never a total. */
-export function listingCaption(objects: number, folders: number, more: boolean): string {
+export function listingCaption(
+  objects: number,
+  folders: number,
+  more: boolean
+): string {
   if (more) return `${objects + folders} shown, more under this prefix`
   const o = `${objects} ${objects === 1 ? "object" : "objects"}`
   if (folders === 0) return o
   return `${o}, ${folders} ${folders === 1 ? "folder" : "folders"}`
 }
 
-function listParams(store: string, bucket: string, prefix: string, cursor?: string): Record<string, unknown> {
+function listParams(
+  store: string,
+  bucket: string,
+  prefix: string,
+  cursor?: string
+): Record<string, unknown> {
   return withStore(store, {
     bucket,
     ...(prefix !== "" ? { prefix } : {}),
@@ -50,9 +68,20 @@ export interface Listing {
  * place and never sees a row that is gone. The caller keys this by store,
  * bucket and prefix, so a new prefix starts from nothing.
  */
-export function useListing({ store, bucket, prefix }: { store: string; bucket: string; prefix: string }): Listing {
+export function useListing({
+  store,
+  bucket,
+  prefix,
+}: {
+  store: string
+  bucket: string
+  prefix: string
+}): Listing {
   const client = usePluginClient()
-  const first = useQuery<ObjectsList>("objects.list", listParams(store, bucket, prefix))
+  const first = useQuery<ObjectsList>(
+    "objects.list",
+    listParams(store, bucket, prefix)
+  )
   const [more, setMore] = useState<ObjectsList[]>([])
   const [loadingMore, setLoadingMore] = useState(false)
   const [rereading, setRereading] = useState(false)
@@ -90,7 +119,10 @@ export function useListing({ store, bucket, prefix }: { store: string; bucket: s
       let failure: ContractError | undefined
       try {
         for (let i = 0; i < count && cursor !== null; i++) {
-          const next = await client.query<ObjectsList>("objects.list", listParams(store, bucket, prefix, cursor))
+          const next = await client.query<ObjectsList>(
+            "objects.list",
+            listParams(store, bucket, prefix, cursor)
+          )
           if (mine !== generation.current) return
           pages.push(next)
           cursor = next.nextCursor
@@ -118,7 +150,10 @@ export function useListing({ store, bucket, prefix }: { store: string; bucket: s
     setLoadingMore(true)
     setMoreError(undefined)
     client
-      .query<ObjectsList>("objects.list", listParams(store, bucket, prefix, nextCursor))
+      .query<ObjectsList>(
+        "objects.list",
+        listParams(store, bucket, prefix, nextCursor)
+      )
       .then((next) => {
         if (mine === generation.current) setMore((pages) => [...pages, next])
       })

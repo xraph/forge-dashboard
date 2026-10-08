@@ -27,7 +27,7 @@ export function maskedKey(k: {
  */
 export function rotationMasked(
   item: Pick<RotationItem, "prefix" | "environment" | "oldHint" | "newHint">,
-  which: "old" | "new",
+  which: "old" | "new"
 ): string {
   const hint = which === "old" ? item.oldHint : item.newHint
   if (hint === "") return "(no hint)"
@@ -91,7 +91,7 @@ export const ENVIRONMENTS: { value: Environment; label: string }[] = [
  */
 export function formatDuration(
   seconds: number,
-  largest: "day" | "hour" | "minute" = "day",
+  largest: "day" | "hour" | "minute" = "day"
 ): string {
   const all: [number, string][] = [
     [86400, "day"],
@@ -130,7 +130,7 @@ const UNIT_SECONDS: Record<DurationUnit, number> = {
  */
 export function splitDuration(
   seconds: number | null,
-  units: DurationUnit[],
+  units: DurationUnit[]
 ): { value: string; unit: DurationUnit } {
   if (seconds === null) {
     return { value: "", unit: units[units.length - 1] ?? "seconds" }
@@ -166,7 +166,7 @@ export function toSeconds(value: string, unit: DurationUnit): number | null {
  * the contract now refuses but an older row can hold, says so.
  */
 export function formatRateLimit(
-  p: Pick<PolicyDetail, "rateLimit" | "rateLimitWindowSeconds">,
+  p: Pick<PolicyDetail, "rateLimit" | "rateLimitWindowSeconds">
 ): string | null {
   if (!p.rateLimit) return null
   if (!p.rateLimitWindowSeconds) return `${p.rateLimit} with no window`
@@ -211,7 +211,7 @@ function rfc3339(ms: number): string {
  */
 export function rangeBounds(
   id: UsageRangeId,
-  now: number | Date,
+  now: number | Date
 ): { after: string; before: string; period: UsagePeriod } {
   const range: UsageRange =
     USAGE_RANGES.find((r) => r.id === id) ?? USAGE_RANGES[0]
@@ -237,14 +237,28 @@ export function rangeBounds(
       after = Date.UTC(y, m + 1 - (range.months ?? 12), 1)
       break
   }
-  return { after: rfc3339(after), before: rfc3339(before), period: range.period }
+  return {
+    after: rfc3339(after),
+    before: rfc3339(before),
+    period: range.period,
+  }
 }
 
 // Fixed English names, not the browser's locale: the axis and the table must
 // say the same thing, and both say UTC.
 const MONTHS = [
-  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
 ]
 
 const pad2 = (n: number) => String(n).padStart(2, "0")
