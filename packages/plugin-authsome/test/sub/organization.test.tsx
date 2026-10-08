@@ -1,12 +1,24 @@
 import { describe, expect, it } from "vitest"
-import { fireEvent, screen, waitFor } from "@testing-library/react"
-import { ContractError } from "@forge-go/dashboard-plugin"
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react"
+import {
+  ContractError,
+  HostAccessProvider,
+  PluginProvider,
+  SubPluginProvider,
+} from "@forge-go/dashboard-plugin"
 import {
   OrgDetailPage,
   organizationSubPlugin,
   slugify,
 } from "../../src/sub/organization"
 import { renderContribution, renderSubPage, subStubClient } from "./harness"
+import { subscriptionSubPlugin } from "../../src/sub/subscription"
 
 const orgs = {
   organizations: [
@@ -104,6 +116,56 @@ describe("organization list", () => {
 })
 
 describe("organization detail", () => {
+  it("shows billing on the overview and opens the contributed tab", async () => {
+    const orgClient = subStubClient({
+      "orgs.detail": detail,
+      "orgs.members": members,
+    }).client
+    const subscriptionClient = subStubClient({
+      "subscriptions.list": {
+        subscriptions: [
+          { id: "s1", tenantId: "o1", planId: "p1", status: "active" },
+        ],
+      },
+      "plans.list": {
+        plans: [{ id: "p1", name: "Growth", slug: "growth", status: "active" }],
+      },
+    }).client
+    render(
+      <SubPluginProvider
+        entries={[
+          {
+            subPlugin: subscriptionSubPlugin,
+            client: subscriptionClient,
+            hostClient: orgClient,
+          },
+        ]}
+      >
+        <HostAccessProvider
+          value={{
+            client: orgClient,
+            allowed: [],
+            subExtension: "organization",
+          }}
+        >
+          <PluginProvider client={orgClient}>
+            <OrgDetailPage params={{ id: "o1" }} />
+          </PluginProvider>
+        </HostAccessProvider>
+      </SubPluginProvider>
+    )
+    await waitFor(() => expect(screen.getByText("Growth")).toBeTruthy())
+    fireEvent.click(screen.getByRole("button", { name: "View billing" }))
+    await waitFor(() =>
+      expect(
+        screen
+          .getByRole("tab", { name: "Billing" })
+          .getAttribute("aria-selected")
+      ).toBe("true")
+    )
+    expect(screen.getByRole("heading", { name: "Subscriptions" })).toBeTruthy()
+  })
+
   it("shows the org, its members, and the two built-in tabs", async () => {
     renderSubPage(pageAt("/organizations/:id"), {
       client: subStubClient({ "orgs.detail": detail, "orgs.members": members })
@@ -171,19 +233,24 @@ describe("organization detail", () => {
     )
     fireEvent.click(screen.getByRole("tab", { name: "Members" }))
     await waitFor(() =>
-      expect(screen.getByRole("button", { name: /remove u2/i })).toBeTruthy()
+      expect(
+        screen.getAllByRole("button", { name: /remove u2/i }).length
+      ).toBeGreaterThan(0)
     )
-    fireEvent.click(screen.getByRole("button", { name: /remove u2/i }))
+    fireEvent.click(screen.getAllByRole("button", { name: /remove u2/i })[0])
     fireEvent.click(screen.getByRole("button", { name: /^remove$/i }))
     await waitFor(() => expect(own.payloads).toHaveLength(1))
     // m2, not u2. MemberSummary carries both and they are different values.
     expect(own.payloads[0].payload).toEqual({ id: "m2" })
   })
 
-  it("says where invitations live rather than showing an empty section", async () => {
+  it("shows the invitation empty state and action", async () => {
     renderSubPage(pageAt("/organizations/:id"), {
-      client: subStubClient({ "orgs.detail": detail, "orgs.members": members })
-        .client,
+      client: subStubClient({
+        "orgs.detail": detail,
+        "orgs.members": members,
+        "orgs.invitations": { invitations: [] },
+      }).client,
       hostClient: subStubClient({}).client,
       allowed: [],
       params: { id: "o1" },
@@ -192,11 +259,121 @@ describe("organization detail", () => {
       expect(screen.getByRole("heading", { name: "Acme" })).toBeTruthy()
     )
     fireEvent.click(screen.getByRole("tab", { name: "Members" }))
-    // The legacy page shows pending invitations. There is no intent for
-    // them. An operator who sees nothing concludes there are none.
+    expect(await screen.findByText("No invitations yet")).toBeTruthy()
     expect(
-      screen.getByText(/invitations are managed in the legacy dashboard/i)
-    ).toBeTruthy()
+      screen.getAllByRole("button", { name: "Create invitation" }).length
+    ).toBeGreaterThan(0)
+  })
+
+  it("adds an existing user to the selected organization", async () => {
+    const own = subStubClient(
+      {
+        "orgs.detail": detail,
+        "orgs.members": members,
+        "orgs.invitations": { invitations: [] },
+      },
+      { "orgs.addMember": { ok: true, id: "m3" } }
+    )
+    renderSubPage(pageAt("/organizations/:id"), {
+      client: own.client,
+      hostClient: subStubClient({}).client,
+      allowed: [],
+      params: { id: "o1" },
+    })
+    await screen.findByRole("heading", { name: "Acme" })
+    fireEvent.click(screen.getByRole("tab", { name: "Members" }))
+    fireEvent.click(screen.getByRole("button", { name: "Add member" }))
+    const dialog = screen.getByRole("dialog")
+    fireEvent.change(within(dialog).getByLabelText("Email or user ID"), {
+      target: { value: "u3" },
+    })
+    fireEvent.change(within(dialog).getByLabelText("Role"), {
+      target: { value: "admin" },
+    })
+    fireEvent.click(within(dialog).getByRole("button", { name: "Add member" }))
+    await waitFor(() => expect(own.payloads).toHaveLength(1))
+    expect(own.payloads[0]).toEqual({
+      intent: "orgs.addMember",
+      payload: { orgId: "o1", userId: "u3", role: "admin" },
+    })
+  })
+
+  it("looks up an existing user by email when adding a member", async () => {
+    const own = subStubClient(
+      {
+        "orgs.detail": detail,
+        "orgs.members": members,
+        "orgs.invitations": { invitations: [] },
+      },
+      { "orgs.addMember": { ok: true, id: "m3" } }
+    )
+    renderSubPage(pageAt("/organizations/:id"), {
+      client: own.client,
+      hostClient: subStubClient({}).client,
+      allowed: [],
+      params: { id: "o1" },
+    })
+    await screen.findByRole("heading", { name: "Acme" })
+    fireEvent.click(screen.getByRole("tab", { name: "Members" }))
+    fireEvent.click(screen.getByRole("button", { name: "Add member" }))
+    const dialog = screen.getByRole("dialog")
+    fireEvent.change(within(dialog).getByLabelText("Email or user ID"), {
+      target: { value: "grace@example.com" },
+    })
+    fireEvent.click(within(dialog).getByRole("button", { name: "Add member" }))
+    await waitFor(() => expect(own.payloads).toHaveLength(1))
+    expect(own.payloads[0].payload).toEqual({
+      orgId: "o1",
+      email: "grace@example.com",
+      role: "member",
+    })
+  })
+
+  it("creates an invitation and shows its token once", async () => {
+    const own = subStubClient(
+      {
+        "orgs.detail": detail,
+        "orgs.members": members,
+        "orgs.invitations": { invitations: [] },
+      },
+      {
+        "orgs.createInvitation": {
+          id: "i1",
+          email: "person@example.com",
+          role: "member",
+          status: "pending",
+          createdAt: detail.createdAt,
+          expiresAt: detail.updatedAt,
+          token: "one-time-token",
+        },
+      }
+    )
+    renderSubPage(pageAt("/organizations/:id"), {
+      client: own.client,
+      hostClient: subStubClient({}).client,
+      allowed: [],
+      params: { id: "o1" },
+    })
+    await screen.findByRole("heading", { name: "Acme" })
+    fireEvent.click(screen.getByRole("tab", { name: "Members" }))
+    fireEvent.click(
+      screen.getAllByRole("button", { name: "Create invitation" })[0]
+    )
+    const dialog = screen.getByRole("dialog")
+    fireEvent.change(within(dialog).getByLabelText("Email"), {
+      target: { value: "person@example.com" },
+    })
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: "Create invitation" })
+    )
+    await waitFor(() => expect(own.payloads).toHaveLength(1))
+    expect(own.payloads[0]).toEqual({
+      intent: "orgs.createInvitation",
+      payload: { orgId: "o1", email: "person@example.com", role: "member" },
+    })
+    expect(await screen.findByText("one-time-token")).toBeTruthy()
+    fireEvent.click(within(dialog).getByRole("button", { name: "Done" }))
+    expect(screen.queryByText("one-time-token")).toBeNull()
   })
 
   it("sends only the fields the operator changed", async () => {

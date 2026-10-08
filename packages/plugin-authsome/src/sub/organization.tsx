@@ -1,4 +1,11 @@
-import { useState } from "react"
+import { useRef, useState } from "react"
+import {
+  Building2,
+  MailPlus,
+  Pencil,
+  Trash2,
+  UsersRound,
+} from "@forge-go/dashboard-kit/icons"
 import {
   PluginLink,
   PluginSlot,
@@ -14,17 +21,18 @@ import { Badge } from "@forge-go/dashboard-kit/components/badge"
 import { Button } from "@forge-go/dashboard-kit/components/button"
 import { Input } from "@forge-go/dashboard-kit/components/input"
 import { Label } from "@forge-go/dashboard-kit/components/label"
+import {
+  NativeSelect,
+  NativeSelectOption,
+} from "@forge-go/dashboard-kit/components/native-select"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { ConfirmDialog } from "@forge-go/dashboard-kit/components/confirm-dialog"
-import { DescriptionList } from "@forge-go/dashboard-kit/components/detail-layout"
+import { DescriptionList } from "../components/presentation"
 import {
   CommandAlert,
   QueryBoundary,
 } from "@forge-go/dashboard-kit/components/query-boundary"
-import {
-  ResourceTable,
-  type Column,
-} from "@forge-go/dashboard-kit/components/resource-table"
+import { ResourceTable, type Column } from "../components/presentation"
 import { StatGrid } from "@forge-go/dashboard-kit/components/stat-grid"
 import {
   Tabs,
@@ -33,11 +41,22 @@ import {
   TabsTrigger,
 } from "@forge-go/dashboard-kit/components/tabs"
 import { formatTimestamp } from "@forge-go/dashboard-kit/lib/format"
+import { ZeroState } from "@forge-go/dashboard-kit/components/zero-state"
+import { Panel } from "../components/presentation"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@forge-go/dashboard-kit/components/dialog"
 
 /**
  * The organization sub-plugin. It both CONSUMES a slot on the auth
  * overview (`overview.widgets`, wired up in Task 8) and HOSTS three of its
- * own: `org.detail.sections`, `org.detail.tabs` and `org.create.fields`. This
+ * own: `org.detail.summary`, `org.detail.sections`, `org.detail.tabs` and
+ * `org.create.fields`. This
  * file is the proof that hosting a slot is not something only the core
  * plugin can do: the same `PluginSlot`, `useSlotCount` and `useSlotEntries`
  * a page consumes elsewhere in the dashboard are what this page renders with.
@@ -50,15 +69,10 @@ import { formatTimestamp } from "@forge-go/dashboard-kit/lib/format"
  *   orgs.update({ id, name?, logo? })   -> { ok }   name/logo are *string
  *   orgs.delete({ id })      -> { ok }
  *   orgs.members({ orgId })  -> { members: MemberSummary[] }   NO PAGING
+ *   orgs.addMember({ orgId, userId?, email?, role }) -> { ok, id }
  *   orgs.removeMember({ id }) -> { ok }   id is the MEMBER id, not the user id
- *
- * `CreateInvitation`, `ListInvitations` and `UpdateMemberRole` all exist in
- * `organization/service.go` and none of them is registered with the
- * dispatcher, so this page cannot show pending invitations or let an operator
- * change a member's role. The legacy templ page shows a pending-invitations
- * table; this one says, in the Members tab, that invitations still live in
- * the legacy dashboard, rather than rendering nothing and letting an operator
- * conclude there are none.
+ *   orgs.invitations({ orgId }) -> { invitations: InvitationSummary[] }
+ *   orgs.createInvitation({ orgId, email, role }) -> InvitationSummary + token
  */
 
 export interface OrgSummary {
@@ -81,6 +95,23 @@ export interface MemberSummary {
   userId: string
   role: string
   createdAt: string
+}
+
+interface InvitationSummary {
+  id: string
+  email: string
+  role: string
+  status: string
+  createdAt: string
+  expiresAt: string
+}
+
+interface InvitationsResponse {
+  invitations: InvitationSummary[]
+}
+
+interface CreatedInvitation extends InvitationSummary {
+  token: string
 }
 
 interface OrgListResponse {
@@ -232,8 +263,13 @@ function EditOrgForm({ org, onDone }: { org: OrgDetail; onDone: () => void }) {
   }
 
   return (
-    <div className="flex flex-col gap-3 rounded-md border p-4">
-      <h2 className="text-sm font-medium">Edit organization</h2>
+    <DialogContent>
+      <DialogHeader>
+        <DialogTitle>Edit organization</DialogTitle>
+        <DialogDescription>
+          Update the name or logo shown for this organization.
+        </DialogDescription>
+      </DialogHeader>
       <CommandAlert error={update.error} title="Could not save" />
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="org-edit-name">Name</Label>
@@ -251,25 +287,83 @@ function EditOrgForm({ org, onDone }: { org: OrgDetail; onDone: () => void }) {
           onChange={(e) => setLogo(e.target.value)}
         />
       </div>
-      <div className="flex gap-2">
+      <DialogFooter>
+        <Button variant="outline" onClick={onDone} disabled={update.loading}>
+          Cancel
+        </Button>
         <Button
           onClick={() => void submit()}
-          disabled={update.loading || !dirty}
+          disabled={update.loading || !dirty || name.trim().length === 0}
         >
           {update.loading ? "Saving…" : "Save"}
         </Button>
-        <Button variant="ghost" onClick={onDone} disabled={update.loading}>
-          Cancel
-        </Button>
-      </div>
-    </div>
+      </DialogFooter>
+    </DialogContent>
   )
 }
 
 function OrgMembers({ orgId }: { orgId: string }) {
   const query = useQuery<MembersResponse>("orgs.members", { orgId })
+  const invitationsQuery = useQuery<InvitationsResponse>("orgs.invitations", {
+    orgId,
+  })
+  const addMember = useCommand<AckResponse>("orgs.addMember")
+  const createInvitation = useCommand<CreatedInvitation>(
+    "orgs.createInvitation"
+  )
   const removeMember = useCommand<AckResponse>("orgs.removeMember")
   const [removing, setRemoving] = useState<MemberSummary | null>(null)
+  const [adding, setAdding] = useState(false)
+  const [inviting, setInviting] = useState(false)
+  const [memberIdentifier, setMemberIdentifier] = useState("")
+  const [email, setEmail] = useState("")
+  const [addRole, setAddRole] = useState("member")
+  const [inviteRole, setInviteRole] = useState("member")
+  const [created, setCreated] = useState<CreatedInvitation | null>(null)
+  const [copied, setCopied] = useState(false)
+
+  async function submitMember() {
+    const identifier = memberIdentifier.trim()
+    const result = await addMember.execute({
+      orgId,
+      ...(identifier.includes("@")
+        ? { email: identifier }
+        : { userId: identifier }),
+      role: addRole,
+    })
+    if (result !== undefined) {
+      setAdding(false)
+      setMemberIdentifier("")
+      setAddRole("member")
+    }
+  }
+
+  async function submitInvitation() {
+    const result = await createInvitation.execute({
+      orgId,
+      email: email.trim(),
+      role: inviteRole,
+    })
+    if (result !== undefined) setCreated(result)
+  }
+
+  async function copyToken() {
+    if (!created) return
+    try {
+      await navigator.clipboard.writeText(created.token)
+      setCopied(true)
+    } catch {
+      setCopied(false)
+    }
+  }
+
+  function closeInvitation() {
+    setInviting(false)
+    setCreated(null)
+    setEmail("")
+    setInviteRole("member")
+    setCopied(false)
+  }
 
   async function confirmRemove() {
     if (!removing) return
@@ -279,12 +373,35 @@ function OrgMembers({ orgId }: { orgId: string }) {
     if (result !== undefined) setRemoving(null)
   }
 
+  function removeAction(member: MemberSummary) {
+    return (
+      <Button
+        variant="destructive"
+        size="sm"
+        aria-label={`Remove ${member.userId}`}
+        onClick={() => {
+          removeMember.reset()
+          setRemoving(member)
+        }}
+      >
+        Remove
+      </Button>
+    )
+  }
+
   const columns: Column<MemberSummary>[] = [
     {
       id: "userId",
       header: "User ID",
       className: "font-mono text-xs",
-      cell: (member) => member.userId,
+      cell: (member) => (
+        <PluginLink
+          to={`/users/${member.userId}`}
+          className="font-medium underline-offset-4 hover:underline"
+        >
+          {member.userId}
+        </PluginLink>
+      ),
     },
     {
       id: "role",
@@ -300,50 +417,325 @@ function OrgMembers({ orgId }: { orgId: string }) {
 
   return (
     <div className="flex flex-col gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h3 className="text-sm font-semibold">Members</h3>
+          <p className="text-xs text-muted-foreground">
+            Add an existing user by email or ID, or invite someone new.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              addMember.reset()
+              setAdding(true)
+            }}
+          >
+            Add member
+          </Button>
+          <Button
+            size="sm"
+            onClick={() => {
+              createInvitation.reset()
+              setInviting(true)
+            }}
+          >
+            Create invitation
+          </Button>
+        </div>
+      </div>
       <QueryBoundary title="Members" query={query} skeletonRows={3}>
         {(data) => {
           const members = data.members ?? []
           const caption = `${members.length} ${members.length === 1 ? "member" : "members"}`
-          return (
-            <ResourceTable<MemberSummary>
-              columns={columns}
-              rows={members}
-              rowKey={(member) => member.id}
-              caption={caption}
-              emptyMessage="No members yet."
-              rowActions={(member) => (
+          return members.length === 0 ? (
+            <ZeroState
+              title="No members yet"
+              body="Add an existing user or create an invitation to bring someone into this organization."
+              action={
                 <Button
-                  variant="destructive"
                   size="sm"
-                  aria-label={`Remove ${member.userId}`}
+                  variant="outline"
                   onClick={() => {
-                    // Reset at open, not at close: one hook serves every row,
-                    // so a failure left over from a different member's remove
-                    // must not be attributed to one the operator has not
-                    // touched yet.
-                    removeMember.reset()
-                    setRemoving(member)
+                    addMember.reset()
+                    setAdding(true)
                   }}
                 >
-                  Remove
+                  Add member
                 </Button>
-              )}
+              }
             />
+          ) : (
+            <>
+              <div className="grid gap-2 sm:hidden">
+                <p className="text-xs text-muted-foreground">{caption}</p>
+                {members.map((member) => (
+                  <div
+                    key={member.id}
+                    className="flex flex-wrap items-center justify-between gap-2 rounded-md border bg-card p-3"
+                  >
+                    <div className="min-w-0 space-y-1">
+                      <PluginLink
+                        to={`/users/${member.userId}`}
+                        className="block font-mono text-xs font-medium break-all underline-offset-4 hover:underline"
+                      >
+                        {member.userId}
+                      </PluginLink>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <RoleBadge role={member.role} />
+                        <span className="text-xs text-muted-foreground">
+                          Joined {formatTimestamp(member.createdAt)}
+                        </span>
+                      </div>
+                    </div>
+                    {removeAction(member)}
+                  </div>
+                ))}
+              </div>
+              <div className="hidden sm:block">
+                <ResourceTable<MemberSummary>
+                  columns={columns}
+                  rows={members}
+                  rowKey={(member) => member.id}
+                  caption={caption}
+                  emptyMessage="No members yet."
+                  rowActions={removeAction}
+                />
+              </div>
+            </>
           )
         }}
       </QueryBoundary>
 
-      {/*
-        CreateInvitation, ListInvitations and UpdateMemberRole exist in
-        organization/service.go but none is registered with the dispatcher.
-        The legacy page shows a pending-invitations table; this one says so
-        instead, because an operator who sees nothing here would conclude
-        there are none.
-      */}
-      <p className="text-sm text-muted-foreground">
-        Invitations are managed in the legacy dashboard until this contract
-        exposes them here.
-      </p>
+      <h3 className="pt-2 text-sm font-semibold">Invitations</h3>
+      <QueryBoundary
+        title="Invitations"
+        query={invitationsQuery}
+        skeletonRows={2}
+      >
+        {(data) => {
+          const invitations = data.invitations ?? []
+          if (invitations.length === 0)
+            return (
+              <ZeroState
+                title="No invitations yet"
+                body="Create an invitation for someone who needs access to this organization."
+                illustration={<MailPlus className="size-6 stroke-[1.5]" />}
+                action={
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      createInvitation.reset()
+                      setInviting(true)
+                    }}
+                  >
+                    Create invitation
+                  </Button>
+                }
+              />
+            )
+          const columns: Column<InvitationSummary>[] = [
+            {
+              id: "email",
+              header: "Email",
+              className: "font-medium",
+              cell: (inv) => inv.email,
+            },
+            {
+              id: "role",
+              header: "Role",
+              cell: (inv) => <RoleBadge role={inv.role} />,
+            },
+            {
+              id: "status",
+              header: "Status",
+              cell: (inv) => (
+                <Badge
+                  variant={inv.status === "pending" ? "secondary" : "outline"}
+                >
+                  {inv.status}
+                </Badge>
+              ),
+            },
+            {
+              id: "expiresAt",
+              header: "Expires",
+              cell: (inv) => formatTimestamp(inv.expiresAt),
+            },
+          ]
+          return (
+            <>
+              <div className="grid gap-2 sm:hidden">
+                {invitations.map((inv) => (
+                  <div
+                    key={inv.id}
+                    className="space-y-2 rounded-md border bg-card p-3 text-sm"
+                  >
+                    <div className="font-medium break-all">{inv.email}</div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <RoleBadge role={inv.role} />
+                      <Badge
+                        variant={
+                          inv.status === "pending" ? "secondary" : "outline"
+                        }
+                      >
+                        {inv.status}
+                      </Badge>
+                      <span className="text-xs text-muted-foreground">
+                        Expires {formatTimestamp(inv.expiresAt)}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="hidden sm:block">
+                <ResourceTable
+                  columns={columns}
+                  rows={invitations}
+                  rowKey={(inv) => inv.id}
+                  caption={`${invitations.length} ${invitations.length === 1 ? "invitation" : "invitations"}`}
+                  emptyMessage="No invitations yet."
+                />
+              </div>
+            </>
+          )
+        }}
+      </QueryBoundary>
+
+      <Dialog open={adding} onOpenChange={(open) => !open && setAdding(false)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add member</DialogTitle>
+            <DialogDescription>
+              Add an existing user in this app to the organization.
+            </DialogDescription>
+          </DialogHeader>
+          <CommandAlert error={addMember.error} title="Could not add member" />
+          <div className="grid gap-3">
+            <div className="grid gap-1.5">
+              <Label htmlFor="org-member-user">Email or user ID</Label>
+              <Input
+                id="org-member-user"
+                value={memberIdentifier}
+                onChange={(event) => setMemberIdentifier(event.target.value)}
+                placeholder="person@example.com"
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="org-member-role">Role</Label>
+              <NativeSelect
+                id="org-member-role"
+                value={addRole}
+                onChange={(event) => setAddRole(event.target.value)}
+              >
+                <NativeSelectOption value="member">Member</NativeSelectOption>
+                <NativeSelectOption value="admin">Admin</NativeSelectOption>
+                <NativeSelectOption value="owner">Owner</NativeSelectOption>
+              </NativeSelect>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAdding(false)}>
+              Cancel
+            </Button>
+            <Button
+              disabled={!memberIdentifier.trim() || addMember.loading}
+              onClick={() => void submitMember()}
+            >
+              {addMember.loading ? "Adding…" : "Add member"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={inviting}
+        onOpenChange={(open) => !open && closeInvitation()}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {created ? "Invitation created" : "Create invitation"}
+            </DialogTitle>
+            <DialogDescription>
+              {created
+                ? "Copy this token now. It will not be shown again."
+                : "Create an invitation token for an email address. Authsome does not send an email."}
+            </DialogDescription>
+          </DialogHeader>
+          {created ? (
+            <div className="grid gap-3 text-sm">
+              <p>
+                Share the token with{" "}
+                <span className="font-medium">{created.email}</span> through
+                your application. It expires{" "}
+                {formatTimestamp(created.expiresAt)}.
+              </p>
+              <div
+                className="rounded-md border bg-muted/30 p-3 font-mono text-xs break-all select-all"
+                aria-label="Invitation token"
+              >
+                {created.token}
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={closeInvitation}>
+                  Done
+                </Button>
+                <Button onClick={() => void copyToken()}>
+                  {copied ? "Copied" : "Copy token"}
+                </Button>
+              </DialogFooter>
+            </div>
+          ) : (
+            <>
+              <CommandAlert
+                error={createInvitation.error}
+                title="Could not create invitation"
+              />
+              <div className="grid gap-3">
+                <div className="grid gap-1.5">
+                  <Label htmlFor="org-invite-email">Email</Label>
+                  <Input
+                    id="org-invite-email"
+                    type="email"
+                    value={email}
+                    onChange={(event) => setEmail(event.target.value)}
+                    placeholder="person@example.com"
+                  />
+                </div>
+                <div className="grid gap-1.5">
+                  <Label htmlFor="org-invite-role">Role</Label>
+                  <NativeSelect
+                    id="org-invite-role"
+                    value={inviteRole}
+                    onChange={(event) => setInviteRole(event.target.value)}
+                  >
+                    <NativeSelectOption value="member">
+                      Member
+                    </NativeSelectOption>
+                    <NativeSelectOption value="admin">Admin</NativeSelectOption>
+                    <NativeSelectOption value="owner">Owner</NativeSelectOption>
+                  </NativeSelect>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={closeInvitation}>
+                  Cancel
+                </Button>
+                <Button
+                  disabled={!email.trim() || createInvitation.loading}
+                  onClick={() => void submitInvitation()}
+                >
+                  {createInvitation.loading ? "Creating…" : "Create invitation"}
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <ConfirmDialog
         open={removing !== null}
@@ -367,8 +759,59 @@ function OrgMembers({ orgId }: { orgId: string }) {
   )
 }
 
+function OrgPeopleSummary({
+  orgId,
+  onOpenMembers,
+}: {
+  orgId: string
+  onOpenMembers: () => void
+}) {
+  const query = useQuery<MembersResponse>("orgs.members", { orgId })
+
+  return (
+    <Panel
+      title="People"
+      actions={
+        <Button variant="outline" size="sm" onClick={onOpenMembers}>
+          View members
+        </Button>
+      }
+    >
+      <QueryBoundary title="Members" query={query} skeletonRows={1}>
+        {(data) => {
+          const members = data.members ?? []
+          return (
+            <div className="flex items-center gap-3">
+              <div
+                aria-hidden="true"
+                className="flex size-9 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground"
+              >
+                <UsersRound className="size-4" />
+              </div>
+              <div className="min-w-0">
+                <div className="text-lg leading-tight font-semibold tabular-nums">
+                  {members.length}
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  {members.length === 1 ? "member" : "members"} in this
+                  organization
+                </div>
+              </div>
+            </div>
+          )
+        }}
+      </QueryBoundary>
+    </Panel>
+  )
+}
+
 function OrgTabs({ org, orgId }: { org: OrgDetail; orgId: string }) {
+  const membersTabRef = useRef<HTMLButtonElement>(null)
+  const contributedTabRefs = useRef<Record<string, HTMLButtonElement | null>>(
+    {}
+  )
   const sectionsCount = useSlotCount("org.detail.sections")
+  const summaryCount = useSlotCount("org.detail.summary")
   /*
     A tab is a trigger in one place and a panel in another, so a contribution
     cannot be one on its own: dropping `PluginSlot` into the `TabsList`
@@ -386,11 +829,22 @@ function OrgTabs({ org, orgId }: { org: OrgDetail; orgId: string }) {
 
   return (
     <Tabs defaultValue="overview">
-      <TabsList>
+      <TabsList
+        variant="line"
+        className="max-w-full overflow-x-auto border-b pb-0"
+      >
         <TabsTrigger value="overview">Overview</TabsTrigger>
-        <TabsTrigger value="members">Members</TabsTrigger>
+        <TabsTrigger value="members" ref={membersTabRef}>
+          Members
+        </TabsTrigger>
         {contributedTabs.map((tab) => (
-          <TabsTrigger key={tab.key} value={tab.key}>
+          <TabsTrigger
+            key={tab.key}
+            value={tab.key}
+            ref={(node) => {
+              contributedTabRefs.current[tab.key] = node
+            }}
+          >
             {tab.label ?? tab.id}
           </TabsTrigger>
         ))}
@@ -411,35 +865,72 @@ function OrgTabs({ org, orgId }: { org: OrgDetail; orgId: string }) {
         out the org's own fields either way.
       */}
       <TabsContent value="overview">
-        <div className="flex flex-col gap-4">
-          <DescriptionList
-            items={[
-              {
-                term: "Organization ID",
-                value: <span className="font-mono text-xs">{org.id}</span>,
-              },
-              {
-                term: "Slug",
-                value: <span className="font-mono text-xs">{org.slug}</span>,
-              },
-              { term: "Created", value: formatTimestamp(org.createdAt) },
-              { term: "Updated", value: formatTimestamp(org.updatedAt) },
-              ...(org.metadata && Object.keys(org.metadata).length > 0
-                ? [{ term: "Metadata", value: formatMetadata(org.metadata) }]
-                : []),
-            ]}
-          />
+        <div className="grid min-w-0 gap-4 pt-2 @3xl/main:grid-cols-[minmax(0,1.4fr)_minmax(18rem,1fr)]">
+          <Panel title="Organization details">
+            <DescriptionList
+              className="border-0 bg-transparent [&>div]:grid-cols-[7rem_minmax(0,1fr)] [&>div]:px-0"
+              items={[
+                {
+                  term: "Organization ID",
+                  value: (
+                    <span className="font-mono text-xs break-all">
+                      {org.id}
+                    </span>
+                  ),
+                },
+                {
+                  term: "Slug",
+                  value: <span className="font-mono text-xs">{org.slug}</span>,
+                },
+                { term: "Created", value: formatTimestamp(org.createdAt) },
+                { term: "Updated", value: formatTimestamp(org.updatedAt) },
+                ...(org.appId
+                  ? [
+                      {
+                        term: "App ID",
+                        value: (
+                          <span className="font-mono text-xs">{org.appId}</span>
+                        ),
+                      },
+                    ]
+                  : []),
+                ...(org.metadata && Object.keys(org.metadata).length > 0
+                  ? [{ term: "Metadata", value: formatMetadata(org.metadata) }]
+                  : []),
+              ]}
+            />
+          </Panel>
+          <div className="flex min-w-0 flex-col gap-4">
+            <OrgPeopleSummary
+              orgId={orgId}
+              onOpenMembers={() => membersTabRef.current?.click()}
+            />
+            {summaryCount > 0 && (
+              <PluginSlot
+                name="org.detail.summary"
+                params={{
+                  orgId,
+                  onOpenTab: (key: string) =>
+                    contributedTabRefs.current[key]?.click(),
+                }}
+              />
+            )}
+          </div>
           {sectionsCount > 0 && (
-            <PluginSlot name="org.detail.sections" params={{ orgId }} />
+            <div className="min-w-0 @3xl/main:col-span-2">
+              <PluginSlot name="org.detail.sections" params={{ orgId }} />
+            </div>
           )}
         </div>
       </TabsContent>
       <TabsContent value="members">
-        <OrgMembers orgId={orgId} />
+        <div className="pt-2">
+          <OrgMembers orgId={orgId} />
+        </div>
       </TabsContent>
       {contributedTabs.map((tab) => (
         <TabsContent key={tab.key} value={tab.key}>
-          {tab.node}
+          <div className="pt-2">{tab.node}</div>
         </TabsContent>
       ))}
     </Tabs>
@@ -472,11 +963,17 @@ function OrgDetailBody({ orgId }: { orgId: string }) {
 
   if (deleted) {
     return (
-      <section className="flex flex-col gap-4">
-        <p role="status" className="text-sm text-muted-foreground">
-          This organization has been deleted.
-        </p>
-      </section>
+      <ZeroState
+        title="This organization has been deleted."
+        action={
+          <PluginLink
+            to="/organizations"
+            className="text-sm underline underline-offset-4"
+          >
+            Back to organizations
+          </PluginLink>
+        }
+      />
     )
   }
 
@@ -485,34 +982,65 @@ function OrgDetailBody({ orgId }: { orgId: string }) {
       <QueryBoundary title="Organization" query={query} skeletonRows={3}>
         {(org) => (
           <>
-            <PageHeader
-              title={org.name}
-              description={org.slug}
-              actions={
-                !editing && (
-                  <div className="flex gap-2">
-                    <Button onClick={() => setEditing(true)}>Edit</Button>
-                    <Button
-                      variant="destructive"
-                      aria-label={`Delete ${org.name}`}
-                      onClick={() => {
-                        // Reset at open, not at close: this hook is reused
-                        // if the operator cancels and reopens the dialog,
-                        // and a failure from a previous attempt must not
-                        // follow them into a fresh one.
-                        deleteOrg.reset()
-                        setDeleting(true)
-                      }}
-                    >
-                      Delete
-                    </Button>
-                  </div>
-                )
-              }
-            />
-            {editing && (
-              <EditOrgForm org={org} onDone={() => setEditing(false)} />
-            )}
+            <div className="flex flex-wrap items-center gap-4 border-b pb-4">
+              <div
+                aria-hidden="true"
+                className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-lg border bg-muted/50 text-muted-foreground"
+              >
+                {org.logo ? (
+                  <img
+                    src={org.logo}
+                    alt=""
+                    className="size-full object-cover"
+                  />
+                ) : (
+                  <Building2 className="size-5" />
+                )}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="text-[11px] font-medium tracking-[0.12em] text-muted-foreground uppercase">
+                  Organization
+                </div>
+                <h1 className="truncate text-xl font-semibold tracking-tight">
+                  {org.name}
+                </h1>
+                <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                  <span className="font-mono">{org.slug}</span>
+                  <span aria-hidden="true">·</span>
+                  <span className="font-mono">{org.id}</span>
+                </div>
+              </div>
+              {!editing && (
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setEditing(true)}
+                  >
+                    <Pencil className="size-3.5" />
+                    Edit
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-destructive hover:text-destructive"
+                    aria-label={`Delete ${org.name}`}
+                    onClick={() => {
+                      deleteOrg.reset()
+                      setDeleting(true)
+                    }}
+                  >
+                    <Trash2 className="size-3.5" />
+                    Delete
+                  </Button>
+                </div>
+              )}
+            </div>
+            <Dialog open={editing} onOpenChange={setEditing}>
+              {editing && (
+                <EditOrgForm org={org} onDone={() => setEditing(false)} />
+              )}
+            </Dialog>
             <OrgTabs org={org} orgId={orgId} />
 
             <ConfirmDialog
@@ -545,9 +1073,17 @@ export function OrgDetailPage({ params }: PluginPageProps) {
   // undefined id and rendering whatever the server makes of that.
   if (!orgId) {
     return (
-      <p role="status" className="text-sm text-muted-foreground">
-        No organization selected.
-      </p>
+      <ZeroState
+        title="No organization selected."
+        action={
+          <PluginLink
+            to="/organizations"
+            className="text-sm underline underline-offset-4"
+          >
+            View organizations
+          </PluginLink>
+        }
+      />
     )
   }
 
