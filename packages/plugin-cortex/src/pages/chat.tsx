@@ -154,7 +154,17 @@ function LiveRun({
           Open the saved run for its durable result.
         </p>
       )}
-      {text && <Code text={text} label="Live assistant response" />}
+      {text &&
+        (done ? (
+          <details className="text-xs">
+            <summary className="cursor-pointer text-muted-foreground">
+              Stream transcript
+            </summary>
+            <Code text={text} label="Live assistant response" />
+          </details>
+        ) : (
+          <Code text={text} label="Live assistant response" />
+        ))}
       <div className="grid gap-1 text-xs text-muted-foreground">
         {events
           .filter((e) => e.event !== "token")
@@ -622,7 +632,7 @@ export function ChatPage({
       </fieldset>
       {agent ? (
         <div
-          className={compare ? "grid min-w-0 gap-4 xl:grid-cols-2" : "min-w-0"}
+          className={compare ? "grid min-w-0 gap-4 lg:grid-cols-2" : "min-w-0"}
         >
           <ChatPane
             onActiveChange={setLeftActive}
