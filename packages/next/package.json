@@ -38,9 +38,9 @@
     ".": "./src/index.ts"
   },
   "peerDependencies": {
-    "@forge-go/dashboard-host": "^0.1.0",
-    "@forge-go/dashboard-plugin": "^0.1.0",
-    "@forge-go/dashboard-runtime": "^0.1.0",
+    "@forge-go/dashboard-host": "workspace:^",
+    "@forge-go/dashboard-plugin": "workspace:^",
+    "@forge-go/dashboard-runtime": "workspace:^",
     "next": ">=15",
     "react": "^19.2.0"
   }

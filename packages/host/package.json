@@ -11,9 +11,9 @@
     "typecheck": "tsc --noEmit"
   },
   "peerDependencies": {
-    "@forge-go/dashboard-kit": "^0.1.0",
-    "@forge-go/dashboard-plugin": "^0.1.0",
-    "@forge-go/dashboard-runtime": "^0.1.0",
+    "@forge-go/dashboard-kit": "workspace:^",
+    "@forge-go/dashboard-plugin": "workspace:^",
+    "@forge-go/dashboard-runtime": "workspace:^",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-router": "^8.3.1"
