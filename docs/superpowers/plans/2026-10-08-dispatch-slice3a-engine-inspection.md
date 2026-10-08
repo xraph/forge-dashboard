@@ -266,7 +266,7 @@ type Settings struct {
  ScratchDir string
 }
 
-// Settings returns safe inspection fields. Core dumps are always disabled by the shim.
+// Settings returns safe inspection fields. The subprocess requests a zero core-dump limit.
 func (e *Executor) Settings() Settings {
  limits := e.opts.rlimits
  limits.Core = 0
@@ -401,6 +401,13 @@ git show --stat HEAD
 - [ ] Record actual results and commit IDs. Passing inspection tests establishes no browser parity.
 
 ## Self-review
+
+Completed 2026-10-08 on Dispatch main: Task 1 `faf6710`, Task 2 `e323893`,
+Task 3 `6de5530`. Each task failed for its missing method before implementation,
+then passed focused race tests. Full build/unit and fresh-cache ordinary lint
+passed. The independent final reviewer repeated focused race tests across all
+five affected packages and approved the result, with the subprocess comment
+correction reflected above. Contract and browser work remain outstanding.
 
 The five failure modes above have concrete tests. The API names match their consumers. No
 source file adds a dashboard dependency. Broader contract, plugin, fixture, browser and
