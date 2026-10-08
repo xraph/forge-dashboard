@@ -128,7 +128,7 @@ it.each(["gob","binary"] as const)("labels %s without decoding it",kind=>{
 ### test/json-view.test.tsx
 
 ```tsx
-import { expect, it } from "vitest"
+import { expect, it, vi } from "vitest"
 import { render, screen } from "@testing-library/react"
 import { EditorView } from "@codemirror/view"
 import JsonView from "../src/json-view"
@@ -140,8 +140,9 @@ it("keeps the editor read only while preserving source text",()=>{
  expect(view.state.doc.toString()).toBe(text)
  expect(view.state.readOnly).toBe(true)
  expect(content.getAttribute("aria-readonly")).toBe("true")
+ const destroy=vi.spyOn(view,"destroy")
  unmount()
- expect(view.destroyed).toBe(true)
+ expect(destroy).toHaveBeenCalledOnce()
 })
 ```
 
@@ -220,3 +221,11 @@ export default function JsonView({text,label}:{text:string;label:string}) {
 
 - [ ] One fresh final review across the owned backend and frontend diffs, then one regression-tested fix pass for consequential findings.
 - [ ] Record checks and remaining browser/bundle gates, commit and push verified work.
+
+## Results
+
+Backend commit bc90148 adds original JSON text while preserving the existing JSON and opaque-byte fields. make f, make l, contract tests, contract race tests and go build ./... pass. Contract tests and build also pass against the committed module baseline, without relying on concurrent dependency upgrades.
+
+Dashboard commit 546a4fd adds the lazy read-only viewer. The final review caught CodeMirror's default line-ending normalization. CRLF, bare CR and mixed-separator tests failed before the fix and now pass. The editor retains carriage returns, and copied document text keeps the original separators.
+
+Package format, lint, typecheck and all 39 tests pass. These package format/lint commands are the dashboard's make f/make l equivalents. No findings remain deferred. Browser verification and bundle measurements remain part of host integration; this slice does not establish parity or permit templ retirement.
