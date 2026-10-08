@@ -710,3 +710,11 @@ export type { Duration, JobState, Page, RunState, Snapshot } from "./types"
 - [ ] Package format, lint, typecheck and all tests pass after the final code edit.
 - [ ] One fresh read-only final review, then one regression-tested fix pass for consequential findings. No re-review.
 - [ ] Record exact results and remaining browser/host/fixture gates, commit and push verified work.
+
+## Results
+
+Implemented the nine operational routes in commits 23f369a and 867cc1e. A fresh review found two data-fidelity defects: user-defined resource keys were reformatted, and unavailable leadership looked like an observed absence. Both have failing-then-passing regressions and are fixed. No review findings remain deferred.
+
+Package format, lint, typecheck and all 31 tests pass. The exact dashboard equivalents for make f and make l are `pnpm --filter @forge-go/dashboard-plugin-dispatch format` and `pnpm --filter @forge-go/dashboard-plugin-dispatch lint`. Shared repository formatting remains with its coordinator.
+
+The package is not yet wired into either host. Job, workflow, DLQ, cron and artifact pages, stateful fixtures, desktop/narrow browser checks, and real SQLite parity remain required before templ retirement.
