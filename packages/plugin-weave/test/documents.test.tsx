@@ -1,7 +1,7 @@
 import type { ReactNode } from "react"
 import { afterEach, describe, expect, it } from "vitest"
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
-import { NavigationProvider, PluginProvider } from "@forge-go/dashboard-plugin"
+import { ContractError, NavigationProvider, PluginProvider } from "@forge-go/dashboard-plugin"
 import type { NavigateOptions, PluginLinkProps, ScopedClient } from "@forge-go/dashboard-plugin"
 import { DocumentsPage } from "../src/pages/documents"
 import { scriptedClient } from "./harness"
@@ -127,5 +127,16 @@ describe("DocumentsPage", () => {
     })
     renderAt("/@weave/documents", client)
     expect(await screen.findByText(/no update for/)).toBeTruthy()
+  })
+
+  it("says so when the collection list fails, and still lists the documents", async () => {
+    const { client } = scriptedClient({
+      "documents.list": PAGE,
+      "collections.list": new ContractError("INTERNAL", "store is down"),
+    })
+    renderAt("/@weave/documents", client)
+    expect(await screen.findByText("Refund policy")).toBeTruthy()
+    const note = await screen.findByRole("alert")
+    expect(note.textContent).toBe("Couldn't load the collection list: store is down")
   })
 })

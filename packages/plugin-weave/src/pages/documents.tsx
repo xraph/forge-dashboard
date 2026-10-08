@@ -7,13 +7,14 @@ import { FilterBar } from "@forge-go/dashboard-kit/components/filter-bar"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
 import { ResourceTable } from "@forge-go/dashboard-kit/components/resource-table"
+import { useCollectionOptions } from "../collection-options"
 import { documentColumns } from "../components/document-columns"
 import { TenantFilter } from "../components/tenant-filter"
 import { plural } from "../format"
 import { useSearchParam, useSetSearchParams } from "../links"
 import { PAGE_SIZE, offsetFor, pageOf } from "../paging"
 import { withTenant } from "../tenant"
-import type { Collection, DocumentRow, ListOutput } from "../types"
+import type { DocumentRow, ListOutput } from "../types"
 import { useDebounced } from "../use-debounced"
 
 const columns = documentColumns({ withCollection: true })
@@ -42,7 +43,7 @@ export const DocumentsPage: ComponentType<PluginPageProps> = () => {
   const [clears, setClears] = useState(0)
   const term = useDebounced(search.trim(), 300)
 
-  const collections = useQuery<ListOutput<Collection>>("collections.list", { limit: 100 })
+  const collections = useCollectionOptions(collectionId, "All collections")
   const params = withTenant(
     {
       limit: PAGE_SIZE,
@@ -55,15 +56,6 @@ export const DocumentsPage: ComponentType<PluginPageProps> = () => {
   )
   const list = useQuery<ListOutput<DocumentRow>>("documents.list", params)
   const filtered = collectionId !== "" || state !== "" || term !== "" || tenant !== null
-
-  const known = collections.data?.items ?? []
-  const options = [
-    { label: "All collections", value: "" },
-    ...known.map((c) => ({ label: c.name, value: c.id })),
-    // A collection named by the address that the picker doesn't list, such
-    // as a deleted one, stays selected rather than silently becoming "all".
-    ...(collectionId !== "" && !known.some((c) => c.id === collectionId) ? [{ label: collectionId, value: collectionId }] : []),
-  ]
 
   function clear() {
     setSearch("")
@@ -91,7 +83,7 @@ export const DocumentsPage: ComponentType<PluginPageProps> = () => {
             id: "collection",
             label: "Collection",
             value: collectionId,
-            options,
+            options: collections.options,
             onChange: (v) => {
               setOffset(0)
               setParams({ collection_id: v })
@@ -119,6 +111,16 @@ export const DocumentsPage: ComponentType<PluginPageProps> = () => {
           />
         }
       />
+      {collections.note !== null &&
+        (collections.error ? (
+          <p className="text-xs text-destructive" role="alert">
+            {collections.note}
+          </p>
+        ) : (
+          <p className="text-xs text-muted-foreground" role="status">
+            {collections.note}
+          </p>
+        ))}
       <QueryBoundary title="Documents" query={list} keepPreviousData>
         {(data) => (
           <ResourceTable<DocumentRow>
