@@ -851,6 +851,42 @@ describe("RotateKeyDialog idempotency", () => {
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull())
   })
 
+  // forge after v1.12.2 names the reason, and the wording may change under it.
+  it("keeps the key when only the reason says the rotation is still running", async () => {
+    const base = secretServer()
+    const keys: (string | undefined)[] = []
+    const client = {
+      extension: base.client.extension,
+      query: base.client.query,
+      command: async (
+        intent: string,
+        payload?: unknown,
+        opts?: { idempotencyKey?: string }
+      ) => {
+        keys.push(opts?.idempotencyKey)
+        if (keys.length === 1) {
+          throw new ContractError(
+            "CONFLICT",
+            "a reworded refusal",
+            { reason: "idempotency.still_running" },
+            true
+          )
+        }
+        return base.client.command(intent, payload, opts)
+      },
+    } as ScopedClient
+    mount(client)
+    await dialog()
+    fireEvent.click(rotateButton())
+    expect((await screen.findByRole("alert")).textContent).toBe(
+      "Your earlier attempt is still finishing, so try again in a moment."
+    )
+    fireEvent.click(rotateButton())
+    await screen.findByText("This is the only time Keysmith will show it.")
+    expect(keys).toHaveLength(2)
+    expect(keys[1]).toBe(keys[0])
+  })
+
   it("mints a new key after a context switch", async () => {
     const server = secretServer()
     render(

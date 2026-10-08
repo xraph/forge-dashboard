@@ -1121,6 +1121,39 @@ describe("CreateKeyDialog idempotency", () => {
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull())
   })
 
+  // forge after v1.12.2 names the reason, and the wording may change under it.
+  it("explains a create that already ran when only the reason says so", async () => {
+    const base = secretServer()
+    const keys: (string | undefined)[] = []
+    const client = {
+      extension: base.client.extension,
+      query: base.client.query,
+      command: async (
+        intent: string,
+        payload?: unknown,
+        opts?: { idempotencyKey?: string }
+      ) => {
+        keys.push(opts?.idempotencyKey)
+        if (keys.length === 1) {
+          throw new ContractError("CONFLICT", "a reworded refusal", {
+            reason: "idempotency.already_ran",
+          })
+        }
+        return base.client.command(intent, payload, opts)
+      },
+    } as ScopedClient
+    mount(client)
+    await screen.findByRole("checkbox", { name: "billing:read" })
+    await submitNamed()
+    expect((await screen.findByRole("alert")).textContent).toBe(SPENT)
+
+    // The key ended with that answer, so the next press is a new command.
+    fireEvent.click(createButton())
+    await screen.findByText("This is the only time Keysmith will show it.")
+    expect(keys).toHaveLength(2)
+    expect(keys[1]).not.toBe(keys[0])
+  })
+
   it("mints a new key for the next key after a reveal", async () => {
     const server = secretServer()
     mount(server.client)

@@ -61,10 +61,45 @@ function newIdempotencyKey(): string {
     .slice(2, 12)}`
 }
 
-// The start of the dispatcher's answer to a replayed command whose response
-// held a secret (forge v1.12.1). Matched with the code: keysmith also answers
-// CONFLICT when a key changed while you were acting on it.
-const ALREADY_RAN = "command already ran"
+// forge's dispatcher names why it refused a command in `details.reason`, and
+// that name is what these read. forge v1.12.2 and earlier send no reason, so
+// without one they fall back to the code and the start of the message. A
+// reason, when there is one, decides on its own: the message is then free to
+// change. keysmith's own CONFLICT (a key changed while you were acting on it)
+// carries neither, and matches none of these.
+const ALREADY_RAN = {
+  reason: "idempotency.already_ran",
+  code: "CONFLICT",
+  // forge v1.12.1's answer to a replayed command whose response held a secret.
+  prefix: "command already ran",
+}
+// forge v1.12.2 holds the idempotency key while a command runs, and a repeat
+// in that time hears this. The key stays the right one to send again.
+const STILL_RUNNING = {
+  reason: "idempotency.still_running",
+  code: "CONFLICT",
+  prefix: "the same command is still running",
+}
+// A custom store could not take the claim at all, so nothing ran.
+const CLAIM_FAILED = {
+  reason: "idempotency.claim_failed",
+  code: "UNAVAILABLE",
+  prefix: "could not claim the idempotency key",
+}
+
+function answered(
+  error: ContractError | undefined,
+  want: { reason: string; code: string; prefix: string }
+): boolean {
+  if (error === undefined) return false
+  const reason = error.details?.reason
+  if (typeof reason === "string") return reason === want.reason
+  return (
+    error.code === want.code &&
+    typeof error.message === "string" &&
+    error.message.startsWith(want.prefix)
+  )
+}
 
 /**
  * The server says this idempotency key already ran a command whose answer held
@@ -72,19 +107,8 @@ const ALREADY_RAN = "command already ran"
  * can show its secret now.
  */
 export function alreadyRan(error: ContractError | undefined): boolean {
-  return (
-    error?.code === "CONFLICT" &&
-    typeof error.message === "string" &&
-    error.message.startsWith(ALREADY_RAN)
-  )
+  return answered(error, ALREADY_RAN)
 }
-
-// forge v1.12.2 holds the idempotency key while a command runs. A repeat in
-// that time answers CONFLICT with this, and the key stays the right one to
-// send again.
-const STILL_RUNNING = "the same command is still running"
-// What v1.12.2 answers when a custom store could not take the claim at all.
-const CLAIM_FAILED = "could not claim the idempotency key"
 
 /**
  * An earlier send under this idempotency key is still running. Nothing is
@@ -92,20 +116,12 @@ const CLAIM_FAILED = "could not claim the idempotency key"
  * that the command already ran.
  */
 export function stillRunning(error: ContractError | undefined): boolean {
-  return (
-    error?.code === "CONFLICT" &&
-    typeof error.message === "string" &&
-    error.message.startsWith(STILL_RUNNING)
-  )
+  return answered(error, STILL_RUNNING)
 }
 
 /** The server could not claim the idempotency key, so nothing ran. */
 export function claimFailed(error: ContractError | undefined): boolean {
-  return (
-    error?.code === "UNAVAILABLE" &&
-    typeof error.message === "string" &&
-    error.message.startsWith(CLAIM_FAILED)
-  )
+  return answered(error, CLAIM_FAILED)
 }
 
 // A bare 401 or 403 (no envelope, from the auth middleware) reaches the page
