@@ -9,6 +9,6 @@ declare module "*nexus-fixtures.mjs" {
     ErrorType: new (status: number, code: string, message: string) => Error
   ): Record<
     string,
-    { kind: string; handler: (params: Record<string, unknown>) => unknown }
+    { kind: string; invalidates?: string[]; handler: (params: Record<string, unknown>) => unknown }
   >
 }

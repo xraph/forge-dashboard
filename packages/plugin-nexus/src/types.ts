@@ -229,3 +229,22 @@ export interface Settings {
   logLevel: string
   authenticationScope: string
 }
+
+export type TenantConfigWrite = Omit<
+  TenantConfig,
+  "routingStrategyEnforced" | "guardrailPolicyEnforced"
+>
+export interface TenantCreate {
+  name: string
+  slug: string
+  quota?: Partial<Quota>
+  config?: Partial<TenantConfigWrite>
+  metadata?: Record<string, string>
+}
+export interface TenantUpdate {
+  id: string
+  name?: string
+  quota?: Partial<Quota>
+  config?: Partial<TenantConfigWrite>
+  metadata?: Record<string, string>
+}

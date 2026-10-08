@@ -28,3 +28,28 @@ export function fixtureClient(overrides: Record<string, unknown> = {}) {
     ...overrides,
   })
 }
+
+export function commandClient(
+  overrides: Record<string, (payload: Record<string, unknown>) => unknown> = {}
+) {
+  const result = fixtureClient()
+  const commands: {
+    intent: string
+    payload: Record<string, unknown>
+    options?: import("@forge-go/dashboard-plugin").CommandOptions
+  }[] = []
+  result.client.command = async <T>(
+    intent: string,
+    payload?: unknown,
+    options?: import("@forge-go/dashboard-plugin").CommandOptions
+  ): Promise<T> => {
+    const input = (payload ?? {}) as Record<string, unknown>
+    commands.push({ intent, payload: input, options })
+    const handler = handlers[intent]
+    const value = await (overrides[intent] ?? handler.handler)(input)
+    const { queryStore } = await import("@forge-go/dashboard-plugin")
+    queryStore.invalidate("nexus", handler.invalidates ?? [])
+    return value as T
+  }
+  return { ...result, commands }
+}
