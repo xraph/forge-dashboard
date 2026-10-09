@@ -14,6 +14,9 @@ export interface Provider {
   type: string
   healthy: boolean
   capabilities: {
+    rpc: boolean
+    consumerControls: boolean
+    backfill: boolean
     durable: boolean
     replay: boolean
     deadLetters: boolean
@@ -61,6 +64,10 @@ export interface Snapshot {
   retried: number
   deadLettered: number
   observerDrops: number
+  rpcCalls: number
+  rpcHandled: number
+  rpcFailed: number
+  rpcTimedOut: number
 }
 export interface Delivery {
   stream: string
@@ -84,6 +91,7 @@ export interface LetterList {
   nextCursor: string
 }
 export interface HookEvent {
+  duration?: number
   stage: string
   identity: Identity
   at: string
@@ -96,4 +104,46 @@ export interface Receipt {
   sequence: number
   persisted: boolean
   duplicate: boolean
+}
+
+export interface Latency {
+  count: number
+  total: number
+  max: number
+  average: number
+}
+export interface ConsumerInfo {
+  subscription: Subscription
+  provider: string
+  consumerID: string
+  pending: number
+  ackPending: number
+  redelivered: number
+  paused: boolean
+  processing: Latency
+  delivery: Latency
+}
+export interface BackfillInput {
+  id: string
+  subscription: string
+  start: number
+  end: number
+}
+export interface Backfill {
+  messageType: string
+  input: BackfillInput
+  consumerID: string
+  stream: string
+  provider: string
+  state: "running" | "failed" | "complete"
+  next: number
+  published: number
+  skipped: number
+  updatedAt: string
+  error?: string
+  persisted: boolean
+}
+export interface BackfillList {
+  jobs: Backfill[]
+  nextCursor: string
 }

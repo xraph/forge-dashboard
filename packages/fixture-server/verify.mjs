@@ -35,6 +35,10 @@ const base = (process.argv[2] ?? "http://localhost:8099") + "/dashboard/api/dash
  * that 404s on an unknown id is not mistaken for one that is missing.
  */
 const INPUT = {
+  "conduit::backfills.list": { provider: "events", limit: 25 },
+  "conduit::consumers.pause": { subscription: "process-orders" },
+  "conduit::consumers.resume": { subscription: "process-orders" },
+  "conduit::backfills.run": { id: "verify-backfill", subscription: "process-orders", start: 1, end: 2 },
   "conduit::deadletters.list": { provider: "events", limit: 25 },
   "conduit::deadletters.replay": { provider: "events", subscription: "process-orders", id: "billing-process_order-31" },
   "auth::auth.login": { email: "ada@example.com", password: "anything" },

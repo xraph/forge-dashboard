@@ -14,7 +14,11 @@ const delivery = {
 }
 let letters = []
 let events = []
+let paused = new Set()
+let jobs = []
 export function resetConduit() {
+  paused = new Set()
+  jobs = []
   letters = [
     {
       id: "billing-process_order-31",
@@ -54,12 +58,19 @@ export function createConduitHandlers(FixtureError) {
     retried: 4,
     deadLettered: 1,
     observerDrops: 0,
+    rpcCalls: 12,
+    rpcHandled: 11,
+    rpcFailed: 1,
+    rpcTimedOut: 1,
     providers: [
       {
         name: "events",
         type: "nats-jetstream",
         healthy: true,
         capabilities: {
+          rpc: true,
+          consumerControls: true,
+          backfill: true,
           durable: true,
           replay: true,
           deadLetters: true,
@@ -125,6 +136,108 @@ export function createConduitHandlers(FixtureError) {
         })
       ),
     })),
+    "consumers.list": read(() => ({
+      consumers: snapshot().subscriptions.map((sub) => ({
+        subscription: sub,
+        provider: "events",
+        consumerID: sub.id,
+        pending: paused.has(sub.id) ? 8 : 0,
+        ackPending: 0,
+        redelivered: 1,
+        paused: paused.has(sub.id),
+        processing: {
+          count: 68,
+          total: 68000000,
+          average: 1000000,
+          max: 2300000,
+        },
+        delivery: {
+          count: 68,
+          total: 136000000,
+          average: 2000000,
+          max: 5500000,
+        },
+      })),
+    })),
+    "backfills.list": read((payload) => {
+      if (payload?.provider !== "events")
+        throw new FixtureError(404, "NOT_FOUND", "Provider not found")
+      const found = jobs.filter((j) => j.input.id > (payload.cursor || ""))
+      const limit = payload.limit || 25
+      return {
+        jobs: structuredClone(found.slice(0, limit)),
+        nextCursor: found.length > limit ? found[limit - 1].input.id : "",
+      }
+    }),
+    ...Object.fromEntries(
+      [true, false].map((value) => [
+        value ? "consumers.pause" : "consumers.resume",
+        {
+          kind: "command",
+          version: 1,
+          capability: "write",
+          invalidates: ["consumers.list"],
+          handler: (payload) => {
+            if (
+              !snapshot().subscriptions.some(
+                (s) => s.id === payload?.subscription
+              )
+            )
+              throw new FixtureError(404, "NOT_FOUND", "Subscription not found")
+            if (value) paused.add(payload.subscription)
+            else paused.delete(payload.subscription)
+            return {}
+          },
+        },
+      ])
+    ),
+    "backfills.run": {
+      kind: "command",
+      version: 1,
+      capability: "write",
+      invalidates: [
+        "overview",
+        "consumers.list",
+        "backfills.list",
+        "hooks.list",
+      ],
+      handler: (payload) => {
+        if (
+          !payload?.id ||
+          !Number.isSafeInteger(payload.start) ||
+          !Number.isSafeInteger(payload.end) ||
+          payload.start < 1 ||
+          payload.end < payload.start ||
+          payload.end - payload.start >= 100
+        )
+          throw new FixtureError(400, "BAD_REQUEST", "Invalid range")
+        if (
+          !snapshot().subscriptions.some((s) => s.id === payload.subscription)
+        )
+          throw new FixtureError(404, "NOT_FOUND", "Subscription not found")
+        const existing = jobs.find((j) => j.input.id === payload.id)
+        if (existing) {
+          if (JSON.stringify(existing.input) !== JSON.stringify(payload))
+            throw new FixtureError(409, "CONFLICT", "Operation ID already used")
+          return structuredClone(existing)
+        }
+        const job = {
+          messageType: "orders.placed.v1",
+          input: structuredClone(payload),
+          consumerID: payload.subscription,
+          stream: "orders",
+          provider: "events",
+          state: "complete",
+          next: payload.end + 1,
+          published: payload.end - payload.start + 1,
+          skipped: 0,
+          updatedAt: new Date().toISOString(),
+          persisted: true,
+        }
+        jobs.push(job)
+        return structuredClone(job)
+      },
+    },
     "hooks.list": read(() => ({ events: structuredClone(events) })),
     "deadletters.list": read((payload) => {
       if (payload?.provider !== "events")

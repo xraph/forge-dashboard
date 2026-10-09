@@ -33,6 +33,11 @@ import type {
 
 const providerColumns: Column<Provider>[] = [
   {
+    id: "rpc",
+    header: "RPC",
+    cell: (p) => (p.capabilities.rpc ? "Supported" : "Unavailable"),
+  },
+  {
     id: "name",
     header: "Provider",
     cell: (p) => <span className="font-medium">{p.name}</span>,
@@ -140,10 +145,10 @@ export function ConduitOverviewPage() {
   return (
     <section className="flex min-w-0 flex-col gap-3">
       <PageHeader
-        title="Communications"
+        title="Conduit"
         description="Broker state and counters for this service instance."
       />
-      <QueryBoundary title="Communications" query={query}>
+      <QueryBoundary title="Conduit" query={query}>
         {(data) => (
           <>
             <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-md border px-3 py-2 text-sm">
@@ -164,6 +169,10 @@ export function ConduitOverviewPage() {
             >
               {[
                 ["Published", data.published],
+                ["RPC calls", data.rpcCalls],
+                ["RPC handled", data.rpcHandled],
+                ["RPC failures", data.rpcFailed],
+                ["RPC timeouts", data.rpcTimedOut],
                 ["Acknowledged", data.acknowledged],
                 ["Failed attempts", data.failed],
                 ["Retries", data.retried],
@@ -448,6 +457,16 @@ export function ConduitDeadLettersPage() {
 }
 
 const hookColumns: Column<HookEvent>[] = [
+  {
+    id: "duration",
+    header: "Duration",
+    cell: (e) =>
+      e.duration ? (
+        `${(e.duration / 1e6).toFixed(1)} ms`
+      ) : (
+        <NoneCell label="value" />
+      ),
+  },
   {
     id: "time",
     header: "Time",

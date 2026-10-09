@@ -31,6 +31,9 @@ const snapshot: Snapshot = {
       type: "nats-jetstream",
       healthy: true,
       capabilities: {
+        rpc: true,
+        consumerControls: true,
+        backfill: true,
         durable: true,
         replay: true,
         deadLetters: true,
@@ -61,6 +64,10 @@ const snapshot: Snapshot = {
   retried: 2,
   deadLettered: 1,
   observerDrops: 0,
+  rpcCalls: 0,
+  rpcHandled: 0,
+  rpcFailed: 0,
+  rpcTimedOut: 0,
 }
 const letter: Letter = {
   id: "dead-1",
