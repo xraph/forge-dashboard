@@ -1,5 +1,18 @@
 # Dashboard design preview
 
+You can try the reference design on one page at `/reference-preview.html`.
+Run `pnpm --filter @forge-go/dashboard-shell dev:reference` to open it, or
+`pnpm --filter @forge-go/dashboard-shell build:reference` to check and bundle it.
+The page uses the Kit's shared sidebar, cards, buttons, badges, select, sheets,
+and ZeroState with an opt-in `reference.css` theme. You can adjust the request
+count, choose an endpoint, and send sample requests to update the diagram.
+All data is illustrative. No server requests are sent.
+
+This trial follows the supplied reference: pale neutral surfaces, fine borders,
+compact controls, a green capacity chart, and violet request activity. Its
+entry and build are separate from the older multi-page preview and the
+production dashboard. The wider Kit redesign is pending your review of this page.
+
 Run `pnpm --filter @forge-go/dashboard-shell dev:preview` and open
 `/design-preview.html`. You can also run `build:preview` on the same package
 to typecheck and bundle the mock into `apps/shell/dist-preview`.

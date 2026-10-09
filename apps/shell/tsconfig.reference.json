@@ -1,0 +1,7 @@
+{
+  "extends": "./tsconfig.app.json",
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.reference.tsbuildinfo"
+  },
+  "include": ["src/design-preview/reference-main.tsx"]
+}

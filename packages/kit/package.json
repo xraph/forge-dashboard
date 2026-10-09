@@ -2,7 +2,9 @@
   "name": "@forge-go/dashboard-kit",
   "version": "0.0.0",
   "type": "module",
-  "files": ["src"],
+  "files": [
+    "src"
+  ],
   "publishConfig": {
     "access": "public"
   },
@@ -69,6 +71,7 @@
   "exports": {
     "./globals.css": "./src/styles/globals.css",
     "./preview.css": "./src/styles/preview.css",
+    "./reference.css": "./src/styles/reference.css",
     "./icons": "./src/icons.ts",
     "./lib/*": "./src/lib/*.ts",
     "./components/*": "./src/components/*.tsx",
