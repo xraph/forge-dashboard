@@ -37,7 +37,7 @@ export interface FilterBarProps {
 function Filter({ filter }: { filter: FilterConfig }) {
   const id = useId()
   return (
-    <div className="flex items-center gap-1.5">
+    <div className="flex min-w-0 flex-wrap items-center gap-1.5">
       <label htmlFor={id} className="text-xs text-muted-foreground">
         {filter.label}
       </label>
@@ -76,7 +76,7 @@ export function FilterBar({
   if (!search && filters.length === 0 && !actions) return null
 
   return (
-    <div className={cn("flex flex-wrap items-center gap-3", className)}>
+    <div className={cn("flex min-w-0 flex-wrap items-center gap-2", className)}>
       {search && (
         <Input
           type="search"
@@ -84,14 +84,16 @@ export function FilterBar({
           placeholder={search.placeholder}
           value={search.value}
           onChange={(event) => search.onChange(event.target.value)}
-          className="h-8 w-56"
+          className="w-full sm:w-56"
         />
       )}
       {filters.map((filter) => (
         <Filter key={filter.id} filter={filter} />
       ))}
       {actions && (
-        <div className="ml-auto flex items-center gap-2">{actions}</div>
+        <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
+          {actions}
+        </div>
       )}
     </div>
   )

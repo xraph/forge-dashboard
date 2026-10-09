@@ -193,6 +193,7 @@ export function DashboardShell({
       className="bg-sidebar"
       style={
         {
+          "--sidebar-width": "14.5rem",
           "--sidebar-offset": expanded
             ? "var(--sidebar-width)"
             : "var(--sidebar-width-icon)",
@@ -244,7 +245,7 @@ export function DashboardShell({
         */}
         <div
           id="dashboard-main"
-          className="@container/main flex min-w-0 flex-1 flex-col gap-6 px-4 pb-4 md:px-6 md:pb-6 xl:px-8 xl:pb-8"
+          className="@container/main flex min-w-0 flex-1 flex-col gap-4 p-4"
         >
           {children}
         </div>

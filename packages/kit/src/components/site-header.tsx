@@ -10,8 +10,11 @@ export interface SiteHeaderProps {
 
 export function SiteHeader({ title, scope, actions }: SiteHeaderProps) {
   return (
-    <header className="flex h-14 shrink-0 items-center gap-2 border-b bg-background">
-      <div className="flex min-w-0 flex-1 items-center gap-2 px-4 lg:px-6">
+    <header
+      data-slot="site-header"
+      className="flex min-h-(--header-height) shrink-0 items-center gap-2 border-b bg-background py-1.5"
+    >
+      <div className="flex min-w-0 flex-1 items-center gap-2 px-4">
         <SidebarTrigger className="-ml-1" />
         <Separator
           orientation="vertical"
@@ -19,7 +22,7 @@ export function SiteHeader({ title, scope, actions }: SiteHeaderProps) {
         />
         <nav
           aria-label="Breadcrumb"
-          className="flex min-w-0 items-center gap-3 text-sm"
+          className="flex min-w-0 items-center gap-2 text-xs"
         >
           {scope && (
             <>

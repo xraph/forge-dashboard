@@ -101,7 +101,7 @@ export function QueryBoundary<T>({
 
   if (query.error) {
     return (
-      <Card className={cn(className)}>
+      <Card size="sm" className={cn(className)}>
         <CardHeader>
           <CardTitle>{title} unavailable</CardTitle>
           {/*
@@ -115,7 +115,7 @@ export function QueryBoundary<T>({
             {query.error.code}: {query.error.message}
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="items-start">
           <Button variant="outline" size="sm" onClick={query.refetch}>
             Retry
           </Button>

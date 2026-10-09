@@ -198,7 +198,7 @@ export function NavRail({
         {groups.map((group, index) => (
           <Fragment key={`${group.label ?? ""}:${index}`}>
             {expanded && group.label ? (
-              <span className="px-2 pt-3 pb-0.5 text-[10.5px] font-medium tracking-[0.14em] text-sidebar-foreground/50 uppercase">
+              <span className="px-2 pt-3 pb-0.5 text-[10.5px] font-medium tracking-normal text-sidebar-foreground/50 uppercase">
                 {group.label}
               </span>
             ) : null}
@@ -218,7 +218,7 @@ export function NavRail({
         {plugins.length > 0 ? (
           <>
             {expanded ? (
-              <span className="px-2 pt-3 pb-0.5 text-[10.5px] font-medium tracking-[0.14em] text-sidebar-foreground/50 uppercase">
+              <span className="px-2 pt-3 pb-0.5 text-[10.5px] font-medium tracking-normal text-sidebar-foreground/50 uppercase">
                 Plugins
               </span>
             ) : (

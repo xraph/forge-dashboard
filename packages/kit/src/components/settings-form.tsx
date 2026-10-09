@@ -137,7 +137,7 @@ export function SettingsForm({
   return (
     <div
       data-layout={layout}
-      className={cn("group/settings flex min-w-0 flex-col gap-6", className)}
+      className={cn("group/settings flex min-w-0 flex-col gap-4", className)}
     >
       {sections.map(([section, sectionFields]) => (
         <section
@@ -145,7 +145,7 @@ export function SettingsForm({
           className="flex flex-col gap-4 group-data-[layout=rows]/settings:gap-0 group-data-[layout=rows]/settings:overflow-hidden group-data-[layout=rows]/settings:rounded-md group-data-[layout=rows]/settings:border group-data-[layout=rows]/settings:bg-card"
         >
           {section !== undefined && (
-            <h2 className="text-sm font-medium group-data-[layout=rows]/settings:border-b group-data-[layout=rows]/settings:bg-muted/30 group-data-[layout=rows]/settings:px-5 group-data-[layout=rows]/settings:py-4">
+            <h2 className="text-sm font-medium group-data-[layout=rows]/settings:border-b group-data-[layout=rows]/settings:bg-muted/30 group-data-[layout=rows]/settings:px-4 group-data-[layout=rows]/settings:py-3">
               {section}
             </h2>
           )}
@@ -202,7 +202,7 @@ function Field({
   return (
     <div
       className={cn(
-        "flex min-w-0 flex-col gap-1.5 group-data-[layout=rows]/settings:gap-4 group-data-[layout=rows]/settings:border-b group-data-[layout=rows]/settings:p-5 group-data-[layout=rows]/settings:last:border-0 group-data-[layout=rows]/settings:@2xl/main:grid group-data-[layout=rows]/settings:@2xl/main:grid-cols-2",
+        "flex min-w-0 flex-col gap-1.5 group-data-[layout=rows]/settings:gap-3 group-data-[layout=rows]/settings:border-b group-data-[layout=rows]/settings:px-4 group-data-[layout=rows]/settings:py-3 group-data-[layout=rows]/settings:last:border-0 group-data-[layout=rows]/settings:@2xl/main:grid group-data-[layout=rows]/settings:@2xl/main:grid-cols-2",
         disabled && "opacity-70"
       )}
     >

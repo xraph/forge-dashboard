@@ -79,7 +79,7 @@ export function ResourceTable<Row>({
   pagination,
   onPageChange,
   className,
-  density = "comfortable",
+  density = "compact",
 }: ResourceTableProps<Row>) {
   if (rows.length === 0) {
     return (

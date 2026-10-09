@@ -20,15 +20,16 @@ export function ZeroState({
 }: ZeroStateProps) {
   return (
     <section
+      data-slot="zero-state"
       role="status"
       className={cn(
-        "flex min-w-0 flex-col items-start gap-2 rounded-md border bg-card p-5 text-left",
+        "flex min-w-0 flex-col items-start gap-2 rounded-md border bg-card p-4 text-left",
         className
       )}
     >
       <div
         aria-hidden="true"
-        className="flex size-12 items-center justify-center rounded-lg border bg-muted/40 text-muted-foreground"
+        className="flex size-10 items-center justify-center rounded-lg border bg-muted/40 text-muted-foreground"
       >
         {illustration ?? <Inbox className="size-6 stroke-[1.5]" />}
       </div>

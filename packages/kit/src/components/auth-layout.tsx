@@ -42,7 +42,7 @@ export function AuthLayout({
   footer,
   className,
   size = "default",
-  density = "default",
+  density = "compact",
 }: AuthLayoutProps) {
   const dark = useDocumentTheme() === "dark"
 
@@ -90,7 +90,7 @@ export function AuthLayout({
 
       <main
         className={cn(
-          "relative flex min-h-[calc(100svh-10rem)] flex-1 items-center justify-center px-6 sm:px-10 lg:min-h-svh lg:px-16",
+          "relative flex min-h-[calc(100svh-10rem)] flex-1 items-center justify-center px-4 sm:px-6 lg:min-h-svh lg:px-10",
           density === "compact" ? "py-8 lg:py-10" : "py-10 lg:py-16"
         )}
       >
@@ -111,25 +111,25 @@ export function AuthLayout({
             size === "wide" ? "max-w-[42rem]" : "max-w-[25rem]"
           )}
         >
-          <h1 className="text-[1.75rem] leading-[1.15] font-semibold tracking-[-0.035em]">
+          <h1 className="text-[1.375rem] leading-[1.15] font-semibold tracking-[-0.035em]">
             {title}
           </h1>
           {description ? (
-            <p className="mt-2 max-w-sm text-[0.9375rem] leading-6 text-muted-foreground">
+            <p className="mt-2 max-w-sm text-sm leading-relaxed text-muted-foreground">
               {description}
             </p>
           ) : null}
           <div
             className={
               density === "compact"
-                ? "mt-5 [&_form_button]:h-9 [&_form_input]:h-9"
+                ? "mt-4"
                 : "mt-8 [&_form_button]:h-11 [&_form_input]:h-11"
             }
           >
             {children}
           </div>
           {footer ? (
-            <div className="mt-8 border-t pt-6 text-center text-sm">
+            <div className="mt-5 border-t pt-4 text-center text-sm">
               {footer}
             </div>
           ) : null}

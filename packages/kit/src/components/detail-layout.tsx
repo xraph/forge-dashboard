@@ -23,14 +23,14 @@ export function DescriptionList({ items, className }: DescriptionListProps) {
   return (
     <dl
       className={cn(
-        "grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm",
+        "grid min-w-0 grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1 text-sm",
         className
       )}
     >
       {items.map((item) => (
         <div key={item.term} className="contents">
           <dt className="text-muted-foreground">{item.term}</dt>
-          <dd>{item.value}</dd>
+          <dd className="min-w-0 wrap-break-word">{item.value}</dd>
         </div>
       ))}
     </dl>
@@ -55,12 +55,12 @@ export function DetailLayout({ main, aside, className }: DetailLayoutProps) {
   return (
     <div
       className={cn(
-        "grid min-w-0 grid-cols-1 gap-6 @3xl/main:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]",
+        "grid min-w-0 grid-cols-1 gap-4 @3xl/main:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]",
         className
       )}
     >
-      <div className="flex min-w-0 flex-col gap-6">{main}</div>
-      {aside && <aside className="flex min-w-0 flex-col gap-6">{aside}</aside>}
+      <div className="flex min-w-0 flex-col gap-4">{main}</div>
+      {aside && <aside className="flex min-w-0 flex-col gap-4">{aside}</aside>}
     </div>
   )
 }

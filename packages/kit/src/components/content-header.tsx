@@ -19,7 +19,10 @@ export function ContentHeader({
   actions?: ReactNode
 }) {
   return (
-    <header className="flex h-12 shrink-0 items-center gap-2 px-4 lg:px-6">
+    <header
+      data-slot="content-header"
+      className="flex min-h-(--header-height) shrink-0 flex-wrap items-center gap-2 border-b px-4 py-1.5"
+    >
       {showTrigger ? (
         <>
           <SidebarTrigger className="-ml-1" />
@@ -31,7 +34,7 @@ export function ContentHeader({
       ) : null}
       <nav
         aria-label="Breadcrumb"
-        className="flex min-w-0 items-center gap-2 text-sm"
+        className="flex min-w-0 items-center gap-2 text-xs"
       >
         {crumbs.map((crumb, index) => {
           const last = index === crumbs.length - 1
@@ -40,14 +43,14 @@ export function ContentHeader({
               {index > 0 ? (
                 <ChevronRightIcon
                   aria-hidden="true"
-                  className="size-4 shrink-0 text-muted-foreground"
+                  className="size-3 shrink-0 text-muted-foreground"
                 />
               ) : null}
               <span
                 aria-current={last ? "page" : undefined}
                 className={
                   last
-                    ? "truncate font-medium"
+                    ? "truncate font-normal"
                     : "shrink-0 text-muted-foreground"
                 }
               >

@@ -1,3 +1,4 @@
+import { ZeroState } from "@forge-go/dashboard-kit/components/zero-state"
 import {
   Fragment,
   memo,
@@ -1048,7 +1049,7 @@ function DataGridTableHeadRowCell<TData extends object>({
         isLastStartPinned ? "start" : isFirstEndPinned ? "end" : undefined
       }
       className={cn(
-        "relative h-10 text-left align-middle font-medium text-foreground rtl:text-right [&:has([role=checkbox])]:pe-0",
+        "relative h-8 text-left align-middle font-medium text-foreground rtl:text-right [&:has([role=checkbox])]:pe-0",
         headerCellSpacing,
         props.tableLayout?.headerBackground && "bg-muted",
         props.tableLayout?.cellBorder && "border-e",
@@ -1996,9 +1997,16 @@ function DataGridTableEmpty() {
     <tr>
       <td
         colSpan={Math.max(visibleColumnCount, 1)}
-        className="py-6 text-center text-sm text-muted-foreground"
+        className="p-3 text-left text-sm text-muted-foreground"
       >
-        {props.emptyMessage || i18n.labels.empty}
+        {typeof (props.emptyMessage || i18n.labels.empty) === "string" ? (
+          <ZeroState
+            title={(props.emptyMessage || i18n.labels.empty) as string}
+            className="border-0"
+          />
+        ) : (
+          props.emptyMessage || i18n.labels.empty
+        )}
       </td>
     </tr>
   )

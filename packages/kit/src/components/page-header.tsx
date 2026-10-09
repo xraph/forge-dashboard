@@ -30,7 +30,7 @@ export function PageHeader({
       data-slot="page-header"
       data-density={density}
       className={cn(
-        "flex flex-wrap items-start justify-between gap-2",
+        "flex flex-wrap items-center justify-between gap-2",
         className
       )}
     >
@@ -38,8 +38,8 @@ export function PageHeader({
         <h1
           className={
             density === "compact"
-              ? "text-base font-semibold tracking-tight"
-              : "text-lg font-medium"
+              ? "text-lg font-medium tracking-tight"
+              : "text-xl font-medium"
           }
         >
           {title}

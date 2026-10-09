@@ -69,7 +69,7 @@ const RAIL_LINK =
 // secondary sidebar read at the same density.
 const RAIL_LINK_ICON = "w-8 justify-center [&>span:last-child]:sr-only"
 const RAIL_LINK_LABELLED =
-  "w-full justify-start gap-2 px-2 [&>span:last-child]:truncate"
+  "w-full justify-start gap-2.5 px-2 [&>span:last-child]:truncate"
 
 function RailEntry({
   item,
