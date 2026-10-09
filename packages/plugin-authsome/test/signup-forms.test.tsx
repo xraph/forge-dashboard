@@ -131,7 +131,9 @@ describe("AuthSignupFormEditorPage", () => {
     // `formConfigs.deleteSignup` takes no input: it deletes the one signup
     // form config for the current app context, not one picked by id.
     expect(sent[0]).toEqual({ intent: "formConfigs.deleteSignup", payload: {} })
-    expect(screen.getByText("The signup form has been deleted.")).toBeTruthy()
+    expect(
+      await screen.findByText("The signup form has been deleted.")
+    ).toBeTruthy()
   })
 
   it("shows the server's reason and leaves the delete dialog open when the delete fails", async () => {
