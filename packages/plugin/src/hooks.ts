@@ -19,6 +19,8 @@ export interface QueryState<T> {
 }
 
 export interface QueryOptions {
+  /** Abort in-flight HTTP when the last reader unmounts or pauses. */
+  cancelOnUnused?: boolean
   /**
    * `false` makes the query wait: no request, no store entry read, no
    * subscription, so an invalidation issues nothing for it. Turning it `true`
@@ -54,6 +56,7 @@ export function useQuery<T = unknown>(
 ): QueryState<T> {
   const client = usePluginClient()
   const enabled = options?.enabled ?? true
+  const cancelOnUnused = options?.cancelOnUnused ?? false
   const key = queryStore.keyOf(client.extension, intent, params)
 
   // A disabled query is not a reader. It does not subscribe, because
@@ -66,12 +69,18 @@ export function useQuery<T = unknown>(
       [key, enabled]
     ),
     useCallback(
-      () => (enabled ? queryStore.snapshot<T>(key) : (DISABLED as Entry<T>)),
-      [key, enabled]
+      () =>
+        enabled
+          ? queryStore.snapshot<T>(key, cancelOnUnused ? client : undefined)
+          : (DISABLED as Entry<T>),
+      [key, enabled, client, cancelOnUnused]
     ),
     useCallback(
-      () => (enabled ? queryStore.snapshot<T>(key) : (DISABLED as Entry<T>)),
-      [key, enabled]
+      () =>
+        enabled
+          ? queryStore.snapshot<T>(key, cancelOnUnused ? client : undefined)
+          : (DISABLED as Entry<T>),
+      [key, enabled, client, cancelOnUnused]
     )
   )
 
@@ -81,10 +90,15 @@ export function useQuery<T = unknown>(
 
   useEffect(() => {
     if (!enabled) return
-    queryStore.read<T>(key, () => client.query<T>(intent, params), staleMs)
+    queryStore.read<T>(
+      key,
+      (signal) => client.query<T>(intent, params, { signal }),
+      staleMs,
+      { cancelOnUnused, owner: cancelOnUnused ? client : undefined }
+    )
     // params is compared by the key it produced, which is what `key` is.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [client, intent, key, staleMs, enabled])
+  }, [client, intent, key, staleMs, enabled, cancelOnUnused])
 
   const refetch = useCallback(() => {
     // A query that was told to wait has not been asked yet, so there is
@@ -92,11 +106,18 @@ export function useQuery<T = unknown>(
     if (!enabled) return
     // staleMs 0 forces the request. A refetch that honoured the cache would
     // be a button that sometimes does nothing, which is worse than no button.
-    queryStore.read<T>(key, () => client.query<T>(intent, params), 0, {
-      force: true,
-    })
+    queryStore.read<T>(
+      key,
+      (signal) => client.query<T>(intent, params, { signal }),
+      0,
+      {
+        force: true,
+        cancelOnUnused,
+        owner: cancelOnUnused ? client : undefined,
+      }
+    )
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [client, intent, key, enabled])
+  }, [client, intent, key, enabled, cancelOnUnused])
 
   return { ...entry, refetch }
 }

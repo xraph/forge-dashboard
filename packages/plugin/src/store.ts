@@ -26,7 +26,10 @@ interface Record_<T> {
   // closure on every render, so two components mounting the same key each
   // issued their own request. Joining is decided by `pending`, never by
   // identity.
-  fetcher: () => Promise<unknown>
+  fetcher: (signal?: AbortSignal) => Promise<unknown>
+  abort: AbortController
+  cancelOnUnused: boolean
+  owner?: object
 }
 
 const EMPTY: Entry<never> = { loading: true }
@@ -99,7 +102,10 @@ export class QueryStore {
     return { extension, intent }
   }
 
-  snapshot<T>(key: string): Entry<T> {
+  snapshot<T>(key: string, owner?: object): Entry<T> {
+    const record = this.records.get(key)
+    if (owner && record?.owner && record.owner !== owner)
+      return EMPTY as Entry<T>
     return (this.records.get(key)?.entry as Entry<T>) ?? (EMPTY as Entry<T>)
   }
 
@@ -109,7 +115,18 @@ export class QueryStore {
     this.listeners.set(key, set)
     return () => {
       set.delete(listener)
-      if (set.size === 0) this.listeners.delete(key)
+      if (set.size === 0) {
+        this.listeners.delete(key)
+        const record = this.records.get(key)
+        if (record?.cancelOnUnused && record.pending) {
+          record.abort.abort()
+          this.write(key, {
+            generation: ++this.nextGeneration,
+            pending: false,
+            entry: { ...record.entry, loading: false },
+          })
+        }
+      }
     }
   }
 
@@ -137,11 +154,18 @@ export class QueryStore {
    */
   read<T>(
     key: string,
-    fetcher: () => Promise<T>,
+    fetcher: (signal?: AbortSignal) => Promise<T>,
     staleMs: number,
-    opts?: { force?: boolean }
+    opts?: { force?: boolean; cancelOnUnused?: boolean; owner?: object }
   ): Entry<T> {
-    const record = this.records.get(key)
+    const stored = this.records.get(key)
+    const replaced = !!(
+      opts?.owner &&
+      stored?.owner &&
+      stored.owner !== opts.owner
+    )
+    if (replaced && stored.cancelOnUnused) stored.abort.abort()
+    const record = replaced ? undefined : stored
     const fresh =
       record !== undefined &&
       record.settledAt > 0 &&
@@ -159,6 +183,8 @@ export class QueryStore {
     }
 
     const { extension, intent } = QueryStore.parse(key)
+    if (record?.cancelOnUnused) record.abort.abort()
+    const abort = new AbortController()
     const generation = ++this.nextGeneration
 
     this.records.set(key, {
@@ -168,11 +194,14 @@ export class QueryStore {
       pending: true,
       extension,
       intent,
-      fetcher: fetcher as () => Promise<unknown>,
+      fetcher: fetcher as (signal?: AbortSignal) => Promise<unknown>,
+      abort,
+      cancelOnUnused: opts?.cancelOnUnused ?? record?.cancelOnUnused ?? false,
+      owner: opts?.owner ?? record?.owner,
     })
     this.notify(key)
 
-    void fetcher().then(
+    void fetcher(abort.signal).then(
       (data) => {
         // A newer read superseded this one. Its result is the answer to a
         // question nobody is asking any more.
@@ -263,6 +292,7 @@ export class QueryStore {
         // in-flight settle for this key will find no record and discard itself.
         // Nothing is subscribed here by construction, so there is nobody to
         // notify.
+        if (record.cancelOnUnused) record.abort.abort()
         this.records.delete(key)
       }
     }

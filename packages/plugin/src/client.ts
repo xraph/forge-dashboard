@@ -107,7 +107,8 @@ export interface ScopedClient {
   readonly extension: string
   query<T = unknown>(
     intent: string,
-    params?: Record<string, unknown>
+    params?: Record<string, unknown>,
+    options?: { signal?: AbortSignal }
   ): Promise<T>
   /**
    * Sends one command (a write) to this plugin's own extension.
@@ -137,6 +138,7 @@ type FetchLike = typeof fetch
 
 /** What `send` needs to build any one attempt. */
 interface SendInput {
+  signal?: AbortSignal
   kind: "query" | "command"
   intent: string
   params?: Record<string, unknown>
@@ -321,6 +323,7 @@ export function createScopedClient(
       headers: { "Content-Type": "application/json" },
       credentials: "same-origin",
       body: JSON.stringify(req),
+      signal: input.signal,
     })
 
     if (!res.ok) {
@@ -420,7 +423,8 @@ export function createScopedClient(
 
   return {
     extension,
-    query: (intent, params) => send({ kind: "query", intent, params }, false),
+    query: (intent, params, options) =>
+      send({ kind: "query", intent, params, signal: options?.signal }, false),
     command: (intent, payload, opts = {}) =>
       send(
         {
