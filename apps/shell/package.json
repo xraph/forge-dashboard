@@ -20,6 +20,7 @@
     "@forge-go/dashboard-plugin-authsome": "workspace:*",
     "@forge-go/dashboard-plugin-bastion": "workspace:*",
     "@forge-go/dashboard-plugin-chronicle": "workspace:*",
+    "@forge-go/dashboard-plugin-dispatch": "workspace:*",
     "@forge-go/dashboard-plugin-core": "workspace:*",
     "@forge-go/dashboard-plugin-conduit": "workspace:*",
     "@forge-go/dashboard-plugin-ctrlplane": "workspace:*",

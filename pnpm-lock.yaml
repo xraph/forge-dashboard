@@ -193,6 +193,9 @@ importers:
       '@forge-go/dashboard-plugin-ctrlplane':
         specifier: workspace:*
         version: link:../../packages/plugin-ctrlplane
+      '@forge-go/dashboard-plugin-dispatch':
+        specifier: workspace:*
+        version: link:../../packages/plugin-dispatch
       '@forge-go/dashboard-plugin-herald':
         specifier: workspace:*
         version: link:../../packages/plugin-herald

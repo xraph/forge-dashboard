@@ -6,7 +6,7 @@ import {
   usePoll,
   useQuery,
 } from "@forge-go/dashboard-plugin"
-import type { QueryState } from "@forge-go/dashboard-plugin"
+import type { QueryState, QueryOptions } from "@forge-go/dashboard-plugin"
 import { Button } from "@forge-go/dashboard-kit/components/button"
 import {
   CommandAlert,
@@ -23,10 +23,11 @@ const transientCodes = new Set([
 ])
 export function useDispatchQuery<T>(
   intent: string,
-  params?: Record<string, unknown>
+  params?: Record<string, unknown>,
+  options?: QueryOptions
 ): QueryState<T> {
   const client = usePluginClient()
-  const query = useQuery<T>(intent, params)
+  const query = useQuery<T>(intent, params, options)
   const key = queryStore.keyOf(client.extension, intent, params)
   const [previous, setPrevious] = useState<{
     client: typeof client

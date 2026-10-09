@@ -20,6 +20,7 @@ it("resolves the Dispatch contributor in its own namespace", () => {
 })
 it("registers the implemented operational routes with the approved groups", () => {
   expect(dispatchPlugin.nav.map((item) => [item.to, item.group])).toEqual([
+    ["/durable", "Monitoring"],
     ["/", "Dispatch"],
     ["/queues", "Monitoring"],
     ["/workers", "Monitoring"],
@@ -27,6 +28,8 @@ it("registers the implemented operational routes with the approved groups", () =
     ["/config", "Configuration"],
   ])
   expect(dispatchPlugin.routes.map((route) => route.path)).toEqual([
+    "/durable",
+    "/durable/:namespace/:workflow/:run",
     "/",
     "/queues",
     "/queues/:name",

@@ -888,3 +888,46 @@ acknowledgement. The fallback listener loads with the plugin before BrowserRoute
 window popstate listeners do not gain priority from capture mode. A browser
 refresh failure and retry also preserved the tenant draft. Evidence is in
 `output/playwright/nexus-slice6/review-regressions-result.txt`; screenshots mask keys.
+
+## Dispatch durable inspection, 2026-10-09
+
+Both durable routes and the existing Dispatch JSON viewer remain lazy. The Vite
+manifest's recursive static imports from `index.html` contain 28 entries and
+exclude the durable list, durable detail, JSON viewer and its editor imports.
+No editor or graph dependency was added.
+
+| Asset                                          | Raw bytes | gzip bytes |
+| ---------------------------------------------- | --------: | ---------: |
+| Shell entry `index-XHx3iA_c.js`                | 1,642,456 |    426,611 |
+| Durable list `durable-executions-21JAP1yg.js`  |     4,455 |      1,762 |
+| Durable detail `durable-execution-DimE89vm.js` |    10,838 |      3,615 |
+| Existing JSON viewer `json-view-CDilcUGJ.js`   |     1,203 |        689 |
+| Shell CSS `index-BtApM4Ng.css`                 |   281,817 |     41,626 |
+
+These are whole-host sizes with concurrent Conduit work installed, measured with
+Python gzip. They do not isolate Dispatch's contribution to entry growth.
+`pnpm --filter @forge-go/dashboard-shell exec vite build --manifest --outDir
+/Users/rexraphael/Work/xraph/forge-dashboard/output/dispatch-task2-bundle
+--emptyOutDir` retained an isolated measurement after concurrent builds replaced
+the shared `dist` manifest. The configured root production build passed all three
+tasks. Its Next admin route measured 212 kB, with 314 kB first load. Vite retained
+its large-chunk and future native-config-loader warnings; Turbo retained its
+missing output declaration warning for the Next build.
+
+All 54 Dispatch React tests passed. Workspace lint passed 27 tasks, typecheck
+passed 28 tasks, and the playbook's recursive test command passed 5,923 tests
+across 27 packages. Shared cancellation changes passed 246 tests and independent
+review. Real Go HTTP checks covered all durable reads, separate payload authority,
+401/403/404/400 responses and stripped browser authority headers. Desktop and
+narrow list/detail pages had no page overflow. Browser checks covered incomplete
+discovery continuation, filtered emptiness, foreign scope denial, exact encoded
+identity, run links, source delivery distinctions, visible polling, payload reveal
+and hide, plus PostgreSQL stale data and retry.
+
+The qualification proxy's shell bootstrap is fixture-only. Domain requests use
+actual Forge/Authsome/Warden HTTP with memory or PostgreSQL Dispatch storage.
+Hidden-tab cancellation and high-integer boundaries are unit/wire verified;
+this browser session kept reporting visible, and an artificial PostgreSQL boundary
+insert was rejected by the durable delivery intent guard. No guard was bypassed.
+These pages do not qualify deployed login, runtime execution, recovery, remote
+webhook completion, Chronicle anchoring or the separate legacy migration.

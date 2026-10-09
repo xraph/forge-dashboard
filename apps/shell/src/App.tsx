@@ -1,3 +1,4 @@
+import dispatchPlugin from "@forge-go/dashboard-plugin-dispatch"
 import { conduitPlugin } from "@forge-go/dashboard-plugin-conduit"
 import { ForgeDashboard } from "@forge-go/dashboard-host"
 import { configFromWindow } from "@forge-go/dashboard-runtime"
@@ -34,6 +35,7 @@ const config = { basePath: injected.basePath ?? "/dashboard", ...injected }
 // core carries root: true and claims "/". streaming and authsome mount under
 // their own namespaces. Array order is the cross-plugin nav order.
 const plugins = [
+  dispatchPlugin,
   conduitPlugin,
   corePlugin,
   ctrlplanePlugin,

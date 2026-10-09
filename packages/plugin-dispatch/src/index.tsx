@@ -44,11 +44,29 @@ const EnginePage = lazy(() =>
   import("./pages/config").then((module) => ({ default: module.EnginePage }))
 )
 
+const DurableExecutionsPage = lazy(() =>
+  import("./pages/durable-executions").then((module) => ({
+    default: module.DurableExecutionsPage,
+  }))
+)
+const DurableExecutionPage = lazy(() =>
+  import("./pages/durable-execution").then((module) => ({
+    default: module.DurableExecutionPage,
+  }))
+)
+
 export const dispatchPlugin = definePlugin({
   extension: "dispatch",
   namespace: "dispatch",
   label: "Dispatch",
   nav: [
+    {
+      label: "Durable executions",
+      to: "/durable",
+      priority: 30,
+      group: "Monitoring",
+      icon: <LayersIcon />,
+    },
     {
       label: "Overview",
       to: "/",
@@ -86,6 +104,11 @@ export const dispatchPlugin = definePlugin({
     },
   ],
   routes: [
+    { path: "/durable", element: DurableExecutionsPage },
+    {
+      path: "/durable/:namespace/:workflow/:run",
+      element: DurableExecutionPage,
+    },
     { path: "/", element: OverviewPage },
     { path: "/queues", element: QueuesPage },
     { path: "/queues/:name", element: QueueDetailPage },
