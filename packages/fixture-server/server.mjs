@@ -51,6 +51,7 @@ import { createHeraldHandlers, resetHerald } from "./herald-fixtures.mjs"
 import { createWeaveHandlers, resetWeave } from "./weave-fixtures.mjs"
 import { createNexusHandlers, resetNexus } from "./nexus-fixtures.mjs"
 import { createShieldHandlers, resetShield } from "./shield-fixtures.mjs"
+import { createConduitHandlers, resetConduit } from "./conduit-fixtures.mjs"
 
 // ---------------------------------------------------------------------------
 // Config
@@ -2871,6 +2872,7 @@ const relayFixtures = createRelayFixtures({ endpoints: () => relayState.endpoint
  * two contributors (STREAMING, AUTH) already used rather than replacing it.
  */
 const CONTRIBUTORS = [
+  { name: "conduit", envPrefix: "CONDUIT", handlers: createConduitHandlers(FixtureError) },
   { name: "core-contract", envPrefix: "CORE", handlers: coreHandlers },
   { name: "streaming-contract", envPrefix: "STREAMING", handlers: streamingHandlers },
   { name: "auth", envPrefix: "AUTH", handlers: authHandlers },
@@ -3189,6 +3191,7 @@ function handleReset(res) {
   resetWeave()
   resetNexus()
   resetShield()
+  resetConduit()
   csrfTokens.clear()
   idempotencyStore.clear()
   idempotencyClaims.clear()
