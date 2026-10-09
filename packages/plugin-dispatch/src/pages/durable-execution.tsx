@@ -1,16 +1,17 @@
 import { useState } from "react"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
 import { PluginLink } from "@forge-go/dashboard-plugin"
+import { ZeroState } from "@forge-go/dashboard-kit/components/zero-state"
 import { Badge } from "@forge-go/dashboard-kit/components/badge"
 import { Button } from "@forge-go/dashboard-kit/components/button"
 import { Input } from "@forge-go/dashboard-kit/components/input"
 import { Frame, Section, Facts, Stamp } from "../components"
-import { useCursor } from "../cursor"
+import { useDurableCursor } from "../durable-cursor"
 import { Read } from "../read"
 import { DurablePayloadPanel } from "../durable-payload"
 import { useDurableRead } from "../durable-read"
-import { DurableTable } from "../durable-table"
-import { runPath, displayState } from "../durable-types"
+import { DurablePageRead, DurableTable } from "../durable-table"
+import { runPath, displayState, decodeRunPart } from "../durable-types"
 import type {
   DurableDeliveries,
   DurableDetail,
@@ -31,10 +32,27 @@ const identity = (row: RunKey) => (
   </PluginLink>
 )
 export function DurableExecutionPage({ params }: PluginPageProps) {
-  const target = {
-    namespace: params.namespace ?? "",
-    workflow_id: params.workflow ?? "",
-    run_id: params.run ?? "",
+  let target: RunKey
+  try {
+    target = {
+      namespace: decodeRunPart(params.namespace),
+      workflow_id: decodeRunPart(params.workflow),
+      run_id: decodeRunPart(params.run),
+    }
+  } catch {
+    return (
+      <Frame title="Invalid execution link">
+        <ZeroState
+          title="Execution link needs regeneration"
+          body="Choose the run from the execution list to open its exact identity."
+          action={
+            <PluginLink to="/durable" className="text-primary hover:underline">
+              Return to executions
+            </PluginLink>
+          }
+        />
+      </Frame>
+    )
   }
   return <ExecutionDetail key={runPath(target)} target={target} />
 }
@@ -269,7 +287,7 @@ function Paged<T>({
   filters?: Record<string, string>
   reset?: () => void
 }) {
-  const paging = useCursor(JSON.stringify({ target, kind, filters }))
+  const paging = useDurableCursor(JSON.stringify({ target, kind, filters }))
   const query = useDurableRead<DurablePage<T>>(`durable.${kind}`, {
     ...target,
     ...filters,
@@ -278,7 +296,8 @@ function Paged<T>({
   })
   return (
     <Section title={title}>
-      <Read
+      <DurablePageRead
+        paging={paging}
         title={title}
         query={query}
         intervalMs={paging.cursor ? null : 10_000}
@@ -296,7 +315,7 @@ function Paged<T>({
             reset={reset}
           />
         )}
-      </Read>
+      </DurablePageRead>
     </Section>
   )
 }
@@ -377,7 +396,7 @@ function Tasks({ target }: { target: RunKey }) {
   )
 }
 function Deliveries({ target, kind }: { target: RunKey; kind: string }) {
-  const paging = useCursor(JSON.stringify({ target, kind }))
+  const paging = useDurableCursor(JSON.stringify({ target, kind }))
   const query = useDurableRead<DurableDeliveries>(`durable.${kind}`, {
     ...target,
     limit: 25,
@@ -391,7 +410,8 @@ function Deliveries({ target, kind }: { target: RunKey; kind: string }) {
           : "Relay source hook delivery"
       }
     >
-      <Read
+      <DurablePageRead
+        paging={paging}
         title="Source delivery"
         query={query}
         intervalMs={paging.cursor ? null : 10_000}
@@ -474,7 +494,7 @@ function Deliveries({ target, kind }: { target: RunKey; kind: string }) {
             />
           </>
         )}
-      </Read>
+      </DurablePageRead>
     </Section>
   )
 }

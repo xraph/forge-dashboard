@@ -29,6 +29,7 @@ interface Record_<T> {
   fetcher: (signal?: AbortSignal) => Promise<unknown>
   abort: AbortController
   cancelOnUnused: boolean
+  resetOnContextChange: boolean
   owner?: object
 }
 
@@ -75,6 +76,17 @@ function stableStringify(value: unknown): string {
 export class QueryStore {
   private records = new Map<string, Record_<unknown>>()
   private listeners = new Map<string, Set<() => void>>()
+
+  private contextVersion = 0
+  private contextListeners = new Set<() => void>()
+  /** Authorization/app/environment resets, excluding invalidation and polling. */
+  contextSnapshot = (): number => this.contextVersion
+  subscribeContext = (listener: () => void): (() => void) => {
+    this.contextListeners.add(listener)
+    return () => {
+      this.contextListeners.delete(listener)
+    }
+  }
 
   // Monotonic across the whole store and across a key's deletion, so a
   // deleted-and-recreated key can never reissue a number some request that
@@ -155,12 +167,18 @@ export class QueryStore {
     key: string,
     fetcher: (signal?: AbortSignal) => Promise<T>,
     staleMs: number,
-    opts?: { force?: boolean; cancelOnUnused?: boolean; owner?: object }
+    opts?: {
+      force?: boolean
+      cancelOnUnused?: boolean
+      resetOnContextChange?: boolean
+      owner?: object
+    }
   ): Entry<T> {
     const stored = this.records.get(key)
     const replaced = !!(opts?.owner && stored && stored.owner !== opts.owner)
     if (replaced && stored.cancelOnUnused) stored.abort.abort()
     const record = replaced ? undefined : stored
+    if (record && opts?.resetOnContextChange) record.resetOnContextChange = true
     const fresh =
       record !== undefined &&
       record.settledAt > 0 &&
@@ -192,6 +210,8 @@ export class QueryStore {
       fetcher: fetcher as (signal?: AbortSignal) => Promise<unknown>,
       abort,
       cancelOnUnused: opts?.cancelOnUnused ?? record?.cancelOnUnused ?? false,
+      resetOnContextChange:
+        opts?.resetOnContextChange ?? record?.resetOnContextChange ?? false,
       owner: opts?.owner ?? record?.owner,
     })
     this.notify(key)
@@ -268,6 +288,14 @@ export class QueryStore {
     for (const key of keys) {
       const record = this.records.get(key)
       if (!record) continue
+      if (blank && record.resetOnContextChange) {
+        // A mounted reader must construct new params before fetching again.
+        // Replaying a captured cursor here would bind it to the old principal.
+        record.abort.abort()
+        this.records.delete(key)
+        this.notify(key)
+        continue
+      }
 
       if ((this.listeners.get(key)?.size ?? 0) > 0) {
         // Watched: re-issue in place, forced. The record is updated rather
@@ -324,11 +352,13 @@ export class QueryStore {
    * it blank.
    */
   clear(): void {
+    this.contextVersion += 1
     const keys = [...this.records.keys()]
     // The hints belong to the previous app's contributors. Keeping them would
     // let a stale hint suppress the first read after a switch.
     this.staleTimes.clear()
     this.dropOrReissue(keys, true)
+    for (const listener of this.contextListeners) listener()
   }
 
   /**

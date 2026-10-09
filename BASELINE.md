@@ -931,3 +931,31 @@ this browser session kept reporting visible, and an artificial PostgreSQL bounda
 insert was rejected by the durable delivery intent guard. No guard was bypassed.
 These pages do not qualify deployed login, runtime execution, recovery, remote
 webhook completion, Chronicle anchoring or the separate legacy migration.
+
+## Dispatch durable inspection correction, 2026-10-09
+
+The versioned identity routes and context-reset cursor correction keep both durable
+pages and the JSON viewer lazy. The isolated Vite manifest still has 28 recursive
+static entries from `index.html`; neither durable route nor the JSON viewer is in
+that closure. You can regenerate earlier durable detail bookmarks from the list.
+
+| Asset                                   | Raw bytes | gzip bytes |
+| --------------------------------------- | --------: | ---------: |
+| `assets/json-view-CDilcUGJ.js`          |     1,203 |        689 |
+| `assets/durable-execution-CNn_hyKI.js`  |    11,224 |      3,755 |
+| `assets/durable-executions-DGY_eCws.js` |     4,471 |      1,766 |
+| `assets/index-YtSwggpV.js`              | 1,642,555 |    426,632 |
+| `assets/index-Dh3vOyfJ.css`             |   281,573 |     41,897 |
+
+These are whole-host shared-checkout measurements after concurrent Kit trial and
+Conduit work. They do not isolate Dispatch entry growth. The manifest came from
+`pnpm --filter @forge-go/dashboard-shell exec vite build --manifest --outDir
+/Users/rexraphael/Work/xraph/forge-dashboard/output/dispatch-task2-fix1-bundle
+--emptyOutDir`. The configured root build passed all three tasks. Existing Vite
+native-loader and large-chunk warnings, and the Turbo Next output warning remain.
+
+Installed-router tests and the real Go HTTP browser matrix preserve literal `%2F`,
+slash, bare percent and Unicode in all three identity positions. Context reset,
+client replacement, ignored abort and rejected-continuation recovery are mounted
+React/shared-store verified. The browser checks cover seeded reads and manual
+discovery restart; they do not qualify a deployed identity-switch flow.

@@ -4,10 +4,9 @@ import { Button } from "@forge-go/dashboard-kit/components/button"
 import { Input } from "@forge-go/dashboard-kit/components/input"
 import { Badge } from "@forge-go/dashboard-kit/components/badge"
 import { Frame, Section, Stamp } from "../components"
-import { useCursor } from "../cursor"
-import { Read } from "../read"
+import { useDurableCursor } from "../durable-cursor"
 import { useDurableRead } from "../durable-read"
-import { DurableTable } from "../durable-table"
+import { DurablePageRead, DurableTable } from "../durable-table"
 import { runPath, displayState } from "../durable-types"
 import type {
   DurableExecution,
@@ -24,7 +23,7 @@ const filterLabels = {
 const blank = { workflow_id: "", workflow_type: "", build_id: "", state: "" }
 export function DurableExecutionsPage() {
   const [namespace, setNamespace] = useState("")
-  const discoveryPaging = useCursor("namespaces")
+  const discoveryPaging = useDurableCursor("namespaces")
   const discovery = useDurableRead<DurablePage<DurableNamespace>>(
     "durable.namespaces",
     { limit: 25, cursor: discoveryPaging.cursor ?? "" }
@@ -69,7 +68,11 @@ export function DurableExecutionsPage() {
               ? " · Discovery incomplete"
               : ""}
           </summary>
-          <Read title="Namespace discovery" query={discovery}>
+          <DurablePageRead
+            title="Namespace discovery"
+            query={discovery}
+            paging={discoveryPaging}
+          >
             {(data) => (
               <DurableTable
                 title="namespaces"
@@ -108,7 +111,7 @@ export function DurableExecutionsPage() {
                 ]}
               />
             )}
-          </Read>
+          </DurablePageRead>
         </details>
       </Section>
       {namespace && <ExecutionList key={namespace} namespace={namespace} />}
@@ -117,7 +120,7 @@ export function DurableExecutionsPage() {
 }
 function ExecutionList({ namespace }: { namespace: string }) {
   const [filters, setFilters] = useState(blank)
-  const paging = useCursor(JSON.stringify({ namespace, ...filters }))
+  const paging = useDurableCursor(JSON.stringify({ namespace, ...filters }))
   const query = useDurableRead<DurablePage<DurableExecution>>(
     "durable.executions",
     { namespace, ...filters, limit: 25, cursor: paging.cursor ?? "" }
@@ -148,7 +151,8 @@ function ExecutionList({ namespace }: { namespace: string }) {
           Clear filters
         </Button>
       </div>
-      <Read
+      <DurablePageRead
+        paging={paging}
         title="Durable executions"
         query={query}
         intervalMs={paging.cursor ? null : 10_000}
@@ -228,7 +232,7 @@ function ExecutionList({ namespace }: { namespace: string }) {
             ]}
           />
         )}
-      </Read>
+      </DurablePageRead>
       <p className="text-xs text-muted-foreground">
         Newest creation first. Live polling every 10 seconds on the first page;
         continuation pages retain their cursor. Polling pauses in hidden tabs.

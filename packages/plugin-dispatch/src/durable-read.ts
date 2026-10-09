@@ -17,6 +17,7 @@ export function useDurableRead<T extends { as_of: string }>(
   const query = useDispatchQuery<T>(intent, params, {
     enabled: visible,
     cancelOnUnused: true,
+    resetOnContextChange: true,
   })
   return {
     ...query,

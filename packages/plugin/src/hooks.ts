@@ -21,6 +21,8 @@ export interface QueryState<T> {
 export interface QueryOptions {
   /** Abort in-flight HTTP when the last reader unmounts or pauses. */
   cancelOnUnused?: boolean
+  /** Drop captured requests on host clear; fetch again after current params render. */
+  resetOnContextChange?: boolean
   /**
    * `false` makes the query wait: no request, no store entry read, no
    * subscription, so an invalidation issues nothing for it. Turning it `true`
@@ -57,6 +59,12 @@ export function useQuery<T = unknown>(
   const client = usePluginClient()
   const enabled = options?.enabled ?? true
   const cancelOnUnused = options?.cancelOnUnused ?? false
+  const resetOnContextChange = options?.resetOnContextChange ?? false
+  const contextVersion = useSyncExternalStore(
+    resetOnContextChange ? queryStore.subscribeContext : () => noUnsubscribe,
+    resetOnContextChange ? queryStore.contextSnapshot : () => 0,
+    resetOnContextChange ? queryStore.contextSnapshot : () => 0
+  )
   const key = queryStore.keyOf(client.extension, intent, params)
 
   // A disabled query is not a reader. It does not subscribe, because
@@ -94,11 +102,24 @@ export function useQuery<T = unknown>(
       key,
       (signal) => client.query<T>(intent, params, { signal }),
       staleMs,
-      { cancelOnUnused, owner: cancelOnUnused ? client : undefined }
+      {
+        resetOnContextChange,
+        cancelOnUnused,
+        owner: cancelOnUnused ? client : undefined,
+      }
     )
     // params is compared by the key it produced, which is what `key` is.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [client, intent, key, staleMs, enabled, cancelOnUnused])
+  }, [
+    client,
+    intent,
+    key,
+    staleMs,
+    enabled,
+    cancelOnUnused,
+    resetOnContextChange,
+    contextVersion,
+  ])
 
   const refetch = useCallback(() => {
     // A query that was told to wait has not been asked yet, so there is
@@ -113,11 +134,12 @@ export function useQuery<T = unknown>(
       {
         force: true,
         cancelOnUnused,
+        resetOnContextChange,
         owner: cancelOnUnused ? client : undefined,
       }
     )
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [client, intent, key, enabled, cancelOnUnused])
+  }, [client, intent, key, enabled, cancelOnUnused, resetOnContextChange])
 
   return { ...entry, refetch }
 }

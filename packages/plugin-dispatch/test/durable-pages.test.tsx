@@ -7,12 +7,16 @@ import {
 } from "@forge-go/dashboard-plugin"
 import { DurableExecutionsPage } from "../src/pages/durable-executions"
 import { DurableExecutionPage } from "../src/pages/durable-execution"
-import { runPath } from "../src/durable-types"
+import { runPath, encodeRunPart } from "../src/durable-types"
 import { clientFor, renderWithClient } from "./harness"
 import wire from "./durable-wire.json"
 
 const detailProps = {
-  params: { namespace: "production", workflow: "invoice-42", run: "run-2" },
+  params: {
+    namespace: encodeRunPart("production"),
+    workflow: encodeRunPart("invoice-42"),
+    run: encodeRunPart("run-2"),
+  },
 }
 const queries = {
   "durable.execution": () => wire.detail.data,
@@ -29,7 +33,7 @@ afterEach(() => {
 })
 it("keeps exact three-part identity, including escaped slashes and percent", () => {
   expect(runPath({ namespace: "a/b", workflow_id: "%2F", run_id: "☃/r" })).toBe(
-    "/durable/a%2Fb/%252F/%E2%98%83%2Fr"
+    "/durable/v1.YS9i/v1.JTJG/v1.4piDL3I"
   )
 })
 it("continues empty incomplete discovery and requires explicit namespace access", async () => {
@@ -124,7 +128,13 @@ it("renders metadata, history strings, run links, tasks and restricted children 
     screen
       .getByRole("link", { name: "invoice-42 / run-1" })
       .getAttribute("href")
-  ).toContain("/durable/production/invoice-42/run-1")
+  ).toContain(
+    runPath({
+      namespace: "production",
+      workflow_id: "invoice-42",
+      run_id: "run-1",
+    })
+  )
   expect(screen.getAllByText(/9007199254740994/).length).toBeGreaterThan(0)
   expect(payload).not.toHaveBeenCalled()
   fireEvent.click(screen.getByRole("button", { name: "Tasks" }))

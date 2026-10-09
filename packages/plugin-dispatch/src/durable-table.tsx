@@ -1,3 +1,6 @@
+import type { ReactNode } from "react"
+import type { QueryState } from "@forge-go/dashboard-plugin"
+import { Read } from "./read"
 import { Button } from "@forge-go/dashboard-kit/components/button"
 import type { Column } from "@forge-go/dashboard-kit/components/resource-table"
 import { ResourceTable } from "@forge-go/dashboard-kit/components/resource-table"
@@ -62,21 +65,44 @@ export function DurableTable<T>({
           }
         />
       )}
-      {paging.page > 1 && (
-        <Button
-          size="xs"
-          variant="ghost"
-          disabled={loading}
-          onClick={paging.reset}
-        >
-          Restart pagination
-        </Button>
-      )}
       <CursorPager
         result={{ nextCursor: data.cursor ?? null, complete: data.complete }}
         paging={paging}
         loading={loading}
       />
     </div>
+  )
+}
+
+/** Recovery stays outside the data-only boundary, including refused cursors. */
+export function DurablePageRead<T extends { asOf: string }>({
+  title,
+  query,
+  paging,
+  intervalMs = null,
+  children,
+}: {
+  title: string
+  query: QueryState<T>
+  paging: ReturnType<typeof useCursor>
+  intervalMs?: number | null
+  children: (data: T) => ReactNode
+}) {
+  return (
+    <>
+      <Read title={title} query={query} intervalMs={intervalMs}>
+        {children}
+      </Read>
+      {paging.page > 1 && (
+        <Button
+          size="xs"
+          variant="ghost"
+          disabled={query.loading}
+          onClick={paging.reset}
+        >
+          Restart pagination
+        </Button>
+      )}
+    </>
   )
 }

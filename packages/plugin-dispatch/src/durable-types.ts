@@ -78,9 +78,37 @@ export interface DurablePayload {
   output: string | null
   revision: string
 }
-// Encode every identity part independently, including percent, slash and Unicode.
+// Router-safe v1 UTF-8 base64url segments, decoded once by the page.
+export function encodeRunPart(value: string) {
+  const bytes = new TextEncoder().encode(value)
+  if (
+    !value ||
+    new TextDecoder("utf-8", { fatal: true }).decode(bytes) !== value
+  )
+    throw new Error("Invalid execution identity")
+  return (
+    "v1." +
+    btoa(Array.from(bytes, (byte) => String.fromCharCode(byte)).join(""))
+      .replaceAll("+", "-")
+      .replaceAll("/", "_")
+      .replace(/=+$/, "")
+  )
+}
+export function decodeRunPart(segment: string | undefined): string {
+  if (!segment || !/^v1\.[A-Za-z0-9_-]+$/.test(segment))
+    throw new Error("Invalid execution identity")
+  const value = new TextDecoder("utf-8", { fatal: true }).decode(
+    Uint8Array.from(
+      atob(segment.slice(3).replaceAll("-", "+").replaceAll("_", "/")),
+      (char) => char.charCodeAt(0)
+    )
+  )
+  if (encodeRunPart(value) !== segment)
+    throw new Error("Noncanonical execution identity")
+  return value
+}
 export function runPath(key: RunKey) {
-  return `/durable/${encodeURIComponent(key.namespace)}/${encodeURIComponent(key.workflow_id)}/${encodeURIComponent(key.run_id)}`
+  return `/durable/${encodeRunPart(key.namespace)}/${encodeRunPart(key.workflow_id)}/${encodeRunPart(key.run_id)}`
 }
 
 export function displayState(value: string) {
