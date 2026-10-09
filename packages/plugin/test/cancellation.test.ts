@@ -117,3 +117,60 @@ it("clear and invalidation abort opted-in work, refetch watched keys and retain 
   await Promise.resolve()
   expect(store.snapshot(key)).toEqual({ data: "current", loading: false })
 })
+
+it("replaces an unowned pending read before an opted-in owner can adopt it", async () => {
+  const store = new QueryStore()
+  const key = store.keyOf("dispatch", "durable.execution")
+  const old = deferred(),
+    current = deferred(),
+    owner = {}
+  const first = store.subscribe(key, () => {})
+  const second = store.subscribe(key, () => {})
+  store.read(key, () => old.promise, 60_000)
+  expect(store.snapshot(key, owner).data).toBeUndefined()
+  let signal!: AbortSignal
+  const fetcher = vi.fn((s?: AbortSignal) => {
+    signal = s!
+    return current.promise
+  })
+  store.read(key, fetcher, 60_000, { owner, cancelOnUnused: true })
+  expect(fetcher).toHaveBeenCalledOnce()
+  const shared = vi.fn(() => Promise.resolve("unused"))
+  store.read(key, shared, 60_000, { owner, cancelOnUnused: true })
+  expect(shared).not.toHaveBeenCalled()
+  old.resolve("protected old")
+  await Promise.resolve()
+  expect(store.snapshot(key, owner)).toEqual({ loading: true })
+  first()
+  expect(signal.aborted).toBe(false)
+  second()
+  expect(signal.aborted).toBe(true)
+  current.resolve("late new")
+  await Promise.resolve()
+  expect(store.snapshot(key, owner)).toEqual({ loading: false })
+})
+it("blanks fresh unowned data and fetches for an opted-in owner without changing ordinary cache reuse", async () => {
+  const store = new QueryStore()
+  const key = store.keyOf("dispatch", "durable.execution")
+  const owner = {},
+    old = deferred(),
+    current = deferred()
+  store.read(key, () => old.promise, 60_000)
+  old.resolve("protected old")
+  await Promise.resolve()
+  const ordinary = vi.fn(() => Promise.resolve("unused"))
+  expect(store.read(key, ordinary, 60_000).data).toBe("protected old")
+  expect(ordinary).not.toHaveBeenCalled()
+  expect(store.snapshot(key, owner)).toEqual({ loading: true })
+  const fetcher = vi.fn(() => current.promise)
+  expect(
+    store.read(key, fetcher, 60_000, { owner, cancelOnUnused: true })
+  ).toEqual({ loading: true })
+  expect(fetcher).toHaveBeenCalledOnce()
+  current.resolve("current")
+  await Promise.resolve()
+  expect(store.snapshot(key, owner)).toEqual({
+    data: "current",
+    loading: false,
+  })
+})

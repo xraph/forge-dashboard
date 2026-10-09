@@ -104,8 +104,7 @@ export class QueryStore {
 
   snapshot<T>(key: string, owner?: object): Entry<T> {
     const record = this.records.get(key)
-    if (owner && record?.owner && record.owner !== owner)
-      return EMPTY as Entry<T>
+    if (owner && record && record.owner !== owner) return EMPTY as Entry<T>
     return (this.records.get(key)?.entry as Entry<T>) ?? (EMPTY as Entry<T>)
   }
 
@@ -159,11 +158,7 @@ export class QueryStore {
     opts?: { force?: boolean; cancelOnUnused?: boolean; owner?: object }
   ): Entry<T> {
     const stored = this.records.get(key)
-    const replaced = !!(
-      opts?.owner &&
-      stored?.owner &&
-      stored.owner !== opts.owner
-    )
+    const replaced = !!(opts?.owner && stored && stored.owner !== opts.owner)
     if (replaced && stored.cancelOnUnused) stored.abort.abort()
     const record = replaced ? undefined : stored
     const fresh =
