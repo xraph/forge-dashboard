@@ -137,7 +137,7 @@ export function Preview({
     )
   } else {
     body = (
-      <div className="flex flex-col gap-1">
+      <div className="flex min-w-0 flex-col gap-1">
         {state.cut ? (
           <p className="text-xs text-muted-foreground">
             Showing the first 256 KiB.
@@ -161,7 +161,7 @@ export function Preview({
   }
 
   return (
-    <section aria-label="Preview" className="flex flex-col gap-2">
+    <section aria-label="Preview" className="flex min-w-0 flex-col gap-2">
       <h3 className="text-sm font-medium">Preview</h3>
       {body}
     </section>

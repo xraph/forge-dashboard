@@ -61,7 +61,7 @@ function CouponDetailView({ coupon }: { coupon: Coupon }) {
   const navigate = useNavigateTo()
   const [deleting, setDeleting] = useState(false)
   return (
-    <section className="flex flex-col gap-6">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title={coupon.code}
         description={coupon.name || undefined}

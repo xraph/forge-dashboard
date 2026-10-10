@@ -203,7 +203,7 @@ export function WardenCheckLogPage() {
   const columns = checkColumns()
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader title="Check log" />
 
       <FilterBar
@@ -253,7 +253,7 @@ export function WardenCheckLogPage() {
       />
 
       <form className="flex flex-wrap items-end gap-3" onSubmit={apply}>
-        <span className="flex flex-col gap-1.5">
+        <span className="flex min-w-0 flex-col gap-1.5">
           <Label htmlFor="check-log-subject-kind">Subject kind</Label>
           <NativeSelect
             id="check-log-subject-kind"
@@ -270,7 +270,7 @@ export function WardenCheckLogPage() {
             ))}
           </NativeSelect>
         </span>
-        <span className="flex flex-col gap-1.5">
+        <span className="flex min-w-0 flex-col gap-1.5">
           <Label htmlFor="check-log-subject-id">Subject id</Label>
           <Input
             id="check-log-subject-id"
@@ -281,7 +281,7 @@ export function WardenCheckLogPage() {
             }
           />
         </span>
-        <span className="flex flex-col gap-1.5">
+        <span className="flex min-w-0 flex-col gap-1.5">
           <Label htmlFor="check-log-action">Action</Label>
           <Input
             id="check-log-action"
@@ -292,7 +292,7 @@ export function WardenCheckLogPage() {
             }
           />
         </span>
-        <span className="flex flex-col gap-1.5">
+        <span className="flex min-w-0 flex-col gap-1.5">
           <Label htmlFor="check-log-resource-type">Resource type</Label>
           <Input
             id="check-log-resource-type"
@@ -303,7 +303,7 @@ export function WardenCheckLogPage() {
             }
           />
         </span>
-        <span className="flex flex-col gap-1.5">
+        <span className="flex min-w-0 flex-col gap-1.5">
           <Label htmlFor="check-log-resource-id">Resource id</Label>
           <Input
             id="check-log-resource-id"
@@ -336,7 +336,7 @@ export function WardenCheckLogPage() {
               ? checks(data.total)
               : `${checks(data.total)} since ${formatTimestamp(after)}`
           return (
-            <div className="flex flex-col gap-4">
+            <div className="flex min-w-0 flex-col gap-4">
               {loggingOff && (
                 <Alert>
                   <AlertDescription>

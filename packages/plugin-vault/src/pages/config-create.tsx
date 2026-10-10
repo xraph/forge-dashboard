@@ -78,7 +78,7 @@ export const ConfigCreatePage: ComponentType<PluginPageProps> = () => {
   const conflict = create.error?.code === "CONFLICT"
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="New config entry"
         description="Give it a key, a type and a value. Tenant overrides come after it exists."
@@ -103,9 +103,9 @@ export const ConfigCreatePage: ComponentType<PluginPageProps> = () => {
       ) : null}
       <form
         onSubmit={(e) => void submit(e)}
-        className="flex max-w-lg flex-col gap-4"
+        className="flex max-w-lg min-w-0 flex-col gap-4"
       >
-        <div className="flex flex-col gap-1.5">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <Label htmlFor="config-key">Key</Label>
           <Input
             id="config-key"
@@ -116,7 +116,7 @@ export const ConfigCreatePage: ComponentType<PluginPageProps> = () => {
             onChange={(e) => setKey(e.target.value)}
           />
         </div>
-        <div className="flex flex-col gap-1.5">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <Label htmlFor="config-type">Type</Label>
           <NativeSelect
             id="config-type"
@@ -136,7 +136,7 @@ export const ConfigCreatePage: ComponentType<PluginPageProps> = () => {
             ))}
           </NativeSelect>
         </div>
-        <div className="flex flex-col gap-1.5">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <Label id="config-value-label" htmlFor="config-value">
             Value
           </Label>
@@ -148,7 +148,7 @@ export const ConfigCreatePage: ComponentType<PluginPageProps> = () => {
             onChange={setValue}
           />
         </div>
-        <div className="flex flex-col gap-1.5">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <Label htmlFor="config-description">Description</Label>
           <Input
             id="config-description"

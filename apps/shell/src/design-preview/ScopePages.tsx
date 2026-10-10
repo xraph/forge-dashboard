@@ -166,7 +166,7 @@ export function ScopePage({
     row.join(" ").toLowerCase().includes(search.toLowerCase())
   )
   return (
-    <div className="scope-page space-y-6">
+    <div className="scope-page space-y-4">
       {!leaf && (
         <StatGrid
           items={

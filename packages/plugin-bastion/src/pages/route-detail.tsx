@@ -211,7 +211,7 @@ function RouteDetailBody({ id }: { id: string }) {
   }
 
   return (
-    <section className="flex flex-col gap-6">
+    <section className="flex min-w-0 flex-col gap-4">
       <QueryBoundary title="Route" query={query} skeletonRows={6}>
         {(d) => {
           const headers = headerRows(d)
@@ -372,7 +372,7 @@ function RouteDetailBody({ id }: { id: string }) {
               />
               <section
                 aria-labelledby="targets-heading"
-                className="flex flex-col gap-2"
+                className="flex min-w-0 flex-col gap-2"
               >
                 <h2 id="targets-heading" className="text-sm font-medium">
                   Targets
@@ -387,7 +387,7 @@ function RouteDetailBody({ id }: { id: string }) {
               </section>
               <section
                 aria-labelledby="headers-heading"
-                className="flex flex-col gap-2"
+                className="flex min-w-0 flex-col gap-2"
               >
                 <h2 id="headers-heading" className="text-sm font-medium">
                   Headers
@@ -402,7 +402,7 @@ function RouteDetailBody({ id }: { id: string }) {
               </section>
               <section
                 aria-labelledby="overrides-heading"
-                className="flex flex-col gap-2"
+                className="flex min-w-0 flex-col gap-2"
               >
                 <h2 id="overrides-heading" className="text-sm font-medium">
                   Overrides

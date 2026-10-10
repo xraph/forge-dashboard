@@ -119,7 +119,10 @@ function RecentSection({
 }) {
   const headingId = `keysmith-overview-${id}`
   return (
-    <section aria-labelledby={headingId} className="flex flex-col gap-2">
+    <section
+      aria-labelledby={headingId}
+      className="flex min-w-0 flex-col gap-2"
+    >
       <div className="flex items-baseline justify-between gap-4">
         <h2 id={headingId} className="text-sm font-medium">
           {title}
@@ -146,7 +149,7 @@ export const OverviewPage: ComponentType<PluginPageProps> = () => {
   const query = useQuery<Overview>("overview")
 
   return (
-    <section className="flex flex-col gap-6">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Overview"
         description="Your keys, their rotation windows and the traffic they carry."

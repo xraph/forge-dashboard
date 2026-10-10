@@ -114,7 +114,7 @@ export const EventsPage: ComponentType<PluginPageProps> = () => {
   }
 
   const field = (k: keyof EventFilters, type = "text", placeholder = "") => (
-    <label className="flex flex-col gap-1 text-sm">
+    <label className="flex min-w-0 flex-col gap-1 text-sm">
       <span>{LABELS[k]}</span>
       <Input
         aria-label={LABELS[k]}
@@ -126,7 +126,7 @@ export const EventsPage: ComponentType<PluginPageProps> = () => {
     </label>
   )
   const select = (k: "outcome" | "severity", options: string[]) => (
-    <label className="flex flex-col gap-1 text-sm">
+    <label className="flex min-w-0 flex-col gap-1 text-sm">
       <span>{LABELS[k]}</span>
       <NativeSelect
         aria-label={LABELS[k]}
@@ -145,13 +145,13 @@ export const EventsPage: ComponentType<PluginPageProps> = () => {
   )
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Events"
         description="Every event in your scope's audit trail. Filters run on the server, so a search covers the whole log, not the page on screen."
       />
       <form
-        className="grid grid-cols-2 gap-3 md:grid-cols-4"
+        className="grid min-w-0 grid-cols-2 gap-3 md:grid-cols-4"
         onSubmit={(e) => {
           e.preventDefault()
           setApplied(draft)
@@ -215,7 +215,7 @@ export const EventsPage: ComponentType<PluginPageProps> = () => {
                     Back to the first page
                   </Button>
                 ) : active.length ? (
-                  <div className="flex flex-col items-center gap-2 text-sm">
+                  <div className="flex min-w-0 flex-col items-center gap-2 text-sm">
                     <p>
                       {active.map((f) => `${f.label}: ${f.value}`).join("; ")}
                     </p>

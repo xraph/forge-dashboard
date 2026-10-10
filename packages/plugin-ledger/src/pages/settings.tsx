@@ -15,14 +15,14 @@ import type { SettingsDetail } from "../types"
 export function LedgerSettingsPage() {
   const settings = useQuery<SettingsDetail>("settings.detail")
   return (
-    <section className="flex flex-col gap-6">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Settings"
         description="Read-only. Everything here comes from the extension's configuration and takes effect on restart."
       />
       <QueryBoundary title="Settings" query={settings} skeletonRows={6}>
         {(s) => (
-          <div className="flex max-w-2xl flex-col gap-4">
+          <div className="flex max-w-2xl min-w-0 flex-col gap-4">
             {s.app_id === "" && (
               <p role="status" className="text-sm text-muted-foreground">
                 No app is configured and this request carried no app claim.

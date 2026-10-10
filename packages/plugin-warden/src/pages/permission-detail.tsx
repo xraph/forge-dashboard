@@ -97,7 +97,7 @@ export function WardenPermissionDetailPage({ params }: PluginPageProps) {
       keepPreviousData
     >
       {(permission) => (
-        <section className="flex flex-col gap-6">
+        <section className="flex min-w-0 flex-col gap-4">
           <PageHeader
             title={permission.name}
             actions={
@@ -139,7 +139,7 @@ export function WardenPermissionDetailPage({ params }: PluginPageProps) {
 
           <DetailLayout
             aside={
-              <div className="flex flex-col gap-3">
+              <div className="flex min-w-0 flex-col gap-3">
                 <DescriptionList
                   items={[
                     {
@@ -276,14 +276,14 @@ function DescriptionForm({
   }
 
   return (
-    <div className="flex flex-col gap-4 rounded-md border p-4">
+    <div className="flex min-w-0 flex-col gap-4 rounded-md border p-4">
       <p className="text-sm text-muted-foreground">
         Only the description can change. Resource and action decide what this
         permission means, so to change either, delete it and create another.
         Checks never read the description, so saving it changes no one&apos;s
         access.
       </p>
-      <div className="flex flex-col gap-1.5">
+      <div className="flex min-w-0 flex-col gap-1.5">
         <Label htmlFor="permission-edit-description">Description</Label>
         <Input
           id="permission-edit-description"
@@ -369,7 +369,7 @@ function GrantedByTable({ roles }: { roles: RoleSummary[] }) {
     },
   ]
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex min-w-0 flex-col gap-2">
       <ResourceTable<RoleSummary>
         columns={columns}
         rows={roles}

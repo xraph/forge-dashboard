@@ -42,7 +42,7 @@ function EventTypeView({ name }: { name: string }) {
   }
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <QueryBoundary title="Event type" query={query} skeletonRows={6}>
         {(t) => (
           <>
@@ -65,10 +65,10 @@ function EventTypeView({ name }: { name: string }) {
             />
             <DetailLayout
               main={
-                <div className="flex flex-col gap-6">
+                <div className="flex min-w-0 flex-col gap-4">
                   <section
                     aria-labelledby="schema-heading"
-                    className="flex flex-col gap-2"
+                    className="flex min-w-0 flex-col gap-2"
                   >
                     <h2 id="schema-heading" className="text-sm font-medium">
                       Schema
@@ -83,7 +83,7 @@ function EventTypeView({ name }: { name: string }) {
                   </section>
                   <section
                     aria-labelledby="example-heading"
-                    className="flex flex-col gap-2"
+                    className="flex min-w-0 flex-col gap-2"
                   >
                     <h2 id="example-heading" className="text-sm font-medium">
                       Example

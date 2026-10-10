@@ -175,10 +175,10 @@ function EditUser({ user }: { user: UserDetail }) {
   const dirty = Object.keys(changed).length > 1
 
   return (
-    <div className="flex flex-col gap-4 rounded-md border bg-card p-5">
+    <div className="flex min-w-0 flex-col gap-4 rounded-md border bg-card p-4">
       <h2 className="text-sm font-medium">Edit</h2>
       <CommandAlert error={update.error} title="Could not save" />
-      <div className="flex flex-col gap-1.5">
+      <div className="flex min-w-0 flex-col gap-1.5">
         <Label htmlFor="user-first">First name</Label>
         <Input
           id="user-first"
@@ -186,7 +186,7 @@ function EditUser({ user }: { user: UserDetail }) {
           onChange={(e) => setFirstName(e.target.value)}
         />
       </div>
-      <div className="flex flex-col gap-1.5">
+      <div className="flex min-w-0 flex-col gap-1.5">
         <Label htmlFor="user-last">Last name</Label>
         <Input
           id="user-last"
@@ -194,7 +194,7 @@ function EditUser({ user }: { user: UserDetail }) {
           onChange={(e) => setLastName(e.target.value)}
         />
       </div>
-      <div className="flex flex-col gap-1.5">
+      <div className="flex min-w-0 flex-col gap-1.5">
         <Label htmlFor="user-username">Username</Label>
         <Input
           id="user-username"
@@ -246,7 +246,7 @@ function UserDetailBody({ userId }: { userId: string }) {
   const contributed = useSlotCount("user.detail.sections")
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <QueryBoundary title="User" query={query} skeletonRows={3}>
         {(user) => (
           <>

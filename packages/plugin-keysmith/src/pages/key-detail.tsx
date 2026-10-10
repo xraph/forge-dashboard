@@ -294,7 +294,7 @@ function Section({
 }) {
   const heading = <h2 className="text-sm font-medium">{title}</h2>
   return (
-    <section className="flex flex-col gap-2">
+    <section className="flex min-w-0 flex-col gap-2">
       {action ? (
         <div className="flex items-baseline justify-between gap-4">
           {heading}
@@ -337,8 +337,8 @@ function KeyDetailView({
     rotatable || offer.suspend || offer.reactivate || offer.revoke
 
   return (
-    <section className="flex flex-col gap-6">
-      <div className="flex flex-col gap-2">
+    <section className="flex min-w-0 flex-col gap-4">
+      <div className="flex min-w-0 flex-col gap-2">
         <PageHeader
           title={key.name}
           description={key.description}
@@ -448,7 +448,7 @@ function RotationHistorySection({ keyId }: { keyId: string }) {
           }
           return (
             <>
-              <ul className="flex flex-col divide-y">
+              <ul className="flex min-w-0 flex-col divide-y">
                 {items.map((r) => (
                   <RotationRow key={r.id} item={r} />
                 ))}
@@ -603,7 +603,7 @@ function ValiditySection({
         </p>
       ) : (
         <>
-          <ul className="flex flex-col gap-2">
+          <ul className="flex min-w-0 flex-col gap-2">
             {previous.map((p, i) => (
               <PreviousKeyRow
                 // rotationId is "" on a window the server could not read back.
@@ -715,7 +715,7 @@ function PolicySection({
   return (
     <Section title="Policy">
       {policy === null && policyId ? (
-        <div className="flex flex-col gap-1">
+        <div className="flex min-w-0 flex-col gap-1">
           <p className="text-sm text-muted-foreground">
             {revoked
               ? "The policy this key used no longer exists."
@@ -769,7 +769,7 @@ function MetadataSection({ metadata }: { metadata: KeyDetail["metadata"] }) {
       ) : (
         // DescriptionList's term is a plain string, and metadata keys are
         // identifiers, so this is the same <dl> with keys and values in mono.
-        <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
+        <dl className="grid min-w-0 grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
           {entries.map(([k, v]) => (
             <div key={k} className="contents">
               <dt className="font-mono text-xs text-muted-foreground">{k}</dt>

@@ -305,8 +305,8 @@ function FlagDetailView({
   const overrideWord = plural(overrides.length, "tenant override")
 
   return (
-    <section className="flex flex-col gap-6">
-      <div className="flex flex-col gap-2">
+    <section className="flex min-w-0 flex-col gap-4">
+      <div className="flex min-w-0 flex-col gap-2">
         <PageHeader
           title={flag.key}
           description={
@@ -327,7 +327,7 @@ function FlagDetailView({
         <TagList values={flag.tags} label="tags" />
       </div>
 
-      <section className="flex flex-col gap-2">
+      <section className="flex min-w-0 flex-col gap-2">
         <h2 className="text-sm font-medium">Definition</h2>
         {typeReason === undefined ? null : (
           <p id={typeReasonId} className="text-sm text-muted-foreground">
@@ -759,12 +759,12 @@ function Variants({
   type: string
 }) {
   return (
-    <span className="flex flex-col gap-1">
+    <span className="flex min-w-0 flex-col gap-1">
       <span className="text-muted-foreground">Not used when evaluating</span>
       {variants.length === 0 ? (
         <NoneCell label="variants" />
       ) : (
-        <ul className="flex flex-col gap-0.5">
+        <ul className="flex min-w-0 flex-col gap-0.5">
           {variants.map((v, i) => (
             <li key={i} className="flex flex-wrap items-baseline gap-2">
               <FlagValue value={v.value} type={type} />
@@ -837,7 +837,10 @@ function FieldDialog({
       onOpenChange={(next) => !next && !command.loading && onClose()}
     >
       <DialogContent>
-        <form onSubmit={(e) => void submit(e)} className="flex flex-col gap-4">
+        <form
+          onSubmit={(e) => void submit(e)}
+          className="flex min-w-0 flex-col gap-4"
+        >
           <DialogHeader>
             <DialogTitle>{title}</DialogTitle>
             {description ? (
@@ -896,7 +899,7 @@ function EditDefaultDialog({
       payload={() => ({ key: flag.key, defaultValue: value })}
       onClose={onClose}
     >
-      <div className="flex flex-col gap-1.5">
+      <div className="flex min-w-0 flex-col gap-1.5">
         <Label id="edit-default-label" htmlFor="edit-default">
           Default
         </Label>
@@ -924,7 +927,7 @@ function EditDescriptionDialog({ flag, update, onClose }: EditProps) {
       payload={() => ({ key: flag.key, description: text.trim() })}
       onClose={onClose}
     >
-      <div className="flex flex-col gap-1.5">
+      <div className="flex min-w-0 flex-col gap-1.5">
         <Label htmlFor="edit-description">Description</Label>
         <Input
           id="edit-description"
@@ -950,7 +953,7 @@ function EditTagsDialog({ flag, update, onClose }: EditProps) {
       payload={() => ({ key: flag.key, tags: parseTags(text) })}
       onClose={onClose}
     >
-      <div className="flex flex-col gap-1.5">
+      <div className="flex min-w-0 flex-col gap-1.5">
         <Label htmlFor="edit-tags">Tags</Label>
         <Input
           id="edit-tags"
@@ -991,7 +994,7 @@ function AddOverrideDialog({
       payload={() => ({ key: flag.key, tenantId: tenant, value })}
       onClose={onClose}
     >
-      <div className="flex flex-col gap-1.5">
+      <div className="flex min-w-0 flex-col gap-1.5">
         <Label htmlFor="override-tenant">Tenant ID</Label>
         <Input
           id="override-tenant"
@@ -1002,7 +1005,7 @@ function AddOverrideDialog({
           onChange={(e) => setTenantId(e.target.value)}
         />
       </div>
-      <div className="flex flex-col gap-1.5">
+      <div className="flex min-w-0 flex-col gap-1.5">
         <Label id="override-value-label" htmlFor="override-value">
           Value
         </Label>

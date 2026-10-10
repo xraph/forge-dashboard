@@ -69,7 +69,7 @@ export function Facts({
   items: { label: string; value: ReactNode }[]
 }) {
   return (
-    <dl className="grid gap-x-5 sm:grid-cols-2">
+    <dl className="grid min-w-0 gap-x-5 sm:grid-cols-2">
       {items.map((item) => (
         <div
           key={item.label}

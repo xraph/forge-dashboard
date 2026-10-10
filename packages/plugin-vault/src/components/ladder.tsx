@@ -26,7 +26,7 @@ export function Ladder({ children }: { children: ReactNode }) {
   // role="list" because list-style none strips the semantics in some
   // browsers, and the order of these is the point.
   return (
-    <ol role="list" className="flex flex-col">
+    <ol role="list" className="flex min-w-0 flex-col">
       {children}
     </ol>
   )
@@ -73,7 +73,7 @@ export function Rung({
       data-rung={id}
       data-decided={decided ? "true" : undefined}
       className={cn(
-        "ml-3 flex flex-col gap-2 border-l pb-6 pl-6 last:pb-0",
+        "ml-3 flex min-w-0 flex-col gap-2 border-l pb-6 pl-6 last:pb-0",
         decided ? "border-l-2 border-primary" : "last:border-l-transparent"
       )}
     >
@@ -82,7 +82,10 @@ export function Rung({
       ) : null}
       <div
         data-slot="rung-body"
-        className={cn("relative flex flex-col gap-2", muted && "opacity-60")}
+        className={cn(
+          "relative flex min-w-0 flex-col gap-2",
+          muted && "opacity-60"
+        )}
       >
         <span
           aria-hidden="true"
@@ -120,7 +123,7 @@ export function LadderRows({
   children: ReactNode
 }) {
   return (
-    <ul role="list" aria-label={label} className="flex flex-col gap-1">
+    <ul role="list" aria-label={label} className="flex min-w-0 flex-col gap-1">
       {children}
     </ul>
   )

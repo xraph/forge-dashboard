@@ -49,8 +49,8 @@ export function ForgotPasswordScreen({ intents }: AuthScreenProps) {
           If that address has an account, a reset link is on its way.
         </p>
       ) : (
-        <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
-          <div className="flex flex-col gap-1.5">
+        <form className="flex min-w-0 flex-col gap-4" onSubmit={handleSubmit}>
+          <div className="flex min-w-0 flex-col gap-1.5">
             <Label htmlFor={emailId}>Email</Label>
             <Input
               autoComplete="username"

@@ -188,7 +188,7 @@ export function WaitlistPage() {
   ]
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader title="Waitlist" />
 
       <FilterBar
@@ -317,7 +317,7 @@ export function WaitlistPage() {
         pending={approveCmd.loading}
         onConfirm={() => void confirmApprove()}
       >
-        <div className="flex flex-col gap-1.5">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <Label htmlFor="waitlist-approve-note">Note</Label>
           <Input
             id="waitlist-approve-note"
@@ -346,7 +346,7 @@ export function WaitlistPage() {
         pending={rejectCmd.loading}
         onConfirm={() => void confirmReject()}
       >
-        <div className="flex flex-col gap-1.5">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <Label htmlFor="waitlist-reject-note">Note</Label>
           <Input
             id="waitlist-reject-note"

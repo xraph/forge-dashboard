@@ -248,7 +248,7 @@ function NamespaceSelect({
     options.push({ label: value, value })
   }
   return (
-    <span className="flex flex-col gap-1.5">
+    <span className="flex min-w-0 flex-col gap-1.5">
       <Label htmlFor="policy-namespace">Namespace</Label>
       <NativeSelect
         id="policy-namespace"
@@ -377,7 +377,7 @@ export function WardenPoliciesPage() {
   ]
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Policies"
         actions={<Button onClick={openCreate}>New policy</Button>}
@@ -483,7 +483,7 @@ export function WardenPoliciesPage() {
             : "It starts inactive, so it takes no effect until you activate it."
         }
       >
-        <div className="flex flex-col gap-1.5">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <Label htmlFor="policy-name">Name</Label>
           <Input
             id="policy-name"
@@ -491,7 +491,7 @@ export function WardenPoliciesPage() {
             onChange={(e) => setName(e.target.value)}
           />
         </div>
-        <div className="flex flex-col gap-1.5">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <Label htmlFor="policy-effect">Effect</Label>
           <NativeSelect
             id="policy-effect"

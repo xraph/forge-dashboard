@@ -230,8 +230,11 @@ function Receipt({ invoice }: { invoice: Invoice }) {
   const discounted = invoice.discount_amount.amount > 0
   const clamped = invoice.subtotal.amount - invoice.discount_amount.amount < 0
   return (
-    <section aria-label="Totals" className="flex max-w-sm flex-col gap-2">
-      <dl className="grid grid-cols-[1fr_auto] gap-x-8 text-sm">
+    <section
+      aria-label="Totals"
+      className="flex max-w-sm min-w-0 flex-col gap-2"
+    >
+      <dl className="grid min-w-0 grid-cols-[1fr_auto] gap-x-8 text-sm">
         {row("Subtotal", <MoneyText value={invoice.subtotal} />)}
         {row(
           "Discount",
@@ -279,7 +282,10 @@ function InvoiceProgress({ status }: { status: InvoiceStatus }) {
   const current =
     status === "draft" ? "draft" : status === "paid" ? "paid" : "pending"
   return (
-    <ol aria-label="Invoice progress" className="flex flex-col gap-1 text-sm">
+    <ol
+      aria-label="Invoice progress"
+      className="flex min-w-0 flex-col gap-1 text-sm"
+    >
       {STEPS.map((step) => {
         const reached = step.reached.includes(status)
         const label =
@@ -400,7 +406,7 @@ function InvoiceDetailView({ detail }: { detail: InvoiceDetail }) {
   const close = (o: boolean) => !o && setDialog(null)
 
   return (
-    <section className="flex flex-col gap-6">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title={`Invoice ${invoice.id}`}
         description={`${invoice.tenant_id}, ${formatPeriod(invoice.period_start, invoice.period_end)}`}
@@ -410,7 +416,7 @@ function InvoiceDetailView({ detail }: { detail: InvoiceDetail }) {
           <>
             <Receipt invoice={invoice} />
             {lineGroups(lines).map((g) => (
-              <section key={g.key} className="flex flex-col gap-2">
+              <section key={g.key} className="flex min-w-0 flex-col gap-2">
                 <h2 className="text-sm font-medium">{g.label}</h2>
                 <LedgerTable<LineItem>
                   columns={lineColumns}
@@ -430,7 +436,10 @@ function InvoiceDetailView({ detail }: { detail: InvoiceDetail }) {
         }
         aside={
           <>
-            <section className="flex flex-col gap-3" aria-label="Status">
+            <section
+              className="flex min-w-0 flex-col gap-3"
+              aria-label="Status"
+            >
               <h2 className="text-sm font-medium">Status</h2>
               <InvoiceProgress status={invoice.status} />
               {transitions.length > 0 && (
@@ -526,7 +535,10 @@ function InvoiceDetailView({ detail }: { detail: InvoiceDetail }) {
                   : []),
               ]}
             />
-            <section className="flex flex-col gap-2" aria-label="Export">
+            <section
+              className="flex min-w-0 flex-col gap-2"
+              aria-label="Export"
+            >
               <h2 className="text-sm font-medium">Export</h2>
               {formats.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
@@ -580,7 +592,7 @@ function InvoiceDetailView({ detail }: { detail: InvoiceDetail }) {
         payload={markPaidPayload}
         onDone={() => setDialog(null)}
       >
-        <div className="flex flex-col gap-1.5">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <Label htmlFor="paid-ref">Payment reference</Label>
           <Input
             id="paid-ref"
@@ -590,7 +602,7 @@ function InvoiceDetailView({ detail }: { detail: InvoiceDetail }) {
             onChange={(e) => setPaymentRef(e.target.value)}
           />
         </div>
-        <div className="flex flex-col gap-1.5">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <Label htmlFor="paid-at">Paid at</Label>
           <Input
             id="paid-at"
@@ -616,7 +628,7 @@ function InvoiceDetailView({ detail }: { detail: InvoiceDetail }) {
         confirmDisabled={reason.trim() === ""}
         onDone={() => setDialog(null)}
       >
-        <div className="flex flex-col gap-1.5">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <Label htmlFor="void-reason">Reason</Label>
           <Input
             id="void-reason"

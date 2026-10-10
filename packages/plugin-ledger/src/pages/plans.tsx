@@ -98,7 +98,7 @@ export function LedgerPlansPage() {
   })
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Plans"
         description="What a subscription can be on, and what it costs."
@@ -132,7 +132,7 @@ export function LedgerPlansPage() {
         {(data) => {
           const rows = data.items ?? []
           return (
-            <div className="flex flex-col gap-3">
+            <div className="flex min-w-0 flex-col gap-3">
               <ResourceTable<Plan>
                 columns={columns}
                 rows={rows}

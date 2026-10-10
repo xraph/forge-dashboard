@@ -31,7 +31,7 @@ export function Certificate({
   const verdict = (
     <div>
       <h2
-        className={`max-w-3xl text-2xl leading-snug font-normal text-balance tabular-nums md:text-3xl ${failed ? "text-destructive" : ""}`}
+        className={`max-w-3xl text-2xl leading-snug font-normal text-balance tabular-nums md:text-2xl ${failed ? "text-destructive" : ""}`}
       >
         {v.headline.map((p, i) =>
           p.mono ? (
@@ -51,7 +51,8 @@ export function Certificate({
     </div>
   )
 
-  if (!r) return <article className="flex flex-col gap-6">{verdict}</article>
+  if (!r)
+    return <article className="flex min-w-0 flex-col gap-4">{verdict}</article>
 
   const limits =
     v.limits.length > 0 ? (
@@ -59,8 +60,8 @@ export function Certificate({
         <ul
           className={
             v.limitsLoud
-              ? "flex flex-col gap-2 text-base font-medium"
-              : "flex flex-col gap-1 text-sm"
+              ? "flex min-w-0 flex-col gap-2 text-base font-medium"
+              : "flex min-w-0 flex-col gap-1 text-sm"
           }
         >
           {v.limits.map((l) => (
@@ -81,7 +82,7 @@ export function Certificate({
   const to = r.lastEvent
 
   return (
-    <article className="flex flex-col gap-8">
+    <article className="flex min-w-0 flex-col gap-4">
       {verdict}
       {limits}
       {examined && (
@@ -127,7 +128,7 @@ export function Certificate({
       )}
       {(r.retained ?? []).length > 0 && (
         <Section title="Removed by retention">
-          <ul className="flex flex-col gap-1 text-sm">
+          <ul className="flex min-w-0 flex-col gap-1 text-sm">
             {(r.retained ?? []).map((rg) => (
               <li key={rg.fromSeq}>
                 <span className="font-mono text-xs">
@@ -197,7 +198,7 @@ export function Certificate({
       {/* A heading over nothing reads as a section that graded the range and found nothing to say. */}
       {(r.coverage ?? []).length > 0 && (
         <Section title="Coverage">
-          <ul className="flex flex-col gap-1 text-sm">
+          <ul className="flex min-w-0 flex-col gap-1 text-sm">
             {(r.coverage ?? []).map((s) => (
               <li
                 key={`${s.fromSeq}-${s.level}`}
@@ -259,7 +260,7 @@ function Section({
 
 function CheckTable({ rows }: { rows: CheckRow[] }) {
   return (
-    <dl className="grid grid-cols-[12rem_1fr] gap-x-4 gap-y-2 text-sm">
+    <dl className="grid min-w-0 grid-cols-[12rem_1fr] gap-x-4 gap-y-2 text-sm">
       {rows.map((row) => (
         <div key={row.label} className="contents">
           <dt>{row.label}</dt>

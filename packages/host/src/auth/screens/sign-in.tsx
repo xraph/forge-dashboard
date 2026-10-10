@@ -47,7 +47,7 @@ function SetupAwareSignInScreen(props: AuthScreenProps) {
         serverHost={currentServerHost()}
         title="Setup status unavailable"
       >
-        <div className="flex flex-col gap-3">
+        <div className="flex min-w-0 flex-col gap-3">
           <CommandAlert
             error={status.error}
             showCode={false}
@@ -131,7 +131,7 @@ function SignInForm({ intents, onAuthenticated }: AuthScreenProps) {
         // things - the error visible, and a way to try again - are built from
         // the same pieces QueryBoundary uses: CommandAlert for the message,
         // and refetch behind a button.
-        <div className="flex flex-col gap-3">
+        <div className="flex min-w-0 flex-col gap-3">
           <CommandAlert
             error={config.error}
             showCode={false}
@@ -149,8 +149,8 @@ function SignInForm({ intents, onAuthenticated }: AuthScreenProps) {
           </button>
         </div>
       ) : passwordEnabled ? (
-        <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
-          <div className="flex flex-col gap-1.5">
+        <form className="flex min-w-0 flex-col gap-4" onSubmit={handleSubmit}>
+          <div className="flex min-w-0 flex-col gap-1.5">
             <Label htmlFor={emailId}>Email</Label>
             <Input
               autoComplete="username"
@@ -161,7 +161,7 @@ function SignInForm({ intents, onAuthenticated }: AuthScreenProps) {
               value={email}
             />
           </div>
-          <div className="flex flex-col gap-1.5">
+          <div className="flex min-w-0 flex-col gap-1.5">
             <Label htmlFor={passwordId}>Password</Label>
             <Input
               autoComplete="current-password"

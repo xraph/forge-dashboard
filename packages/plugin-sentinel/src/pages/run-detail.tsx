@@ -72,7 +72,7 @@ function RunDetailBody({ runId }: { runId: string }) {
       ? "chosen for this view"
       : "current baseline"
   return (
-    <section className="flex flex-col gap-6">
+    <section className="flex min-w-0 flex-col gap-4">
       {detail.stale && (
         <StaleNotice
           what="this run"
@@ -96,8 +96,8 @@ function RunDetailBody({ runId }: { runId: string }) {
               </Button>
             ) : null
           return (
-            <div className="flex flex-col gap-6">
-              <div className="flex flex-col gap-2">
+            <div className="flex min-w-0 flex-col gap-4">
+              <div className="flex min-w-0 flex-col gap-2">
                 <PageHeader
                   title={`Run ${shortRunId(run.id)}`}
                   actions={
@@ -196,7 +196,7 @@ function RunDetailBody({ runId }: { runId: string }) {
 function RunMeta({ run }: { run: Run }) {
   const s = run.settings
   return (
-    <div className="flex flex-col gap-1 text-sm text-muted-foreground">
+    <div className="flex min-w-0 flex-col gap-1 text-sm text-muted-foreground">
       <p className="flex flex-wrap items-center gap-x-3 gap-y-1">
         <RunStateBadge state={run.state} />
         <PluginLink to={suitePath(run.suiteId)}>

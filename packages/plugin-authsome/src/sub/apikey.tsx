@@ -213,7 +213,7 @@ export function APIKeyListPage() {
   ]
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="API Keys"
         actions={
@@ -295,7 +295,7 @@ function APIKeyDetailBody({ id }: { id: string }) {
   const query = useQuery<APIKeyDetail>("apikeys.detail", { id })
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <QueryBoundary title="API key" query={query} skeletonRows={5}>
         {(key) => (
           <>
@@ -317,7 +317,7 @@ function APIKeyDetailBody({ id }: { id: string }) {
                 {
                   term: "Public key",
                   value: key.publicKey ? (
-                    <span className="flex flex-col gap-1">
+                    <span className="flex min-w-0 flex-col gap-1">
                       <CopyableValue value={key.publicKey} label="public key" />
                       <span className="text-xs text-muted-foreground">
                         Safe to share
@@ -416,7 +416,7 @@ function RevealedKey({
   const [confirmingDismiss, setConfirmingDismiss] = useState(false)
 
   return (
-    <div className="flex flex-col gap-3 rounded-md border p-4">
+    <div className="flex min-w-0 flex-col gap-3 rounded-md border p-4">
       <h2 className="text-sm font-medium">API key created</h2>
       <p className="text-sm text-muted-foreground">
         This is the only time you will see the full secret. Copy it now: the
@@ -425,7 +425,7 @@ function RevealedKey({
       <CopyableValue value={created.secret} label="secret" />
 
       {detail.data?.publicKey && (
-        <div className="flex flex-col gap-1">
+        <div className="flex min-w-0 flex-col gap-1">
           <span className="text-xs text-muted-foreground">
             Public key (safe to share)
           </span>
@@ -482,7 +482,7 @@ export function APIKeyCreatePage() {
 
   if (revealed) {
     return (
-      <section className="flex max-w-xl flex-col gap-4">
+      <section className="flex max-w-xl min-w-0 flex-col gap-4">
         <PageHeader title="New API key" />
         <RevealedKey created={revealed} onDismissed={() => setRevealed(null)} />
       </section>
@@ -490,10 +490,10 @@ export function APIKeyCreatePage() {
   }
 
   return (
-    <section className="flex max-w-xl flex-col gap-4">
+    <section className="flex max-w-xl min-w-0 flex-col gap-4">
       <PageHeader title="New API key" />
       <CommandAlert error={create.error} title="Could not create the API key" />
-      <div className="flex flex-col gap-1.5">
+      <div className="flex min-w-0 flex-col gap-1.5">
         <Label htmlFor="apikey-create-name">Name</Label>
         <Input
           id="apikey-create-name"
@@ -501,7 +501,7 @@ export function APIKeyCreatePage() {
           onChange={(e) => setName(e.target.value)}
         />
       </div>
-      <div className="flex flex-col gap-1.5">
+      <div className="flex min-w-0 flex-col gap-1.5">
         <Label htmlFor="apikey-create-user">User ID</Label>
         <Input
           id="apikey-create-user"
@@ -520,7 +520,7 @@ export function APIKeyCreatePage() {
           page; there is no picker here.
         </p>
       </div>
-      <div className="flex flex-col gap-1.5">
+      <div className="flex min-w-0 flex-col gap-1.5">
         <Label htmlFor="apikey-create-scopes">Scopes</Label>
         <Input
           id="apikey-create-scopes"

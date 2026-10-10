@@ -17,14 +17,14 @@ export const ErasureDetailPage: ComponentType<PluginPageProps> = ({
   const id = params.id ?? ""
   const q = useQuery<ErasureSummary>("erasures.detail", { id })
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title={id}
         description="An erasure destroys a data subject's encryption key in this scope, so their sealed fields can no longer be read. Status and Key say whether this one did."
       />
       <QueryBoundary title="erasure" query={q} skeletonRows={5}>
         {(e) => (
-          <div className="flex flex-col gap-6">
+          <div className="flex min-w-0 flex-col gap-4">
             <DescriptionList
               items={[
                 {

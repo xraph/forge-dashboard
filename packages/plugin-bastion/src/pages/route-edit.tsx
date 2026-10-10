@@ -33,7 +33,7 @@ function RouteEditBody({ id }: { id: string }) {
   }
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <QueryBoundary title="Route" query={detail} skeletonRows={6}>
         {(d) =>
           !d.editable ? (

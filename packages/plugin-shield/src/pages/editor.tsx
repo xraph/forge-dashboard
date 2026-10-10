@@ -76,7 +76,7 @@ function ReferencePicker({
     ...(search ? { search } : {}),
   })
   return (
-    <div className="grid gap-1">
+    <div className="grid min-w-0 gap-1">
       <Input
         aria-label={`Search ${fieldLabel}`}
         placeholder={`Search ${collection}`}
@@ -307,12 +307,12 @@ function FieldControl({
     )
   if (field.type === "references")
     return (
-      <fieldset className="grid gap-2 rounded-md border p-2.5">
+      <fieldset className="grid min-w-0 gap-2 rounded-md border p-2.5">
         <legend className="px-1 text-sm font-medium">{title}</legend>
         {items.map((item, index) => (
           <div
             key={index}
-            className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-2"
+            className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-end gap-2"
           >
             <ReferencePicker
               collection={field.key}
@@ -550,7 +550,7 @@ export function EditorForm({
         </ul>
       )}
       <div className="grid min-w-0 gap-2 rounded-md border p-2.5 sm:grid-cols-2">
-        <div className="grid gap-1.5">
+        <div className="grid min-w-0 gap-1.5">
           <Label htmlFor="shield-name">Name *</Label>
           <Input
             id="shield-name"

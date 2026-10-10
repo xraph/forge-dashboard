@@ -30,7 +30,7 @@ const ALL = { value: "", label: "All" }
  */
 function WhenCell({ item }: { item: RotationItem }) {
   return (
-    <div className="flex flex-col gap-0.5">
+    <div className="flex min-w-0 flex-col gap-0.5">
       <Timestamp value={item.rotatedAt} label="rotation time" />
       <span className="text-xs text-muted-foreground">
         by{" "}
@@ -216,7 +216,7 @@ export const RotationsPage: ComponentType<PluginPageProps> = () => {
   }
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Rotations"
         description="Every rotation across keys, newest first."
@@ -247,7 +247,7 @@ export const RotationsPage: ComponentType<PluginPageProps> = () => {
         {(data) => {
           const rows = data.items ?? []
           return (
-            <div className="flex flex-col gap-3">
+            <div className="flex min-w-0 flex-col gap-3">
               <ResourceTable<RotationItem>
                 columns={columns}
                 rows={rows}

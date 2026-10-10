@@ -57,7 +57,7 @@ export function SettingsNamespaceBody({
   }
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <QueryBoundary title="Settings" query={query} skeletonRows={5}>
         {(data) => {
           const fields = flattenCategories(data)

@@ -24,8 +24,8 @@ export default function DimensionTrends({ points }: { points: TrendPoint[] }) {
   const dims = measuredDimensions(points)
   const unmeasured = DIMENSIONS.filter((d) => !dims.includes(d))
   return (
-    <div className="flex flex-col gap-3">
-      <ul className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">
+    <div className="flex min-w-0 flex-col gap-3">
+      <ul className="grid min-w-0 grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">
         {dims.map((dim) => {
           const rows = points.map((p, index) => ({
             index,

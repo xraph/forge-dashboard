@@ -118,8 +118,8 @@ export function OneTimeKey({
   const body = rest.slice(0, rest.length - tail.length)
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex flex-col gap-1">
+    <div className="flex min-w-0 flex-col gap-4">
+      <div className="flex min-w-0 flex-col gap-1">
         {showHeading && (
           <h2 className="text-lg font-semibold">Save your new key</h2>
         )}

@@ -123,7 +123,7 @@ function Field({ id, label, help, error, children }: FieldProps) {
   const errorId = error ? `${id}-error` : undefined
   const describedBy = [helpId, errorId].filter(Boolean).join(" ") || undefined
   return (
-    <div className="flex flex-col gap-1.5">
+    <div className="flex min-w-0 flex-col gap-1.5">
       <Label htmlFor={id}>{label}</Label>
       {children(describedBy, Boolean(error))}
       {help && (
@@ -231,7 +231,11 @@ export function EndpointForm({
   }
 
   return (
-    <form className="flex max-w-xl flex-col gap-4" onSubmit={submit} noValidate>
+    <form
+      className="flex max-w-xl min-w-0 flex-col gap-4"
+      onSubmit={submit}
+      noValidate
+    >
       {/* Relay's messages name their field ("URL: invalid URL"), so the
           alert reads on its own; the field it names is marked as well. */}
       <CommandAlert error={error} title={errorTitle} />

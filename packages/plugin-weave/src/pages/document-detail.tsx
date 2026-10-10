@@ -92,7 +92,7 @@ export const DocumentDetailPage: ComponentType<PluginPageProps> = ({
       keepPreviousData
     >
       {(d) => (
-        <section className="flex flex-col gap-6">
+        <section className="flex min-w-0 flex-col gap-4">
           <PageHeader
             title={d.title ?? "Untitled document"}
             description={d.source}
@@ -131,7 +131,7 @@ export const DocumentDetailPage: ComponentType<PluginPageProps> = ({
             </Alert>
           ) : null}
 
-          <section className="flex flex-col gap-2">
+          <section className="flex min-w-0 flex-col gap-2">
             <h2 className="text-sm font-medium">Details</h2>
             <DescriptionList
               items={[
@@ -218,7 +218,7 @@ export const DocumentDetailPage: ComponentType<PluginPageProps> = ({
             </p>
           </section>
 
-          <section className="flex flex-col gap-2">
+          <section className="flex min-w-0 flex-col gap-2">
             <h2 className="text-sm font-medium">Metadata</h2>
             <MetadataList metadata={d.metadata} />
           </section>
@@ -226,11 +226,11 @@ export const DocumentDetailPage: ComponentType<PluginPageProps> = ({
           <QueryBoundary title="Chunks" query={spans} skeletonRows={3}>
             {(s) => (
               <>
-                <section className="flex flex-col gap-2">
+                <section className="flex min-w-0 flex-col gap-2">
                   <h2 className="text-sm font-medium">Where the chunks fall</h2>
                   <SpanMap spans={s} />
                 </section>
-                <section className="flex flex-col gap-2">
+                <section className="flex min-w-0 flex-col gap-2">
                   <h2 className="text-sm font-medium">Read the chunks</h2>
                   <ChunkReader
                     documentId={d.id}

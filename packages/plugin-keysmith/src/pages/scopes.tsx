@@ -63,8 +63,8 @@ export const ScopesPage: ComponentType<PluginPageProps> = () => {
   const create = <Button onClick={() => setCreating(true)}>Create scope</Button>
 
   return (
-    <section className="flex flex-col gap-4">
-      <div className="flex flex-col gap-2">
+    <section className="flex min-w-0 flex-col gap-4">
+      <div className="flex min-w-0 flex-col gap-2">
         <PageHeader title="Scopes" actions={create} />
         <p className="text-sm text-muted-foreground">
           Parents are stored for your application. Keysmith does not use them
@@ -79,7 +79,7 @@ export const ScopesPage: ComponentType<PluginPageProps> = () => {
         {(data) => {
           const rows = data.scopes ?? []
           return (
-            <div className="flex flex-col gap-1.5">
+            <div className="flex min-w-0 flex-col gap-1.5">
               <ResourceTable<ScopeSummary>
                 columns={columns}
                 rows={rows}

@@ -93,7 +93,7 @@ function TypeCard({ node }: { node: ResourceTypeGraphNode }) {
     <PluginLink
       to={`/resource-types/${node.id}`}
       aria-label={`Open ${node.name} in ${namespaceLabel(node.namespacePath)}`}
-      className="flex h-full flex-col gap-1 p-3 hover:bg-muted/50 focus-visible:outline-2 focus-visible:outline-ring"
+      className="flex h-full min-w-0 flex-col gap-1 p-3 hover:bg-muted/50 focus-visible:outline-2 focus-visible:outline-ring"
     >
       <span className="flex items-baseline justify-between gap-2">
         <span className="truncate text-sm font-medium">{node.name}</span>
@@ -134,7 +134,7 @@ function UndeclaredCard({ name }: { name: string }) {
   return (
     <div
       data-undeclared="true"
-      className="flex h-full flex-col justify-center gap-0.5 p-3"
+      className="flex h-full min-w-0 flex-col justify-center gap-0.5 p-3"
     >
       <span className="truncate font-mono text-xs">{name}</span>
       <span className="text-xs">not a resource type in this view</span>
@@ -253,7 +253,7 @@ function SchemaGraphView({
     )
   }
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex min-w-0 flex-col gap-2">
       {graph.truncated && (
         <p className="text-sm text-muted-foreground">
           Showing the first 500 resource types.
@@ -290,7 +290,7 @@ function SchemaGraphView({
         <summary className="cursor-pointer text-muted-foreground">
           Relationships as text
         </summary>
-        <ul className="mt-2 flex flex-col gap-1">
+        <ul className="mt-2 flex min-w-0 flex-col gap-1">
           {built.descriptions.map((d) => (
             <li key={d} className="font-mono text-xs">
               {d}

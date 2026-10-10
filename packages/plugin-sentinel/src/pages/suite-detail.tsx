@@ -77,7 +77,7 @@ function SuiteDetailBody({ suiteId, tab }: { suiteId: string; tab: SuiteTab }) {
   // Taken when a dialog opens, so its wording holds through a refetch.
   const [target, setTarget] = useState<Suite | null>(null)
   return (
-    <section className="flex flex-col gap-6">
+    <section className="flex min-w-0 flex-col gap-4">
       {suite.stale && (
         <StaleNotice
           what="this suite"
@@ -87,7 +87,7 @@ function SuiteDetailBody({ suiteId, tab }: { suiteId: string; tab: SuiteTab }) {
       )}
       <SettledBoundary title="Suite" query={suite} skeletonRows={4}>
         {(s) => (
-          <div className="flex flex-col gap-4">
+          <div className="flex min-w-0 flex-col gap-4">
             <PageHeader
               title={s.name}
               description={s.description || undefined}

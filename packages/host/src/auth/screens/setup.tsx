@@ -241,13 +241,13 @@ function SetupForm({
       <form
         ref={formRef}
         noValidate
-        className="flex flex-col gap-4"
+        className="flex min-w-0 flex-col gap-4"
         onSubmit={handleSubmit}
       >
         <fieldset disabled={complete.loading} className="min-w-0 space-y-3">
           {step === "platform" ? (
             <>
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid min-w-0 gap-3 sm:grid-cols-2">
                 {field(
                   "platform.name",
                   "Platform name",
@@ -322,7 +322,7 @@ function SetupForm({
           ) : null}
           {step === "environment" ? (
             <>
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid min-w-0 gap-3 sm:grid-cols-2">
                 {field(
                   "environment.name",
                   "Environment name",
@@ -342,7 +342,7 @@ function SetupForm({
                       slugTouched: true,
                     })
                 )}
-                <div className="flex flex-col gap-1">
+                <div className="flex min-w-0 flex-col gap-1">
                   <Label htmlFor={`${prefix}-type`}>Environment type</Label>
                   <select
                     id={`${prefix}-type`}
@@ -369,7 +369,7 @@ function SetupForm({
                   { type: "color" }
                 )}
               </div>
-              <div className="flex flex-col gap-1">
+              <div className="flex min-w-0 flex-col gap-1">
                 <Label htmlFor={`${prefix}-description`}>Description</Label>
                 <Textarea
                   id={`${prefix}-description`}
@@ -453,7 +453,7 @@ function SetupForm({
                   ))}
                 </div>
               ) : null}
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid min-w-0 gap-3 sm:grid-cols-2">
                 {wizard
                   ? field(
                       "administrator.name",

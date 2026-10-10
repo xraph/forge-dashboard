@@ -73,7 +73,7 @@ function CreateForm({ engine }: { engine: EngineInfoResponse }) {
   return (
     <form
       onSubmit={(e) => void submit(e)}
-      className="flex max-w-xl flex-col gap-4"
+      className="flex max-w-xl min-w-0 flex-col gap-4"
     >
       <CommandAlert
         title="Could not create the template"
@@ -86,7 +86,7 @@ function CreateForm({ engine }: { engine: EngineInfoResponse }) {
             : create.error
         }
       />
-      <div className="flex flex-col gap-1.5">
+      <div className="flex min-w-0 flex-col gap-1.5">
         <Label htmlFor="template-name">Name</Label>
         <Input
           id="template-name"
@@ -95,7 +95,7 @@ function CreateForm({ engine }: { engine: EngineInfoResponse }) {
           onChange={(e) => setName(e.target.value)}
         />
       </div>
-      <div className="flex flex-col gap-1.5">
+      <div className="flex min-w-0 flex-col gap-1.5">
         <Label htmlFor="template-slug">Slug</Label>
         <Input
           id="template-slug"
@@ -120,8 +120,8 @@ function CreateForm({ engine }: { engine: EngineInfoResponse }) {
           digits, dots, dashes or underscores. It can't change later.
         </p>
       </div>
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div className="flex flex-col gap-1.5">
+      <div className="grid min-w-0 gap-4 sm:grid-cols-2">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <Label htmlFor="template-channel">Channel</Label>
           <NativeSelect
             id="template-channel"
@@ -139,7 +139,7 @@ function CreateForm({ engine }: { engine: EngineInfoResponse }) {
             ))}
           </NativeSelect>
         </div>
-        <div className="flex flex-col gap-1.5">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <Label htmlFor="template-category">Category</Label>
           <NativeSelect
             id="template-category"
@@ -154,7 +154,7 @@ function CreateForm({ engine }: { engine: EngineInfoResponse }) {
           </NativeSelect>
         </div>
       </div>
-      <div className="flex flex-col gap-1.5">
+      <div className="flex min-w-0 flex-col gap-1.5">
         <Label htmlFor="template-locale">First version's locale</Label>
         <Input
           id="template-locale"
@@ -192,7 +192,7 @@ function CreateForm({ engine }: { engine: EngineInfoResponse }) {
 export const TemplateCreatePage: ComponentType<PluginPageProps> = () => {
   const info = useEngineInfo()
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <HeraldHeader
         title="New template"
         description="Its content, variables and other locales are edited in the template workspace once it exists."

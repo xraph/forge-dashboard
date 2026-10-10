@@ -86,7 +86,7 @@ export function ConfigurationPage() {
             <Properties
               values={{ Version: data.version, Environment: data.environment }}
             />
-            <div className="border-t px-5 py-4 text-sm text-muted-foreground">
+            <div className="border-t px-4 py-3 text-sm text-muted-foreground">
               Configuration changes are managed in your application deployment.
               This server contract does not expose a configuration editor.
             </div>

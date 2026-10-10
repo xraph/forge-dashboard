@@ -36,7 +36,7 @@ const PERIOD: Record<string, string> = {
 export function EntitlementRow({ feature: f }: { feature: FeatureUsage }) {
   const noteId = useId()
   const name = (
-    <span className="flex flex-col">
+    <span className="flex min-w-0 flex-col">
       <span className="font-medium">{f.name}</span>
       <span className="font-mono text-xs text-muted-foreground">{f.key}</span>
     </span>
@@ -58,7 +58,7 @@ export function EntitlementRow({ feature: f }: { feature: FeatureUsage }) {
     return (
       <li className="flex items-center justify-between gap-4 px-4 py-3">
         {name}
-        <span className="flex flex-col items-end text-sm">
+        <span className="flex min-w-0 flex-col items-end text-sm">
           <span className="tabular-nums">{`${number.format(f.used)}${period}`}</span>
           <span className="text-muted-foreground">Unlimited</span>
         </span>
@@ -96,7 +96,7 @@ export function EntitlementRow({ feature: f }: { feature: FeatureUsage }) {
       : "At the limit, further use is refused"
 
   return (
-    <li className="flex flex-col gap-2 px-4 py-3">
+    <li className="flex min-w-0 flex-col gap-2 px-4 py-3">
       <div className="flex items-start justify-between gap-4">
         {name}
         <span className="text-sm tabular-nums">{`${number.format(f.used)} of ${number.format(f.limit)}${period}`}</span>
@@ -143,7 +143,10 @@ export function EntitlementPanel({
     id: subscriptionId,
   })
   return (
-    <section aria-label="Usage against limits" className="flex flex-col gap-3">
+    <section
+      aria-label="Usage against limits"
+      className="flex min-w-0 flex-col gap-3"
+    >
       <h2 className="text-base font-medium">Usage against limits</h2>
       <QueryBoundary title="Usage" query={usage} skeletonRows={3}>
         {(data) => {
@@ -153,7 +156,7 @@ export function EntitlementPanel({
               This plan grants no features, so there is nothing to measure.
             </p>
           ) : (
-            <ul className="flex flex-col divide-y rounded-md border">
+            <ul className="flex min-w-0 flex-col divide-y rounded-md border">
               {features.map((f) => (
                 <EntitlementRow key={f.key} feature={f} />
               ))}

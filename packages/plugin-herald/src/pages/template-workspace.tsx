@@ -127,7 +127,7 @@ export function TemplateWorkspacePage({ params }: PluginPageProps) {
   const id = params.id ?? ""
   if (id === "") {
     return (
-      <section className="flex flex-col gap-6">
+      <section className="flex min-w-0 flex-col gap-4">
         <HeraldHeader title="Template" />
         <p className="text-sm text-muted-foreground">
           No template ID in the address, so there is nothing to show.
@@ -169,7 +169,7 @@ function Workspace({ id }: { id: string }) {
 
   if (snap === null) {
     return (
-      <section className="flex flex-col gap-6">
+      <section className="flex min-w-0 flex-col gap-4">
         <HeraldHeader title="Template" />
         <QueryBoundary title="Template" query={detail} skeletonRows={6}>
           {() => null}
@@ -380,7 +380,7 @@ function Editor({
   }
 
   return (
-    <section className="flex flex-col gap-6">
+    <section className="flex min-w-0 flex-col gap-4">
       <HeraldHeader
         title={draft.settings.name.trim() || template.name}
         meta={
@@ -462,7 +462,7 @@ function Editor({
           </TabsTrigger>
         </TabsList>
         <TabsContent value="content" className="mt-4">
-          <div className="grid gap-6 lg:grid-cols-[12rem_minmax(0,1fr)] xl:grid-cols-[12rem_minmax(0,1fr)_minmax(0,24rem)]">
+          <div className="grid min-w-0 gap-4 lg:grid-cols-[12rem_minmax(0,1fr)] xl:grid-cols-[12rem_minmax(0,1fr)_minmax(0,24rem)]">
             <LocaleRail
               template={template}
               selectedId={current?.id ?? ""}

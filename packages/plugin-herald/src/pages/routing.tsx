@@ -73,13 +73,13 @@ function WhoSends({ channels }: { channels: string[] }) {
   return (
     <section
       aria-labelledby="who-sends"
-      className="flex flex-col gap-3 rounded-lg border p-4"
+      className="flex min-w-0 flex-col gap-3 rounded-lg border p-4"
     >
       <h2 id="who-sends" className="text-sm font-medium">
         Who sends?
       </h2>
-      <div className="grid gap-3 sm:grid-cols-3">
-        <div className="flex flex-col gap-1.5">
+      <div className="grid min-w-0 gap-3 sm:grid-cols-3">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <Label htmlFor="who-channel">Channel to test</Label>
           <NativeSelect
             id="who-channel"
@@ -94,7 +94,7 @@ function WhoSends({ channels }: { channels: string[] }) {
             ))}
           </NativeSelect>
         </div>
-        <div className="flex flex-col gap-1.5">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <Label htmlFor="who-org">Org ID (optional)</Label>
           <Input
             id="who-org"
@@ -105,7 +105,7 @@ function WhoSends({ channels }: { channels: string[] }) {
             onChange={(e) => setOrg(e.target.value)}
           />
         </div>
-        <div className="flex flex-col gap-1.5">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <Label htmlFor="who-user">User ID (optional)</Label>
           <Input
             id="who-user"
@@ -142,7 +142,7 @@ function RuleCard({
       ? "the app rule"
       : `the ${rule.scope} rule for ${rule.scopeId}`
   return (
-    <article className="flex flex-col gap-3 rounded-lg border p-4">
+    <article className="flex min-w-0 flex-col gap-3 rounded-lg border p-4">
       <header className="flex flex-wrap items-center justify-between gap-2">
         <span className="text-sm font-medium">
           {rule.scope === "app" ? (
@@ -164,7 +164,7 @@ function RuleCard({
           />
         </span>
       </header>
-      <dl className="grid grid-cols-[8rem_1fr] gap-x-3 gap-y-1.5 text-sm">
+      <dl className="grid min-w-0 grid-cols-[8rem_1fr] gap-x-3 gap-y-1.5 text-sm">
         {ROUTED_CHANNELS.map((ch) => {
           const p = rule.providers[ch]
           return (
@@ -313,7 +313,10 @@ function RuleDialog({
       onOpenChange={(next) => !next && !set.loading && onClose()}
     >
       <DialogContent className="sm:max-w-lg">
-        <form onSubmit={(e) => void submit(e)} className="flex flex-col gap-4">
+        <form
+          onSubmit={(e) => void submit(e)}
+          className="flex min-w-0 flex-col gap-4"
+        >
           <DialogHeader>
             <DialogTitle>
               {editing ? "Edit routing rule" : "Add a routing rule"}
@@ -330,8 +333,8 @@ function RuleDialog({
               {providers.error.code}: {providers.error.message}
             </p>
           )}
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="flex flex-col gap-1.5">
+          <div className="grid min-w-0 gap-3 sm:grid-cols-2">
+            <div className="flex min-w-0 flex-col gap-1.5">
               <Label htmlFor="rule-level">Level</Label>
               <NativeSelect
                 id="rule-level"
@@ -350,7 +353,7 @@ function RuleDialog({
               </NativeSelect>
             </div>
             {needsId && (
-              <div className="flex flex-col gap-1.5">
+              <div className="flex min-w-0 flex-col gap-1.5">
                 <Label htmlFor="rule-id">
                   {draft.scope === "org" ? "Org ID" : "User ID"}
                 </Label>
@@ -375,7 +378,7 @@ function RuleDialog({
             const missing =
               current !== "" && !options.some((p) => p.id === current)
             return (
-              <div key={ch} className="flex flex-col gap-1.5">
+              <div key={ch} className="flex min-w-0 flex-col gap-1.5">
                 <Label htmlFor={`rule-${ch}`}>{`${ch} provider`}</Label>
                 <NativeSelect
                   id={`rule-${ch}`}
@@ -407,7 +410,7 @@ function RuleDialog({
               </div>
             )
           })}
-          <div className="grid gap-3 sm:grid-cols-3">
+          <div className="grid min-w-0 gap-3 sm:grid-cols-3">
             {(
               [
                 ["fromEmail", "From email"],
@@ -415,7 +418,7 @@ function RuleDialog({
                 ["fromPhone", "From phone"],
               ] as const
             ).map(([key, label]) => (
-              <div key={key} className="flex flex-col gap-1.5">
+              <div key={key} className="flex min-w-0 flex-col gap-1.5">
                 <Label htmlFor={`rule-${key}`}>{label}</Label>
                 <Input
                   id={`rule-${key}`}
@@ -488,7 +491,7 @@ export const RoutingPage: ComponentType<PluginPageProps> = () => {
   }
 
   return (
-    <section className="flex flex-col gap-6">
+    <section className="flex min-w-0 flex-col gap-4">
       <HeraldHeader
         title="Routing"
         description="Herald picks a provider per channel from the user's rule, then the org's, then the app's, then the first enabled provider by priority."
@@ -497,11 +500,11 @@ export const RoutingPage: ComponentType<PluginPageProps> = () => {
       <WhoSends channels={info.data?.channels ?? []} />
       <QueryBoundary title="Routing rules" query={rules} skeletonRows={4}>
         {(data) => (
-          <div className="flex flex-col gap-6">
+          <div className="flex min-w-0 flex-col gap-4">
             {LEVELS.map(({ scope, heading }) => {
               const level = data.rules.filter((r) => r.scope === scope)
               return (
-                <section key={scope} className="flex flex-col gap-3">
+                <section key={scope} className="flex min-w-0 flex-col gap-3">
                   <h2 className="text-sm font-medium">{heading}</h2>
                   {level.length === 0 ? (
                     <p className="text-sm text-muted-foreground">

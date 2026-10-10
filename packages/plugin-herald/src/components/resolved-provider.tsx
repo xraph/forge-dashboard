@@ -55,7 +55,7 @@ export function ResolvedProvider({
   )
   const address = answer.from.email || answer.from.phone
   return (
-    <div className="flex flex-col gap-1 text-sm">
+    <div className="flex min-w-0 flex-col gap-1 text-sm">
       <p className="flex flex-wrap items-center gap-2">
         {lead}
         {link ? (

@@ -93,7 +93,7 @@ export interface ScopesEditorProps {
 export function ScopesEditor({ summary, editing }: ScopesEditorProps) {
   if (summary.effectiveState === "revoked") {
     return (
-      <div className="flex flex-col gap-2">
+      <div className="flex min-w-0 flex-col gap-2">
         <TagList values={summary.scopes ?? []} label="scopes" />
         <p className="text-sm text-muted-foreground">
           A revoked key&apos;s scopes cannot be changed.
@@ -134,7 +134,7 @@ function EditableScopes({ summary, editing }: ScopesEditorProps) {
   }
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex min-w-0 flex-col gap-3">
       {held.length === 0 ? (
         <NoneCell label="scopes" />
       ) : (
@@ -171,7 +171,7 @@ function EditableScopes({ summary, editing }: ScopesEditorProps) {
             : "This key already holds every scope there is to add."}
         </p>
       ) : (
-        <div className="flex flex-col gap-1.5">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <Label htmlFor={pickerId}>Add scope</Label>
           <div className="flex items-center gap-2">
             <NativeSelect

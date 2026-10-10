@@ -23,7 +23,7 @@ export function ProblemsAlert({
       ref={ref}
       tabIndex={-1}
       role="alert"
-      className="flex flex-col gap-0.5 rounded-md border border-destructive/50 px-3 py-2 text-sm text-destructive"
+      className="flex min-w-0 flex-col gap-0.5 rounded-md border border-destructive/50 px-3 py-2 text-sm text-destructive"
     >
       {heading ? (
         <>

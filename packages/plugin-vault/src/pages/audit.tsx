@@ -121,7 +121,7 @@ const columns: Column<AuditEntry>[] = [
     id: "outcome",
     header: "Outcome",
     cell: (e) => (
-      <span className="flex flex-col items-start gap-1">
+      <span className="flex min-w-0 flex-col items-start gap-1">
         <OutcomeBadge outcome={e.outcome} />
         {e.outcome === "failure" && e.error ? (
           <span className="text-xs text-destructive">{e.error}</span>
@@ -245,7 +245,7 @@ export const AuditPage: ComponentType<PluginPageProps> = () => {
   const readsHidden = !includeReads && action === ""
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Audit"
         description="Every change made to secrets, flags, config, overrides and rotation policies, and every failed attempt."

@@ -104,7 +104,7 @@ export function LedgerSubscriptionsPage() {
       : listEmptyMessage("subscriptions", page, statusLabel)
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Subscriptions"
         description="Every tenant's subscription in this app."
@@ -150,7 +150,7 @@ export function LedgerSubscriptionsPage() {
         {(data) => {
           const rows = data.items ?? []
           return (
-            <div className="flex flex-col gap-3">
+            <div className="flex min-w-0 flex-col gap-3">
               <ResourceTable<Subscription>
                 columns={columns}
                 rows={rows}

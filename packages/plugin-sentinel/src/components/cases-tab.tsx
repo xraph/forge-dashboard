@@ -81,7 +81,7 @@ export function CasesTab({ suiteId }: { suiteId: string }) {
   const [imported, setImported] = useState<number | null>(null)
   const add = <Button onClick={() => setAdding(true)}>Add case</Button>
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex min-w-0 flex-col gap-3">
       <div className="flex flex-wrap items-center gap-2">
         {add}
         <Button variant="outline" onClick={() => setImporting(true)}>

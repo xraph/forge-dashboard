@@ -64,8 +64,8 @@ function View({
     ? `The engine's walk reaches ${subject} this way:`
     : `Warden's default walk reaches ${subject} this way:`
   return (
-    <div className="flex flex-col gap-3">
-      <div className="flex flex-col gap-1 text-sm text-muted-foreground">
+    <div className="flex min-w-0 flex-col gap-3">
+      <div className="flex min-w-0 flex-col gap-1 text-sm text-muted-foreground">
         {stop && <p>{stop}</p>}
         <p>{ALWAYS}</p>
         {expansion.truncatedNodes > 0 && (
@@ -82,7 +82,7 @@ function View({
 
       {subject !== null &&
         (path.length > 0 ? (
-          <div className="flex flex-col gap-1 text-sm">
+          <div className="flex min-w-0 flex-col gap-1 text-sm">
             <p>{heading}</p>
             <p className="font-mono text-xs">{path.join(" then ")}</p>
           </div>
@@ -132,7 +132,7 @@ export function WardenRelationGraphPage({ params }: PluginPageProps) {
   })
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Relation graph"
         description={`The tuples reachable from ${root}, as warden's relation walk finds them.`}

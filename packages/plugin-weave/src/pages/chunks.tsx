@@ -88,7 +88,7 @@ export const ChunksPage: ComponentType<PluginPageProps> = () => {
   )
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Chunks"
         description="What Weave stored for a collection, in reading order: by document, then by position."

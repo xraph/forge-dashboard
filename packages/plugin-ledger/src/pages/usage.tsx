@@ -148,7 +148,7 @@ export function EntitlementAnswerView({ r }: { r: EntitlementResult }) {
     !switchedOff && !unmeasured && !boolean && r.limit !== -1
 
   return (
-    <div className="flex flex-col gap-1 text-sm">
+    <div className="flex min-w-0 flex-col gap-1 text-sm">
       <span
         className={r.allowed ? "font-medium" : "font-medium text-destructive"}
       >
@@ -292,15 +292,15 @@ export function LedgerUsagePage() {
   const describedBy = hint ? `${toolsHelpId} ${toolsHintId}` : toolsHelpId
 
   return (
-    <section className="flex flex-col gap-6">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Usage"
         description="Metered events as they were ingested, newest first."
       />
 
-      <div className="flex flex-col gap-2">
+      <div className="flex min-w-0 flex-col gap-2">
         <div className="flex flex-wrap items-end gap-3">
-          <div className="flex flex-col gap-1.5">
+          <div className="flex min-w-0 flex-col gap-1.5">
             <Label htmlFor="usage-tenant">Tenant ID</Label>
             <Input
               id="usage-tenant"
@@ -312,7 +312,7 @@ export function LedgerUsagePage() {
               onChange={(e) => narrow(setTenant)(e.target.value)}
             />
           </div>
-          <div className="flex flex-col gap-1.5">
+          <div className="flex min-w-0 flex-col gap-1.5">
             <Label htmlFor="usage-feature">Feature key</Label>
             <Input
               id="usage-feature"
@@ -324,7 +324,7 @@ export function LedgerUsagePage() {
               onChange={(e) => narrow(setFeature)(e.target.value)}
             />
           </div>
-          <div className="flex flex-col gap-1.5">
+          <div className="flex min-w-0 flex-col gap-1.5">
             <Label htmlFor="usage-window">Window</Label>
             <NativeSelect
               id="usage-window"
@@ -365,13 +365,13 @@ export function LedgerUsagePage() {
         </QueryBoundary>
       )}
 
-      <section className="flex flex-col gap-2">
+      <section className="flex min-w-0 flex-col gap-2">
         <h2 className="text-base font-medium">Events</h2>
         <QueryBoundary title="Usage events" query={log} skeletonRows={5}>
           {(data) => {
             const rows = data.items ?? []
             return (
-              <div className="flex flex-col gap-3">
+              <div className="flex min-w-0 flex-col gap-3">
                 <ResourceTable<UsageEvent>
                   columns={columns}
                   rows={rows}
@@ -402,7 +402,10 @@ export function LedgerUsagePage() {
         </QueryBoundary>
       </section>
 
-      <section className="flex flex-col gap-3" aria-label="Entitlement tools">
+      <section
+        className="flex min-w-0 flex-col gap-3"
+        aria-label="Entitlement tools"
+      >
         <h2 className="text-base font-medium">Entitlements</h2>
         <p id={toolsHelpId} className="text-sm text-muted-foreground">
           A check reads the store directly, skipping the cache enforcement uses.

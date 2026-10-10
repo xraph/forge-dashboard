@@ -96,7 +96,7 @@ export function OverridesSection({
   const count = `${overrides.length} tenant override${overrides.length === 1 ? "" : "s"}`
 
   return (
-    <section className="flex flex-col gap-2">
+    <section className="flex min-w-0 flex-col gap-2">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-sm font-medium">Overrides</h2>
         <Button
@@ -220,7 +220,10 @@ function OverrideDialog({
   return (
     <Dialog open onOpenChange={(next) => !next && !set.loading && onClose()}>
       <DialogContent>
-        <form onSubmit={(e) => void submit(e)} className="flex flex-col gap-4">
+        <form
+          onSubmit={(e) => void submit(e)}
+          className="flex min-w-0 flex-col gap-4"
+        >
           <DialogHeader>
             <DialogTitle>
               {existing === undefined
@@ -235,7 +238,7 @@ function OverrideDialog({
           </DialogHeader>
           <CommandAlert error={set.error} title="Could not save the override" />
           {existing === undefined ? (
-            <div className="flex flex-col gap-1.5">
+            <div className="flex min-w-0 flex-col gap-1.5">
               <Label htmlFor="override-tenant">Tenant ID</Label>
               <Input
                 id="override-tenant"
@@ -247,7 +250,7 @@ function OverrideDialog({
               />
             </div>
           ) : null}
-          <div className="flex flex-col gap-1.5">
+          <div className="flex min-w-0 flex-col gap-1.5">
             <Label id="override-value-label" htmlFor="override-value">
               Value
             </Label>

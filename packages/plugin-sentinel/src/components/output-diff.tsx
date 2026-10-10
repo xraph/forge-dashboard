@@ -53,7 +53,7 @@ export function OutputDiff({
   }
   if (attack && !shown) {
     return (
-      <div className="flex flex-col items-start gap-2 rounded-md border border-dashed p-3">
+      <div className="flex min-w-0 flex-col items-start gap-2 rounded-md border border-dashed p-3">
         <p className="text-sm text-muted-foreground">
           Red-team output stays hidden until you ask for it: it may repeat the
           system prompt or carry the attack.
@@ -69,7 +69,7 @@ export function OutputDiff({
   if (!a.data || !b.data) {
     const only = a.data ?? b.data
     return (
-      <div className="flex flex-col gap-2">
+      <div className="flex min-w-0 flex-col gap-2">
         <p className="text-sm text-muted-foreground">
           {a.data
             ? "Only run A scored this case."
@@ -83,7 +83,7 @@ export function OutputDiff({
   }
   if (a.data.output === b.data.output) {
     return (
-      <div className="flex flex-col gap-2">
+      <div className="flex min-w-0 flex-col gap-2">
         <p className="text-sm text-muted-foreground">
           Both runs gave the same output.
         </p>

@@ -146,7 +146,7 @@ function SecretDetailBody({ secretKey }: { secretKey: string }) {
   return (
     <QueryBoundary title="Secret" query={detail} skeletonRows={4}>
       {(data) => (
-        <section className="flex flex-col gap-6">
+        <section className="flex min-w-0 flex-col gap-4">
           <PageHeader
             title={data.secret.key}
             actions={
@@ -220,7 +220,7 @@ function SecretFields({ secret }: { secret: SecretSummary }) {
         {
           term: "Encryption",
           value: (
-            <span className="flex flex-col items-start gap-1">
+            <span className="flex min-w-0 flex-col items-start gap-1">
               <EncryptionBadge alg={secret.encryptionAlg} />
               {secret.encryptionAlg === "" && (
                 <span className="text-muted-foreground">
@@ -264,12 +264,12 @@ function VersionTimeline({
       {(data) => {
         const list = data.versions ?? []
         return (
-          <section className="flex flex-col gap-2">
+          <section className="flex min-w-0 flex-col gap-2">
             <h2 className="text-sm font-medium">Versions ({list.length})</h2>
             {list.length === 0 ? (
               <EmptyState title="No versions recorded." />
             ) : (
-              <ol className="flex flex-col gap-2">
+              <ol className="flex min-w-0 flex-col gap-2">
                 {list.map((v, i) => (
                   <li
                     key={v.id}
@@ -318,7 +318,7 @@ function RotationPane({
   policy: RotationPolicy | null
 }) {
   return (
-    <section className="flex flex-col gap-2">
+    <section className="flex min-w-0 flex-col gap-2">
       <h2 className="text-sm font-medium">Rotation</h2>
       {policy === null ? (
         <>
@@ -446,7 +446,10 @@ function ReplaceDialog({
     // closing mid-update would unmount the dialog and hide a failure.
     <Dialog open onOpenChange={(open) => !open && !update.loading && onClose()}>
       <DialogContent>
-        <form onSubmit={(e) => void submit(e)} className="flex flex-col gap-4">
+        <form
+          onSubmit={(e) => void submit(e)}
+          className="flex min-w-0 flex-col gap-4"
+        >
           <DialogHeader>
             <DialogTitle>Replace the value of {secretKey}</DialogTitle>
             <DialogDescription>
@@ -458,7 +461,7 @@ function ReplaceDialog({
             error={update.error}
             title="Could not replace the value"
           />
-          <div className="flex flex-col gap-1.5">
+          <div className="flex min-w-0 flex-col gap-1.5">
             <Label htmlFor="replace-value">Value</Label>
             {/* "new-password": browsers ignore "off" on password fields. */}
             <Input
@@ -470,7 +473,7 @@ function ReplaceDialog({
               onChange={(e) => setHasValue(e.target.value !== "")}
             />
           </div>
-          <fieldset className="flex flex-col gap-2">
+          <fieldset className="flex min-w-0 flex-col gap-2">
             <legend className="mb-1 text-sm font-medium">Expiry</legend>
             <RadioGroup
               value={choice}
@@ -491,7 +494,7 @@ function ReplaceDialog({
               </Label>
             </RadioGroup>
             {choice === "set" && (
-              <div className="flex flex-col gap-1.5">
+              <div className="flex min-w-0 flex-col gap-1.5">
                 <Label htmlFor="replace-expires">New expiry</Label>
                 <Input
                   id="replace-expires"

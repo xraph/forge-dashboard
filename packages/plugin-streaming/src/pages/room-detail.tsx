@@ -156,10 +156,10 @@ function Composer({ roomId }: { roomId: string }) {
   }
 
   return (
-    <div className="flex flex-col gap-3 rounded-md border p-4">
+    <div className="flex min-w-0 flex-col gap-3 rounded-md border p-4">
       <h2 className="text-sm font-medium">Send a message</h2>
       <CommandAlert error={send.error} title="Could not send the message" />
-      <div className="flex flex-col gap-1.5">
+      <div className="flex min-w-0 flex-col gap-1.5">
         <Label htmlFor="send-as">Send as</Label>
         <Input
           id="send-as"
@@ -167,7 +167,7 @@ function Composer({ roomId }: { roomId: string }) {
           onChange={(e) => setUserID(e.target.value)}
         />
       </div>
-      <div className="flex flex-col gap-1.5">
+      <div className="flex min-w-0 flex-col gap-1.5">
         <Label htmlFor="send-content">Message</Label>
         <Input
           id="send-content"
@@ -206,7 +206,7 @@ function RoomDetail({ roomId }: { roomId: string }) {
   const query = useQuery<RoomInfo>("rooms.detail", { id: roomId })
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <QueryBoundary title="Room" query={query} skeletonRows={2}>
         {(room) => (
           <>

@@ -37,13 +37,13 @@ export function AuthUserCreatePage() {
   }
 
   return (
-    <section className="flex min-w-0 flex-col gap-6">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="New user"
         description="Creates an account directly, with no invitation email."
       />
       <Panel title="Account details" className="max-w-3xl">
-        <div className="flex flex-col gap-5">
+        <div className="flex min-w-0 flex-col gap-4">
           <CommandAlert
             error={create.error}
             title="Could not create the user"
@@ -61,7 +61,7 @@ export function AuthUserCreatePage() {
               )}
             </p>
           )}
-          <div className="flex flex-col gap-1.5">
+          <div className="flex min-w-0 flex-col gap-1.5">
             <Label htmlFor="new-email">Email</Label>
             <Input
               id="new-email"
@@ -70,7 +70,7 @@ export function AuthUserCreatePage() {
               onChange={(e) => setEmail(e.target.value)}
             />
           </div>
-          <div className="flex flex-col gap-1.5">
+          <div className="flex min-w-0 flex-col gap-1.5">
             <Label htmlFor="new-password">Password</Label>
             <Input
               id="new-password"
@@ -82,7 +82,7 @@ export function AuthUserCreatePage() {
               Must meet your application's password policy.
             </span>
           </div>
-          <div className="flex flex-col gap-1.5">
+          <div className="flex min-w-0 flex-col gap-1.5">
             <Label htmlFor="new-first">First name</Label>
             <Input
               id="new-first"
@@ -90,7 +90,7 @@ export function AuthUserCreatePage() {
               onChange={(e) => setFirstName(e.target.value)}
             />
           </div>
-          <div className="flex flex-col gap-1.5">
+          <div className="flex min-w-0 flex-col gap-1.5">
             <Label htmlFor="new-last">Last name</Label>
             <Input
               id="new-last"
@@ -98,7 +98,7 @@ export function AuthUserCreatePage() {
               onChange={(e) => setLastName(e.target.value)}
             />
           </div>
-          <div className="flex flex-col gap-1.5">
+          <div className="flex min-w-0 flex-col gap-1.5">
             <Label htmlFor="new-username">Username</Label>
             <Input
               id="new-username"

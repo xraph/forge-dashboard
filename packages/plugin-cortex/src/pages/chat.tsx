@@ -170,7 +170,7 @@ function LiveRun({
         ) : (
           <Code text={text} label="Live assistant response" />
         ))}
-      <div className="grid gap-1 text-xs text-muted-foreground">
+      <div className="grid min-w-0 gap-1 text-xs text-muted-foreground">
         {events
           .filter((e) => e.event !== "token")
           .map((e, i) => (
@@ -364,7 +364,7 @@ function ChatPane({
           </div>
         )}
       </QueryBoundary>
-      <fieldset disabled={active} className="flex flex-col gap-2">
+      <fieldset disabled={active} className="flex min-w-0 flex-col gap-2">
         <SessionSelector
           agentId={agentId}
           value={session}
@@ -388,7 +388,7 @@ function ChatPane({
           </p>
           <fieldset
             disabled={active}
-            className="grid grid-cols-1 gap-3 sm:grid-cols-2"
+            className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2"
           >
             <FormFields
               fields={overrideFields}
@@ -444,7 +444,7 @@ function ChatPane({
           {(data) =>
             data.messages.length ? (
               <div
-                className="grid max-h-96 gap-2 overflow-auto rounded-md border p-3"
+                className="grid max-h-96 min-w-0 gap-2 overflow-auto rounded-md border p-3"
                 aria-label="Saved conversation"
               >
                 {data.messages.map((m, i) => (
@@ -489,7 +489,7 @@ function ChatPane({
         params={{ agentId, sessionId: session }}
       />
       <form
-        className="grid gap-2"
+        className="grid min-w-0 gap-2"
         onSubmit={async (e) => {
           e.preventDefault()
           setLocalError("")

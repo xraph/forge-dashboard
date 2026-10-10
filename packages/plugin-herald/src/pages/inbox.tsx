@@ -147,12 +147,12 @@ export const InboxPage: ComponentType<PluginPageProps> = () => {
   }
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <HeraldHeader
         title="Inbox"
         description="One user's in-app notifications in this app."
       />
-      <div className="flex max-w-sm flex-col gap-1.5">
+      <div className="flex max-w-sm min-w-0 flex-col gap-1.5">
         <Label htmlFor="inbox-user">User ID</Label>
         <Input
           id="inbox-user"
@@ -174,7 +174,7 @@ export const InboxPage: ComponentType<PluginPageProps> = () => {
       ) : (
         <QueryBoundary title="Inbox" query={list} skeletonRows={6}>
           {(data) => (
-            <div className="flex flex-col gap-3">
+            <div className="flex min-w-0 flex-col gap-3">
               <div className="flex items-center justify-end">
                 <IconButton
                   variant="outline"

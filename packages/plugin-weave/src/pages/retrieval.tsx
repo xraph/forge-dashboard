@@ -159,7 +159,7 @@ export const RetrievalPage: ComponentType<PluginPageProps> = () => {
   ) : null
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Retrieval"
         description="Ask what your app would ask, and see what the retriever ranked and what a model would be handed."
@@ -167,9 +167,9 @@ export const RetrievalPage: ComponentType<PluginPageProps> = () => {
 
       <form
         onSubmit={(e) => void submit(e)}
-        className="flex flex-col gap-3 rounded-md border p-3"
+        className="flex min-w-0 flex-col gap-3 rounded-md border p-3"
       >
-        <div className="flex flex-col gap-1.5">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <Label htmlFor="retrieval-query">Query</Label>
           <Input
             id="retrieval-query"
@@ -186,7 +186,7 @@ export const RetrievalPage: ComponentType<PluginPageProps> = () => {
           ) : null}
         </div>
         <div className="flex flex-wrap items-end gap-3">
-          <div className="flex flex-col gap-1">
+          <div className="flex min-w-0 flex-col gap-1">
             <Label htmlFor="retrieval-collection">Collection</Label>
             <NativeSelect
               id="retrieval-collection"
@@ -213,7 +213,7 @@ export const RetrievalPage: ComponentType<PluginPageProps> = () => {
             ) : null}
           </div>
           <TenantFilter value={tenant} onChange={setTenant} />
-          <div className="flex flex-col gap-1">
+          <div className="flex min-w-0 flex-col gap-1">
             <Label htmlFor="retrieval-topk">Top K</Label>
             <Input
               id="retrieval-topk"
@@ -224,7 +224,7 @@ export const RetrievalPage: ComponentType<PluginPageProps> = () => {
               onChange={(e) => setTopK(e.target.value)}
             />
           </div>
-          <div className="flex flex-col gap-1">
+          <div className="flex min-w-0 flex-col gap-1">
             <Label htmlFor="retrieval-min">Min score</Label>
             <Input
               id="retrieval-min"
@@ -235,7 +235,7 @@ export const RetrievalPage: ComponentType<PluginPageProps> = () => {
               onChange={(e) => setMinScore(e.target.value)}
             />
           </div>
-          <div className="flex flex-col gap-1">
+          <div className="flex min-w-0 flex-col gap-1">
             <Label htmlFor="retrieval-budget">Budget</Label>
             <Input
               id="retrieval-budget"
@@ -267,7 +267,7 @@ export const RetrievalPage: ComponentType<PluginPageProps> = () => {
         />
       ) : (
         <>
-          <div className="flex flex-col gap-1 text-sm">
+          <div className="flex min-w-0 flex-col gap-1 text-sm">
             {components ? <p>{retrieverSentence(components)}</p> : null}
             <p className="tabular-nums">
               {plural(result.hits.length, "hit", "hits")} in{" "}
@@ -293,13 +293,13 @@ export const RetrievalPage: ComponentType<PluginPageProps> = () => {
 
             <TabsContent value="ranking">
               {empty ? (
-                <p className="py-6 text-sm">{emptinessCopy(empty)}</p>
+                <p className="py-4 text-sm">{emptinessCopy(empty)}</p>
               ) : (
                 <div
                   className={
                     wide
-                      ? "grid grid-cols-[minmax(0,1fr)_22rem] gap-4"
-                      : "flex flex-col"
+                      ? "grid min-w-0 grid-cols-[minmax(0,1fr)_22rem] gap-4"
+                      : "flex min-w-0 flex-col"
                   }
                 >
                   <RankingTable
@@ -362,7 +362,7 @@ export const RetrievalPage: ComponentType<PluginPageProps> = () => {
             </TabsContent>
 
             <TabsContent value="left-out">
-              <div className="flex flex-col gap-2">
+              <div className="flex min-w-0 flex-col gap-2">
                 <p className="text-sm text-muted-foreground">
                   Strong vector matches inside the scanned window that the
                   retriever didn't return. Their scores are vector scores.

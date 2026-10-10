@@ -110,7 +110,7 @@ export const ConfigPage: ComponentType<PluginPageProps> = () => {
   })
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Config"
         description="Typed application settings, each with a version and a value per tenant when you override it."
@@ -118,7 +118,7 @@ export const ConfigPage: ComponentType<PluginPageProps> = () => {
       />
 
       {/* Outside the boundary, so typing never takes the control away. */}
-      <div className="flex max-w-sm flex-col gap-1.5">
+      <div className="flex max-w-sm min-w-0 flex-col gap-1.5">
         <Label
           htmlFor="config-prefix-filter"
           className="text-xs text-muted-foreground"

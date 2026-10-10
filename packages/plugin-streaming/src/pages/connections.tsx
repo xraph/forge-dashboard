@@ -102,7 +102,7 @@ export function StreamingConnectionsPage() {
   }
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader title="Connections" />
       <QueryBoundary title="Connections" query={query} skeletonRows={4}>
         {(data) => {
@@ -178,7 +178,7 @@ export function StreamingConnectionsPage() {
         onConfirm={() => void confirmKick()}
       >
         <CommandAlert title="Could not disconnect" error={kick.error} />
-        <div className="flex flex-col gap-1.5">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <Label htmlFor="kick-reason">Reason</Label>
           <Input
             id="kick-reason"

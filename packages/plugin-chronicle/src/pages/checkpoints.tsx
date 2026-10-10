@@ -141,7 +141,7 @@ function CheckpointsView({ streamId }: { streamId?: string }) {
   )
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Checkpoints"
         description="Signed statements of how far the chain reached. A checkpoint proves the range it covers has not been rewritten or truncated since it was signed."
@@ -205,7 +205,7 @@ function NoOwnChain({ list }: { list: QueryState<StreamListResponse> }) {
             checkpoints.
           </p>
         ) : (
-          <div className="flex flex-col gap-3 text-sm">
+          <div className="flex min-w-0 flex-col gap-3 text-sm">
             <p>
               This app has no app-level chain: its events are recorded under its
               tenants. Choose a tenant's chain to see its checkpoints.

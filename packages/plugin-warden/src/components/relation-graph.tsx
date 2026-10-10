@@ -76,7 +76,7 @@ function marks(node: RelationExpandNode): string[] {
 
 function NodeCard({ node }: { node: RelationExpandNode }) {
   return (
-    <div className="flex h-full flex-col justify-center gap-1 p-3">
+    <div className="flex h-full min-w-0 flex-col justify-center gap-1 p-3">
       <span className="truncate font-mono text-xs" title={node.key}>
         {node.key}
       </span>
@@ -154,7 +154,7 @@ export function buildRelationGraph(expansion: RelationExpansion): {
 export function RelationGraph({ expansion }: { expansion: RelationExpansion }) {
   const built = useMemo(() => buildRelationGraph(expansion), [expansion])
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex min-w-0 flex-col gap-2">
       <Suspense
         fallback={
           <div
@@ -176,7 +176,7 @@ export function RelationGraph({ expansion }: { expansion: RelationExpansion }) {
         <summary className="cursor-pointer text-muted-foreground">
           Relationships as text
         </summary>
-        <ul className="mt-2 flex flex-col gap-1">
+        <ul className="mt-2 flex min-w-0 flex-col gap-1">
           {built.descriptions.map((d) => (
             <li key={d} className="font-mono text-xs">
               {d}

@@ -67,7 +67,7 @@ function FeatureDetailView({ feature }: { feature: CatalogFeature }) {
   const readOnly = writes !== "show"
 
   return (
-    <section className="flex flex-col gap-6">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title={feature.name}
         actions={

@@ -120,9 +120,9 @@ function CreateRoomForm({ onDone }: { onDone: () => void }) {
   }
 
   return (
-    <div className="flex flex-col gap-3 rounded-md border p-4">
+    <div className="flex min-w-0 flex-col gap-3 rounded-md border p-4">
       <CommandAlert error={create.error} title="Could not create the room" />
-      <div className="flex flex-col gap-1.5">
+      <div className="flex min-w-0 flex-col gap-1.5">
         <Label htmlFor="room-name">Name</Label>
         <Input
           id="room-name"
@@ -130,7 +130,7 @@ function CreateRoomForm({ onDone }: { onDone: () => void }) {
           onChange={(e) => setName(e.target.value)}
         />
       </div>
-      <div className="flex flex-col gap-1.5">
+      <div className="flex min-w-0 flex-col gap-1.5">
         <Label htmlFor="room-description">Description</Label>
         <Input
           id="room-description"
@@ -138,7 +138,7 @@ function CreateRoomForm({ onDone }: { onDone: () => void }) {
           onChange={(e) => setDescription(e.target.value)}
         />
       </div>
-      <div className="flex flex-col gap-1.5">
+      <div className="flex min-w-0 flex-col gap-1.5">
         <Label htmlFor="room-owner">Owner</Label>
         <Input
           id="room-owner"
@@ -193,7 +193,7 @@ export function StreamingRoomsPage() {
   }
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Rooms"
         actions={

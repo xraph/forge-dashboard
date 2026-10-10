@@ -94,7 +94,7 @@ function ResultCard({ r, sent }: { r: SendTestResponse; sent: Snapshot }) {
   return (
     <section
       aria-labelledby="send-result"
-      className="flex flex-col gap-2 rounded-lg border p-4 text-sm"
+      className="flex min-w-0 flex-col gap-2 rounded-lg border p-4 text-sm"
     >
       <h2 id="send-result" className="font-medium">
         Result
@@ -323,10 +323,10 @@ function SendForm({
   }
 
   return (
-    <div className="grid gap-8 @3xl/main:grid-cols-2">
-      <form onSubmit={openConfirm} className="flex flex-col gap-4">
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div className="flex flex-col gap-1.5">
+    <div className="grid min-w-0 gap-4 @3xl/main:grid-cols-2">
+      <form onSubmit={openConfirm} className="flex min-w-0 flex-col gap-4">
+        <div className="grid min-w-0 gap-3 sm:grid-cols-2">
+          <div className="flex min-w-0 flex-col gap-1.5">
             <Label htmlFor="send-channel">Channel</Label>
             <NativeSelect
               id="send-channel"
@@ -341,7 +341,7 @@ function SendForm({
               ))}
             </NativeSelect>
           </div>
-          <div className="flex flex-col gap-1.5">
+          <div className="flex min-w-0 flex-col gap-1.5">
             <Label htmlFor="send-provider">Provider</Label>
             <NativeSelect
               id="send-provider"
@@ -380,7 +380,7 @@ function SendForm({
           </div>
         )}
 
-        <div className="flex flex-col gap-1.5">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <Label htmlFor="send-recipient">Recipient</Label>
           <Input
             id="send-recipient"
@@ -391,7 +391,7 @@ function SendForm({
             onChange={(e) => setRecipient(e.target.value)}
           />
         </div>
-        <div className="flex flex-col gap-1.5">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <Label htmlFor="send-user">User ID (optional)</Label>
           <Input
             id="send-user"
@@ -406,7 +406,7 @@ function SendForm({
             delivery.
           </p>
         </div>
-        <div className="flex flex-col gap-1.5">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <Label htmlFor="send-mode">Content</Label>
           <NativeSelect
             id="send-mode"
@@ -420,8 +420,8 @@ function SendForm({
 
         {mode === "template" ? (
           <>
-            <div className="grid gap-3 sm:grid-cols-[2fr_1fr]">
-              <div className="flex flex-col gap-1.5">
+            <div className="grid min-w-0 gap-3 sm:grid-cols-[2fr_1fr]">
+              <div className="flex min-w-0 flex-col gap-1.5">
                 <Label htmlFor="send-template">Template</Label>
                 <NativeSelect
                   id="send-template"
@@ -441,7 +441,7 @@ function SendForm({
                   ))}
                 </NativeSelect>
               </div>
-              <div className="flex flex-col gap-1.5">
+              <div className="flex min-w-0 flex-col gap-1.5">
                 <Label htmlFor="send-locale">Locale</Label>
                 <Input
                   id="send-locale"
@@ -463,10 +463,10 @@ function SendForm({
                 </p>
               )}
             {template && template.variables.length > 0 && (
-              <fieldset className="flex flex-col gap-3">
+              <fieldset className="flex min-w-0 flex-col gap-3">
                 <legend className="mb-1 text-sm font-medium">Variables</legend>
                 {template.variables.map((v) => (
-                  <div key={v.name} className="flex flex-col gap-1.5">
+                  <div key={v.name} className="flex min-w-0 flex-col gap-1.5">
                     <Label
                       htmlFor={`var-${v.name}`}
                       className="font-mono text-xs"
@@ -496,7 +496,7 @@ function SendForm({
         ) : (
           <>
             {channel !== "sms" && (
-              <div className="flex flex-col gap-1.5">
+              <div className="flex min-w-0 flex-col gap-1.5">
                 <Label htmlFor="send-subject">Subject</Label>
                 <Input
                   id="send-subject"
@@ -506,7 +506,7 @@ function SendForm({
                 />
               </div>
             )}
-            <div className="flex flex-col gap-1.5">
+            <div className="flex min-w-0 flex-col gap-1.5">
               <Label htmlFor="send-body">Body</Label>
               <Textarea
                 id="send-body"
@@ -529,7 +529,10 @@ function SendForm({
       </form>
 
       {mode === "template" && template && (
-        <section aria-labelledby="send-preview" className="flex flex-col gap-3">
+        <section
+          aria-labelledby="send-preview"
+          className="flex min-w-0 flex-col gap-3"
+        >
           <h2 id="send-preview" className="text-sm font-medium">
             Preview
           </h2>
@@ -653,7 +656,7 @@ function FromMessage({
 export const SendTestPage: ComponentType<PluginPageProps> = ({ params }) => {
   const info = useEngineInfo()
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <HeraldHeader
         title="Send test"
         description="Sends a real message to a real recipient, and logs it like any other send."

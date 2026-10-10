@@ -85,7 +85,7 @@ export const ErasuresPage: ComponentType<PluginPageProps> = () => {
   })
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Erasures"
         description="An erasure destroys a data subject's encryption key in this scope, so their sealed fields can no longer be read. The events stay in the chain. Status and Key say how far each one got."

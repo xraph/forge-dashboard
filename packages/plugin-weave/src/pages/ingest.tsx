@@ -103,7 +103,7 @@ export const IngestPage: ComponentType<PluginPageProps> = ({ params }) => {
   const bodyLimit = isBodyLimitError(ingest.error)
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <QueryBoundary title="Collection" query={collection} skeletonRows={1}>
         {(c) => (
           <PageHeader
@@ -139,7 +139,7 @@ export const IngestPage: ComponentType<PluginPageProps> = ({ params }) => {
       {result?.state === "failed" ? (
         <Alert variant="destructive">
           <AlertTitle>Ingest failed</AlertTitle>
-          <AlertDescription className="flex flex-col gap-1">
+          <AlertDescription className="flex min-w-0 flex-col gap-1">
             <span className="font-mono text-xs break-all">
               {result.error ?? "Weave stored no reason."}
             </span>
@@ -184,9 +184,9 @@ export const IngestPage: ComponentType<PluginPageProps> = ({ params }) => {
 
       <form
         onSubmit={(e) => void submit(e)}
-        className="flex max-w-3xl flex-col gap-4"
+        className="flex max-w-3xl min-w-0 flex-col gap-4"
       >
-        <div className="flex flex-col gap-1.5">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <Label htmlFor="ingest-file">Pick a text file</Label>
           <Input
             id="ingest-file"
@@ -199,7 +199,7 @@ export const IngestPage: ComponentType<PluginPageProps> = ({ params }) => {
             Ingest.
           </p>
         </div>
-        <div className="flex flex-col gap-1.5">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <Label htmlFor="ingest-content">Content</Label>
           <Textarea
             id="ingest-content"
@@ -220,8 +220,8 @@ export const IngestPage: ComponentType<PluginPageProps> = ({ params }) => {
             </p>
           ) : null}
         </div>
-        <div className="grid grid-cols-2 gap-4">
-          <div className="flex flex-col gap-1.5">
+        <div className="grid min-w-0 grid-cols-2 gap-4">
+          <div className="flex min-w-0 flex-col gap-1.5">
             <Label htmlFor="ingest-title">Title</Label>
             <Input
               id="ingest-title"
@@ -229,7 +229,7 @@ export const IngestPage: ComponentType<PluginPageProps> = ({ params }) => {
               onChange={(e) => setTitle(e.target.value)}
             />
           </div>
-          <div className="flex flex-col gap-1.5">
+          <div className="flex min-w-0 flex-col gap-1.5">
             <Label htmlFor="ingest-source">Source</Label>
             <Input
               id="ingest-source"
@@ -240,7 +240,7 @@ export const IngestPage: ComponentType<PluginPageProps> = ({ params }) => {
             />
           </div>
         </div>
-        <div className="flex flex-col gap-1.5">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <Label htmlFor="ingest-type">Content type</Label>
           <NativeSelect
             id="ingest-type"
@@ -258,7 +258,7 @@ export const IngestPage: ComponentType<PluginPageProps> = ({ params }) => {
             <TagList values={supported} label="content types" />
           </div>
         </div>
-        <div className="flex flex-col gap-1.5">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <span className="text-sm font-medium">Metadata</span>
           <MetadataEditor rows={rows} onChange={setRows} />
           {"error" in meta ? (

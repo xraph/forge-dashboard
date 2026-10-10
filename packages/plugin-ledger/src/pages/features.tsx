@@ -86,7 +86,7 @@ export function LedgerFeaturesPage() {
     undefined
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Features"
         description="The catalog plans draw their features from."
@@ -133,7 +133,7 @@ export function LedgerFeaturesPage() {
         {(data) => {
           const rows = data.items ?? []
           return (
-            <div className="flex flex-col gap-3">
+            <div className="flex min-w-0 flex-col gap-3">
               <ResourceTable<CatalogFeature>
                 columns={columns}
                 rows={rows}

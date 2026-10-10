@@ -47,7 +47,7 @@ export const ChainPage: ComponentType<PluginPageProps> = ({ params }) => {
   const streams = list.data?.streams ?? []
 
   return (
-    <section className="flex flex-col gap-6">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Chain"
         description="The hash chain your audit events are recorded in, and whether it has been altered."
@@ -91,7 +91,7 @@ function NoOwnChain({ list }: { list: QueryState<StreamListResponse> }) {
             show.
           </p>
         ) : (
-          <div className="flex flex-col gap-3 text-sm">
+          <div className="flex min-w-0 flex-col gap-3 text-sm">
             <p>
               This app has no app-level chain: its events are recorded under its
               tenants. Choose a tenant's chain to verify.
@@ -158,7 +158,7 @@ function ChainBody({
   }
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex min-w-0 flex-col gap-4">
       <Posture stream={stream} />
       <form
         className="flex flex-wrap items-end gap-3"
@@ -167,7 +167,7 @@ function ChainBody({
           runTyped()
         }}
       >
-        <label className="flex flex-col gap-1 text-sm">
+        <label className="flex min-w-0 flex-col gap-1 text-sm">
           <span>From sequence</span>
           <Input
             aria-label="From sequence"
@@ -177,7 +177,7 @@ function ChainBody({
             onChange={(e) => setFrom(e.target.value)}
           />
         </label>
-        <label className="flex flex-col gap-1 text-sm">
+        <label className="flex min-w-0 flex-col gap-1 text-sm">
           <span>To sequence</span>
           <Input
             aria-label="To sequence"
@@ -220,7 +220,7 @@ function ChainBody({
         <p className="text-sm text-muted-foreground">Checking the chain...</p>
       )}
       {requested && !verify.loading && verify.error && (
-        <div className="flex flex-col gap-2">
+        <div className="flex min-w-0 flex-col gap-2">
           <CommandAlert
             title="The chain could not be checked"
             error={verify.error}

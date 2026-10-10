@@ -110,7 +110,7 @@ const selectClass =
   "flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
 const money = formatMinorMoney
 const field = (label: string, child: React.ReactNode) => (
-  <label className="grid gap-1 text-sm font-medium">
+  <label className="grid min-w-0 gap-1 text-sm font-medium">
     {label}
     {child}
   </label>
@@ -174,7 +174,7 @@ function PlanEditor({ plan }: { plan?: PlanDetail }) {
     )
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title={plan ? `Edit ${plan.name}` : "New plan"}
         actions={
@@ -184,9 +184,12 @@ function PlanEditor({ plan }: { plan?: PlanDetail }) {
         }
       />
       <CommandAlert error={command.error} title="Could not complete action" />
-      <form onSubmit={(event) => void save(event)} className="grid gap-4">
+      <form
+        onSubmit={(event) => void save(event)}
+        className="grid min-w-0 gap-4"
+      >
         <Panel title="Plan details">
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid min-w-0 gap-3 sm:grid-cols-2">
             {field(
               "Name",
               <Input
@@ -252,7 +255,7 @@ function PlanEditor({ plan }: { plan?: PlanDetail }) {
           </div>
         </Panel>
         <Panel title="Pricing">
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid min-w-0 gap-3 sm:grid-cols-2">
             {field(
               `Base amount (${currency.toUpperCase()})`,
               <Input
@@ -301,11 +304,11 @@ function PlanEditor({ plan }: { plan?: PlanDetail }) {
           }
         >
           {features.length ? (
-            <div className="grid gap-2">
+            <div className="grid min-w-0 gap-2">
               {features.map((item, index) => (
                 <div
                   key={index}
-                  className="grid gap-2 rounded-md border p-3 lg:grid-cols-2 xl:grid-cols-4"
+                  className="grid min-w-0 gap-2 rounded-md border p-3 lg:grid-cols-2 xl:grid-cols-4"
                 >
                   {field(
                     "Key",
@@ -470,11 +473,11 @@ function PlanEditor({ plan }: { plan?: PlanDetail }) {
           }
         >
           {tiers.length ? (
-            <div className="grid gap-2">
+            <div className="grid min-w-0 gap-2">
               {tiers.map((item, index) => (
                 <div
                   key={index}
-                  className="grid gap-2 rounded-md border p-3 lg:grid-cols-2 xl:grid-cols-[1fr_8rem_6rem_7rem_7rem_auto]"
+                  className="grid min-w-0 gap-2 rounded-md border p-3 lg:grid-cols-2 xl:grid-cols-[1fr_8rem_6rem_7rem_7rem_auto]"
                 >
                   {field(
                     "Feature",
@@ -671,7 +674,7 @@ export function SubscriptionsPage() {
     },
   ]
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Subscriptions"
         description="Manage tenant subscriptions and lifecycle."
@@ -899,7 +902,7 @@ export function InvoicesPage() {
     },
   ]
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Invoices"
         description="Review charges and record payment outcomes."
@@ -1105,7 +1108,7 @@ export function CouponsPage() {
     },
   ]
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Coupons"
         description="Manage subscription discount codes."
@@ -1113,7 +1116,7 @@ export function CouponsPage() {
       <Panel title="Create coupon">
         <form
           onSubmit={(event) => void add(event)}
-          className="grid gap-2 lg:grid-cols-3 lg:items-end xl:grid-cols-6"
+          className="grid min-w-0 gap-2 lg:grid-cols-3 lg:items-end xl:grid-cols-6"
         >
           {field(
             "Code",
@@ -1310,7 +1313,7 @@ export function BillingFeaturesPage() {
     },
   ]
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Feature catalog"
         description="Define reusable entitlements for billing plans."
@@ -1325,8 +1328,11 @@ export function BillingFeaturesPage() {
           )
         }
       >
-        <form onSubmit={(event) => void save(event)} className="grid gap-3">
-          <div className="grid gap-2 lg:grid-cols-3">
+        <form
+          onSubmit={(event) => void save(event)}
+          className="grid min-w-0 gap-3"
+        >
+          <div className="grid min-w-0 gap-2 lg:grid-cols-3">
             {field(
               "Key",
               <Input
@@ -1477,7 +1483,7 @@ export function SubscriptionDetailPage({ params }: PluginPageProps) {
       />
     )
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <QueryBoundary title="Subscription" query={query}>
         {(item) => (
           <>
@@ -1671,7 +1677,7 @@ export function InvoiceDetailPage({ params }: PluginPageProps) {
       />
     )
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <QueryBoundary title="Invoice" query={query}>
         {(item) => (
           <>
@@ -1766,7 +1772,7 @@ export function InvoiceDetailPage({ params }: PluginPageProps) {
             </Panel>
             {item.status !== "paid" && item.status !== "voided" && (
               <Panel title="Record outcome">
-                <div className="grid gap-3 sm:grid-cols-2">
+                <div className="grid min-w-0 gap-3 sm:grid-cols-2">
                   <div className="flex items-end gap-2">
                     <div className="min-w-0 flex-1">
                       {field(

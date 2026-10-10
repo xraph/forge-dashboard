@@ -40,7 +40,7 @@ export function LedgerSubscriptionCreatePage() {
     offset: 0,
   })
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="New subscription"
         description="Subscribe a tenant to an active plan."
@@ -125,14 +125,14 @@ function SubscriptionForm({ plans }: { plans: Plan[] }) {
   return (
     <form
       onSubmit={(e) => void submit(e)}
-      className="flex max-w-lg flex-col gap-4"
+      className="flex max-w-lg min-w-0 flex-col gap-4"
     >
       <CommandAlert
         error={create.error}
         title="Could not create the subscription"
       />
       <ProblemsAlert problems={problems} />
-      <div className="flex flex-col gap-1.5">
+      <div className="flex min-w-0 flex-col gap-1.5">
         <Label htmlFor="sub-tenant">Tenant ID</Label>
         <Input
           id="sub-tenant"
@@ -143,7 +143,7 @@ function SubscriptionForm({ plans }: { plans: Plan[] }) {
           onChange={(e) => setTenant(e.target.value)}
         />
       </div>
-      <div className="flex flex-col gap-1.5">
+      <div className="flex min-w-0 flex-col gap-1.5">
         <Label htmlFor="sub-plan">Plan</Label>
         <NativeSelect
           id="sub-plan"
@@ -168,7 +168,7 @@ function SubscriptionForm({ plans }: { plans: Plan[] }) {
         )}
       </div>
       {seatFeatures.map((f) => (
-        <div key={f.key} className="flex flex-col gap-1.5">
+        <div key={f.key} className="flex min-w-0 flex-col gap-1.5">
           <Label htmlFor={`sub-seats-${f.key}`}>{f.name}</Label>
           <Input
             id={`sub-seats-${f.key}`}

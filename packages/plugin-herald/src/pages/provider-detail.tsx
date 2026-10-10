@@ -100,8 +100,8 @@ function UsedBy({ uses, enabled }: { uses: RouteUse[]; enabled: boolean }) {
     )
   }
   return (
-    <div className="flex flex-col gap-2">
-      <ul className="flex flex-col gap-1 text-sm">
+    <div className="flex min-w-0 flex-col gap-2">
+      <ul className="flex min-w-0 flex-col gap-1 text-sm">
         {uses.map((u) => (
           <li key={`${u.scope}|${u.scopeId}|${u.channel}`}>
             {u.scopeId === "" ? (
@@ -163,7 +163,7 @@ function ProviderBody({ id }: { id: string }) {
   }
 
   return (
-    <section className="flex flex-col gap-6">
+    <section className="flex min-w-0 flex-col gap-4">
       {/* Outside the boundary, so loading, failure and not-found still name the app. */}
       <HeraldHeader
         title={loaded?.name ?? "Provider"}
@@ -195,7 +195,7 @@ function ProviderBody({ id }: { id: string }) {
         {({ provider: p }) => (
           <DetailLayout
             main={
-              <div className="flex flex-col gap-6">
+              <div className="flex min-w-0 flex-col gap-4">
                 <DescriptionList
                   items={[
                     {
@@ -233,7 +233,7 @@ function ProviderBody({ id }: { id: string }) {
                     },
                   ]}
                 />
-                <section className="flex flex-col gap-2">
+                <section className="flex min-w-0 flex-col gap-2">
                   <h2 className="text-sm font-medium">Settings</h2>
                   <ResourceTable<SettingEntry>
                     columns={settingColumns}
@@ -249,7 +249,7 @@ function ProviderBody({ id }: { id: string }) {
                     </p>
                   )}
                 </section>
-                <section className="flex flex-col gap-2">
+                <section className="flex min-w-0 flex-col gap-2">
                   <h2 className="text-sm font-medium">Credentials</h2>
                   <ResourceTable<CredentialStatus>
                     columns={credentialColumns}
@@ -265,7 +265,7 @@ function ProviderBody({ id }: { id: string }) {
               </div>
             }
             aside={
-              <section className="flex flex-col gap-2">
+              <section className="flex min-w-0 flex-col gap-2">
                 <h2 className="text-sm font-medium">Used by routing rules</h2>
                 <UsedBy uses={p.usedBy} enabled={p.enabled} />
               </section>
@@ -301,7 +301,7 @@ export const ProviderDetailPage: ComponentType<PluginPageProps> = ({
   const id = params.id
   if (!id) {
     return (
-      <section className="flex flex-col gap-6">
+      <section className="flex min-w-0 flex-col gap-4">
         <HeraldHeader title="Provider" />
         <p role="status" className="text-sm text-muted-foreground">
           No provider ID in the address, so there is nothing to show.

@@ -42,7 +42,7 @@ function DLQDetailView({ id }: { id: string }) {
   }
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <QueryBoundary title="Dead letter" query={query} skeletonRows={6}>
         {(e) => (
           <>
@@ -71,7 +71,7 @@ function DLQDetailView({ id }: { id: string }) {
               main={
                 <section
                   aria-labelledby="payload-heading"
-                  className="flex flex-col gap-2"
+                  className="flex min-w-0 flex-col gap-2"
                 >
                   <h2 id="payload-heading" className="text-sm font-medium">
                     Payload

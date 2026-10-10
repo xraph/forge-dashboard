@@ -90,7 +90,7 @@ export const RotationPage: ComponentType<PluginPageProps> = () => {
   })
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Rotation"
         description="Due policies are checked once a minute in each vault process. A policy only rotates a secret whose application registered a rotator."

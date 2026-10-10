@@ -61,7 +61,7 @@ export function RelayEventsPage() {
   const query = useQuery<EventsPage>("events.list", params)
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Events"
         description="Everything sent through Relay, newest first. Each event fans out to the endpoints it matches."
@@ -104,7 +104,7 @@ export function RelayEventsPage() {
         {(data) => {
           const rows = data.events ?? []
           return (
-            <div className="flex flex-col gap-3">
+            <div className="flex min-w-0 flex-col gap-3">
               <ResourceTable<EventSummary>
                 columns={columns}
                 rows={rows}

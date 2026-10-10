@@ -67,18 +67,18 @@ export const OverviewPage: ComponentType<PluginPageProps> = () => {
     if (active) overview.refetch()
   }, RUN_POLL_MS)
   return (
-    <section className="flex flex-col gap-6">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Overview"
         description="Evaluation suites, their runs and how those runs compare with each suite's baseline."
       />
       <SettledBoundary title="Overview" query={overview} skeletonRows={6}>
         {(o) => (
-          <div className="flex flex-col gap-8">
+          <div className="flex min-w-0 flex-col gap-4">
             {!o.targetsRegistered && (
               <section
                 aria-label="No target"
-                className="flex flex-col gap-1 rounded-lg border border-l-4 border-l-foreground/30 px-5 py-4"
+                className="flex min-w-0 flex-col gap-1 rounded-lg border border-l-4 border-l-foreground/30 px-4 py-3"
               >
                 <p className="text-base font-medium">
                   No target is registered, so no run can start
@@ -100,7 +100,7 @@ export const OverviewPage: ComponentType<PluginPageProps> = () => {
             {o.activeRuns.length > 0 && (
               <section
                 aria-labelledby="sentinel-overview-active"
-                className="flex flex-col gap-2"
+                className="flex min-w-0 flex-col gap-2"
               >
                 <h2
                   id="sentinel-overview-active"
@@ -118,7 +118,7 @@ export const OverviewPage: ComponentType<PluginPageProps> = () => {
             )}
             <section
               aria-labelledby="sentinel-overview-regressions"
-              className="flex flex-col gap-2"
+              className="flex min-w-0 flex-col gap-2"
             >
               <h2
                 id="sentinel-overview-regressions"
@@ -136,7 +136,7 @@ export const OverviewPage: ComponentType<PluginPageProps> = () => {
             </section>
             <section
               aria-labelledby="sentinel-overview-recent"
-              className="flex flex-col gap-2"
+              className="flex min-w-0 flex-col gap-2"
             >
               <div className="flex items-baseline justify-between gap-3">
                 <h2

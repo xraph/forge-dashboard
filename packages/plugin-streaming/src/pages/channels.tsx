@@ -40,7 +40,7 @@ const columns: Column<ChannelInfo>[] = [
 export function StreamingChannelsPage() {
   const query = useQuery<ChannelsList>("channels.list")
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader title="Channels" />
       <QueryBoundary title="Channels" query={query} skeletonRows={4}>
         {(data) => {

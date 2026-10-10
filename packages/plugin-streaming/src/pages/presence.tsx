@@ -102,7 +102,7 @@ export function StreamingPresencePage() {
   ]
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Presence"
         description="Who is online, and an override for when the client gets it wrong."

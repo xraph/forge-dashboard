@@ -66,7 +66,7 @@ function Raw({ value, wrap = false }: { value: string; wrap?: boolean }) {
 function previousHash(ev: EventDetail): ReactNode {
   if (ev.sequence === 1) {
     return (
-      <span className="flex flex-col gap-1">
+      <span className="flex min-w-0 flex-col gap-1">
         <span>
           {ev.prevHash
             ? "Genesis event, the first in its chain."
@@ -98,7 +98,7 @@ function encryptionKey(ev: EventDetail): ReactNode {
     )
   if (ev.encryptionKeyId === "") return <NoneCell label="encryption key" />
   return (
-    <span className="flex flex-col gap-1">
+    <span className="flex min-w-0 flex-col gap-1">
       <Raw value={ev.encryptionKeyId} wrap />
       <span className="text-muted-foreground">
         As the event records it. The digest does not cover it, so nothing here
@@ -112,7 +112,7 @@ export const EventDetailPage: ComponentType<PluginPageProps> = ({ params }) => {
   const id = params.id ?? ""
   const q = useQuery<EventDetail>("events.detail", { id })
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Event"
         description="One record, its place in the chain, and whether its own digest recomputes."
@@ -155,7 +155,7 @@ function Body({ ev }: { ev: EventDetail }) {
   return (
     <DetailLayout
       main={
-        <div className="flex flex-col gap-6">
+        <div className="flex min-w-0 flex-col gap-4">
           <DescriptionList
             items={[
               { term: "Event", value: <Raw value={ev.id} /> },
@@ -236,9 +236,9 @@ function Body({ ev }: { ev: EventDetail }) {
         </div>
       }
       aside={
-        <div className="flex flex-col gap-4 text-sm">
+        <div className="flex min-w-0 flex-col gap-4 text-sm">
           {ev.erased && ev.erasureId ? (
-            <div className="flex flex-col items-start gap-1">
+            <div className="flex min-w-0 flex-col items-start gap-1">
               <ErasedBadge />
               <span>
                 {"Erased by "}

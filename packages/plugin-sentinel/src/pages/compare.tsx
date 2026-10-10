@@ -88,7 +88,7 @@ function CompareBody({ runId, otherId }: { runId: string; otherId: string }) {
     if (open !== null) panelHeading.current?.focus()
   }, [open])
   return (
-    <section className="flex flex-col gap-8">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Compare runs"
         actions={
@@ -123,14 +123,14 @@ function CompareBody({ runId, otherId }: { runId: string; otherId: string }) {
           const shown = changedOnly ? c.cases.filter(changed) : c.cases
           const pair = c.cases.find((p) => p.caseId === open)
           return (
-            <div className="flex flex-col gap-8">
-              <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
+            <div className="flex min-w-0 flex-col gap-4">
+              <dl className="grid min-w-0 grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
                 <RunLine which="A" run={c.a} />
                 <RunLine which="B" run={c.b} />
               </dl>
               <section
                 aria-labelledby="sentinel-compare-scores"
-                className="flex flex-col gap-2"
+                className="flex min-w-0 flex-col gap-2"
               >
                 <h2
                   id="sentinel-compare-scores"
@@ -151,7 +151,7 @@ function CompareBody({ runId, otherId }: { runId: string; otherId: string }) {
               </section>
               <section
                 aria-labelledby="sentinel-compare-cases"
-                className="flex flex-col gap-3"
+                className="flex min-w-0 flex-col gap-3"
               >
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <h2
@@ -197,7 +197,7 @@ function CompareBody({ runId, otherId }: { runId: string; otherId: string }) {
                 {pair && (
                   <section
                     aria-label={`Outputs of ${pair.caseName}`}
-                    className="flex flex-col gap-2 rounded-lg border p-4"
+                    className="flex min-w-0 flex-col gap-2 rounded-lg border p-4"
                   >
                     <div className="flex items-center justify-between gap-2">
                       <h3

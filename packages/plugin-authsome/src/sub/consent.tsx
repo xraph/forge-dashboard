@@ -192,7 +192,7 @@ export function ConsentsPage() {
   ]
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader title="Consent" />
 
       <FilterBar
@@ -324,7 +324,7 @@ export function ConsentUserSection({ userId }: { userId?: string }) {
   const caption = `${items.length} ${items.length === 1 ? "record" : "records"}`
 
   return (
-    <section className="flex flex-col gap-2">
+    <section className="flex min-w-0 flex-col gap-2">
       <h3 className="text-sm font-medium">Consent</h3>
       <ResourceTable<ConsentRecord>
         columns={baseColumns()}

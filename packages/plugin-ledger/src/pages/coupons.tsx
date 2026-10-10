@@ -76,7 +76,7 @@ export function LedgerCouponsPage() {
   })
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Coupons"
         description="Discounts a subscription can carry into its invoices."
@@ -103,7 +103,7 @@ export function LedgerCouponsPage() {
         {(data) => {
           const rows = data.items ?? []
           return (
-            <div className="flex flex-col gap-3">
+            <div className="flex min-w-0 flex-col gap-3">
               <ResourceTable<Coupon>
                 columns={columns}
                 rows={rows}

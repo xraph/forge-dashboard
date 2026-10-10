@@ -97,7 +97,7 @@ export const MessagesPage: ComponentType<PluginPageProps> = () => {
   const filtered = channel !== "" || status !== ""
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <HeraldHeader
         title="Messages"
         description="Every send Herald logged, newest first."
@@ -138,7 +138,7 @@ export const MessagesPage: ComponentType<PluginPageProps> = () => {
       </p>
       <QueryBoundary title="Messages" query={list} skeletonRows={8}>
         {(data) => (
-          <div className="flex flex-col gap-3">
+          <div className="flex min-w-0 flex-col gap-3">
             <ResourceTable<MessageSummary>
               columns={columns}
               rows={data.messages}

@@ -250,7 +250,7 @@ const instanceColumns: Column<Instance>[] = [
     header: "Advertised endpoints",
     cell: (i) =>
       i.endpoints?.length ? (
-        <div className="flex flex-col gap-1">
+        <div className="flex min-w-0 flex-col gap-1">
           {i.endpoints.map((e) => (
             <span className="font-mono text-xs break-all" key={e.url}>
               {e.url}

@@ -27,7 +27,7 @@ const columns: Column<Collection>[] = [
     header: "Name",
     className: "font-medium",
     cell: (c) => (
-      <div className="flex flex-col">
+      <div className="flex min-w-0 flex-col">
         <PluginLink
           to={collectionPath(c.id)}
           className="font-medium underline-offset-4 hover:underline"
@@ -110,7 +110,7 @@ export const CollectionsPage: ComponentType<PluginPageProps> = () => {
   const filtered = term !== "" || tenant !== null
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Collections"
         description="Each collection chunks and embeds its documents with the size and overlap it was created with. Counts are live."

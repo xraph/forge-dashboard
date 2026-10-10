@@ -127,7 +127,7 @@ export function StreamingOverviewPage() {
   usePoll(query.refetch)
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Streaming"
         description="Live connection and room counts for this node."

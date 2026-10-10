@@ -240,12 +240,12 @@ export function CouponForm({
   }
 
   return (
-    <form onSubmit={submit} className="flex max-w-2xl flex-col gap-4">
+    <form onSubmit={submit} className="flex max-w-2xl min-w-0 flex-col gap-4">
       <CommandAlert error={error} title={errorTitle} />
       <ProblemsAlert problems={problems} />
       {mode === "create" ? (
         <>
-          <div className="flex flex-col gap-1.5">
+          <div className="flex min-w-0 flex-col gap-1.5">
             <Label htmlFor="coupon-code">Code</Label>
             <Input
               id="coupon-code"
@@ -261,8 +261,8 @@ export function CouponForm({
               LAUNCH are two coupons.
             </p>
           </div>
-          <div className="grid gap-4 sm:grid-cols-3">
-            <div className="flex flex-col gap-1.5">
+          <div className="grid min-w-0 gap-4 sm:grid-cols-3">
+            <div className="flex min-w-0 flex-col gap-1.5">
               <Label htmlFor="coupon-type">Type</Label>
               <NativeSelect
                 id="coupon-type"
@@ -278,7 +278,7 @@ export function CouponForm({
               </NativeSelect>
             </div>
             {v.type === "percentage" ? (
-              <div className="flex flex-col gap-1.5">
+              <div className="flex min-w-0 flex-col gap-1.5">
                 <Label htmlFor="coupon-percentage">Percentage</Label>
                 <Input
                   id="coupon-percentage"
@@ -289,7 +289,7 @@ export function CouponForm({
                 />
               </div>
             ) : (
-              <div className="flex flex-col gap-1.5">
+              <div className="flex min-w-0 flex-col gap-1.5">
                 <Label htmlFor="coupon-amount">Amount</Label>
                 <Input
                   id="coupon-amount"
@@ -300,7 +300,7 @@ export function CouponForm({
                 />
               </div>
             )}
-            <div className="flex flex-col gap-1.5">
+            <div className="flex min-w-0 flex-col gap-1.5">
               <Label htmlFor="coupon-currency">Currency</Label>
               <Input
                 id="coupon-currency"
@@ -342,7 +342,7 @@ export function CouponForm({
           </p>
         )
       )}
-      <div className="flex flex-col gap-1.5">
+      <div className="flex min-w-0 flex-col gap-1.5">
         <Label htmlFor="coupon-name">Name</Label>
         <Input
           id="coupon-name"
@@ -350,7 +350,7 @@ export function CouponForm({
           onChange={(e) => set("name", e.target.value)}
         />
       </div>
-      <div className="flex flex-col gap-1.5">
+      <div className="flex min-w-0 flex-col gap-1.5">
         <Label htmlFor="coupon-max">Max redemptions</Label>
         <Input
           id="coupon-max"
@@ -364,8 +364,8 @@ export function CouponForm({
           0 means no cap.
         </p>
       </div>
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div className="flex flex-col gap-1.5">
+      <div className="grid min-w-0 gap-4 sm:grid-cols-2">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <Label htmlFor="coupon-from">Valid from</Label>
           <Input
             id="coupon-from"
@@ -375,7 +375,7 @@ export function CouponForm({
             onChange={(e) => set("valid_from", e.target.value)}
           />
         </div>
-        <div className="flex flex-col gap-1.5">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <Label htmlFor="coupon-until">Valid until</Label>
           <Input
             id="coupon-until"

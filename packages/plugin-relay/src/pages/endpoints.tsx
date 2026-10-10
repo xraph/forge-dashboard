@@ -111,7 +111,7 @@ export function RelayEndpointsPage() {
   const filtered = tenant.trim() !== "" || state !== "all"
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Endpoints"
         description="Where Relay delivers webhooks, and which events each one receives."

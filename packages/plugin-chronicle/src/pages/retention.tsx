@@ -65,7 +65,7 @@ export const RetentionPage: ComponentType<PluginPageProps> = () => {
   const q = useQuery<PolicyListResponse>("retention.policies")
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Retention"
         description="Retention permanently deletes audit events."

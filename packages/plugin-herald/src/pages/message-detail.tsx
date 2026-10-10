@@ -81,7 +81,7 @@ function MessageBody({ id }: { id: string }) {
   const loaded = detail.data?.message
   const limit = info.data?.truncateBodyAt
   return (
-    <section className="flex flex-col gap-6">
+    <section className="flex min-w-0 flex-col gap-4">
       {/* Outside the boundary, so loading, failure and not-found still name the app. */}
       <HeraldHeader
         title={loaded ? `Message to ${loaded.recipient}` : "Message"}
@@ -98,10 +98,10 @@ function MessageBody({ id }: { id: string }) {
       />
       <QueryBoundary title="Message" query={detail} skeletonRows={6}>
         {({ message: m }) => (
-          <div className="flex flex-col gap-6">
+          <div className="flex min-w-0 flex-col gap-4">
             <Outcome m={m} />
             {(m.error || m.status === "failed") && (
-              <section className="flex flex-col gap-1.5">
+              <section className="flex min-w-0 flex-col gap-1.5">
                 <h2 className="text-sm font-medium">Error</h2>
                 {m.error ? (
                   <pre className="overflow-x-auto rounded-md border p-3 font-mono text-xs whitespace-pre-wrap">
@@ -165,7 +165,7 @@ function MessageBody({ id }: { id: string }) {
                 },
               ]}
             />
-            <section className="flex flex-col gap-1.5">
+            <section className="flex min-w-0 flex-col gap-1.5">
               <h2 className="text-sm font-medium">Body</h2>
               {m.subject && <p className="text-sm">Subject: {m.subject}</p>}
               {m.body ? (
@@ -184,7 +184,7 @@ function MessageBody({ id }: { id: string }) {
                 with no marker.
               </p>
             </section>
-            <section className="flex flex-col gap-1.5">
+            <section className="flex min-w-0 flex-col gap-1.5">
               <h2 className="text-sm font-medium">Metadata</h2>
               {Object.keys(m.metadata).length === 0 ? (
                 <p className="text-sm text-muted-foreground">No metadata.</p>
@@ -210,7 +210,7 @@ export const MessageDetailPage: ComponentType<PluginPageProps> = ({
   const id = params.id
   if (!id) {
     return (
-      <section className="flex flex-col gap-6">
+      <section className="flex min-w-0 flex-col gap-4">
         <HeraldHeader title="Message" />
         <p role="status" className="text-sm text-muted-foreground">
           No message ID in the address, so there is nothing to show.

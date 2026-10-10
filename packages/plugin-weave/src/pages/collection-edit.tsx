@@ -72,13 +72,13 @@ function EditForm({ collection }: { collection: CollectionDetail }) {
   return (
     <form
       onSubmit={(e) => void submit(e)}
-      className="flex max-w-2xl flex-col gap-4"
+      className="flex max-w-2xl min-w-0 flex-col gap-4"
     >
       <CommandAlert
         title="Could not save the collection"
         error={update.error}
       />
-      <div className="flex flex-col gap-1.5">
+      <div className="flex min-w-0 flex-col gap-1.5">
         <Label htmlFor="collection-name">Name</Label>
         <Input
           id="collection-name"
@@ -87,7 +87,7 @@ function EditForm({ collection }: { collection: CollectionDetail }) {
           onChange={(e) => setName(e.target.value)}
         />
       </div>
-      <div className="flex flex-col gap-1.5">
+      <div className="flex min-w-0 flex-col gap-1.5">
         <Label htmlFor="collection-description">Description</Label>
         <Textarea
           id="collection-description"
@@ -96,7 +96,7 @@ function EditForm({ collection }: { collection: CollectionDetail }) {
           onChange={(e) => setDescription(e.target.value)}
         />
       </div>
-      <div className="flex flex-col gap-1.5">
+      <div className="flex min-w-0 flex-col gap-1.5">
         <span className="text-sm font-medium">Metadata</span>
         <MetadataEditor rows={rows} onChange={setRows} />
         {"error" in meta ? (
@@ -105,7 +105,7 @@ function EditForm({ collection }: { collection: CollectionDetail }) {
           </p>
         ) : null}
       </div>
-      <section className="flex flex-col gap-2 rounded-md border p-3 text-sm">
+      <section className="flex min-w-0 flex-col gap-2 rounded-md border p-3 text-sm">
         <h2 className="font-medium">Chunk settings</h2>
         <DescriptionList
           items={[
@@ -155,7 +155,7 @@ export const CollectionEditPage: ComponentType<PluginPageProps> = ({
   const id = params.id ?? ""
   const detail = useQuery<CollectionDetail>("collections.get", { id })
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Edit collection"
         description="Name, description and metadata. Chunk settings are fixed when a collection is made."

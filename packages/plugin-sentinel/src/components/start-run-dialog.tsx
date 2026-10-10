@@ -197,7 +197,7 @@ function StartRunForm({
           </FieldDescription>
         </Field>
         <fieldset
-          className="flex flex-col gap-2"
+          className="flex min-w-0 flex-col gap-2"
           aria-describedby={`${id}-scorers-about`}
         >
           <legend className="text-sm font-medium">Scorers</legend>
@@ -215,7 +215,7 @@ function StartRunForm({
                 disabled={s.requiresConfig || command.loading}
                 onCheckedChange={(on) => toggle(s.name, on === true)}
               />
-              <span className="flex flex-col gap-1">
+              <span className="flex min-w-0 flex-col gap-1">
                 <span className="flex flex-wrap items-center gap-2">
                   <span className="font-mono text-xs">{s.name}</span>
                   {s.usesLlm && <LlmBadge />}
@@ -233,7 +233,7 @@ function StartRunForm({
       </FieldGroup>
       <section
         aria-label="What this run uses"
-        className="flex flex-col gap-1 rounded-md border p-3 text-sm"
+        className="flex min-w-0 flex-col gap-1 rounded-md border p-3 text-sm"
       >
         <p>
           {`${plural(suite.caseCount, "case", "cases")} to `}

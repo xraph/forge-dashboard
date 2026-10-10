@@ -66,7 +66,7 @@ export const TransfersPage: ComponentType<PluginPageProps> = () => {
   usePoll(list.refetch, POLL_MS)
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Transfers"
         description="Streams open in this process. They are not saved and are lost on restart."

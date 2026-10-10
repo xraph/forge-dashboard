@@ -39,7 +39,7 @@ export function ScaleBars({
 }) {
   const pct = (v: number) => `${Math.max(0, Math.min(1, v / max)) * 100}%`
   return (
-    <div className="flex flex-col gap-1">
+    <div className="flex min-w-0 flex-col gap-1">
       {reference && (
         <p className="text-xs text-muted-foreground">
           <span
@@ -49,12 +49,12 @@ export function ScaleBars({
           {reference.label}
         </p>
       )}
-      <ul aria-label={label} className="flex flex-col">
+      <ul aria-label={label} className="flex min-w-0 flex-col">
         {rows.map((row) => (
           <li
             key={row.key}
             className={cn(
-              "grid items-center gap-3 py-1 text-sm",
+              "grid min-w-0 items-center gap-3 py-1 text-sm",
               valueColumn
                 ? "grid-cols-[minmax(6rem,10rem)_1fr_auto]"
                 : "grid-cols-[minmax(6rem,10rem)_1fr]"
@@ -125,7 +125,7 @@ export function DeltaBars({
   const half = (v: number) =>
     `${(Math.min(Math.abs(v), extent) / extent) * 50}%`
   return (
-    <div className="flex flex-col gap-1">
+    <div className="flex min-w-0 flex-col gap-1">
       <p className="text-xs text-muted-foreground">
         <span
           aria-hidden
@@ -133,11 +133,11 @@ export function DeltaBars({
         />
         {`Shaded: more than ${formatThreshold(threshold)} below the baseline`}
       </p>
-      <ul aria-label={label} className="flex flex-col">
+      <ul aria-label={label} className="flex min-w-0 flex-col">
         {rows.map((row) => (
           <li
             key={row.key}
-            className="grid grid-cols-[minmax(6rem,12rem)_1fr] items-center gap-3 py-1 text-sm"
+            className="grid min-w-0 grid-cols-[minmax(6rem,12rem)_1fr] items-center gap-3 py-1 text-sm"
           >
             <span className="flex min-w-0 items-center gap-1.5">
               <span className="truncate">{row.label}</span>

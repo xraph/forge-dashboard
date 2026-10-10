@@ -55,10 +55,10 @@ function EditRole({ role }: { role: RoleDetail }) {
   const dirty = Object.keys(changed).length > 1
 
   return (
-    <div className="flex flex-col gap-3 rounded-md border p-4">
+    <div className="flex min-w-0 flex-col gap-3 rounded-md border p-4">
       <h2 className="text-sm font-medium">Edit</h2>
       <CommandAlert error={update.error} title="Could not save" />
-      <div className="flex flex-col gap-1.5">
+      <div className="flex min-w-0 flex-col gap-1.5">
         <Label htmlFor="role-edit-name">Name</Label>
         <Input
           id="role-edit-name"
@@ -66,7 +66,7 @@ function EditRole({ role }: { role: RoleDetail }) {
           onChange={(e) => setName(e.target.value)}
         />
       </div>
-      <div className="flex flex-col gap-1.5">
+      <div className="flex min-w-0 flex-col gap-1.5">
         <Label htmlFor="role-edit-description">Description</Label>
         <Input
           id="role-edit-description"
@@ -102,10 +102,10 @@ function AssignRole({ roleId }: { roleId: string }) {
   }
 
   return (
-    <div className="flex flex-col gap-3 rounded-md border p-4">
+    <div className="flex min-w-0 flex-col gap-3 rounded-md border p-4">
       <h2 className="text-sm font-medium">Assign to a user</h2>
       <CommandAlert error={assign.error} title="Could not assign" />
-      <div className="flex flex-col gap-1.5">
+      <div className="flex min-w-0 flex-col gap-1.5">
         <Label htmlFor="role-assign-user">User ID</Label>
         <Input
           id="role-assign-user"
@@ -141,10 +141,10 @@ function UnassignRole({ roleId }: { roleId: string }) {
   }
 
   return (
-    <div className="flex flex-col gap-3 rounded-md border p-4">
+    <div className="flex min-w-0 flex-col gap-3 rounded-md border p-4">
       <h2 className="text-sm font-medium">Remove from a user</h2>
       <CommandAlert error={unassign.error} title="Could not remove" />
-      <div className="flex flex-col gap-1.5">
+      <div className="flex min-w-0 flex-col gap-1.5">
         <Label htmlFor="role-unassign-user">User ID</Label>
         <Input
           id="role-unassign-user"
@@ -179,7 +179,7 @@ function RoleDetailBody({ roleId }: { roleId: string }) {
   const query = useQuery<RoleDetail>("roles.detail", { id: roleId })
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <QueryBoundary title="Role" query={query} skeletonRows={3}>
         {(role) => {
           const permissions = role.permissions ?? []

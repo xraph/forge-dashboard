@@ -74,7 +74,10 @@ function HealthChecks({ config }: { config: ConfigDetail }) {
     )
   }
   return (
-    <section aria-labelledby="checks-heading" className="flex flex-col gap-2">
+    <section
+      aria-labelledby="checks-heading"
+      className="flex min-w-0 flex-col gap-2"
+    >
       <h2
         id="checks-heading"
         className="flex items-center gap-2 text-sm font-medium"
@@ -97,7 +100,7 @@ export const BastionHealthPage: ComponentType<PluginPageProps> = () => {
   const config = useQuery<ConfigDetail>("config.detail")
 
   return (
-    <section className="flex flex-col gap-6">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Health"
         description="Each upstream's last known health. Bastion probes on its own schedule; there is no manual check and no history."

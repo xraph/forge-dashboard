@@ -93,7 +93,7 @@ function CompareForm({
           This suite has no other run to compare with.
         </p>
       ) : (
-        <div className="flex flex-col gap-1">
+        <div className="flex min-w-0 flex-col gap-1">
           <Label htmlFor={`${id}-run`}>Run</Label>
           <NativeSelect
             id={`${id}-run`}

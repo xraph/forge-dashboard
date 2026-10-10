@@ -163,7 +163,7 @@ function CreateForm({ engine }: { engine: EngineInfoResponse }) {
   function renderField(f: FieldInfo) {
     const id = `field-${f.key}`
     return (
-      <div key={f.key} className="flex flex-col gap-1.5">
+      <div key={f.key} className="flex min-w-0 flex-col gap-1.5">
         {/* The asterisk sits beside the label, not in it, so the field's accessible name stays "Host". */}
         <div className="flex items-center gap-1">
           <Label htmlFor={id}>{f.label}</Label>
@@ -201,13 +201,13 @@ function CreateForm({ engine }: { engine: EngineInfoResponse }) {
   return (
     <form
       onSubmit={(e) => void submit(e)}
-      className="flex max-w-xl flex-col gap-5"
+      className="flex max-w-xl min-w-0 flex-col gap-4"
     >
       <CommandAlert
         error={create.error}
         title="Could not create the provider"
       />
-      <div className="flex flex-col gap-1.5">
+      <div className="flex min-w-0 flex-col gap-1.5">
         <Label htmlFor="provider-name">Name</Label>
         <Input
           id="provider-name"
@@ -216,8 +216,8 @@ function CreateForm({ engine }: { engine: EngineInfoResponse }) {
           onChange={(e) => setName(e.target.value)}
         />
       </div>
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div className="flex flex-col gap-1.5">
+      <div className="grid min-w-0 gap-4 sm:grid-cols-2">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <Label htmlFor="provider-channel">Channel</Label>
           <NativeSelect
             id="provider-channel"
@@ -232,7 +232,7 @@ function CreateForm({ engine }: { engine: EngineInfoResponse }) {
             ))}
           </NativeSelect>
         </div>
-        <div className="flex flex-col gap-1.5">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <Label htmlFor="provider-driver">Driver</Label>
           <NativeSelect
             id="provider-driver"
@@ -250,7 +250,7 @@ function CreateForm({ engine }: { engine: EngineInfoResponse }) {
             ))}
           </NativeSelect>
         </div>
-        <div className="flex flex-col gap-1.5">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <Label htmlFor="provider-priority">Priority</Label>
           <Input
             id="provider-priority"
@@ -281,13 +281,13 @@ function CreateForm({ engine }: { engine: EngineInfoResponse }) {
       )}
 
       {driver && settingFields.length > 0 && (
-        <fieldset className="flex flex-col gap-3">
+        <fieldset className="flex min-w-0 flex-col gap-3">
           <legend className="mb-1 text-sm font-medium">Settings</legend>
           {settingFields.map(renderField)}
         </fieldset>
       )}
       {driver && credentialFields.length > 0 && (
-        <fieldset className="flex flex-col gap-3">
+        <fieldset className="flex min-w-0 flex-col gap-3">
           <legend className="mb-1 text-sm font-medium">Credentials</legend>
           <p className="text-xs text-muted-foreground">
             Write-only. Once saved, a credential can be replaced or removed,
@@ -298,7 +298,7 @@ function CreateForm({ engine }: { engine: EngineInfoResponse }) {
       )}
 
       {driver && fields === null && (
-        <fieldset className="flex flex-col gap-3">
+        <fieldset className="flex min-w-0 flex-col gap-3">
           <legend className="mb-1 text-sm font-medium">Fields</legend>
           <p className="text-sm text-muted-foreground">
             This driver has no field schema, so Herald can't tell settings from
@@ -308,9 +308,9 @@ function CreateForm({ engine }: { engine: EngineInfoResponse }) {
           {rows.map((r, i) => (
             <div
               key={r.rowId}
-              className="grid items-end gap-2 sm:grid-cols-[1fr_auto_1fr_auto]"
+              className="grid min-w-0 items-end gap-2 sm:grid-cols-[1fr_auto_1fr_auto]"
             >
-              <div className="flex flex-col gap-1.5">
+              <div className="flex min-w-0 flex-col gap-1.5">
                 <Label
                   htmlFor={`row-key-${r.rowId}`}
                 >{`Key, field ${i + 1}`}</Label>
@@ -333,7 +333,7 @@ function CreateForm({ engine }: { engine: EngineInfoResponse }) {
                   Secret
                 </span>
               </div>
-              <div className="flex flex-col gap-1.5">
+              <div className="flex min-w-0 flex-col gap-1.5">
                 <Label
                   htmlFor={`row-value-${r.rowId}`}
                 >{`Value, field ${i + 1}`}</Label>
@@ -396,7 +396,7 @@ function CreateForm({ engine }: { engine: EngineInfoResponse }) {
 export const ProviderCreatePage: ComponentType<PluginPageProps> = () => {
   const info = useEngineInfo()
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <HeraldHeader
         title="New provider"
         description="The fields come from the driver. Credentials are write-only: once saved, you can replace them, never read them back."

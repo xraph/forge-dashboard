@@ -96,8 +96,11 @@ export function UsageChart({
   refreshing: boolean
 }) {
   return (
-    <section aria-label="Usage over time" className="flex flex-col gap-2">
-      <div className="flex flex-col gap-0.5">
+    <section
+      aria-label="Usage over time"
+      className="flex min-w-0 flex-col gap-2"
+    >
+      <div className="flex min-w-0 flex-col gap-0.5">
         <h2 className="text-base font-medium">Units per day</h2>
         <p className="text-sm text-muted-foreground">
           Columns are UTC days, the same days billing periods are cut on.

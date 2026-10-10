@@ -55,7 +55,7 @@ export const OverviewPage: ComponentType<PluginPageProps> = () => {
   const overview = useQuery<Overview>("system.overview", {})
 
   return (
-    <section className="flex flex-col gap-6">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Overview"
         description="What Weave holds and what it runs. This dashboard sees every tenant's data."
@@ -94,11 +94,11 @@ export const OverviewPage: ComponentType<PluginPageProps> = () => {
                 },
               ]}
             />
-            <section className="flex flex-col gap-2">
+            <section className="flex min-w-0 flex-col gap-2">
               <h2 className="text-sm font-medium">What runs</h2>
               <ComponentsStrip components={data.components} />
             </section>
-            <section className="flex flex-col gap-2">
+            <section className="flex min-w-0 flex-col gap-2">
               <h2 className="text-sm font-medium">Newest documents</h2>
               <ResourceTable<DocumentRow>
                 columns={columns}

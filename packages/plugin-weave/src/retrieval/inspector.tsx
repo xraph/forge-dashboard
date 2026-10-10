@@ -25,7 +25,7 @@ export function Inspector({ hit, label }: { hit: Hit; label: string }) {
   const hydrated = state === "hydrated" && hit.chunk !== null
 
   return (
-    <section aria-label={label} className="flex flex-col gap-3 text-sm">
+    <section aria-label={label} className="flex min-w-0 flex-col gap-3 text-sm">
       <h3 className="font-medium">{label}</h3>
       <HitStateBadge hit={hit} />
       {state !== "hydrated" ? (
@@ -122,7 +122,7 @@ export function Inspector({ hit, label }: { hit: Hit; label: string }) {
           },
         ]}
       />
-      <div className="flex flex-col gap-1">
+      <div className="flex min-w-0 flex-col gap-1">
         <span className="font-medium">Metadata</span>
         <MetadataList metadata={hit.chunk?.metadata} />
       </div>

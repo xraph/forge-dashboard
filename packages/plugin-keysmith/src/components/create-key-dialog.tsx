@@ -640,7 +640,7 @@ function CreateKeyForm({
                 : "No scopes exist in this tenant yet."}
             </FieldDescription>
           ) : (
-            <div className="flex max-h-40 flex-col gap-2 overflow-y-auto">
+            <div className="flex max-h-40 min-w-0 flex-col gap-2 overflow-y-auto">
               {visibleScopes.map((s) => (
                 <Label key={s.id} className="font-normal">
                   <Checkbox

@@ -87,7 +87,7 @@ function Field({
   children: React.ReactNode
 }) {
   return (
-    <Label className="grid gap-1.5">
+    <Label className="grid min-w-0 gap-1.5">
       <span>{label}</span>
       {children}
     </Label>
@@ -147,7 +147,7 @@ export function NotificationsPage() {
     },
   ]
   return (
-    <section className="flex flex-col gap-3">
+    <section className="flex min-w-0 flex-col gap-3">
       <PageHeader
         title="Notifications"
         actions={
@@ -367,7 +367,7 @@ export function NotificationCreatePage() {
     if (result?.id) setCreated(result.id)
   }
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="New notification template"
         actions={<PageLink to="/notifications">Back to templates</PageLink>}
@@ -389,7 +389,7 @@ export function NotificationCreatePage() {
       >
         <form
           onSubmit={(event) => void submit(event)}
-          className="grid gap-4 md:grid-cols-2"
+          className="grid min-w-0 gap-4 md:grid-cols-2"
         >
           <Field label="Name">
             <Input
@@ -523,7 +523,7 @@ function VersionEditor({
   return (
     <form
       onSubmit={(event) => void save(event)}
-      className="grid gap-3 md:grid-cols-2"
+      className="grid min-w-0 gap-3 md:grid-cols-2"
     >
       <CommandAlert
         title="Could not save version"
@@ -668,7 +668,7 @@ function NotificationDetail({ id }: { id: string }) {
   return (
     <QueryBoundary title="Template" query={query}>
       {(item) => (
-        <section className="flex flex-col gap-4">
+        <section className="flex min-w-0 flex-col gap-4">
           <PageHeader
             title={item.name}
             description={`${item.slug} · ${item.channel}`}
@@ -874,7 +874,7 @@ export function NotificationSendPage() {
     }
   }
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Send notification"
         description="Choose a template and recipient, then review before sending."
@@ -894,7 +894,7 @@ export function NotificationSendPage() {
       <QueryBoundary title="Templates" query={query}>
         {(data) => (
           <Panel title="Message">
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid min-w-0 gap-4 md:grid-cols-2">
               <Field label="Template">
                 <select
                   className={fieldClass}

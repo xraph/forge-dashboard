@@ -193,7 +193,7 @@ function PlanDetailView({ plan }: { plan: Plan }) {
   }
 
   return (
-    <section className="flex flex-col gap-6">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title={plan.name}
         description={plan.description || undefined}
@@ -230,7 +230,7 @@ function PlanDetailView({ plan }: { plan: Plan }) {
       <DetailLayout
         main={
           <>
-            <section className="flex flex-col gap-2">
+            <section className="flex min-w-0 flex-col gap-2">
               <h2 className="text-base font-medium">Features</h2>
               <LedgerTable<PlanFeature>
                 columns={featureColumns}
@@ -240,7 +240,7 @@ function PlanDetailView({ plan }: { plan: Plan }) {
                 emptyMessage="This plan grants no features beyond its base price."
               />
             </section>
-            <section className="flex flex-col gap-4">
+            <section className="flex min-w-0 flex-col gap-4">
               <h2 className="text-base font-medium">Usage pricing</h2>
               {groups.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
@@ -248,7 +248,7 @@ function PlanDetailView({ plan }: { plan: Plan }) {
                 </p>
               ) : (
                 groups.map((g) => (
-                  <div key={g.key} className="flex flex-col gap-2">
+                  <div key={g.key} className="flex min-w-0 flex-col gap-2">
                     <h3 className="text-sm font-medium">
                       {g.name}{" "}
                       <span className="font-mono text-xs text-muted-foreground">
@@ -270,7 +270,10 @@ function PlanDetailView({ plan }: { plan: Plan }) {
         }
         aside={
           <>
-            <section className="flex flex-col gap-3" aria-label="Pricing">
+            <section
+              className="flex min-w-0 flex-col gap-3"
+              aria-label="Pricing"
+            >
               <h2 className="text-sm font-medium">Price</h2>
               {plan.pricing ? (
                 <p className="flex items-baseline gap-2">

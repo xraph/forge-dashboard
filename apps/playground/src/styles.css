@@ -1,0 +1,6 @@
+@import "@forge-go/dashboard-kit/globals.css";
+
+@source "../../../packages/host/src";
+@source "../../../packages/plugin/src";
+@source "../../../packages/runtime/src";
+@source "../../../packages/plugin-core/src";

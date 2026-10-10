@@ -348,7 +348,7 @@ export function WardenPolicyDetailPage({
       {(policy) => {
         if (editing) {
           return (
-            <section className="flex flex-col gap-6">
+            <section className="flex min-w-0 flex-col gap-4">
               <PageHeader
                 title={policy.name}
                 description="Editing this policy."
@@ -372,7 +372,7 @@ export function WardenPolicyDetailPage({
         const onActivate = activateSentences(policy, now, abacOff)
 
         return (
-          <section className="flex flex-col gap-6">
+          <section className="flex min-w-0 flex-col gap-4">
             <PageHeader
               title={policy.name}
               description={policy.description || undefined}
@@ -417,7 +417,7 @@ export function WardenPolicyDetailPage({
                     {
                       term: "Priority",
                       value: (
-                        <span className="flex flex-col gap-0.5">
+                        <span className="flex min-w-0 flex-col gap-0.5">
                           <span className="tabular-nums">
                             {policy.priority}
                           </span>
@@ -479,7 +479,7 @@ export function WardenPolicyDetailPage({
                 />
               }
               main={
-                <div className="flex flex-col gap-3">
+                <div className="flex min-w-0 flex-col gap-3">
                   {state !== null && (
                     <div
                       data-testid="policy-state"
@@ -523,7 +523,7 @@ export function WardenPolicyDetailPage({
               onConfirm={() => void confirmToggle()}
               description={
                 target ? (
-                  <span className="flex flex-col gap-2">
+                  <span className="flex min-w-0 flex-col gap-2">
                     {onActivate.map((s) => (
                       <span key={s}>{s}</span>
                     ))}

@@ -118,13 +118,16 @@ function EditorBody({ fields: initialFields }: { fields: FormField[] }) {
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex min-w-0 flex-col gap-4">
       <CommandAlert error={save.error} title="Could not save the signup form" />
-      <div className="flex flex-col gap-3">
+      <div className="flex min-w-0 flex-col gap-3">
         {fields.map((field, i) => (
-          <div key={i} className="flex flex-col gap-2 rounded-md border p-3">
+          <div
+            key={i}
+            className="flex min-w-0 flex-col gap-2 rounded-md border p-3"
+          >
             <div className="flex flex-wrap items-end gap-2">
-              <div className="flex flex-col gap-1.5">
+              <div className="flex min-w-0 flex-col gap-1.5">
                 <Label htmlFor={`field-key-${i}`}>Key</Label>
                 <Input
                   id={`field-key-${i}`}
@@ -132,7 +135,7 @@ function EditorBody({ fields: initialFields }: { fields: FormField[] }) {
                   onChange={(e) => updateField(i, { key: e.target.value })}
                 />
               </div>
-              <div className="flex flex-col gap-1.5">
+              <div className="flex min-w-0 flex-col gap-1.5">
                 <Label htmlFor={`field-label-${i}`}>Label</Label>
                 <Input
                   id={`field-label-${i}`}
@@ -140,7 +143,7 @@ function EditorBody({ fields: initialFields }: { fields: FormField[] }) {
                   onChange={(e) => updateField(i, { label: e.target.value })}
                 />
               </div>
-              <div className="flex flex-col gap-1.5">
+              <div className="flex min-w-0 flex-col gap-1.5">
                 <Label htmlFor={`field-type-${i}`}>Type</Label>
                 <Input
                   id={`field-type-${i}`}
@@ -220,7 +223,7 @@ export function AuthSignupFormEditorPage() {
 
   if (deleted) {
     return (
-      <section className="flex flex-col gap-4">
+      <section className="flex min-w-0 flex-col gap-4">
         <p role="status" className="text-sm text-muted-foreground">
           The signup form has been deleted.
         </p>
@@ -229,7 +232,7 @@ export function AuthSignupFormEditorPage() {
   }
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Edit signup form"
         actions={

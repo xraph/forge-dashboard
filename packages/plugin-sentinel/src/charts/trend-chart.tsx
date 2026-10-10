@@ -73,7 +73,7 @@ export default function TrendChart({
         : -8
       : 4
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex min-w-0 flex-col gap-2">
       <div className="flex flex-wrap gap-4">
         <LineKey color="var(--foreground)" label="Pass rate" />
         <LineKey color="var(--muted-foreground)" label="Avg score" />

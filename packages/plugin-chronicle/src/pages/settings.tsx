@@ -10,7 +10,7 @@ import { durationLabel } from "../format"
 export const SettingsPage: ComponentType<PluginPageProps> = () => {
   const q = useQuery<SettingsDetail>("settings.detail")
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Settings"
         description="How this deployment records and proves its audit trail. Read-only: these come from the extension's configuration."

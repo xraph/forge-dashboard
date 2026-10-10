@@ -73,7 +73,7 @@ export function RelayEventTypesPage() {
     includeDeprecated: show === "all",
   })
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Event types"
         description="What your application can send. A type with a schema has every payload checked against it."

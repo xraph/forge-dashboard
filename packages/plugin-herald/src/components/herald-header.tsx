@@ -56,7 +56,7 @@ export function HeraldHeader({
 }) {
   const info = useEngineInfo()
   return (
-    <div className="flex flex-col gap-1">
+    <div className="flex min-w-0 flex-col gap-1">
       <PageHeader title={title} description={description} actions={actions} />
       {meta && (
         <div className="flex flex-wrap items-center gap-2 text-sm">{meta}</div>

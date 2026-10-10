@@ -63,8 +63,8 @@ export function ResetPasswordScreen({
         showCode={false}
         title="Could not reset your password"
       />
-      <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
-        <div className="flex flex-col gap-1.5">
+      <form className="flex min-w-0 flex-col gap-4" onSubmit={handleSubmit}>
+        <div className="flex min-w-0 flex-col gap-1.5">
           <Label htmlFor={passwordId}>New password</Label>
           <Input
             autoComplete="new-password"
@@ -75,7 +75,7 @@ export function ResetPasswordScreen({
             value={password}
           />
         </div>
-        <div className="flex flex-col gap-1.5">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <Label htmlFor={confirmId}>Confirm password</Label>
           <Input
             autoComplete="new-password"

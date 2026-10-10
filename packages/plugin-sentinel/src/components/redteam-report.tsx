@@ -96,7 +96,7 @@ export function RedTeamReportSection({
   }, [running, refetch])
   if (report.error && report.data === undefined) {
     return (
-      <section className="flex flex-col gap-2">
+      <section className="flex min-w-0 flex-col gap-2">
         <h2 className="text-sm font-medium">{title}</h2>
         <p
           role="alert"
@@ -116,7 +116,7 @@ export function RedTeamReportSection({
   )
   if (data.total === 0) {
     return (
-      <section className="flex flex-col gap-2">
+      <section className="flex min-w-0 flex-col gap-2">
         {intro}
         {stale}
         <h2 className="text-sm font-medium">{title}</h2>
@@ -131,7 +131,7 @@ export function RedTeamReportSection({
       ? `Judged by ${data.judgedBy.join(", ")}.`
       : "No scorer is recorded as judging these cases."
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex min-w-0 flex-col gap-2">
       {intro}
       {stale}
       <ChartFrame

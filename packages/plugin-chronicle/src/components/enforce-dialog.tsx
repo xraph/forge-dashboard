@@ -74,7 +74,7 @@ function EnforceForm({
       description={
         // After a run the server invalidates the count, and a refreshed "eligible" figure beside the result would read as a contradiction.
         done || (!preview.loading && !counted) ? undefined : (
-          <span className="flex flex-col gap-3">
+          <span className="flex min-w-0 flex-col gap-3">
             {preview.loading && <span role="status">Counting...</span>}
             {counted && <PreviewSummary preview={counted} policies={scopes} />}
           </span>
@@ -139,7 +139,7 @@ function PreviewSummary({
       <span>
         {`${preview.capped ? "At least " : ""}${formatSeq(preview.eventCount)} ${preview.eventCount === 1 ? "event is" : "events are"} eligible under your policies.`}
       </span>
-      <span className="flex flex-col gap-1">
+      <span className="flex min-w-0 flex-col gap-1">
         {/* The id goes beside the category because the category alone repeats: an app-wide operator has a debug policy per tenant, and the preview names no scope. */}
         {preview.byPolicy.map((p) => {
           const found = scopeOf(p.policyId)

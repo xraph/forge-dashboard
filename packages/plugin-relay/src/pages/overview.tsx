@@ -17,7 +17,7 @@ export function RelayOverviewPage() {
     limit: 5,
   })
   return (
-    <section className="flex flex-col gap-6">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Relay"
         description="Webhook delivery: what is waiting, what failed, and where it goes."
@@ -40,7 +40,7 @@ export function RelayOverviewPage() {
       </QueryBoundary>
       <section
         aria-labelledby="failures-heading"
-        className="flex flex-col gap-2"
+        className="flex min-w-0 flex-col gap-2"
       >
         <div className="flex items-baseline justify-between">
           <h2 id="failures-heading" className="text-sm font-medium">

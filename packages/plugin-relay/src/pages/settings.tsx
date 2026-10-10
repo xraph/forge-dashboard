@@ -12,14 +12,14 @@ import type { SettingsConfig } from "../types"
 export function RelaySettingsPage() {
   const query = useQuery<SettingsConfig>("settings.config", {})
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Settings"
         description="Fixed when Relay starts. Change them in your application's Relay configuration and restart."
       />
       <QueryBoundary title="Settings" query={query} skeletonRows={6}>
         {(c) => (
-          <div className="flex flex-col gap-8">
+          <div className="flex min-w-0 flex-col gap-4">
             <DescriptionList
               items={[
                 { term: "Attempts per delivery", value: c.maxRetries },
@@ -53,7 +53,7 @@ export function RelaySettingsPage() {
             {c.signature && (
               <section
                 aria-labelledby="signature-heading"
-                className="flex flex-col gap-3"
+                className="flex min-w-0 flex-col gap-3"
               >
                 <h2 id="signature-heading" className="text-sm font-medium">
                   How a receiver verifies a delivery

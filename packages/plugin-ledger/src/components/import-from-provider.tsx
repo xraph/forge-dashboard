@@ -109,7 +109,10 @@ function ImportDialog<T>({
       onOpenChange={(next) => !next && !command.loading && onClose()}
     >
       <DialogContent>
-        <form onSubmit={(e) => void submit(e)} className="flex flex-col gap-4">
+        <form
+          onSubmit={(e) => void submit(e)}
+          className="flex min-w-0 flex-col gap-4"
+        >
           <DialogHeader>
             <DialogTitle>
               Import {/^[aeiou]/i.test(noun) ? "an" : "a"} {noun} from the
@@ -142,7 +145,7 @@ function ImportDialog<T>({
                   />
                 </div>
               )}
-              <div className="flex flex-col gap-1.5">
+              <div className="flex min-w-0 flex-col gap-1.5">
                 <Label htmlFor={`${fieldId}-provider`}>Provider</Label>
                 <NativeSelect
                   id={`${fieldId}-provider`}
@@ -161,7 +164,7 @@ function ImportDialog<T>({
                   ))}
                 </NativeSelect>
               </div>
-              <div className="flex flex-col gap-1.5">
+              <div className="flex min-w-0 flex-col gap-1.5">
                 <Label htmlFor={`${fieldId}-id`}>Provider ID</Label>
                 <Input
                   id={`${fieldId}-id`}

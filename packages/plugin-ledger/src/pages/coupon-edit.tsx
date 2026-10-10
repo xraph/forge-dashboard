@@ -33,7 +33,7 @@ function CouponEditBody({ id }: { id: string }) {
   }
 
   const form = (c: Coupon) => (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader title={`Edit ${c.code}`} />
       <CouponForm
         key={c.id}

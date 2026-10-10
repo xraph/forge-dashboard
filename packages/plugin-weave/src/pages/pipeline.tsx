@@ -141,7 +141,7 @@ export const PipelinePage: ComponentType<PluginPageProps> = () => {
   const report = useQuery<ComponentsOutput>("system.components", {})
 
   return (
-    <section className="flex flex-col gap-6">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Pipeline"
         description="What this deployment of Weave actually runs, as the engine reports it."
@@ -149,7 +149,7 @@ export const PipelinePage: ComponentType<PluginPageProps> = () => {
       <QueryBoundary title="Pipeline" query={report} skeletonRows={6}>
         {(data) => (
           <>
-            <section className="flex flex-col gap-2">
+            <section className="flex min-w-0 flex-col gap-2">
               <h2 className="text-sm font-medium">Stages</h2>
               <p className="text-sm text-muted-foreground">
                 {retrieverSentence(data.components)}
@@ -168,7 +168,7 @@ export const PipelinePage: ComponentType<PluginPageProps> = () => {
               </p>
             </section>
 
-            <section className="flex flex-col gap-2">
+            <section className="flex min-w-0 flex-col gap-2">
               <h2 className="text-sm font-medium">
                 Content types the loader reads
               </h2>
@@ -182,7 +182,7 @@ export const PipelinePage: ComponentType<PluginPageProps> = () => {
               />
             </section>
 
-            <section className="flex flex-col gap-2">
+            <section className="flex min-w-0 flex-col gap-2">
               <h2 className="text-sm font-medium">Engine config</h2>
               <DescriptionList
                 items={[
@@ -234,7 +234,7 @@ export const PipelinePage: ComponentType<PluginPageProps> = () => {
               />
             </section>
 
-            <section className="flex flex-col gap-2">
+            <section className="flex min-w-0 flex-col gap-2">
               <h2 className="text-sm font-medium">What Weave doesn't do</h2>
               <ul className="list-disc pl-5 text-sm">
                 <li>
@@ -262,7 +262,7 @@ export const PipelinePage: ComponentType<PluginPageProps> = () => {
               </ul>
             </section>
 
-            <section className="flex flex-col gap-2">
+            <section className="flex min-w-0 flex-col gap-2">
               <h2 className="text-sm font-medium">Extensions</h2>
               <ResourceTable<ExtensionInfo>
                 columns={extensionColumns}

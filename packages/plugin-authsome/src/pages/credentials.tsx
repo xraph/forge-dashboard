@@ -64,7 +64,7 @@ export function AuthCredentialsPage() {
   const query = useQuery<CredentialsDetail>("credentials.detail")
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Credentials"
         description="Use the publishable key for the selected application and environment."

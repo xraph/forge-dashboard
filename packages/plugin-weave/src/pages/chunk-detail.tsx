@@ -19,7 +19,7 @@ export const ChunkDetailPage: ComponentType<PluginPageProps> = ({ params }) => {
   return (
     <QueryBoundary title="Chunk" query={detail} skeletonRows={6}>
       {({ chunk, document_title, previous_id, next_id }) => (
-        <section className="flex flex-col gap-6">
+        <section className="flex min-w-0 flex-col gap-4">
           <PageHeader
             title={`Chunk ${chunk.index}`}
             description={
@@ -28,7 +28,7 @@ export const ChunkDetailPage: ComponentType<PluginPageProps> = ({ params }) => {
                 : "Its document is untitled or has been deleted. Open it to find out."
             }
           />
-          <section className="flex flex-col gap-2">
+          <section className="flex min-w-0 flex-col gap-2">
             <h2 className="text-sm font-medium">Text</h2>
             <p className="rounded-md border p-3 text-sm whitespace-pre-wrap">
               {chunk.content}
@@ -108,11 +108,11 @@ export const ChunkDetailPage: ComponentType<PluginPageProps> = ({ params }) => {
             Byte offsets into the text after loading and trimming. The semantic
             and code chunkers only approximate them.
           </p>
-          <section className="flex flex-col gap-2">
+          <section className="flex min-w-0 flex-col gap-2">
             <h2 className="text-sm font-medium">Metadata</h2>
             <MetadataList metadata={chunk.metadata} />
           </section>
-          <nav className="flex gap-6 text-sm" aria-label="Neighbouring chunks">
+          <nav className="flex gap-4 text-sm" aria-label="Neighbouring chunks">
             {previous_id !== "" ? (
               <PluginLink to={chunkPath(previous_id)} className="underline">
                 Previous chunk

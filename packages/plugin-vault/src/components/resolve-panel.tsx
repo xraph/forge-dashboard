@@ -73,14 +73,14 @@ export function ResolvePanel({
   }
 
   return (
-    <section className="flex flex-col gap-2">
+    <section className="flex min-w-0 flex-col gap-2">
       <h2 className="text-sm font-medium">Resolve</h2>
       <form
         aria-label="Resolve"
         onSubmit={submit}
         className="flex flex-wrap items-end gap-x-3 gap-y-2"
       >
-        <div className="flex flex-col gap-1">
+        <div className="flex min-w-0 flex-col gap-1">
           <Label
             htmlFor="resolve-tenant"
             className="text-xs text-muted-foreground"
@@ -147,7 +147,7 @@ function Answer({
 
   if (tenantId === undefined) {
     return (
-      <div role="status" className="flex flex-col gap-1 text-sm">
+      <div role="status" className="flex min-w-0 flex-col gap-1 text-sm">
         <p>
           {"Without a tenant, the app default is "}
           {value}
@@ -159,7 +159,7 @@ function Answer({
 
   const overridden = data.source === "override"
   return (
-    <div role="status" className="flex flex-col gap-1 text-sm">
+    <div role="status" className="flex min-w-0 flex-col gap-1 text-sm">
       <p>
         {`Tenant ${tenantId} gets `}
         {value}

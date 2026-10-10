@@ -26,7 +26,7 @@ export function PatternMatches({ patterns }: { patterns: string[] }) {
   return (
     <ul
       aria-label="What these patterns match"
-      className="flex flex-col gap-0.5 text-xs text-muted-foreground"
+      className="flex min-w-0 flex-col gap-0.5 text-xs text-muted-foreground"
     >
       {list.map((p) => (
         <MatchLine key={p} pattern={p} />

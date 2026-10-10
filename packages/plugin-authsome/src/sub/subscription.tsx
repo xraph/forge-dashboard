@@ -169,7 +169,7 @@ export function PlansPage() {
   ]
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Plans"
         actions={
@@ -278,7 +278,7 @@ function PlanDetailBody({ id }: { id: string }) {
   ]
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <QueryBoundary title="Plan" query={query} skeletonRows={4}>
         {(plan) => {
           const features = plan.features ?? []
@@ -463,7 +463,7 @@ function SubscriptionsForTenant({ tenantId }: { tenantId: string }) {
           planId
 
         return (
-          <div className="flex flex-col gap-3">
+          <div className="flex min-w-0 flex-col gap-3">
             {subscriptions.map((subscription) => (
               <div
                 key={subscription.id}

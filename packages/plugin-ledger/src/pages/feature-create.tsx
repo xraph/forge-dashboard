@@ -19,7 +19,7 @@ export function LedgerFeatureCreatePage() {
     navigate(featurePath(result.id))
   }
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="New feature"
         description="A reusable feature plans can grant. With no app selected it is created in the shared catalog."

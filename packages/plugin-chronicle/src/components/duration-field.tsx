@@ -21,7 +21,7 @@ export function DurationField({
 }) {
   const problem = durationProblem(amount, unit)
   return (
-    <div className="flex flex-col gap-1.5">
+    <div className="flex min-w-0 flex-col gap-1.5">
       <Label htmlFor="policy-duration">Keep events for</Label>
       <div className="flex items-center gap-2">
         <Input

@@ -21,14 +21,14 @@ export function RecentActivity({
   showKey?: boolean
 }) {
   return (
-    <section className="flex flex-col gap-2">
+    <section className="flex min-w-0 flex-col gap-2">
       <h2 className="text-sm font-medium">Recent activity</h2>
       {entries.length === 0 ? (
         <EmptyState title="No recorded activity yet." />
       ) : (
-        <ul className="flex flex-col gap-1 text-sm">
+        <ul className="flex min-w-0 flex-col gap-1 text-sm">
           {entries.map((e) => (
-            <li key={e.id} className="flex flex-col">
+            <li key={e.id} className="flex min-w-0 flex-col">
               <div className="flex flex-wrap items-baseline justify-between gap-x-3">
                 <span className="flex flex-wrap items-baseline gap-x-2">
                   <span className="font-mono text-xs">{e.action}</span>

@@ -65,7 +65,7 @@ function Reference({
     offset: page * 20,
   })
   return (
-    <div className="flex flex-col gap-1">
+    <div className="flex min-w-0 flex-col gap-1">
       <Input
         aria-label={`Find ${field.label}`}
         placeholder={`Find ${field.label.toLowerCase()}`}
@@ -195,7 +195,7 @@ function ScalarValue({
           ? "json"
           : "text"
   return (
-    <div className="flex flex-col gap-1">
+    <div className="flex min-w-0 flex-col gap-1">
       <NativeSelect
         aria-label={`${label} type`}
         value={kind}
@@ -265,7 +265,7 @@ function MapField({
   const entries = Object.entries((value ?? {}) as Draft),
     [name, setName] = useState("")
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex min-w-0 flex-col gap-2">
       {entries.map(([key, item]) => (
         <div key={key} className="flex flex-wrap items-center gap-2">
           <Label className="min-w-24">{key}</Label>
@@ -371,7 +371,7 @@ function FieldContent({
           owner={owner}
         />
       ) : kind === "array" ? (
-        <div className="flex flex-col gap-2">
+        <div className="flex min-w-0 flex-col gap-2">
           {Array.isArray(value) && value.length ? (
             value.map((row, index) => (
               <div key={index} className="min-w-0 rounded-md border p-3">
@@ -425,7 +425,7 @@ function FieldContent({
           )}
         </div>
       ) : kind === "object" ? (
-        <div className="grid grid-cols-1 gap-3 rounded-md border p-3 sm:grid-cols-2">
+        <div className="grid min-w-0 grid-cols-1 gap-3 rounded-md border p-3 sm:grid-cols-2">
           <FormFields
             fields={field.fields ?? []}
             value={(value ?? {}) as Draft}

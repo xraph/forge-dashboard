@@ -207,7 +207,7 @@ export function ResultsSection({
   return (
     <section
       aria-labelledby="sentinel-run-results"
-      className="flex flex-col gap-3"
+      className="flex min-w-0 flex-col gap-3"
     >
       <h2 id="sentinel-run-results" className="text-sm font-medium">
         Results
@@ -250,7 +250,7 @@ export function ResultsSection({
         {(data) => {
           const total = data.counts.pass + data.counts.fail + data.counts.error
           return (
-            <div className="flex flex-col gap-3">
+            <div className="flex min-w-0 flex-col gap-3">
               <ResourceTable<ResultRow>
                 columns={columns(runId, scores, threshold)}
                 rows={data.items}

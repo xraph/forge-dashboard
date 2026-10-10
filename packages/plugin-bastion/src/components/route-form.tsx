@@ -314,7 +314,7 @@ export function RouteForm({
     )
 
   return (
-    <form onSubmit={submit} className="flex max-w-2xl flex-col gap-6">
+    <form onSubmit={submit} className="flex max-w-2xl min-w-0 flex-col gap-4">
       {/* A field-level error shows beside its field; anything else here. */}
       {error && !field ? (
         <CommandAlert title={errorTitle} error={error} />
@@ -327,9 +327,9 @@ export function RouteForm({
         </p>
       ) : null}
 
-      <fieldset className="flex flex-col gap-3">
+      <fieldset className="flex min-w-0 flex-col gap-3">
         <legend className="text-sm font-medium">Match</legend>
-        <div className="flex flex-col gap-1.5">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <Label htmlFor="route-path">Path</Label>
           <Input
             id="route-path"
@@ -347,7 +347,7 @@ export function RouteForm({
           <FieldError show={field === "path"} error={error} />
         </div>
         <div
-          className="flex flex-col gap-1.5"
+          className="flex min-w-0 flex-col gap-1.5"
           role="group"
           aria-labelledby="route-methods-label"
         >
@@ -376,7 +376,7 @@ export function RouteForm({
           </p>
           <FieldError show={field === "methods"} error={error} />
         </div>
-        <div className="flex flex-col gap-1.5">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <Label htmlFor="route-protocol">Protocol</Label>
           <NativeSelect
             id="route-protocol"
@@ -391,7 +391,7 @@ export function RouteForm({
           </NativeSelect>
           <FieldError show={field === "protocol"} error={error} />
         </div>
-        <div className="flex flex-col gap-1.5">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <Label htmlFor="route-priority">Priority</Label>
           <Input
             id="route-priority"
@@ -408,13 +408,13 @@ export function RouteForm({
       </fieldset>
 
       <fieldset
-        className="flex flex-col gap-3"
+        className="flex min-w-0 flex-col gap-3"
         aria-invalid={field === "targets" || undefined}
       >
         <legend className="text-sm font-medium">Upstreams</legend>
         {v.targets.map((t, i) => (
           <div key={i} className="flex flex-wrap items-end gap-2">
-            <div className="flex grow flex-col gap-1.5">
+            <div className="flex min-w-0 grow flex-col gap-1.5">
               <Label
                 htmlFor={`target-url-${i}`}
               >{`Upstream ${i + 1} URL`}</Label>
@@ -427,7 +427,7 @@ export function RouteForm({
                 onChange={(e) => setTarget(i, { url: e.target.value })}
               />
             </div>
-            <div className="flex w-24 flex-col gap-1.5">
+            <div className="flex w-24 min-w-0 flex-col gap-1.5">
               <Label
                 htmlFor={`target-weight-${i}`}
               >{`Upstream ${i + 1} weight`}</Label>
@@ -438,7 +438,7 @@ export function RouteForm({
                 onChange={(e) => setTarget(i, { weight: e.target.value })}
               />
             </div>
-            <div className="flex w-40 flex-col gap-1.5">
+            <div className="flex w-40 min-w-0 flex-col gap-1.5">
               <Label
                 htmlFor={`target-tags-${i}`}
               >{`Upstream ${i + 1} tags`}</Label>
@@ -476,7 +476,7 @@ export function RouteForm({
         <FieldError show={field === "targets"} error={error} />
       </fieldset>
 
-      <fieldset className="flex flex-col gap-3">
+      <fieldset className="flex min-w-0 flex-col gap-3">
         <legend className="text-sm font-medium">Rewriting</legend>
         <CheckField
           id="route-strip"
@@ -484,7 +484,7 @@ export function RouteForm({
           checked={v.stripPrefix}
           onChange={(on) => set("stripPrefix", on)}
         />
-        <div className="flex flex-col gap-1.5">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <Label htmlFor="route-add-prefix">Add prefix</Label>
           <Input
             id="route-add-prefix"
@@ -493,7 +493,7 @@ export function RouteForm({
             onChange={(e) => set("addPrefix", e.target.value)}
           />
         </div>
-        <div className="flex flex-col gap-1.5">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <Label htmlFor="route-rewrite">Rewrite path</Label>
           <Input
             id="route-rewrite"
@@ -504,7 +504,7 @@ export function RouteForm({
         </div>
       </fieldset>
 
-      <fieldset className="flex flex-col gap-3">
+      <fieldset className="flex min-w-0 flex-col gap-3">
         <legend className="text-sm font-medium">Rate limit</legend>
         <CheckField
           id="rl-on"
@@ -514,7 +514,7 @@ export function RouteForm({
         />
         {v.rateLimit.on ? (
           <div className="flex flex-wrap gap-3">
-            <div className="flex w-40 flex-col gap-1.5">
+            <div className="flex w-40 min-w-0 flex-col gap-1.5">
               <Label htmlFor="rl-rps">Requests per second</Label>
               <Input
                 id="rl-rps"
@@ -528,7 +528,7 @@ export function RouteForm({
                 }
               />
             </div>
-            <div className="flex w-32 flex-col gap-1.5">
+            <div className="flex w-32 min-w-0 flex-col gap-1.5">
               <Label htmlFor="rl-burst">Burst</Label>
               <Input
                 id="rl-burst"
@@ -553,7 +553,7 @@ export function RouteForm({
         <FieldError show={field === "rateLimit"} error={error} />
       </fieldset>
 
-      <fieldset className="flex flex-col gap-3">
+      <fieldset className="flex min-w-0 flex-col gap-3">
         <legend className="text-sm font-medium">Authentication</legend>
         <CheckField
           id="auth-on"
@@ -562,8 +562,8 @@ export function RouteForm({
           onChange={(on) => set("auth", { ...v.auth, on })}
         />
         {v.auth.on ? (
-          <div className="flex flex-col gap-3">
-            <div className="flex flex-col gap-1.5">
+          <div className="flex min-w-0 flex-col gap-3">
+            <div className="flex min-w-0 flex-col gap-1.5">
               <Label htmlFor="auth-providers">Providers</Label>
               <Input
                 id="auth-providers"
@@ -573,7 +573,7 @@ export function RouteForm({
                 }
               />
             </div>
-            <div className="flex flex-col gap-1.5">
+            <div className="flex min-w-0 flex-col gap-1.5">
               <Label htmlFor="auth-scopes">Scopes</Label>
               <Input
                 id="auth-scopes"

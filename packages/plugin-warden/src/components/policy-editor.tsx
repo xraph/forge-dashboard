@@ -670,7 +670,7 @@ function ValueInput({
           ? `network for condition ${n}`
           : `value for condition ${n}`
       return (
-        <span className="flex flex-col gap-1.5" data-value-kind={kind}>
+        <span className="flex min-w-0 flex-col gap-1.5" data-value-kind={kind}>
           <RemovableChips
             values={row.items}
             anyWord="no values yet"
@@ -1017,9 +1017,9 @@ export function PolicyEditor({
   const main = (
     <section
       aria-label="Rule editor"
-      className="flex flex-col gap-3 rounded-md border p-4"
+      className="flex min-w-0 flex-col gap-3 rounded-md border p-4"
     >
-      <div className="flex flex-col gap-1">
+      <div className="flex min-w-0 flex-col gap-1">
         <div
           role="group"
           aria-label="Effect"
@@ -1058,9 +1058,9 @@ export function PolicyEditor({
         ))}
       </div>
 
-      <dl className="grid grid-cols-[6rem_minmax(0,1fr)] items-baseline gap-x-4 gap-y-3 text-sm">
+      <dl className="grid min-w-0 grid-cols-[6rem_minmax(0,1fr)] items-baseline gap-x-4 gap-y-3 text-sm">
         <dt className={LABEL}>subject</dt>
-        <dd data-row="subject" className="flex flex-col gap-1.5">
+        <dd data-row="subject" className="flex min-w-0 flex-col gap-1.5">
           <RemovableChips
             values={state.subjects.map((s) =>
               !s.kind && !s.id && !s.role ? "empty matcher" : subjectText(s)
@@ -1124,7 +1124,7 @@ export function PolicyEditor({
         </dd>
 
         <dt className={LABEL}>action</dt>
-        <dd data-row="action" className="flex flex-col gap-1.5">
+        <dd data-row="action" className="flex min-w-0 flex-col gap-1.5">
           <RemovableChips
             values={state.actions}
             anyWord="any action"
@@ -1146,7 +1146,7 @@ export function PolicyEditor({
         </dd>
 
         <dt className={LABEL}>resource</dt>
-        <dd data-row="resource" className="flex flex-col gap-1.5">
+        <dd data-row="resource" className="flex min-w-0 flex-col gap-1.5">
           <RemovableChips
             values={state.resources}
             anyWord="any resource"
@@ -1179,7 +1179,7 @@ export function PolicyEditor({
               <dd
                 data-condition={i}
                 data-invalid={issues ? "true" : undefined}
-                className="flex flex-col gap-1.5"
+                className="flex min-w-0 flex-col gap-1.5"
               >
                 <span className="flex flex-wrap items-center gap-2">
                   <Input
@@ -1245,7 +1245,7 @@ export function PolicyEditor({
           )}
         </dt>
         <dd>
-          <span className="flex flex-col gap-1">
+          <span className="flex min-w-0 flex-col gap-1">
             <span>
               <IconButton
                 type="button"
@@ -1274,7 +1274,7 @@ export function PolicyEditor({
         </dd>
 
         <dt className={LABEL}>in effect</dt>
-        <dd data-row="window" className="flex flex-col gap-1.5">
+        <dd data-row="window" className="flex min-w-0 flex-col gap-1.5">
           <span className="flex flex-wrap items-center gap-2">
             <Muted>from</Muted>
             <Input
@@ -1322,7 +1322,7 @@ export function PolicyEditor({
         </dd>
 
         <dt className={LABEL}>emits</dt>
-        <dd data-row="emits" className="flex flex-col gap-1.5">
+        <dd data-row="emits" className="flex min-w-0 flex-col gap-1.5">
           <RemovableChips
             values={state.obligations}
             anyWord="nothing"
@@ -1347,8 +1347,11 @@ export function PolicyEditor({
   )
 
   const aside = (
-    <section aria-label="Details" className="flex flex-col gap-4 text-sm">
-      <span className="flex flex-col gap-1.5">
+    <section
+      aria-label="Details"
+      className="flex min-w-0 flex-col gap-4 text-sm"
+    >
+      <span className="flex min-w-0 flex-col gap-1.5">
         <Label htmlFor="policy-edit-name">Name</Label>
         <Input
           id="policy-edit-name"
@@ -1362,7 +1365,7 @@ export function PolicyEditor({
           </Issue>
         ))}
       </span>
-      <span className="flex flex-col gap-1.5">
+      <span className="flex min-w-0 flex-col gap-1.5">
         <Label htmlFor="policy-edit-description">Description</Label>
         <Textarea
           id="policy-edit-description"
@@ -1370,7 +1373,7 @@ export function PolicyEditor({
           onChange={(e) => edit({ description: e.target.value })}
         />
       </span>
-      <span className="flex flex-col gap-1.5">
+      <span className="flex min-w-0 flex-col gap-1.5">
         <Label htmlFor="policy-edit-priority">Priority</Label>
         <Input
           id="policy-edit-priority"
@@ -1388,7 +1391,7 @@ export function PolicyEditor({
   )
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex min-w-0 flex-col gap-4">
       <DetailLayout main={main} aside={aside} />
 
       {otherFields.map((k) =>

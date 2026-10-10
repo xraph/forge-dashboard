@@ -133,7 +133,7 @@ export function WardenRoleDetailPage({ params }: PluginPageProps) {
       keepPreviousData
     >
       {(role) => (
-        <section className="flex flex-col gap-6">
+        <section className="flex min-w-0 flex-col gap-4">
           <PageHeader
             title={role.name}
             actions={
@@ -242,7 +242,7 @@ export function WardenRoleDetailPage({ params }: PluginPageProps) {
               edit.editing ? (
                 <EditForm role={role} onDone={edit.close} />
               ) : (
-                <div className="flex flex-col gap-6">
+                <div className="flex min-w-0 flex-col gap-4">
                   <GrantsTable
                     role={role}
                     onRevoke={(p) => {
@@ -576,12 +576,12 @@ function EditForm({ role, onDone }: { role: RoleDetail; onDone: () => void }) {
   }
 
   return (
-    <div className="flex flex-col gap-4 rounded-md border p-4">
+    <div className="flex min-w-0 flex-col gap-4 rounded-md border p-4">
       <p className="text-sm text-muted-foreground">
         The slug and namespace cannot change. Only what you change is saved.
       </p>
 
-      <div className="flex flex-col gap-1.5">
+      <div className="flex min-w-0 flex-col gap-1.5">
         <Label htmlFor="role-edit-name">Name</Label>
         <Input
           id="role-edit-name"
@@ -590,7 +590,7 @@ function EditForm({ role, onDone }: { role: RoleDetail; onDone: () => void }) {
           onChange={(e) => setName(e.target.value)}
         />
       </div>
-      <div className="flex flex-col gap-1.5">
+      <div className="flex min-w-0 flex-col gap-1.5">
         <Label htmlFor="role-edit-description">Description</Label>
         <Input
           id="role-edit-description"
@@ -598,7 +598,7 @@ function EditForm({ role, onDone }: { role: RoleDetail; onDone: () => void }) {
           onChange={(e) => setDescription(e.target.value)}
         />
       </div>
-      <div className="flex flex-col gap-1.5">
+      <div className="flex min-w-0 flex-col gap-1.5">
         <Label htmlFor="role-edit-parent">Inherits from</Label>
         <Input
           id="role-edit-parent"
@@ -613,7 +613,7 @@ function EditForm({ role, onDone }: { role: RoleDetail; onDone: () => void }) {
           parent.
         </p>
       </div>
-      <div className="flex flex-col gap-1.5">
+      <div className="flex min-w-0 flex-col gap-1.5">
         <Label htmlFor="role-edit-cap">Member cap</Label>
         <Input
           id="role-edit-cap"
@@ -745,7 +745,7 @@ function ReplaceDialog({
       <div
         role="group"
         aria-label="Permissions to grant"
-        className="flex max-h-64 flex-col gap-1 overflow-y-auto rounded-md border p-2"
+        className="flex max-h-64 min-w-0 flex-col gap-1 overflow-y-auto rounded-md border p-2"
       >
         {options.map((p) => {
           // Every option names its namespace, the root as "/" like every

@@ -86,7 +86,7 @@ export function PromptsTab({ suiteId }: { suiteId: string }) {
   )
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex min-w-0 flex-col gap-3">
       <div className="flex flex-wrap items-center gap-2">{create}</div>
       <SettledBoundary
         title="Prompt versions"
@@ -94,7 +94,7 @@ export function PromptsTab({ suiteId }: { suiteId: string }) {
         skeletonRows={3}
       >
         {(data) => (
-          <div className="flex flex-col gap-1.5">
+          <div className="flex min-w-0 flex-col gap-1.5">
             <ResourceTable<PromptVersion>
               columns={columns}
               rows={data.items}

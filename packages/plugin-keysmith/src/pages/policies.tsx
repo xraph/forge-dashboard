@@ -72,7 +72,7 @@ export const PoliciesPage: ComponentType<PluginPageProps> = () => {
   const rateLimiterConfigured = useLastKnown(list.data?.rateLimiterConfigured)
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Policies"
         description="Rules attached to keys. Each field says whether Keysmith enforces it."
@@ -86,7 +86,7 @@ export const PoliciesPage: ComponentType<PluginPageProps> = () => {
           const rows = data.policies ?? []
           const caption = `${rows.length} ${rows.length === 1 ? "policy" : "policies"}`
           return (
-            <div className="flex flex-col gap-1.5">
+            <div className="flex min-w-0 flex-col gap-1.5">
               <ResourceTable<PolicySummary>
                 columns={columns}
                 rows={rows}

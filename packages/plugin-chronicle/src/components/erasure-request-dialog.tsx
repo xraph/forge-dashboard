@@ -98,8 +98,8 @@ function ErasureRequestForm({
       onConfirm={() => void request.execute({ subjectId: subject, reason })}
       description="Erasure destroys this subject's encryption key in your scope. Their sealed fields become unreadable and cannot be recovered. The events stay in the chain, so verification is unchanged."
     >
-      <div className="flex flex-col gap-3">
-        <label className="flex flex-col gap-1">
+      <div className="flex min-w-0 flex-col gap-3">
+        <label className="flex min-w-0 flex-col gap-1">
           <span>Subject ID</span>
           <Input
             aria-label="Subject ID"
@@ -109,7 +109,7 @@ function ErasureRequestForm({
           />
         </label>
         {sProblem && <span className="text-destructive">{sProblem}</span>}
-        <label className="flex flex-col gap-1">
+        <label className="flex min-w-0 flex-col gap-1">
           <span>Reason</span>
           <Textarea
             aria-label="Reason"

@@ -21,14 +21,14 @@ export function Dumbbells({
 }) {
   const pct = (v: number) => `${Math.max(0, Math.min(1, v)) * 100}%`
   return (
-    <ul aria-label={label} className="flex flex-col">
+    <ul aria-label={label} className="flex min-w-0 flex-col">
       {rows.map((row) => {
         const lo = Math.min(row.a, row.b)
         const hi = Math.max(row.a, row.b)
         return (
           <li
             key={row.key}
-            className="grid grid-cols-[minmax(6rem,10rem)_1fr_auto] items-center gap-3 py-1.5 text-sm"
+            className="grid min-w-0 grid-cols-[minmax(6rem,10rem)_1fr_auto] items-center gap-3 py-1.5 text-sm"
           >
             <span className="truncate">{row.label}</span>
             <span aria-hidden className="relative mx-2 h-6">

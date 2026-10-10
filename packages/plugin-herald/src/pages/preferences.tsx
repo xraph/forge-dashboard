@@ -132,12 +132,12 @@ export const PreferencesPage: ComponentType<PluginPageProps> = () => {
   ]
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <HeraldHeader
         title="Preferences"
         description="Which notifications a user has opted out of, per channel."
       />
-      <div className="flex max-w-sm flex-col gap-1.5">
+      <div className="flex max-w-sm min-w-0 flex-col gap-1.5">
         <Label htmlFor="pref-user">User ID</Label>
         <Input
           id="pref-user"
@@ -174,7 +174,7 @@ export const PreferencesPage: ComponentType<PluginPageProps> = () => {
               prefs: overrides[type],
             }))
             return (
-              <div className="flex flex-col gap-3">
+              <div className="flex min-w-0 flex-col gap-3">
                 {data.preference === null && (
                   <p className="text-sm">
                     No preferences recorded for {userId}, so they get every

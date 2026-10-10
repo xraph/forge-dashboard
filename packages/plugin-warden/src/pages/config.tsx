@@ -140,7 +140,7 @@ function PluginList({ names }: { names: string[] }) {
   return (
     <section
       aria-labelledby="warden-config-plugins"
-      className="flex flex-col gap-2"
+      className="flex min-w-0 flex-col gap-2"
     >
       <h2 id="warden-config-plugins" className="text-sm font-medium">
         Plugins
@@ -214,7 +214,7 @@ export function WardenConfigPage() {
   }
 
   return (
-    <section className="flex flex-col gap-6">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Config"
         actions={
@@ -253,7 +253,7 @@ export function WardenConfigPage() {
 
       <QueryBoundary title="Config" query={config} skeletonRows={4}>
         {(c) => (
-          <div className="flex flex-col gap-6">
+          <div className="flex min-w-0 flex-col gap-4">
             {!c.checkLogEnabled && (
               <Alert variant="destructive">
                 Check logging is disabled, so nothing is being recorded. The

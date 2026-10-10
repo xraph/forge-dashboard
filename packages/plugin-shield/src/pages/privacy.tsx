@@ -182,7 +182,7 @@ export function PrivacyPage() {
           title="Could not delete expired tokens"
         />
         {preview && (
-          <div className="grid gap-2 text-xs">
+          <div className="grid min-w-0 gap-2 text-xs">
             <p>
               {preview.token_ids.length} selected of {preview.total} expired
               tokens

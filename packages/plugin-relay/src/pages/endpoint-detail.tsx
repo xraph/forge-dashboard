@@ -136,7 +136,7 @@ function EndpointDetailView({ id }: { id: string }) {
   }
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <QueryBoundary title="Endpoint" query={query} skeletonRows={6}>
         {(ep) => (
           <>
@@ -180,7 +180,7 @@ function EndpointDetailView({ id }: { id: string }) {
             {newSecret && (
               <div
                 role="status"
-                className="flex flex-col gap-2 rounded-md border border-destructive/40 p-4"
+                className="flex min-w-0 flex-col gap-2 rounded-md border border-destructive/40 p-4"
               >
                 <p className="font-medium">New signing secret</p>
                 <code className="font-mono text-xs break-all">{newSecret}</code>

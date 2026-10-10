@@ -68,7 +68,7 @@ export function AuthFeaturesPage() {
   }
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Features"
         description="Sign-in features this app can turn on."
@@ -96,7 +96,7 @@ export function AuthFeaturesPage() {
                 {toggles.map((row) => (
                   <li
                     key={row.key}
-                    className="flex items-center justify-between gap-6 py-5 first:pt-0 last:pb-0"
+                    className="flex items-center justify-between gap-4 py-3 first:pt-0 last:pb-0"
                   >
                     <div className="flex min-w-0 flex-col gap-2">
                       <div className="flex flex-wrap items-center gap-2">

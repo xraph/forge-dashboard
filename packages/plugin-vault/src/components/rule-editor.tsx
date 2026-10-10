@@ -294,7 +294,7 @@ export function RuleEditor({
   }
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex min-w-0 flex-col gap-3">
       <CommandAlert error={setRules.error} title="Could not save the rules" />
 
       <DndContext

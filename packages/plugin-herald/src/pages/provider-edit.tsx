@@ -199,11 +199,11 @@ function EditForm({
   return (
     <form
       onSubmit={(e) => void submit(e)}
-      className="flex max-w-2xl flex-col gap-5"
+      className="flex max-w-2xl min-w-0 flex-col gap-4"
     >
       <CommandAlert error={update.error} title="Could not save the provider" />
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div className="flex flex-col gap-1.5">
+      <div className="grid min-w-0 gap-4 sm:grid-cols-2">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <Label htmlFor="provider-name">Name</Label>
           <Input
             id="provider-name"
@@ -212,7 +212,7 @@ function EditForm({
             onChange={(e) => setName(e.target.value)}
           />
         </div>
-        <div className="flex flex-col gap-1.5">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <Label htmlFor="provider-priority">Priority</Label>
           <Input
             id="provider-priority"
@@ -238,7 +238,7 @@ function EditForm({
         </p>
       </div>
 
-      <fieldset className="flex flex-col gap-3">
+      <fieldset className="flex min-w-0 flex-col gap-3">
         <legend className="mb-1 text-sm font-medium">Settings</legend>
         {storedSettings.map((s) => {
           const field = fieldOf(s.key)
@@ -279,7 +279,7 @@ function EditForm({
             )
           }
           return (
-            <div key={s.key} className="flex flex-col gap-1.5">
+            <div key={s.key} className="flex min-w-0 flex-col gap-1.5">
               <Label htmlFor={id}>{field?.label ?? s.key}</Label>
               <Input
                 id={id}
@@ -303,7 +303,7 @@ function EditForm({
           )
         })}
         {newSettingFields.map((f) => (
-          <div key={f.key} className="flex flex-col gap-1.5">
+          <div key={f.key} className="flex min-w-0 flex-col gap-1.5">
             <Label htmlFor={`setting-${f.key}`}>{f.label}</Label>
             {f.secret ? (
               <SecretInput
@@ -347,7 +347,7 @@ function EditForm({
           `Changing ${moved.join(" and ")} sends credentials to a new server, so enter ${mustReenter.join(", ")} again in this update, or remove ${mustReenter.length === 1 ? "it" : "them"}.`}
       </p>
 
-      <fieldset className="flex flex-col gap-3">
+      <fieldset className="flex min-w-0 flex-col gap-3">
         <legend className="mb-1 text-sm font-medium">Credentials</legend>
         <p className="text-xs text-muted-foreground">
           Write-only. Replace or remove a credential; its value is never shown.
@@ -403,7 +403,7 @@ function EditForm({
           </table>
         )}
         {newCredentialFields.map((f) => (
-          <div key={f.key} className="flex flex-col gap-1.5">
+          <div key={f.key} className="flex min-w-0 flex-col gap-1.5">
             <Label htmlFor={`cred-${f.key}`}>{f.label}</Label>
             {f.secret ? (
               <SecretInput
@@ -468,7 +468,7 @@ function EditBody({ id }: { id: string }) {
   const [snapshot, setSnapshot] = useState<ProviderDetail | null>(null)
   if (snapshot === null && detail.data) setSnapshot(detail.data.provider)
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <HeraldHeader
         title={snapshot ? `Edit ${snapshot.name}` : "Edit provider"}
         description="Only what you change is sent. A credential you leave alone stays as it is."
@@ -492,7 +492,7 @@ export const ProviderEditPage: ComponentType<PluginPageProps> = ({
   const id = params.id
   if (!id) {
     return (
-      <section className="flex flex-col gap-4">
+      <section className="flex min-w-0 flex-col gap-4">
         <HeraldHeader title="Edit provider" />
         <p role="status" className="text-sm text-muted-foreground">
           No provider ID in the address, so there is nothing to edit.

@@ -358,13 +358,13 @@ export function PlanForm({
     .filter((k) => k !== "")
 
   return (
-    <form onSubmit={submit} className="flex max-w-4xl flex-col gap-6">
+    <form onSubmit={submit} className="flex max-w-4xl min-w-0 flex-col gap-4">
       <CommandAlert error={error} title={errorTitle} />
       <ProblemsAlert heading="Fix these before saving" problems={problems} />
 
-      <fieldset className="grid gap-4 sm:grid-cols-2">
+      <fieldset className="grid min-w-0 gap-4 sm:grid-cols-2">
         <legend className="mb-2 text-base font-medium">Plan</legend>
-        <div className="flex flex-col gap-1.5">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <Label htmlFor="plan-name">Name</Label>
           <Input
             id="plan-name"
@@ -372,7 +372,7 @@ export function PlanForm({
             onChange={(e) => set("name", e.target.value)}
           />
         </div>
-        <div className="flex flex-col gap-1.5">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <Label htmlFor="plan-slug">Slug</Label>
           <Input
             id="plan-slug"
@@ -383,7 +383,7 @@ export function PlanForm({
             onChange={(e) => set("slug", e.target.value)}
           />
         </div>
-        <div className="flex flex-col gap-1.5 sm:col-span-2">
+        <div className="flex min-w-0 flex-col gap-1.5 sm:col-span-2">
           <Label htmlFor="plan-description">Description</Label>
           <Textarea
             id="plan-description"
@@ -391,7 +391,7 @@ export function PlanForm({
             onChange={(e) => set("description", e.target.value)}
           />
         </div>
-        <div className="flex flex-col gap-1.5">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <Label htmlFor="plan-currency">Currency</Label>
           <Input
             id="plan-currency"
@@ -406,7 +406,7 @@ export function PlanForm({
             </p>
           )}
         </div>
-        <div className="flex flex-col gap-1.5">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <Label htmlFor="plan-trial">Trial days</Label>
           <Input
             id="plan-trial"
@@ -418,9 +418,9 @@ export function PlanForm({
         </div>
       </fieldset>
 
-      <fieldset className="grid gap-4 sm:grid-cols-2">
+      <fieldset className="grid min-w-0 gap-4 sm:grid-cols-2">
         <legend className="mb-2 text-base font-medium">Price</legend>
-        <div className="flex flex-col gap-1.5">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <Label htmlFor="plan-base">Base price</Label>
           <Input
             id="plan-base"
@@ -430,7 +430,7 @@ export function PlanForm({
             onChange={(e) => set("base", e.target.value)}
           />
         </div>
-        <div className="flex flex-col gap-1.5">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <Label htmlFor="plan-period">Billed</Label>
           <NativeSelect
             id="plan-period"
@@ -445,7 +445,7 @@ export function PlanForm({
         </div>
       </fieldset>
 
-      <fieldset className="flex flex-col gap-3">
+      <fieldset className="flex min-w-0 flex-col gap-3">
         <legend className="mb-2 text-base font-medium">Features</legend>
         {v.features.length === 0 && (
           <p className="text-sm text-muted-foreground">
@@ -458,9 +458,9 @@ export function PlanForm({
           return (
             <div
               key={i}
-              className="grid items-end gap-2 rounded-md border p-3 sm:grid-cols-[1fr_1fr_8rem_8rem_8rem_auto]"
+              className="grid min-w-0 items-end gap-2 rounded-md border p-3 sm:grid-cols-[1fr_1fr_8rem_8rem_8rem_auto]"
             >
-              <div className="flex flex-col gap-1.5">
+              <div className="flex min-w-0 flex-col gap-1.5">
                 <Label htmlFor={`feature-${n}-key`}>Feature {n} key</Label>
                 <Input
                   id={`feature-${n}-key`}
@@ -469,7 +469,7 @@ export function PlanForm({
                   onChange={(e) => setFeature(i, { key: e.target.value })}
                 />
               </div>
-              <div className="flex flex-col gap-1.5">
+              <div className="flex min-w-0 flex-col gap-1.5">
                 <Label htmlFor={`feature-${n}-name`}>Feature {n} name</Label>
                 <Input
                   id={`feature-${n}-name`}
@@ -477,7 +477,7 @@ export function PlanForm({
                   onChange={(e) => setFeature(i, { name: e.target.value })}
                 />
               </div>
-              <div className="flex flex-col gap-1.5">
+              <div className="flex min-w-0 flex-col gap-1.5">
                 <Label htmlFor={`feature-${n}-type`}>Feature {n} type</Label>
                 <NativeSelect
                   id={`feature-${n}-type`}
@@ -505,7 +505,7 @@ export function PlanForm({
                   ))}
                 </NativeSelect>
               </div>
-              <div className="flex flex-col gap-1.5">
+              <div className="flex min-w-0 flex-col gap-1.5">
                 <Label htmlFor={`feature-${n}-limit`}>Feature {n} limit</Label>
                 <Input
                   id={`feature-${n}-limit`}
@@ -534,7 +534,7 @@ export function PlanForm({
                   </label>
                 )}
               </div>
-              <div className="flex flex-col gap-1.5">
+              <div className="flex min-w-0 flex-col gap-1.5">
                 <Label htmlFor={`feature-${n}-period`}>
                   Feature {n} resets
                 </Label>
@@ -600,7 +600,7 @@ export function PlanForm({
         </div>
       </fieldset>
 
-      <fieldset className="flex flex-col gap-3">
+      <fieldset className="flex min-w-0 flex-col gap-3">
         <legend className="mb-2 text-base font-medium">Usage pricing</legend>
         <p className="text-sm text-muted-foreground">
           Tiers price a feature's usage beyond the base price. A tier with no
@@ -611,9 +611,9 @@ export function PlanForm({
           return (
             <div
               key={i}
-              className="grid items-end gap-2 rounded-md border p-3 sm:grid-cols-[1fr_8rem_8rem_8rem_8rem_auto]"
+              className="grid min-w-0 items-end gap-2 rounded-md border p-3 sm:grid-cols-[1fr_8rem_8rem_8rem_8rem_auto]"
             >
-              <div className="flex flex-col gap-1.5">
+              <div className="flex min-w-0 flex-col gap-1.5">
                 <Label htmlFor={`tier-${n}-feature`}>Tier {n} feature</Label>
                 <NativeSelect
                   id={`tier-${n}-feature`}
@@ -630,7 +630,7 @@ export function PlanForm({
                   ))}
                 </NativeSelect>
               </div>
-              <div className="flex flex-col gap-1.5">
+              <div className="flex min-w-0 flex-col gap-1.5">
                 <Label htmlFor={`tier-${n}-type`}>Tier {n} type</Label>
                 <NativeSelect
                   id={`tier-${n}-type`}
@@ -646,7 +646,7 @@ export function PlanForm({
                   ))}
                 </NativeSelect>
               </div>
-              <div className="flex flex-col gap-1.5">
+              <div className="flex min-w-0 flex-col gap-1.5">
                 <Label htmlFor={`tier-${n}-upto`}>Tier {n} up to</Label>
                 <Input
                   id={`tier-${n}-upto`}
@@ -668,7 +668,7 @@ export function PlanForm({
                   No limit
                 </label>
               </div>
-              <div className="flex flex-col gap-1.5">
+              <div className="flex min-w-0 flex-col gap-1.5">
                 <Label htmlFor={`tier-${n}-unit`}>Tier {n} unit price</Label>
                 <Input
                   id={`tier-${n}-unit`}
@@ -678,7 +678,7 @@ export function PlanForm({
                   onChange={(e) => setTier(i, { unit: e.target.value })}
                 />
               </div>
-              <div className="flex flex-col gap-1.5">
+              <div className="flex min-w-0 flex-col gap-1.5">
                 <Label htmlFor={`tier-${n}-flat`}>Tier {n} flat fee</Label>
                 <Input
                   id={`tier-${n}-flat`}

@@ -81,14 +81,14 @@ function FeatureEditView({
   }
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader title={`Edit ${f.name}`} />
       {writes === "wait" ? (
         <p role="status" className="text-sm text-muted-foreground">
           Checking whether this feature can be changed from here…
         </p>
       ) : writes === "hide" ? (
-        <div className="flex flex-col items-start gap-3">
+        <div className="flex min-w-0 flex-col items-start gap-3">
           <p className="flex items-center gap-2 text-sm text-muted-foreground">
             <SharedBadge /> Shared by every app on this server. It can be
             changed only with no app selected.

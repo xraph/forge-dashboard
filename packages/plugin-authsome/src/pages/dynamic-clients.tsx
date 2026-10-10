@@ -72,7 +72,7 @@ export function AuthDynamicClientsPage() {
   ]
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Dynamic signup form"
         description="What an unauthenticated visitor is asked for, from auth.dynamicConfig"
@@ -102,7 +102,7 @@ export function AuthDynamicClientsPage() {
 
           return (
             <>
-              <div className="flex flex-col gap-2 rounded-md border p-4">
+              <div className="flex min-w-0 flex-col gap-2 rounded-md border p-4">
                 <div className="flex items-center gap-2">
                   <Badge variant="outline">active</Badge>
                   <span className="text-sm font-medium">

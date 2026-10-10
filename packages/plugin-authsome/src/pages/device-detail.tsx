@@ -34,7 +34,7 @@ function DeviceActions({
   }
 
   return (
-    <div className="flex flex-col gap-3 rounded-md border p-4">
+    <div className="flex min-w-0 flex-col gap-3 rounded-md border p-4">
       <h2 className="text-sm font-medium">Actions</h2>
       <CommandAlert error={trust.error} title="Could not trust the device" />
       <div className="flex items-center gap-2">
@@ -117,7 +117,7 @@ function DeviceDetailBody({ deviceId }: { deviceId: string }) {
 
   if (forgotten) {
     return (
-      <section className="flex flex-col gap-4">
+      <section className="flex min-w-0 flex-col gap-4">
         <p role="status" className="text-sm text-muted-foreground">
           This device has been forgotten.
         </p>
@@ -126,7 +126,7 @@ function DeviceDetailBody({ deviceId }: { deviceId: string }) {
   }
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <QueryBoundary title="Device" query={query} skeletonRows={3}>
         {(device) => (
           <>

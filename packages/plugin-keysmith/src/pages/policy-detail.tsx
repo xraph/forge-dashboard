@@ -210,7 +210,7 @@ function isNoSuchPolicy(
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <section className="flex flex-col gap-2">
+    <section className="flex min-w-0 flex-col gap-2">
       <h2 className="text-sm font-medium">{title}</h2>
       {children}
     </section>
@@ -240,8 +240,8 @@ function PolicyDetailView({
   const blocked = data.keysBlockingDelete > 0
 
   return (
-    <section className="flex flex-col gap-6">
-      <div className="flex flex-col gap-2">
+    <section className="flex min-w-0 flex-col gap-4">
+      <div className="flex min-w-0 flex-col gap-2">
         <PageHeader
           title={policy.name}
           description={policy.description}

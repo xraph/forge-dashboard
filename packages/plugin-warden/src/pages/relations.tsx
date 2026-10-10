@@ -186,7 +186,7 @@ function PartInput({
 }) {
   const id = `${idPrefix}-${part}`
   return (
-    <span className="flex flex-col gap-1.5">
+    <span className="flex min-w-0 flex-col gap-1.5">
       <Label htmlFor={id}>
         {PART_LABELS[part]}
         {optional ? " (optional)" : ""}
@@ -236,7 +236,7 @@ function GraphPicker() {
     objectType !== "" && objectId.trim() !== "" && relation !== ""
 
   return (
-    <div className="mt-3 flex flex-col gap-3">
+    <div className="mt-3 flex min-w-0 flex-col gap-3">
       {graph.data?.truncated && (
         <p className="text-sm text-muted-foreground">
           Showing the first 500 resource types.
@@ -256,8 +256,8 @@ function GraphPicker() {
           {namespaces.error.message}
         </p>
       )}
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <span className="flex flex-col gap-1.5">
+      <div className="grid min-w-0 grid-cols-2 gap-3 md:grid-cols-4">
+        <span className="flex min-w-0 flex-col gap-1.5">
           <Label htmlFor="graph-object-type">Object type</Label>
           <NativeSelect
             id="graph-object-type"
@@ -276,7 +276,7 @@ function GraphPicker() {
             ))}
           </NativeSelect>
         </span>
-        <span className="flex flex-col gap-1.5">
+        <span className="flex min-w-0 flex-col gap-1.5">
           <Label htmlFor="graph-object-id">Object id</Label>
           <Input
             id="graph-object-id"
@@ -286,7 +286,7 @@ function GraphPicker() {
             onChange={(e) => setObjectId(e.target.value)}
           />
         </span>
-        <span className="flex flex-col gap-1.5">
+        <span className="flex min-w-0 flex-col gap-1.5">
           <Label htmlFor="graph-relation">Relation</Label>
           <NativeSelect
             id="graph-relation"
@@ -302,7 +302,7 @@ function GraphPicker() {
             ))}
           </NativeSelect>
         </span>
-        <span className="flex flex-col gap-1.5">
+        <span className="flex min-w-0 flex-col gap-1.5">
           <Label htmlFor="graph-namespace">Namespace</Label>
           <NativeSelect
             id="graph-namespace"
@@ -421,7 +421,7 @@ export function WardenRelationsPage() {
       // on whichever end you know is the point.
       cell: (r) =>
         r.undeclared ? (
-          <span className="flex flex-col gap-1">
+          <span className="flex min-w-0 flex-col gap-1">
             <span>{tupleString(r)}</span>
             {/* Muted, not destructive: the tuple still counts at check
                 time, so this is a note about the schema, not an error. */}
@@ -462,13 +462,13 @@ export function WardenRelationsPage() {
   ]
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Relations"
         actions={<Button onClick={openCreate}>New relation</Button>}
       />
 
-      <div className="flex flex-col gap-1 text-sm text-muted-foreground">
+      <div className="flex min-w-0 flex-col gap-1 text-sm text-muted-foreground">
         <p>
           A relation tuple reads object#relation@subject. Tuples cannot be
           edited, only created and deleted, because the store has no update. To
@@ -501,7 +501,7 @@ export function WardenRelationsPage() {
       <div
         role="group"
         aria-label="Filter by tuple part"
-        className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6"
+        className="grid min-w-0 grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6"
       >
         {(Object.keys(EMPTY_PARTS) as (keyof Parts)[]).map((part) => (
           <PartInput

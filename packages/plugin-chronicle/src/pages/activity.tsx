@@ -88,7 +88,7 @@ export const ActivityPage: ComponentType<PluginPageProps & { now?: Date }> = ({
   })
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Activity"
         description="How much was recorded, and when nothing was."
@@ -122,7 +122,7 @@ export const ActivityPage: ComponentType<PluginPageProps & { now?: Date }> = ({
                 },
               ]}
             />
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+            <div className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-3">
               <Breakdown
                 title="By category"
                 groups={s.categories}
@@ -155,7 +155,7 @@ export const ActivityPage: ComponentType<PluginPageProps & { now?: Date }> = ({
             ))}
           </div>
         </CardHeader>
-        <CardContent className="flex flex-col gap-3">
+        <CardContent className="flex min-w-0 flex-col gap-3">
           <QueryBoundary title="event volume" query={volume} skeletonRows={4}>
             {(agg) => {
               if (agg.total === 0)

@@ -143,7 +143,7 @@ export function Value({ value, label }: { value: unknown; label: string }) {
   if (Array.isArray(value)) {
     if (!value.length) return <NoneCell label={label} />
     return (
-      <ul className="grid gap-2">
+      <ul className="grid min-w-0 gap-2">
         {value.map((item, i) => (
           <li key={i} className="min-w-0 rounded-md border p-2">
             <Value value={item} label={label} />

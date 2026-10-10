@@ -57,13 +57,13 @@ export function RelayEventTypeRegisterPage() {
   }
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Register an event type"
         description="Registering a name that already exists replaces its definition."
       />
       <form
-        className="flex max-w-xl flex-col gap-4"
+        className="flex max-w-xl min-w-0 flex-col gap-4"
         onSubmit={submit}
         noValidate
       >
@@ -71,7 +71,7 @@ export function RelayEventTypeRegisterPage() {
           error={register.error}
           title="Could not register the type"
         />
-        <div className="flex flex-col gap-1.5">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <Label htmlFor={`${id}-name`}>Name</Label>
           <Input
             id={`${id}-name`}
@@ -85,7 +85,7 @@ export function RelayEventTypeRegisterPage() {
             Dotted, so endpoints can subscribe with a pattern like invoice.*
           </span>
         </div>
-        <div className="flex flex-col gap-1.5">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <Label htmlFor={`${id}-description`}>Description</Label>
           <Input
             id={`${id}-description`}
@@ -94,7 +94,7 @@ export function RelayEventTypeRegisterPage() {
           />
         </div>
         <div className="flex gap-4">
-          <div className="flex flex-1 flex-col gap-1.5">
+          <div className="flex min-w-0 flex-1 flex-col gap-1.5">
             <Label htmlFor={`${id}-group`}>Group</Label>
             <Input
               id={`${id}-group`}
@@ -102,7 +102,7 @@ export function RelayEventTypeRegisterPage() {
               onChange={(e) => setGroup(e.target.value)}
             />
           </div>
-          <div className="flex w-28 flex-col gap-1.5">
+          <div className="flex w-28 min-w-0 flex-col gap-1.5">
             <Label htmlFor={`${id}-version`}>Version</Label>
             <Input
               id={`${id}-version`}
@@ -111,7 +111,7 @@ export function RelayEventTypeRegisterPage() {
             />
           </div>
         </div>
-        <div className="flex flex-col gap-1.5">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <Label htmlFor={`${id}-schema`}>JSON Schema</Label>
           <Textarea
             id={`${id}-schema`}
@@ -135,7 +135,7 @@ export function RelayEventTypeRegisterPage() {
               "Optional. Every event of this type is checked against it before it is stored."}
           </span>
         </div>
-        <div className="flex flex-col gap-1.5">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <Label htmlFor={`${id}-example`}>Example payload</Label>
           <Textarea
             id={`${id}-example`}

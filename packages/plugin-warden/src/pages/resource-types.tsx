@@ -185,7 +185,7 @@ export function WardenResourceTypesPage() {
   ]
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Resource types"
         actions={<Button onClick={openCreate}>New resource type</Button>}
@@ -277,7 +277,7 @@ export function WardenResourceTypesPage() {
         onConfirm={() => void confirmCreate()}
         description={`Creating in ${createNamespace === "" ? "the tenant root" : createNamespace}. The name cannot be changed later. Add its relations and permissions on the type's page once it exists.`}
       >
-        <div className="flex flex-col gap-1.5">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <Label htmlFor="resource-type-name">Name</Label>
           <Input
             id="resource-type-name"
@@ -287,7 +287,7 @@ export function WardenResourceTypesPage() {
             onChange={(e) => setName(e.target.value)}
           />
         </div>
-        <div className="flex flex-col gap-1.5">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <Label htmlFor="resource-type-description">
             Description (optional)
           </Label>

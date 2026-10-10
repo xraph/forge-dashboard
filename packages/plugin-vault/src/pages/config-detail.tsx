@@ -233,7 +233,7 @@ function ConfigDetailView({
   const overrideWord = plural(overrides.length, "tenant override")
 
   return (
-    <section className="flex flex-col gap-6">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title={entry.key}
         className="[&_h1]:font-mono [&_h1]:text-base"
@@ -251,7 +251,7 @@ function ConfigDetailView({
         }
       />
 
-      <section className="flex flex-col gap-2">
+      <section className="flex min-w-0 flex-col gap-2">
         <h2 className="text-sm font-medium">Definition</h2>
         <DescriptionList
           items={[
@@ -301,7 +301,7 @@ function ConfigDetailView({
         />
       </section>
 
-      <section className="flex flex-col gap-2">
+      <section className="flex min-w-0 flex-col gap-2">
         <h2 id="config-value-heading" className="text-sm font-medium">
           Value
         </h2>
@@ -341,7 +341,7 @@ function ConfigDetailView({
         valueType={entry.valueType}
       />
 
-      <section className="flex flex-col gap-2">
+      <section className="flex min-w-0 flex-col gap-2">
         <h2 className="text-sm font-medium">Versions</h2>
         {versions.data !== undefined ? (
           <VersionsTable
@@ -493,7 +493,7 @@ function ValueEditor({
   return (
     <form
       onSubmit={(e) => void submit(e)}
-      className="flex max-w-2xl flex-col gap-3"
+      className="flex max-w-2xl min-w-0 flex-col gap-3"
     >
       {type === "json" ? (
         <Suspense
@@ -619,7 +619,7 @@ function VersionsTable({
   const unsupportedId = "config-rollback-unsupported"
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex min-w-0 flex-col gap-3">
       {entry.knownType ? null : (
         <p id={unsupportedId} className="text-sm text-muted-foreground">
           {`This entry's type, ${entry.valueType}, is not one the vault validates, so it cannot be rolled back.`}
@@ -686,7 +686,7 @@ function VersionDiff({
   const label = `Version ${was.version} against the current value`
   const same = sameJson(was.value, now.value)
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex min-w-0 flex-col gap-2">
       <h3 className="text-sm font-medium">{label}</h3>
       {same ? (
         <p className="text-sm text-muted-foreground">
@@ -749,7 +749,10 @@ function EditDescriptionDialog({
   return (
     <Dialog open onOpenChange={(next) => !next && !update.loading && onClose()}>
       <DialogContent>
-        <form onSubmit={(e) => void submit(e)} className="flex flex-col gap-4">
+        <form
+          onSubmit={(e) => void submit(e)}
+          className="flex min-w-0 flex-col gap-4"
+        >
           <DialogHeader>
             <DialogTitle>{`Change the description of ${entry.key}`}</DialogTitle>
             <DialogDescription>
@@ -760,7 +763,7 @@ function EditDescriptionDialog({
             error={update.error}
             title="Could not change the description"
           />
-          <div className="flex flex-col gap-1.5">
+          <div className="flex min-w-0 flex-col gap-1.5">
             <Label htmlFor="edit-config-description">Description</Label>
             <Input
               id="edit-config-description"

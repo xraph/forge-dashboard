@@ -323,7 +323,7 @@ function Tasks({ target }: { target: RunKey }) {
   const [kind, setKind] = useState("")
   return (
     <>
-      <label className="flex max-w-48 flex-col gap-1 text-xs">
+      <label className="flex max-w-48 min-w-0 flex-col gap-1 text-xs">
         Task kind
         <Input
           className="h-8"

@@ -57,7 +57,7 @@ export function AuthPluginsPage() {
   const [filter, setFilter] = useState("")
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Extensions"
         description="Authsome plugins registered on this server and their configurable settings."

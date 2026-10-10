@@ -107,7 +107,7 @@ export const CollectionDetailPage: ComponentType<PluginPageProps> = ({
       keepPreviousData
     >
       {(c) => (
-        <section className="flex flex-col gap-6">
+        <section className="flex min-w-0 flex-col gap-4">
           <PageHeader
             title={c.name}
             description={c.description}
@@ -178,7 +178,7 @@ export const CollectionDetailPage: ComponentType<PluginPageProps> = ({
             ]}
           />
 
-          <section className="flex flex-col gap-2">
+          <section className="flex min-w-0 flex-col gap-2">
             <h2 className="text-sm font-medium">Details</h2>
             <DescriptionList
               items={[
@@ -231,7 +231,7 @@ export const CollectionDetailPage: ComponentType<PluginPageProps> = ({
             />
           </section>
 
-          <section className="flex flex-col gap-2 rounded-md border p-3">
+          <section className="flex min-w-0 flex-col gap-2 rounded-md border p-3">
             <h2 className="text-sm font-medium">
               Embedding model, dimensions and strategy
             </h2>
@@ -269,12 +269,12 @@ export const CollectionDetailPage: ComponentType<PluginPageProps> = ({
             />
           </section>
 
-          <section className="flex flex-col gap-2">
+          <section className="flex min-w-0 flex-col gap-2">
             <h2 className="text-sm font-medium">Metadata</h2>
             <MetadataList metadata={c.metadata} />
           </section>
 
-          <section className="flex flex-col gap-2">
+          <section className="flex min-w-0 flex-col gap-2">
             <div className="flex items-center justify-between">
               <h2 className="text-sm font-medium">Newest documents</h2>
               <div className="flex gap-4 text-sm">

@@ -70,9 +70,9 @@ function CreateRoleForm({ onDone }: { onDone: () => void }) {
   }
 
   return (
-    <div className="flex flex-col gap-3 rounded-md border p-4">
+    <div className="flex min-w-0 flex-col gap-3 rounded-md border p-4">
       <CommandAlert error={create.error} title="Could not create the role" />
-      <div className="flex flex-col gap-1.5">
+      <div className="flex min-w-0 flex-col gap-1.5">
         <Label htmlFor="role-name">Name</Label>
         <Input
           id="role-name"
@@ -80,7 +80,7 @@ function CreateRoleForm({ onDone }: { onDone: () => void }) {
           onChange={(e) => setName(e.target.value)}
         />
       </div>
-      <div className="flex flex-col gap-1.5">
+      <div className="flex min-w-0 flex-col gap-1.5">
         <Label htmlFor="role-slug">Slug</Label>
         <Input
           id="role-slug"
@@ -88,7 +88,7 @@ function CreateRoleForm({ onDone }: { onDone: () => void }) {
           onChange={(e) => setSlug(e.target.value)}
         />
       </div>
-      <div className="flex flex-col gap-1.5">
+      <div className="flex min-w-0 flex-col gap-1.5">
         <Label htmlFor="role-description">Description</Label>
         <Input
           id="role-description"
@@ -158,7 +158,7 @@ export function AuthRolesPage() {
   ]
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="App roles"
         description="Authsome keeps these roles in Warden, scoped to this app. Warden's dashboard, where it is installed, also shows each role's namespace, the role it inherits from, its member cap, and whether it is a system or default role."

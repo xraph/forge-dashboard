@@ -103,11 +103,11 @@ export function ReviewChanges({
               : `${plural(changes.length, "change")} against what's saved.`}
           </DialogDescription>
         </DialogHeader>
-        <div className="flex flex-col gap-5">
+        <div className="flex min-w-0 flex-col gap-4">
           {changes.map((c) => {
             const title = titleOf(c)
             return (
-              <section key={title} className="flex flex-col gap-1.5">
+              <section key={title} className="flex min-w-0 flex-col gap-1.5">
                 <h3 className="text-sm font-medium">{headingOf(c)}</h3>
                 {c.kind === "field" ? (
                   <FieldDiff

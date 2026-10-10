@@ -57,7 +57,7 @@ export function AllowedScopesField({
         <FieldDescription>No scopes exist in this tenant yet.</FieldDescription>
       )}
       {rows.length > 0 && (
-        <div className="flex max-h-40 flex-col gap-2 overflow-y-auto">
+        <div className="flex max-h-40 min-w-0 flex-col gap-2 overflow-y-auto">
           {rows.map((row) => (
             <Label key={row.name} className="font-normal">
               <Checkbox

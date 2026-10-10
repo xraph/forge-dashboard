@@ -72,7 +72,7 @@ export const SuitesPage: ComponentType<PluginPageProps> = () => {
   const [creating, setCreating] = useState(false)
   const create = <Button onClick={() => setCreating(true)}>Create suite</Button>
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Suites"
         description="A suite is a set of test cases, run against a target and scored."

@@ -123,7 +123,7 @@ export function TenantFilter({
           value={search}
           onChange={(event) => setSearch(event.target.value)}
         />
-        <div className="flex max-h-72 flex-col gap-1 overflow-y-auto">
+        <div className="flex max-h-72 min-w-0 flex-col gap-1 overflow-y-auto">
           {!required && (
             <Button
               type="button"

@@ -37,14 +37,17 @@ export function ReportVerification({ report }: { report: ReportDetail }) {
   )
 
   return (
-    <section aria-labelledby="report-integrity" className="flex flex-col gap-3">
+    <section
+      aria-labelledby="report-integrity"
+      className="flex min-w-0 flex-col gap-3"
+    >
       <h2 id="report-integrity" className="text-lg font-medium">
         Integrity
       </h2>
       {reason && <p>{reason}</p>}
       {/* A verification that came with a contradicting scope is still shown: hiding a result is the one thing this section must not do. */}
       {v && (
-        <div className="flex flex-col gap-4">
+        <div className="flex min-w-0 flex-col gap-4">
           {contradicted && (
             <p className="font-medium">
               This report&apos;s scope says no verification ran, but it carries

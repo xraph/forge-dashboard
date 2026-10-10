@@ -44,7 +44,7 @@ export const ReportDetailPage: ComponentType<PluginPageProps> = ({
   const download = useExport(id)
 
   return (
-    <section className="flex flex-col gap-6">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title={q.data?.title ?? "Report"}
         description="A compliance report as it was generated. Its events and its integrity check are a record of that moment."
@@ -69,7 +69,7 @@ export const ReportDetailPage: ComponentType<PluginPageProps> = ({
       />
       <QueryBoundary title="report" query={q} skeletonRows={6}>
         {(r) => (
-          <div className="flex flex-col gap-8">
+          <div className="flex min-w-0 flex-col gap-4">
             <DescriptionList
               items={[
                 {
@@ -139,7 +139,7 @@ export const ReportDetailPage: ComponentType<PluginPageProps> = ({
 
 function Section({ section: s }: { section: ReportSection }) {
   return (
-    <section className="flex flex-col gap-3">
+    <section className="flex min-w-0 flex-col gap-3">
       <h2 className="text-lg font-medium">{s.title}</h2>
       {s.notes && (
         <p className="max-w-prose text-sm whitespace-pre-line">{s.notes}</p>

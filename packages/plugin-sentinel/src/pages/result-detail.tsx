@@ -179,11 +179,11 @@ function ResultDetailBody({
   // A red-team result's scorer reasons, revealed for this result only.
   const [showReasons, setShowReasons] = useState(false)
   return (
-    <section className="flex flex-col gap-6">
+    <section className="flex min-w-0 flex-col gap-4">
       <SettledBoundary title="Result" query={result} skeletonRows={6}>
         {(r) => (
-          <div className="flex flex-col gap-6">
-            <div className="flex flex-col gap-2">
+          <div className="flex min-w-0 flex-col gap-4">
+            <div className="flex min-w-0 flex-col gap-2">
               <PageHeader title={r.caseName} />
               <div className="flex flex-wrap items-center gap-2">
                 <ResultStatusBadge status={r.status} />
@@ -198,7 +198,7 @@ function ResultDetailBody({
             {r.error && (
               <section
                 aria-labelledby="sentinel-result-error"
-                className="flex flex-col gap-2"
+                className="flex min-w-0 flex-col gap-2"
               >
                 <h2 id="sentinel-result-error" className="text-sm font-medium">
                   Why it could not be judged
@@ -217,7 +217,7 @@ function ResultDetailBody({
             )}
             <section
               aria-labelledby="sentinel-result-input"
-              className="flex flex-col gap-2"
+              className="flex min-w-0 flex-col gap-2"
             >
               <h2 id="sentinel-result-input" className="text-sm font-medium">
                 Input
@@ -241,7 +241,7 @@ function ResultDetailBody({
             </section>
             <section
               aria-labelledby="sentinel-result-output"
-              className="flex flex-col gap-2"
+              className="flex min-w-0 flex-col gap-2"
             >
               <h2 id="sentinel-result-output" className="text-sm font-medium">
                 Output
@@ -261,7 +261,7 @@ function ResultDetailBody({
             </section>
             <section
               aria-labelledby="sentinel-result-scorers"
-              className="flex flex-col gap-2"
+              className="flex min-w-0 flex-col gap-2"
             >
               <h2 id="sentinel-result-scorers" className="text-sm font-medium">
                 How it was scored
@@ -367,7 +367,7 @@ function Trace({
   return (
     <section
       aria-labelledby="sentinel-result-trace"
-      className="flex flex-col gap-3"
+      className="flex min-w-0 flex-col gap-3"
     >
       <h2 id="sentinel-result-trace" className="text-sm font-medium">
         Trace
@@ -376,7 +376,7 @@ function Trace({
         <p className="text-sm text-muted-foreground">No steps recorded.</p>
       )}
       {trace.steps.map((step: TraceStep) => (
-        <div key={step.index} className="flex flex-col gap-1">
+        <div key={step.index} className="flex min-w-0 flex-col gap-1">
           <p className="text-sm">
             {`Step ${step.index + 1}, `}
             <span className="font-mono text-xs">{step.type}</span>
@@ -437,7 +437,7 @@ function HiddenToolCalls({
   const [shown, setShown] = useState(false)
   if (!shown) {
     return (
-      <div className="flex flex-col items-start gap-2 rounded-md border border-dashed p-3">
+      <div className="flex min-w-0 flex-col items-start gap-2 rounded-md border border-dashed p-3">
         <p className="text-sm text-muted-foreground">
           Tool calls in a red-team trace stay hidden until you ask for them:
           their arguments and results may carry the attack.
@@ -451,7 +451,7 @@ function HiddenToolCalls({
     )
   }
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex min-w-0 flex-col gap-2">
       {children}
       <IconButton
         variant="ghost"

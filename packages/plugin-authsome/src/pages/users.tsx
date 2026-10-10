@@ -154,7 +154,7 @@ export function AuthUsersPage() {
   ]
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Users"
         description="Manage accounts, verification, and access to your application."
@@ -298,7 +298,7 @@ export function AuthUsersPage() {
         pending={ban.loading}
         onConfirm={() => void confirmBan()}
       >
-        <div className="flex flex-col gap-1.5">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <Label htmlFor="ban-reason">Reason</Label>
           <Input
             id="ban-reason"
@@ -306,7 +306,7 @@ export function AuthUsersPage() {
             onChange={(e) => setBanReason(e.target.value)}
           />
         </div>
-        <div className="flex flex-col gap-1.5">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <Label htmlFor="ban-expiry">Expires at</Label>
           <Input
             id="ban-expiry"

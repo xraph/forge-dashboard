@@ -145,7 +145,7 @@ function SettingsDirectory({
             value={active}
             orientation="vertical"
             onValueChange={(value) => select(String(value))}
-            className="flex-col gap-6 @3xl/main:flex-row"
+            className="min-w-0-col flex gap-4 @3xl/main:flex-row"
           >
             <div className="@3xl/main:hidden">
               <NativeSelect
@@ -182,7 +182,7 @@ function SettingsDirectory({
                 className="min-w-0"
               >
                 {(choice.key === active || visited.includes(choice.key)) && (
-                  <div className="space-y-5">
+                  <div className="space-y-4">
                     <div className="space-y-1">
                       <h3 className="font-medium">{choice.label}</h3>
                       <p className="font-mono text-xs text-muted-foreground">
@@ -206,7 +206,7 @@ export function AuthSettingsPage() {
   const entries = useSlotEntries("settings.tabs")
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Settings"
         description="Configure authentication policies for the selected application."

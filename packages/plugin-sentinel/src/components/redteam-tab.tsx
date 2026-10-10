@@ -64,7 +64,7 @@ export function RedTeamTab({ suiteId }: { suiteId: string }) {
   const [added, setAdded] = useState<GenerateResult | null>(null)
   const run = latest.data?.items[0]
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex min-w-0 flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-muted-foreground">
           Attacks on the target, as cases. A run scores them with the rest, and

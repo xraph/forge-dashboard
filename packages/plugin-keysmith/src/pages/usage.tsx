@@ -218,7 +218,7 @@ function SeriesView({
   const quiet = buckets.every((b) => b.requests === 0)
   const n = buckets.length
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex min-w-0 flex-col gap-3">
       <div className="flex items-center justify-between gap-2">
         <h2 className="text-base font-medium">Requests by outcome</h2>
         {/* A toggle keeps one label and says its state with aria-pressed.
@@ -329,7 +329,7 @@ export const UsagePage: ComponentType<PluginPageProps> = () => {
   }
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Usage"
         description="Requests by outcome in UTC buckets, and the requests themselves. The filters apply to both."
@@ -370,7 +370,7 @@ export const UsagePage: ComponentType<PluginPageProps> = () => {
       {series.data?.recorded === true && (
         <section
           aria-labelledby="usage-records"
-          className="flex flex-col gap-3"
+          className="flex min-w-0 flex-col gap-3"
         >
           <h2 id="usage-records" className="text-base font-medium">
             Requests

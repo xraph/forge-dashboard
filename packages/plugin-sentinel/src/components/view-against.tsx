@@ -78,10 +78,10 @@ export function ViewAgainst({
       onSubmit={apply}
       noValidate
       aria-label="View against"
-      className="flex flex-col gap-2"
+      className="flex min-w-0 flex-col gap-2"
     >
       <div className="flex flex-wrap items-end gap-3">
-        <div className="flex flex-col gap-1">
+        <div className="flex min-w-0 flex-col gap-1">
           <Label htmlFor={`${id}-baseline`}>Baseline</Label>
           <NativeSelect
             id={`${id}-baseline`}
@@ -98,7 +98,7 @@ export function ViewAgainst({
             ))}
           </NativeSelect>
         </div>
-        <div className="flex flex-col gap-1">
+        <div className="flex min-w-0 flex-col gap-1">
           <Label htmlFor={`${id}-threshold`}>Threshold</Label>
           <Input
             id={`${id}-threshold`}

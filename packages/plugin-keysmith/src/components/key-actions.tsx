@@ -185,7 +185,7 @@ export function RevokeKeyDialog({
       confirmDisabled={trimmed === ""}
       onConfirm={() => void confirm()}
     >
-      <div className="flex flex-col gap-1.5">
+      <div className="flex min-w-0 flex-col gap-1.5">
         <Label htmlFor={reasonId}>Reason</Label>
         <Textarea
           id={reasonId}

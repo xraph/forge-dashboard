@@ -32,7 +32,7 @@ export function MetadataEditor({
   }
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex min-w-0 flex-col gap-3">
       {rows.map((row, index) => {
         const keyId = `${idPrefix}-${row.id}-key`
         const valueId = `${idPrefix}-${row.id}-value`
@@ -43,10 +43,10 @@ export function MetadataEditor({
 
         return (
           <div
-            className="grid gap-2 rounded-md border p-3 sm:grid-cols-[1fr_1fr_auto]"
+            className="grid min-w-0 gap-2 rounded-md border p-3 sm:grid-cols-[1fr_1fr_auto]"
             key={row.id}
           >
-            <div className="flex flex-col gap-1.5">
+            <div className="flex min-w-0 flex-col gap-1.5">
               <Label htmlFor={keyId}>Metadata key {index + 1}</Label>
               <Input
                 aria-describedby={keyError ? keyErrorId : undefined}
@@ -63,7 +63,7 @@ export function MetadataEditor({
                 </p>
               ) : null}
             </div>
-            <div className="flex flex-col gap-1.5">
+            <div className="flex min-w-0 flex-col gap-1.5">
               <Label htmlFor={valueId}>Metadata value {index + 1}</Label>
               <Input
                 aria-describedby={valueError ? valueErrorId : undefined}

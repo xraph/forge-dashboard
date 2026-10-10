@@ -139,7 +139,7 @@ export const CustomReportCreatePage: ComponentType<PluginPageProps> = () => {
   }
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Build a custom report"
         description="Each section lists the events that match its filters. An empty filter matches everything."
@@ -150,9 +150,9 @@ export const CustomReportCreatePage: ComponentType<PluginPageProps> = () => {
       />
       <form
         onSubmit={(e) => void submit(e)}
-        className="flex max-w-2xl flex-col gap-6"
+        className="flex max-w-2xl min-w-0 flex-col gap-4"
       >
-        <div className="flex flex-col gap-1.5">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <Label htmlFor="custom-title">Title</Label>
           <Input
             id="custom-title"
@@ -176,10 +176,10 @@ export const CustomReportCreatePage: ComponentType<PluginPageProps> = () => {
           return (
             <fieldset
               key={s.key}
-              className="flex flex-col gap-3 rounded-md border p-4"
+              className="flex min-w-0 flex-col gap-3 rounded-md border p-4"
             >
               <legend className="px-1 text-sm font-medium">{`Section ${n}`}</legend>
-              <div className="flex flex-col gap-1.5">
+              <div className="flex min-w-0 flex-col gap-1.5">
                 <Label
                   htmlFor={`section-${s.key}-title`}
                 >{`Section ${n} title`}</Label>
@@ -194,7 +194,7 @@ export const CustomReportCreatePage: ComponentType<PluginPageProps> = () => {
                   <p className="text-sm text-destructive">{p.title}</p>
                 )}
               </div>
-              <div className="flex flex-col gap-1.5">
+              <div className="flex min-w-0 flex-col gap-1.5">
                 <Label
                   htmlFor={`section-${s.key}-notes`}
                 >{`Section ${n} notes`}</Label>
@@ -210,7 +210,7 @@ export const CustomReportCreatePage: ComponentType<PluginPageProps> = () => {
                 )}
               </div>
               {FILTERS.map((f) => (
-                <div key={f.name} className="flex flex-col gap-1.5">
+                <div key={f.name} className="flex min-w-0 flex-col gap-1.5">
                   <Label
                     htmlFor={`section-${s.key}-${f.name}`}
                   >{`Section ${n} ${f.label.toLowerCase()}`}</Label>
@@ -245,7 +245,7 @@ export const CustomReportCreatePage: ComponentType<PluginPageProps> = () => {
             </fieldset>
           )
         })}
-        <div className="flex flex-col gap-1.5">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <div>
             <IconButton
               type="button"

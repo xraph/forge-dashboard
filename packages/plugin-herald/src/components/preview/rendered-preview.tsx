@@ -29,7 +29,7 @@ export function DiagnosticsList({
 }) {
   if (diagnostics.length === 0) return null
   return (
-    <ul className="flex flex-col gap-1 text-sm" aria-label="Problems">
+    <ul className="flex min-w-0 flex-col gap-1 text-sm" aria-label="Problems">
       {diagnostics.map((d, i) => (
         <li
           key={i}
@@ -72,8 +72,8 @@ function EmailPreview({
   const htmlFailed = failed(result, "html")
   const textFailed = failed(result, "text")
   return (
-    <div className="flex flex-col gap-3">
-      <dl className="grid grid-cols-[5rem_1fr] gap-x-3 gap-y-1 rounded-md border p-3 text-sm">
+    <div className="flex min-w-0 flex-col gap-3">
+      <dl className="grid min-w-0 grid-cols-[5rem_1fr] gap-x-3 gap-y-1 rounded-md border p-3 text-sm">
         <dt className="text-muted-foreground">From</dt>
         <dd>
           {from?.email ? (
@@ -99,7 +99,7 @@ function EmailPreview({
           <TabsTrigger value="text">Text</TabsTrigger>
           <TabsTrigger value="source">Source</TabsTrigger>
         </TabsList>
-        <TabsContent value="rendered" className="flex flex-col gap-2">
+        <TabsContent value="rendered" className="flex min-w-0 flex-col gap-2">
           {htmlFailed ? (
             <p className="text-sm text-muted-foreground">
               The HTML part didn't render. See the problems listed with this
@@ -161,7 +161,7 @@ function SmsPreview({
   const text = output(result, "text")
   const count = countSms(text)
   return (
-    <div className="flex flex-col gap-2 text-sm">
+    <div className="flex min-w-0 flex-col gap-2 text-sm">
       {from?.phone && (
         <p>
           From <span className="font-mono text-xs">{from.phone}</span>
@@ -184,7 +184,7 @@ function ShortPreview({ result }: { result?: PreviewResult }) {
   const title = output(result, "title")
   const text = output(result, "text")
   return (
-    <div className="flex flex-col gap-2 rounded-md border p-3 text-sm">
+    <div className="flex min-w-0 flex-col gap-2 rounded-md border p-3 text-sm">
       <p className="font-medium">
         {failed(result, "title") ? (
           <span className="font-normal text-muted-foreground">
@@ -212,7 +212,7 @@ function ShortPreview({ result }: { result?: PreviewResult }) {
 function PlainPreview({ result }: { result?: PreviewResult }) {
   const subject = output(result, "subject")
   return (
-    <div className="flex flex-col gap-2 text-sm">
+    <div className="flex min-w-0 flex-col gap-2 text-sm">
       {failed(result, "subject") ? (
         <p className="text-muted-foreground">The subject didn't render.</p>
       ) : (
@@ -239,7 +239,7 @@ export function RenderedPreview({
   stale: boolean
 }) {
   return (
-    <div className="relative flex flex-col gap-2">
+    <div className="relative flex min-w-0 flex-col gap-2">
       {/* Always mounted, text set later: a live region announces what changes inside it, not what arrives with it. */}
       <p role="status" className="text-xs text-muted-foreground empty:sr-only">
         {stale && "Out of date: rendering your latest change…"}

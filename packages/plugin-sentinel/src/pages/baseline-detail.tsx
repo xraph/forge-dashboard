@@ -42,10 +42,10 @@ function BaselineDetailBody({ baselineId }: { baselineId: string }) {
   const [deleting, setDeleting] = useState(false)
   const [target, setTarget] = useState<BaselineDetail | null>(null)
   return (
-    <section className="flex flex-col gap-6">
+    <section className="flex min-w-0 flex-col gap-4">
       <SettledBoundary title="Baseline" query={baseline} skeletonRows={6}>
         {(b) => (
-          <div className="flex flex-col gap-6">
+          <div className="flex min-w-0 flex-col gap-4">
             <PageHeader
               title={b.name}
               description={
@@ -99,7 +99,7 @@ function BaselineDetailBody({ baselineId }: { baselineId: string }) {
             <BaselineDimensions scores={b.dimensionScores} />
             <section
               aria-labelledby="sentinel-baseline-results"
-              className="flex flex-col gap-2"
+              className="flex min-w-0 flex-col gap-2"
             >
               <h2
                 id="sentinel-baseline-results"
@@ -169,7 +169,7 @@ function BaselineDimensions({ scores }: { scores: Record<string, number> }) {
   return (
     <section
       aria-labelledby="sentinel-baseline-dimensions"
-      className="flex flex-col gap-2"
+      className="flex min-w-0 flex-col gap-2"
     >
       <h2 id="sentinel-baseline-dimensions" className="text-sm font-medium">
         Dimension scores

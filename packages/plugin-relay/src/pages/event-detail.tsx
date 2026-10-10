@@ -25,7 +25,7 @@ export function RelayEventDetailPage({ params }: PluginPageProps) {
 function EventDetailView({ id }: { id: string }) {
   const query = useQuery<EventDetail>("events.detail", { id })
   return (
-    <section className="flex flex-col gap-6">
+    <section className="flex min-w-0 flex-col gap-4">
       <QueryBoundary title="Event" query={query} skeletonRows={6}>
         {(e) => {
           const deliveries = e.deliveries ?? []
@@ -92,7 +92,7 @@ function EventDetailView({ id }: { id: string }) {
               />
               <section
                 aria-labelledby="data-heading"
-                className="flex flex-col gap-2"
+                className="flex min-w-0 flex-col gap-2"
               >
                 <h2 id="data-heading" className="text-sm font-medium">
                   Payload
@@ -101,7 +101,7 @@ function EventDetailView({ id }: { id: string }) {
               </section>
               <section
                 aria-labelledby="fanout-heading"
-                className="flex flex-col gap-2"
+                className="flex min-w-0 flex-col gap-2"
               >
                 <h2 id="fanout-heading" className="text-sm font-medium">
                   Deliveries

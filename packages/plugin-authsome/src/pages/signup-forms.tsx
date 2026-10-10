@@ -62,7 +62,7 @@ export function AuthSignupFormsPage() {
   ]
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Signup forms"
         actions={

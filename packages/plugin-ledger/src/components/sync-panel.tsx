@@ -33,7 +33,10 @@ export function SyncPanel({
   const noProvider = sync.error?.code === "UNAVAILABLE"
 
   return (
-    <section className="flex flex-col gap-3" aria-label="Payment provider">
+    <section
+      className="flex min-w-0 flex-col gap-3"
+      aria-label="Payment provider"
+    >
       <h2 className="text-sm font-medium">Payment provider</h2>
       <DescriptionList
         items={[
@@ -52,7 +55,7 @@ export function SyncPanel({
         ]}
       />
       {/* One live region that is always mounted, so a screen reader hears the text that appears in it. */}
-      <div aria-live="polite" className="flex flex-col gap-1">
+      <div aria-live="polite" className="flex min-w-0 flex-col gap-1">
         {result?.success === true && (
           <p className="text-sm text-muted-foreground">
             Synced to {result.provider_name}.

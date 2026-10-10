@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import type { ReactNode } from "react"
+import type { ComponentProps, ReactNode } from "react"
 import {
   Activity,
   ArrowDownRight,
@@ -44,13 +44,9 @@ import {
   CardDescription,
   CardAction,
 } from "@forge-go/dashboard-kit/components/card"
-import { AppSidebar } from "@forge-go/dashboard-kit/components/app-sidebar"
-import {
-  SidebarProvider,
-  SidebarInset,
-  SidebarTrigger,
-  useSidebar,
-} from "@forge-go/dashboard-kit/components/sidebar"
+import { DashboardShell } from "@forge-go/dashboard-kit/components/dashboard-shell"
+import type { NavNode } from "@forge-go/dashboard-kit/components/nav-tree"
+import { useSidebar } from "@forge-go/dashboard-kit/components/sidebar"
 import { TooltipProvider } from "@forge-go/dashboard-kit/components/tooltip"
 import {
   NativeSelect,
@@ -65,6 +61,7 @@ import { ScopePage } from "./ScopePages"
 import { scopePages, previewScopes } from "./scope-data"
 import { Input } from "@forge-go/dashboard-kit/components/input"
 import { Switch } from "@forge-go/dashboard-kit/components/switch"
+import { ZeroState } from "@forge-go/dashboard-kit/components/zero-state"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import {
   Table,
@@ -368,11 +365,13 @@ function ServiceTable({
   query = "",
   filter = "",
   onDetail,
+  onClear,
 }: {
   compact?: boolean
   query?: string
   filter?: string
   onDetail: (detail: Detail) => void
+  onClear?: () => void
 }) {
   const rows = services.filter(
     (service) =>
@@ -459,11 +458,18 @@ function ServiceTable({
         {rows.length === 0 && (
           <TableRow>
             <TableCell colSpan={6}>
-              <div className="empty-result">
-                <Search size={23} />
-                <strong>No services match your filters</strong>
-                <span>Try another service name or choose all services.</span>
-              </div>
+              <ZeroState
+                title="No services match your filters"
+                body="Try another service name or choose all services."
+                illustration={<Search className="size-6" />}
+                action={
+                  onClear ? (
+                    <Button variant="outline" onClick={onClear}>
+                      Clear filters
+                    </Button>
+                  ) : undefined
+                }
+              />
             </TableCell>
           </TableRow>
         )}
@@ -705,17 +711,21 @@ function KitPage({ notify }: { notify: (text: string) => void }) {
         title="Empty state"
         subtitle="A useful next step when there is no data."
       >
-        <div className="empty-result">
-          <Search size={26} />
-          <strong>No matching traces</strong>
-          <span>Widen the time range or remove a filter.</span>
-          <Button
-            variant="outline"
-            onClick={() => notify("Filters cleared in this component sample.")}
-          >
-            Clear filters
-          </Button>
-        </div>
+        <ZeroState
+          title="No matching traces"
+          body="Widen the time range or remove a filter."
+          illustration={<Search className="size-6" />}
+          action={
+            <Button
+              variant="outline"
+              onClick={() =>
+                notify("Filters cleared in this component sample.")
+              }
+            >
+              Clear filters
+            </Button>
+          }
+        />
       </Panel>
       <Panel
         title="Service row"
@@ -736,17 +746,46 @@ function KitPage({ notify }: { notify: (text: string) => void }) {
 export function DashboardPreview() {
   return (
     <TooltipProvider>
-      <SidebarProvider className="preview-shell">
+      <div className="preview-shell">
         <PreviewContent />
-      </SidebarProvider>
+      </div>
     </TooltipProvider>
+  )
+}
+
+function PreviewLink({
+  node,
+  href,
+  page,
+  navigate,
+  ...props
+}: Omit<ComponentProps<"a">, "href"> & {
+  node: NavNode
+  href: string
+  page: string
+  navigate: (href: string) => void
+}) {
+  const { setOpenMobile } = useSidebar()
+  return (
+    <a
+      {...props}
+      href={`#${href}`}
+      aria-current={href === page ? "page" : undefined}
+      onClick={(event) => {
+        event.preventDefault()
+        navigate(href)
+        setOpenMobile(false)
+      }}
+    >
+      {node.icon}
+      <span>{node.label}</span>
+    </a>
   )
 }
 
 function PreviewContent() {
   const [page, setPage] = useState(initialPage)
   const [dark, setDark] = useState(false)
-  const { setOpenMobile } = useSidebar()
   const [range, setRange] = useState("1h")
   const [query, setQuery] = useState("")
   const [filter, setFilter] = useState("")
@@ -825,7 +864,6 @@ function PreviewContent() {
     setPage(id)
     setQuery("")
     setFilter("")
-    setOpenMobile(false)
     setSearchOpen(false)
   }
   function exportSnapshot() {
@@ -871,10 +909,7 @@ function PreviewContent() {
       >
         Skip to content
       </a>
-      <AppSidebar
-        variant="sidebar"
-        collapsible="icon"
-        navigationLayout="collapsible"
+      <DashboardShell
         scopes={previewScopes}
         scopeHome={{
           label: "Forge",
@@ -886,48 +921,36 @@ function PreviewContent() {
         groups={groups}
         currentPath={page}
         renderLink={(node, href) => (
-          <a
-            href={`#${href}`}
-            aria-current={href === page ? "page" : undefined}
-            onClick={(event) => {
-              event.preventDefault()
-              navigate(href)
-            }}
-          >
-            {node.icon}
-            <span>{node.label}</span>
-          </a>
+          <PreviewLink
+            node={node}
+            href={href}
+            page={page}
+            navigate={navigate}
+          />
         )}
         user={{ name: "Rex Raphael", email: "rex@example.com" }}
-        header={
-          <div className="space-y-3 px-2 pt-2 pb-2 group-data-[collapsible=icon]:hidden">
-            <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
-              <span>Acme API</span>
-              <Badge variant="outline">Production</Badge>
-            </div>
-            <Button
-              variant="outline"
-              className="w-full justify-start text-muted-foreground"
-              onClick={() => setSearchOpen(true)}
-            >
-              <Search />
-              <span className="flex-1 text-left">Search pages...</span>
-              <kbd className="text-xs">⌘ K</kbd>
-            </Button>
-          </div>
+        title={current.label}
+        scope={scopeLabel}
+        context={
+          <Badge
+            variant="outline"
+            className="group-data-[collapsible=icon]:hidden"
+          >
+            Acme API
+          </Badge>
         }
-      />
-      <SidebarInset className="preview-workspace">
-        <header className="preview-topbar">
-          <div className="breadcrumbs">
-            <SidebarTrigger />
-            <span className="breadcrumb-icon">
-              <Hexagon size={15} />
-            </span>
-            <span>{scopeLabel}</span>
-            <span className="breadcrumb-slash">/</span>
-            <strong>{current.label}</strong>
-          </div>
+        searchControl={
+          <Button
+            variant="outline"
+            className="w-full justify-start text-muted-foreground group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-0 [&>kbd]:group-data-[collapsible=icon]:hidden [&>span]:group-data-[collapsible=icon]:sr-only"
+            onClick={() => setSearchOpen(true)}
+          >
+            <Search />
+            <span className="flex-1 text-left">Search pages...</span>
+            <kbd className="text-xs">⌘ K</kbd>
+          </Button>
+        }
+        actions={
           <div className="topbar-actions">
             <Badge variant="outline" className="sample-badge">
               Design preview
@@ -966,7 +989,8 @@ function PreviewContent() {
             </Button>
             <span className="topbar-avatar">R</span>
           </div>
-        </header>
+        }
+      >
         <section
           id="preview-main"
           tabIndex={-1}
@@ -1218,6 +1242,10 @@ function PreviewContent() {
                 <ServiceTable
                   query={query}
                   filter={filter}
+                  onClear={() => {
+                    setQuery("")
+                    setFilter("")
+                  }}
                   onDetail={setDetail}
                 />
                 <div className="panel-footer">
@@ -1395,9 +1423,22 @@ function PreviewContent() {
                     matched(route.path + route.owner) &&
                     (filter === "" || route.method === filter)
                 ) && (
-                  <div className="empty-result">
-                    No routes match your filters.
-                  </div>
+                  <ZeroState
+                    title="No routes match your filters"
+                    body="Try another search or clear your filters."
+                    illustration={<Search className="size-6" />}
+                    action={
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          setQuery("")
+                          setFilter("")
+                        }}
+                      >
+                        Clear filters
+                      </Button>
+                    }
+                  />
                 )}
               </Panel>
             </>
@@ -1487,9 +1528,22 @@ function PreviewContent() {
                   matched(trace.path + trace.id) &&
                   (filter !== "Slow requests" || trace.duration > 100)
               ) && (
-                <div className="empty-result">
-                  No traces match your filters.
-                </div>
+                <ZeroState
+                  title="No traces match your filters"
+                  body="Try another search or clear your filters."
+                  illustration={<Search className="size-6" />}
+                  action={
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setQuery("")
+                        setFilter("")
+                      }}
+                    >
+                      Clear filters
+                    </Button>
+                  }
+                />
               )}
             </Panel>
           )}
@@ -1644,9 +1698,22 @@ function PreviewContent() {
                     (filter !== "Warnings & errors" ||
                       item.status !== "Success")
                 ) && (
-                  <div className="empty-result">
-                    No events match your filters.
-                  </div>
+                  <ZeroState
+                    title="No events match your filters"
+                    body="Try another search or clear your filters."
+                    illustration={<Search className="size-6" />}
+                    action={
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          setQuery("")
+                          setFilter("")
+                        }}
+                      >
+                        Clear filters
+                      </Button>
+                    }
+                  />
                 )}
                 <div className="panel-footer">
                   September 22, 2026<span>All timestamps in UTC</span>
@@ -1728,9 +1795,22 @@ function PreviewContent() {
                   matched(extension.name + extension.description) &&
                   (filter !== "Setup required" || extension.status === filter)
               ) && (
-                <div className="empty-result">
-                  No extensions match your filters.
-                </div>
+                <ZeroState
+                  title="No extensions match your filters"
+                  body="Try another search or clear your filters."
+                  illustration={<Search className="size-6" />}
+                  action={
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setQuery("")
+                        setFilter("")
+                      }}
+                    >
+                      Clear filters
+                    </Button>
+                  }
+                />
               )}
             </>
           )}
@@ -1747,7 +1827,7 @@ function PreviewContent() {
             </span>
           </footer>
         </section>
-      </SidebarInset>
+      </DashboardShell>
       <Sheet
         open={detail !== null}
         onOpenChange={(open) => {

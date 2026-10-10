@@ -56,7 +56,7 @@ function TraceMessage({
     }
   }
   return (
-    <div className="grid gap-4 p-4 @2xl/main:grid-cols-2">
+    <div className="grid min-w-0 gap-4 p-4 @2xl/main:grid-cols-2">
       <section className="min-w-0">
         <h4 className="mb-2 text-xs font-medium tracking-wide text-muted-foreground uppercase">
           Headers
@@ -125,12 +125,12 @@ export function MetricsPage() {
               title="Instrument distribution"
               description="Current inventory by metric type"
             >
-              <div className="space-y-4 p-5">
+              <div className="space-y-4 p-4">
                 {Object.entries(data.metricsByType ?? {}).length ? (
                   Object.entries(data.metricsByType ?? {}).map(
                     ([type, count]) => (
                       <div
-                        className="grid grid-cols-[7rem_minmax(0,1fr)_3rem] items-center gap-4 text-xs"
+                        className="grid min-w-0 grid-cols-[7rem_minmax(0,1fr)_3rem] items-center gap-4 text-xs"
                         key={type}
                       >
                         <span>{type}</span>
@@ -431,7 +431,7 @@ export function TracesPage() {
               Span timing and attributes reported by the application.
             </SheetDescription>
           </SheetHeader>
-          <div className="px-5 pb-6">
+          <div className="px-4 pb-6">
             {selected && <TraceInspection key={selected} id={selected} />}
           </div>
         </SheetContent>
@@ -575,7 +575,7 @@ export function LogsPage() {
       title="Logs & activity"
       description="Review dashboard audit events and operation outcomes."
     >
-      <div className="rounded-md border bg-muted/40 px-5 py-3 text-sm text-muted-foreground">
+      <div className="rounded-md border bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
         Audit activity is available here. Application log streaming is not
         exposed by this server contract.
       </div>

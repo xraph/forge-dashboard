@@ -31,7 +31,7 @@ function formatMetadata(metadata?: Record<string, string>): ReactNode {
     return <NoneCell label="metadata" />
   }
   return (
-    <ul className="flex flex-col gap-0.5">
+    <ul className="flex min-w-0 flex-col gap-0.5">
       {entries.map(([key, value]) => (
         <li key={key} className="font-mono text-xs">
           {key}: {value}
@@ -94,10 +94,10 @@ function EditApp({ app }: { app: AppDetail }) {
   const dirty = Object.keys(changed).length > 1
 
   return (
-    <div className="flex flex-col gap-3 rounded-md border p-4">
+    <div className="flex min-w-0 flex-col gap-3 rounded-md border p-4">
       <h2 className="text-sm font-medium">Edit</h2>
       <CommandAlert error={update.error} title="Could not save" />
-      <div className="flex flex-col gap-1.5">
+      <div className="flex min-w-0 flex-col gap-1.5">
         <Label htmlFor="app-name">Name</Label>
         <Input
           id="app-name"
@@ -105,7 +105,7 @@ function EditApp({ app }: { app: AppDetail }) {
           onChange={(e) => setName(e.target.value)}
         />
       </div>
-      <div className="flex flex-col gap-1.5">
+      <div className="flex min-w-0 flex-col gap-1.5">
         <Label htmlFor="app-slug">Slug</Label>
         <Input
           id="app-slug"
@@ -113,7 +113,7 @@ function EditApp({ app }: { app: AppDetail }) {
           onChange={(e) => setSlug(e.target.value)}
         />
       </div>
-      <div className="flex flex-col gap-1.5">
+      <div className="flex min-w-0 flex-col gap-1.5">
         <Label htmlFor="app-logo">Logo</Label>
         <Input
           id="app-logo"
@@ -147,7 +147,7 @@ function AppDetailBody({ appId }: { appId: string }) {
   const query = useQuery<AppDetail>("apps.detail", { id: appId })
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <QueryBoundary title="App" query={query} skeletonRows={3}>
         {(app) => (
           <>

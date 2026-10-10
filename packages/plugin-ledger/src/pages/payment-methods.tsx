@@ -115,13 +115,13 @@ export function LedgerPaymentMethodsPage() {
   }
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Payment methods"
         description="The cards and accounts a payment provider holds for a tenant."
       />
       <form onSubmit={submit} className="flex items-end gap-2">
-        <div className="flex flex-col gap-1.5">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <Label htmlFor="pm-tenant">Tenant ID</Label>
           <Input
             id="pm-tenant"

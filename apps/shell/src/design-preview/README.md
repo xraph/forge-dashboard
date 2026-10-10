@@ -4,14 +4,14 @@ You can try the reference design on one page at `/reference-preview.html`.
 Run `pnpm --filter @forge-go/dashboard-shell dev:reference` to open it, or
 `pnpm --filter @forge-go/dashboard-shell build:reference` to check and bundle it.
 The page uses the Kit's shared sidebar, cards, buttons, badges, select, sheets,
-and ZeroState with an opt-in `reference.css` theme. You can adjust the request
+and ZeroState with the default Kit theme. You can adjust the request
 count, choose an endpoint, and send sample requests to update the diagram.
 All data is illustrative. No server requests are sent.
 
 This trial follows the supplied reference: pale neutral surfaces, fine borders,
 compact controls, a green capacity chart, and violet request activity. Its
 entry and build are separate from the older multi-page preview and the
-production dashboard. The wider Kit redesign is pending your review of this page.
+production dashboard. The approved theme now ships as the Kit default across the dashboard.
 
 Run `pnpm --filter @forge-go/dashboard-shell dev:preview` and open
 `/design-preview.html`. You can also run `build:preview` on the same package
@@ -36,37 +36,25 @@ Switching scope replaces these groups with the extension's own navigation.
 Extension management stays in core.
 
 Inter remains the interface typeface. Monospace is reserved for route paths,
-log records, and identifiers. The palette uses white (#ffffff), neutral gray (#f7f7f7), graphite (#242424),
-and steel blue (#527d9f) for charts. Green and amber indicate service state.
-Runtime values and table headers use monospace. Tables have compact rows,
-cards use restrained borders and small corners, and details open alongside
-the current page.
+log records, and identifiers. The approved palette uses pale neutral surfaces,
+fine borders, black primary actions, violet chart lines, and green capacity
+and success indicators. You get the same theme in light and dark modes.
 
-The shell uses the kit's actual `AppSidebar`, `ScopeSwitcher`, `NavTree`,
-`SidebarProvider`, `SidebarInset`, `SidebarRail`, and sidebar trigger.
-`NavMain` keeps each page directly accessible, including in the icon rail.
-Only items with explicit children become collapsible branches; those branches
-use flyouts in the icon rail and reveal an externally selected active route.
-The preview's current groups need no folding. Content uses the existing
-shadcn-based buttons, cards, card headers, badges, inputs, switches, tables,
-native selects, tabs, empty states, stat grids, and sheets. Their built-in styles
-provide the control shapes and interaction states.
+The preview uses the shared `DashboardShell`, including its scope switcher,
+navigation rail, mobile sidebar and compact breadcrumb header. Controls,
+cards, tables and sheets use the same Kit defaults as the production host.
+You can close mobile navigation by choosing a page. Search remains available
+from the rail and through Cmd/Ctrl+K.
 
-The kit's `preview.css` export contains opt-in theme tokens and restrained
-control styling, activated by
-`data-forge-design="next"` on the document root. Page CSS handles composition,
-charts, and a few explicit presentation treatments. The approved tokens and control styling also ship in the kit's default global
-theme. Vendored primitives retain their interaction behavior.
+The header is 44px tall. Standard inputs, selects and buttons are 32px tall;
+page gaps are 16px, panel padding is 12px vertically and 16px horizontally,
+and table rows use compact spacing. Narrow layouts wrap controls and keep
+wide tables scrollable within their panel. The `preview.css` and
+`reference.css` Kit exports remain available for existing imports; their
+shared tokens are now in `globals.css`.
 
-`AppSidebar.navigationLayout="collapsible"` enables grouped navigation with
-optional collapsible branches and the sidebar rail. The preview also passes `collapsible="icon"` and uses the standard
-sidebar layout from the reference. The production host uses the same grouped layout. Standalone kit callers keep
-the default tree layout unless they select this option.
-
-`ScopeSwitcher.home` and `AppSidebar.scopeHome` add an optional root destination
-without adding Forge to the extension scope list. Existing callers retain their
-current behavior when they omit it. The preview passes the same scope IDs and
-namespace paths used by the Authsome and Streaming plugins.
+See [the Kit design guidelines](../../../../packages/kit/DESIGN.md) when you
+add or update a page.
 
 ## Core capabilities inspected
 

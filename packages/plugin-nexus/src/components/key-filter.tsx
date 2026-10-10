@@ -103,7 +103,7 @@ export function KeyFilter({
       </PopoverTrigger>
       <PopoverContent align="start" className="gap-2">
         <PopoverTitle>API key</PopoverTitle>
-        <div className="flex max-h-72 flex-col gap-1 overflow-y-auto">
+        <div className="flex max-h-72 min-w-0 flex-col gap-1 overflow-y-auto">
           <IconButton
             variant="ghost"
             onClick={() => choose()}

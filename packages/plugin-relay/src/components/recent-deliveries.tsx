@@ -14,7 +14,10 @@ export function RecentDeliveries({ endpointId }: { endpointId: string }) {
     limit: 20,
   })
   return (
-    <section aria-labelledby="recent-heading" className="flex flex-col gap-2">
+    <section
+      aria-labelledby="recent-heading"
+      className="flex min-w-0 flex-col gap-2"
+    >
       <div className="flex items-baseline justify-between">
         <h2 id="recent-heading" className="text-sm font-medium">
           Recent deliveries

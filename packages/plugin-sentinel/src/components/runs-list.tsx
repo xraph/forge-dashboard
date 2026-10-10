@@ -61,10 +61,10 @@ export function RunsList({
 
   const filtered = state !== "" || (suiteId === undefined && chosenSuite !== "")
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex min-w-0 flex-col gap-3">
       <div className="flex flex-wrap items-end gap-3">
         {suiteId === undefined && (
-          <div className="flex flex-col gap-1">
+          <div className="flex min-w-0 flex-col gap-1">
             <Label htmlFor={`${base}-suite`}>Suite</Label>
             <NativeSelect
               id={`${base}-suite`}
@@ -83,7 +83,7 @@ export function RunsList({
             </NativeSelect>
           </div>
         )}
-        <div className="flex flex-col gap-1">
+        <div className="flex min-w-0 flex-col gap-1">
           <Label htmlFor={`${base}-state`}>State</Label>
           <NativeSelect
             id={`${base}-state`}
@@ -106,7 +106,7 @@ export function RunsList({
           const first = data.items.length === 0 ? 0 : offset + 1
           const last = offset + data.items.length
           return (
-            <div className="flex flex-col gap-2">
+            <div className="flex min-w-0 flex-col gap-2">
               <RunsTable
                 runs={data.items}
                 showSuite={suiteId === undefined}

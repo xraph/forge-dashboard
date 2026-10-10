@@ -18,7 +18,7 @@ export function LedgerPlanCreatePage() {
   }
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="New plan"
         description="It starts as a draft. Activate it from its page when it is ready to sell."

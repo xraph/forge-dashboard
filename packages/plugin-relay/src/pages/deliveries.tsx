@@ -147,7 +147,7 @@ export function RelayDeliveriesPage() {
   }
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Deliveries"
         description="Every webhook Relay has tried to send, newest first."
@@ -237,7 +237,7 @@ export function RelayDeliveriesPage() {
         {(data) => {
           const rows = data.deliveries ?? []
           return (
-            <div className="flex flex-col gap-3">
+            <div className="flex min-w-0 flex-col gap-3">
               {!data.complete && (
                 // Only redis says this: it filters some fields in memory over
                 // a bounded window, and it stopped before the page filled.

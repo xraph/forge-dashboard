@@ -87,7 +87,7 @@ export function Page({
     setTimeout(() => URL.revokeObjectURL(url), 1000)
   }
   return (
-    <div className="flex min-w-0 flex-col gap-6">
+    <div className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title={title}
         description={description}
@@ -125,7 +125,7 @@ export function Panel({
 }) {
   return (
     <Card className="min-w-0 gap-0 overflow-hidden py-0">
-      <CardHeader className="flex flex-row items-center justify-between gap-4 border-b px-5 py-4">
+      <CardHeader className="flex flex-row items-center justify-between gap-4 border-b px-4 py-3">
         <div className="space-y-1">
           <CardTitle>{title}</CardTitle>
           {description && <CardDescription>{description}</CardDescription>}
@@ -170,7 +170,7 @@ export function Records<T>({
   return (
     <>
       {(searchText || toolbar) && (
-        <div className="flex flex-wrap items-center gap-3 border-b px-5 py-3">
+        <div className="flex flex-wrap items-center gap-3 border-b px-4 py-3">
           {searchText && (
             <div className="relative w-full max-w-sm">
               <SearchIcon className="pointer-events-none absolute top-2.5 left-3 size-4 text-muted-foreground" />
@@ -219,7 +219,7 @@ export function Records<T>({
           </TableBody>
         </Table>
       )}
-      <div className="flex items-center justify-between gap-3 border-t px-5 py-3 text-xs text-muted-foreground">
+      <div className="flex items-center justify-between gap-3 border-t px-4 py-3 text-xs text-muted-foreground">
         <span>
           {filtered.length} {noun}
           {search && ` of ${rows.length}`}
@@ -257,7 +257,7 @@ export function Properties({ values }: { values: Record<string, unknown> }) {
       {Object.entries(values).map(([label, value]) => (
         <div
           key={label}
-          className="grid grid-cols-[minmax(0,1fr)_minmax(0,2fr)] gap-4 px-5 py-3 text-sm"
+          className="grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(0,2fr)] gap-4 px-4 py-3 text-sm"
         >
           <dt className="text-muted-foreground">{label}</dt>
           <dd className="font-mono text-xs break-words">{valueText(value)}</dd>

@@ -224,7 +224,7 @@ function SubscriptionDetailView({ detail }: { detail: SubscriptionDetail }) {
   )
 
   return (
-    <section className="flex flex-col gap-6">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title={`${sub.tenant_id} on ${plan.name}`}
         actions={
@@ -354,14 +354,14 @@ function SubscriptionDetailView({ detail }: { detail: SubscriptionDetail }) {
               ]}
             />
             <section
-              className="flex flex-col gap-2"
+              className="flex min-w-0 flex-col gap-2"
               aria-label="Applied coupons"
             >
               <h2 className="text-sm font-medium">Coupons</h2>
               {coupons.length === 0 ? (
                 <NoneCell label="applied coupons" />
               ) : (
-                <ul className="flex flex-col gap-1 text-sm">
+                <ul className="flex min-w-0 flex-col gap-1 text-sm">
                   {coupons.map((c) => (
                     <li
                       key={c.id}
@@ -425,7 +425,7 @@ function SubscriptionDetailView({ detail }: { detail: SubscriptionDetail }) {
         <div
           role="radiogroup"
           aria-label="When to cancel"
-          className="flex flex-col gap-2 text-xs/relaxed"
+          className="flex min-w-0 flex-col gap-2 text-xs/relaxed"
         >
           <label className="flex items-center gap-2">
             <input
@@ -459,7 +459,7 @@ function SubscriptionDetailView({ detail }: { detail: SubscriptionDetail }) {
         confirmDisabled={code.trim() === ""}
         onDone={() => setDialog(null)}
       >
-        <div className="flex flex-col gap-1.5">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <Label htmlFor="apply-code">Coupon code</Label>
           {/* No uppercase style: the engine matches a code exactly, so the field must show what it sends. */}
           <Input
@@ -547,7 +547,7 @@ function ChangePlanDialog({
       confirmDisabled={newPlan === "" || (stranded.length > 0 && !clear)}
       onDone={onClose}
     >
-      <div className="flex flex-col gap-1.5 text-xs/relaxed">
+      <div className="flex min-w-0 flex-col gap-1.5 text-xs/relaxed">
         <Label htmlFor="change-plan">New plan</Label>
         <NativeSelect
           id="change-plan"
@@ -608,7 +608,7 @@ function SubscriptionInvoices({
     offset: 0,
   })
   return (
-    <section className="flex flex-col gap-2">
+    <section className="flex min-w-0 flex-col gap-2">
       <h2 className="text-base font-medium">Invoices</h2>
       <QueryBoundary title="Invoices" query={list} skeletonRows={3}>
         {(data) => {

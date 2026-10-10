@@ -136,7 +136,7 @@ const DELETES_PERMISSION = /^- permission\//
 
 function Lines({ lines }: { lines: string[] }) {
   return (
-    <ul className="flex flex-col gap-0.5">
+    <ul className="flex min-w-0 flex-col gap-0.5">
       {lines.map((line, i) => (
         <li key={`${i}:${line}`} className="font-mono text-xs break-all">
           {line}
@@ -149,7 +149,7 @@ function Lines({ lines }: { lines: string[] }) {
 function PlanSection({ title, lines }: { title: string; lines: string[] }) {
   if (lines.length === 0) return null
   return (
-    <div className="flex flex-col gap-1.5">
+    <div className="flex min-w-0 flex-col gap-1.5">
       <h3 className="text-sm font-medium">
         {title}{" "}
         <span className="text-muted-foreground tabular-nums">
@@ -337,7 +337,7 @@ export function WardenSchemaPage() {
       : null
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Schema"
         description="Your tenant's roles, permissions, policies, resource types and relations, as Warden source."
@@ -364,7 +364,7 @@ export function WardenSchemaPage() {
               title="Could not load the current schema"
             />
 
-            <div className="flex flex-col gap-1">
+            <div className="flex min-w-0 flex-col gap-1">
               <div className="flex items-center gap-2">
                 <Label id="schema-prune-label">
                   Delete roles, permissions, policies and resource types this
@@ -397,7 +397,10 @@ export function WardenSchemaPage() {
               </Button>
             </div>
 
-            <section aria-label="Plan result" className="flex flex-col gap-3">
+            <section
+              aria-label="Plan result"
+              className="flex min-w-0 flex-col gap-3"
+            >
               <CommandAlert
                 error={planError}
                 title="Could not plan the schema"
@@ -419,7 +422,7 @@ export function WardenSchemaPage() {
                     </p>
                   )}
                   {!planned.plan.valid ? (
-                    <ul className="flex max-h-72 flex-col gap-1 overflow-auto text-sm text-destructive">
+                    <ul className="flex max-h-72 min-w-0 flex-col gap-1 overflow-auto text-sm text-destructive">
                       {planned.plan.diagnostics.map((d, i) => (
                         <li key={`${i}:${d.line}:${d.col}:${d.message}`}>
                           {`Line ${d.line}, column ${d.col}: ${d.message}`}
@@ -462,7 +465,7 @@ export function WardenSchemaPage() {
             {applied && (
               <section
                 aria-label="Apply result"
-                className="flex flex-col gap-2"
+                className="flex min-w-0 flex-col gap-2"
               >
                 <p role="status" className="text-sm font-medium">
                   {`Applied: ${applied.created.length} created, ${applied.updated.length} changed, ${applied.deleted.length} deleted.`}

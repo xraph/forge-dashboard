@@ -224,7 +224,7 @@ function Band({
     <section
       aria-label="Verdict"
       className={cn(
-        "flex flex-wrap items-start gap-4 rounded-lg border border-l-4 px-5 py-4",
+        "flex flex-wrap items-start gap-4 rounded-lg border border-l-4 px-4 py-3",
         tone === "regressed"
           ? "border-destructive/40 border-l-destructive"
           : "border-l-foreground/30"

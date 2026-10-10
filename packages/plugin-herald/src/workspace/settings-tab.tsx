@@ -53,8 +53,8 @@ export function SettingsTab({
   const nameMissing = settings.name.trim() === ""
 
   return (
-    <div className="flex max-w-xl flex-col gap-6">
-      <div className="flex flex-col gap-1.5">
+    <div className="flex max-w-xl min-w-0 flex-col gap-4">
+      <div className="flex min-w-0 flex-col gap-1.5">
         <Label htmlFor="template-name">Name</Label>
         <Input
           id="template-name"
@@ -69,7 +69,7 @@ export function SettingsTab({
           </p>
         )}
       </div>
-      <div className="flex flex-col gap-1.5">
+      <div className="flex min-w-0 flex-col gap-1.5">
         <Label htmlFor="template-category">Category</Label>
         <NativeSelect
           id="template-category"
@@ -83,7 +83,7 @@ export function SettingsTab({
           ))}
         </NativeSelect>
       </div>
-      <div className="flex flex-col gap-1.5">
+      <div className="flex min-w-0 flex-col gap-1.5">
         <label className="flex items-center gap-2 text-sm font-medium">
           <Switch
             aria-label="Enabled"
@@ -98,7 +98,7 @@ export function SettingsTab({
           A disabled template refuses every send that names it.
         </p>
       </div>
-      <dl className="grid grid-cols-[6rem_1fr] gap-x-3 gap-y-1 text-sm">
+      <dl className="grid min-w-0 grid-cols-[6rem_1fr] gap-x-3 gap-y-1 text-sm">
         <dt className="text-muted-foreground">Slug</dt>
         <dd className="font-mono text-xs">{template.slug}</dd>
         <dt className="text-muted-foreground">Channel</dt>
@@ -110,7 +110,7 @@ export function SettingsTab({
         Slug and channel can't change: callers send by slug, and the pair is the
         template's identity. To change either, create a new template.
       </p>
-      <div className="flex flex-col gap-2 border-t pt-4">
+      <div className="flex min-w-0 flex-col gap-2 border-t pt-4">
         <IconButton
           type="button"
           variant="destructive"

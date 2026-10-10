@@ -26,7 +26,7 @@ function ServiceInspection({ name }: { name: string }) {
   return (
     <QueryBoundary title="Service details" query={query}>
       {(data) => (
-        <div className="space-y-6">
+        <div className="space-y-4">
           <Properties
             values={{
               Type: data.type,
@@ -51,7 +51,7 @@ function ServiceInspection({ name }: { name: string }) {
             </Panel>
           )}
           <Panel title="Dependencies">
-            <div className="flex flex-wrap gap-2 p-5">
+            <div className="flex flex-wrap gap-2 p-4">
               {data.dependencies?.length ? (
                 data.dependencies.map((name) => (
                   <code className="rounded border px-2 py-1 text-xs" key={name}>
@@ -170,7 +170,7 @@ export function ServicesTable({ compact = false }: { compact?: boolean }) {
               Service health, dependencies, and runtime metrics.
             </SheetDescription>
           </SheetHeader>
-          <div className="px-5 pb-6">
+          <div className="px-4 pb-6">
             {selected !== null && (
               <ServiceInspection key={selected} name={selected} />
             )}

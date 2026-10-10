@@ -25,7 +25,7 @@ export function ChartFrame({
   return (
     <section aria-labelledby={id} className="flex min-w-0 flex-col gap-2">
       <div className="flex flex-wrap items-start justify-between gap-2">
-        <div className="flex flex-col gap-0.5">
+        <div className="flex min-w-0 flex-col gap-0.5">
           <h2 id={id} className="text-sm font-medium">
             {title}
           </h2>

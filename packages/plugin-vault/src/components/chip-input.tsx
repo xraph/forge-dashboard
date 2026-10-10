@@ -80,7 +80,7 @@ export function ChipInput({
   }
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex min-w-0 flex-col gap-2">
       {values.length > 0 ? (
         <ul
           role="list"

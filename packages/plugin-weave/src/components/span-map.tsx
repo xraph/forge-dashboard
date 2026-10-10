@@ -20,7 +20,7 @@ export function SpanMap({ spans }: { spans: SpansOutput }) {
   const loaderChanged = spans.content_length !== layout.scale
 
   return (
-    <figure className="flex flex-col gap-2">
+    <figure className="flex min-w-0 flex-col gap-2">
       {/* A picture for the mouse. Keyboard and screen-reader users read the
           chunks, with a link each, in the reader below. */}
       <div

@@ -57,7 +57,7 @@ function Match({ match }: { match: CheckMatch }) {
     <NoneCell label="detail" />
   )
   return (
-    <li className="grid grid-cols-[4.5rem_minmax(0,1fr)] items-baseline gap-x-3 text-sm">
+    <li className="grid min-w-0 grid-cols-[4.5rem_minmax(0,1fr)] items-baseline gap-x-3 text-sm">
       {known ? (
         <span className="text-muted-foreground">
           {SOURCES[match.source].word}
@@ -81,7 +81,7 @@ function Match({ match }: { match: CheckMatch }) {
 /** A labelled row, term in a lowercase column of fixed width so rows align. */
 function Row({ term, children }: { term: string; children: ReactNode }) {
   return (
-    <dl className="grid grid-cols-[8rem_minmax(0,1fr)] items-baseline gap-x-4 text-sm">
+    <dl className="grid min-w-0 grid-cols-[8rem_minmax(0,1fr)] items-baseline gap-x-4 text-sm">
       <dt className="text-muted-foreground">{term}</dt>
       <dd>{children}</dd>
     </dl>
@@ -109,8 +109,8 @@ export function WardenCheckLogDetailPage({ params }: PluginPageProps) {
         const linked = matches.some((m) => matchHref(m) !== null)
 
         return (
-          <section className="flex flex-col gap-6">
-            <div className="flex flex-col gap-2">
+          <section className="flex min-w-0 flex-col gap-4">
+            <div className="flex min-w-0 flex-col gap-2">
               <PageHeader title="Check" />
               <p className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-sm">
                 <CheckRequestLine check={check} />
@@ -134,7 +134,7 @@ export function WardenCheckLogDetailPage({ params }: PluginPageProps) {
               main={
                 <>
                   <Row term="decision">
-                    <span className="flex flex-col gap-1">
+                    <span className="flex min-w-0 flex-col gap-1">
                       <span className="flex flex-wrap items-center gap-2">
                         <Badge variant={decisionVariant(check.decision)}>
                           {check.decision}
@@ -167,9 +167,9 @@ export function WardenCheckLogDetailPage({ params }: PluginPageProps) {
                   )}
 
                   {!failed && matches.length > 0 && (
-                    <div className="flex flex-col gap-2">
+                    <div className="flex min-w-0 flex-col gap-2">
                       <Row term="decided by">
-                        <ul className="flex flex-col gap-1">
+                        <ul className="flex min-w-0 flex-col gap-1">
                           {matches.map((m, i) => (
                             <Match
                               key={`${i}-${m.source}-${m.ruleId ?? ""}`}

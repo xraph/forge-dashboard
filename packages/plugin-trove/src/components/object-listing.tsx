@@ -115,7 +115,7 @@ function ListingBody({
   const more = nextCursor !== null
 
   const loadMoreControls = (
-    <div className="flex flex-col gap-2">
+    <div className="flex min-w-0 flex-col gap-2">
       <CommandAlert error={moreError} title="Could not load more" />
       {more ? (
         <div>
@@ -163,7 +163,7 @@ function ListingBody({
       )
     }
     return (
-      <div className="flex flex-col gap-3">
+      <div className="flex min-w-0 flex-col gap-3">
         {routedNote}
         {empty}
         {loadMoreControls}
@@ -182,7 +182,7 @@ function ListingBody({
       : 0
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex min-w-0 flex-col gap-3">
       {routedNote}
       <Table>
         <TableCaption>{listingCaption(objects, folders, more)}</TableCaption>

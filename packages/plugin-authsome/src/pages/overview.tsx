@@ -60,7 +60,7 @@ export function AuthOverviewPage() {
   const widgetCount = useSlotCount("overview.widgets")
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Overview"
         description="Accounts and authentication activity in the current scope."
@@ -109,7 +109,7 @@ export function AuthOverviewPage() {
       </Panel>
 
       {widgetCount > 0 && (
-        <div className="flex flex-col gap-4">
+        <div className="flex min-w-0 flex-col gap-4">
           <h2 className="text-sm font-medium">More from your plugins</h2>
           <PluginSlot name="overview.widgets" />
         </div>

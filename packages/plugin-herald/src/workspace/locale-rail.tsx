@@ -231,15 +231,15 @@ export function LocaleRail({
         : deleteCopy(pending.version, pending.versions, pending.dirty)
 
   return (
-    <aside aria-label="Locales" className="flex flex-col gap-5">
-      <div className="flex flex-col gap-2">
+    <aside aria-label="Locales" className="flex min-w-0 flex-col gap-4">
+      <div className="flex min-w-0 flex-col gap-2">
         <p className="text-sm font-medium">Locales</p>
         {versions.length === 0 ? (
           <p className="text-sm text-muted-foreground">
             No versions yet. Add a locale to start writing.
           </p>
         ) : (
-          <ul className="flex flex-col gap-1">
+          <ul className="flex min-w-0 flex-col gap-1">
             {versions.map((v) => {
               const answers = answersFor(v)
               const selected = v.id === selectedId
@@ -247,7 +247,7 @@ export function LocaleRail({
                 <li
                   key={v.id}
                   className={cn(
-                    "flex flex-col gap-1.5 rounded-md px-2 py-1.5",
+                    "flex min-w-0 flex-col gap-1.5 rounded-md px-2 py-1.5",
                     selected && "bg-muted"
                   )}
                 >
@@ -414,7 +414,10 @@ function AddLocaleDialog({
       }}
     >
       <DialogContent className="sm:max-w-md">
-        <form onSubmit={(e) => void submit(e)} className="flex flex-col gap-4">
+        <form
+          onSubmit={(e) => void submit(e)}
+          className="flex min-w-0 flex-col gap-4"
+        >
           <DialogHeader>
             <DialogTitle>Add a locale</DialogTitle>
             <DialogDescription>
@@ -422,7 +425,7 @@ function AddLocaleDialog({
               put it live.
             </DialogDescription>
           </DialogHeader>
-          <div className="flex flex-col gap-1.5">
+          <div className="flex min-w-0 flex-col gap-1.5">
             <Label htmlFor="new-locale">Locale</Label>
             <Input
               id="new-locale"
@@ -503,7 +506,7 @@ function Ladder({
   return (
     <ol
       aria-label={`How ${answer.locale} resolves`}
-      className="ml-1.5 flex flex-col gap-3 border-l pl-4 text-xs"
+      className="ml-1.5 flex min-w-0 flex-col gap-3 border-l pl-4 text-xs"
     >
       {answer.steps.map((s, i) => (
         <li key={i} className="relative">
@@ -582,7 +585,7 @@ function LocaleTester({
     { enabled: valid }
   )
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex min-w-0 flex-col gap-2">
       <Label htmlFor="locale-test">Test a locale</Label>
       <Input
         id="locale-test"

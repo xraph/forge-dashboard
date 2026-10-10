@@ -175,14 +175,14 @@ export const KeysPage: ComponentType<PluginPageProps> = () => {
   }
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="API keys"
         description="Keys are shown by prefix and last four characters. The full value is only ever shown once, when a key is created or rotated."
         actions={<Button onClick={() => setCreating(true)}>Create key</Button>}
       />
 
-      <div className="flex flex-col gap-1.5">
+      <div className="flex min-w-0 flex-col gap-1.5">
         <FilterBar
           filters={[
             {

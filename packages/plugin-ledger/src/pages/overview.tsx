@@ -30,7 +30,7 @@ export function LedgerOverviewPage() {
   })
 
   return (
-    <section className="flex flex-col gap-6">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Ledger"
         description="Plans, subscriptions and invoices for this app."
@@ -44,7 +44,7 @@ export function LedgerOverviewPage() {
           // scan hit that bound the number is a floor, and says so.
           const n = (value: number) => (s.capped ? `${value}+` : value)
           return (
-            <div className="flex flex-col gap-2">
+            <div className="flex min-w-0 flex-col gap-2">
               <StatGrid
                 items={[
                   {
@@ -86,7 +86,7 @@ export function LedgerOverviewPage() {
         }}
       </QueryBoundary>
 
-      <section className="flex flex-col gap-2">
+      <section className="flex min-w-0 flex-col gap-2">
         <h2 className="text-base font-medium">Pending invoices</h2>
         <QueryBoundary
           title="Pending invoices"
@@ -105,7 +105,7 @@ export function LedgerOverviewPage() {
         </QueryBoundary>
       </section>
 
-      <section className="flex flex-col gap-2">
+      <section className="flex min-w-0 flex-col gap-2">
         <h2 className="text-base font-medium">Past-due invoices</h2>
         <QueryBoundary
           title="Past-due invoices"
@@ -115,7 +115,7 @@ export function LedgerOverviewPage() {
           {(data) => {
             const rows = data.items ?? []
             return (
-              <div className="flex flex-col gap-2">
+              <div className="flex min-w-0 flex-col gap-2">
                 <ResourceTable<Invoice>
                   columns={invoiceColumns({ withStatus: false })}
                   rows={rows}
@@ -135,7 +135,7 @@ export function LedgerOverviewPage() {
         </QueryBoundary>
       </section>
 
-      <section className="flex flex-col gap-2">
+      <section className="flex min-w-0 flex-col gap-2">
         <h2 className="text-base font-medium">Recent invoices</h2>
         <QueryBoundary title="Recent invoices" query={recent} skeletonRows={5}>
           {(rows) => (

@@ -172,7 +172,7 @@ export function RelayDLQPage() {
   ]
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Dead letters"
         description="Deliveries Relay gave up on. Replaying one sends the webhook again."
@@ -221,7 +221,7 @@ export function RelayDLQPage() {
         {(data) => {
           const rows = data.entries ?? []
           return (
-            <div className="flex flex-col gap-3">
+            <div className="flex min-w-0 flex-col gap-3">
               <ResourceTable<DLQEntrySummary>
                 columns={columns}
                 rows={rows}
@@ -355,7 +355,7 @@ function BulkReplayBody({
           is sent again now. Each receiver gets a real webhook.
         </AlertDialogDescription>
       </AlertDialogHeader>
-      <div className="flex flex-col gap-1.5">
+      <div className="flex min-w-0 flex-col gap-1.5">
         <Label htmlFor="bulk-window">Failed in</Label>
         <NativeSelect
           id="bulk-window"
@@ -458,7 +458,7 @@ function PurgeBody({
           longer be replayed.
         </AlertDialogDescription>
       </AlertDialogHeader>
-      <div className="flex flex-col gap-1.5">
+      <div className="flex min-w-0 flex-col gap-1.5">
         <Label htmlFor="purge-age">Older than</Label>
         <NativeSelect
           id="purge-age"

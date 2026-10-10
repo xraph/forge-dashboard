@@ -34,7 +34,7 @@ export function OverviewPage() {
       <QueryBoundary title="Overview" query={query}>
         {(data) => (
           <>
-            <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border bg-muted/40 px-5 py-4 text-sm">
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border bg-muted/40 px-4 py-3 text-sm">
               <div className="flex items-center gap-3">
                 <ActivityIcon className="size-4 text-muted-foreground" />
                 <span>Application health</span>
@@ -79,14 +79,14 @@ export function OverviewPage() {
                 },
               ]}
             />
-            <div className="grid min-w-0 gap-6 @3xl/main:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+            <div className="grid min-w-0 gap-4 @3xl/main:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
               <ServicesTable compact />
               <Panel
                 title="System health"
                 description="Current application snapshot"
               >
-                <div className="space-y-4 p-5">
-                  <div className="font-mono text-3xl tracking-tight">
+                <div className="space-y-4 p-4">
+                  <div className="font-sans text-2xl font-medium tracking-tight">
                     {data.totalServices > 0
                       ? `${Math.round((data.healthyServices / data.totalServices) * 100)}%`
                       : "No services"}

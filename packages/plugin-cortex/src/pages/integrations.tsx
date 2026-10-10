@@ -476,7 +476,7 @@ export function SettingsPage() {
   const runtime = useQuery<Runtime>("runtime.detail"),
     settings = useQuery<Record<string, unknown>>("settings.detail")
   return (
-    <section className="flex flex-col gap-3">
+    <section className="flex min-w-0 flex-col gap-3">
       <PageHeader
         title="Runtime settings"
         description="Actual process configuration. These defaults are read-only and are not persisted by Cortex."
@@ -533,7 +533,7 @@ function OverlayForm({
     allowed = useAccess("overlay")
   return (
     <form
-      className="grid gap-3 rounded-md border p-3"
+      className="grid min-w-0 gap-3 rounded-md border p-3"
       onSubmit={async (e) => {
         e.preventDefault()
         if (await cmd.execute({ ...draft, id: initial?.id, agent_id: agentId }))
@@ -549,7 +549,7 @@ function OverlayForm({
       </p>
       <fieldset
         disabled={cmd.loading || !allowed}
-        className="grid grid-cols-1 gap-3 sm:grid-cols-2"
+        className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2"
       >
         <FormFields
           fields={overlayFields}
@@ -751,7 +751,7 @@ export function ConversationsPage({ id }: { id?: string }) {
                 data.messages.map((m) => (
                   <article
                     key={m.id}
-                    className="grid gap-2 rounded-md border p-3"
+                    className="grid min-w-0 gap-2 rounded-md border p-3"
                   >
                     <header className="flex flex-wrap justify-between gap-2 text-xs">
                       <span>
@@ -840,7 +840,7 @@ export function ConversationsPage({ id }: { id?: string }) {
           )}
         </QueryBoundary>
       )}
-      <div className="grid gap-3 rounded-md border p-3">
+      <div className="grid min-w-0 gap-3 rounded-md border p-3">
         <h2 className="text-sm font-medium">Send an operator message</h2>
         <p className="text-xs text-muted-foreground">
           The server stamps your identity as sender. Messages cannot impersonate
@@ -1017,7 +1017,7 @@ export function OrchestrationExecute({ id }: { id: string }) {
     runtime = useQuery<Runtime>("runtime.detail"),
     allowed = useAccess("run")
   return (
-    <section className="flex flex-col gap-3">
+    <section className="flex min-w-0 flex-col gap-3">
       <Back to={`/orchestrations/${id}`} label="orchestration" />
       <PageHeader
         title="Execute orchestration"

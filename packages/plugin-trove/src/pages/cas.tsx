@@ -30,7 +30,7 @@ export const CasPage: ComponentType<PluginPageProps> = () => {
   const status = useQuery<CasStatus>("cas.status", withStore(store, {}))
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="CAS"
         description="Content-addressable storage: blobs stored under their hash, with a reference count per hash."
@@ -55,7 +55,7 @@ export const CasPage: ComponentType<PluginPageProps> = () => {
 
 function CasCeiling({ status }: { status: CasStatus }) {
   return (
-    <section className="flex flex-col gap-2">
+    <section className="flex min-w-0 flex-col gap-2">
       <DescriptionList
         items={[
           {
@@ -176,7 +176,7 @@ function CasEntries({ store }: { store: string }) {
   }
 
   return (
-    <section className="flex flex-col gap-3">
+    <section className="flex min-w-0 flex-col gap-3">
       <div className="flex items-center justify-between gap-2">
         <h2 className="text-sm font-medium">Entries</h2>
         <Button variant="outline" onClick={openGC}>

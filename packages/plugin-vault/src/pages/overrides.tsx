@@ -139,7 +139,7 @@ export const OverridesPage: ComponentType<PluginPageProps> = () => {
   ]
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Overrides"
         description="The values tenants get in place of an entry's app default."
@@ -261,7 +261,7 @@ function ChoiceForm({
       aria-label={button}
       className="flex items-end gap-2"
     >
-      <div className="flex flex-col gap-1">
+      <div className="flex min-w-0 flex-col gap-1">
         <Label htmlFor={id} className="text-xs text-muted-foreground">
           {label}
         </Label>

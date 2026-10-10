@@ -51,7 +51,7 @@ export const PolicyCreatePage: ComponentType<PluginPageProps> = () => {
   }
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="New retention policy"
         description="Events in the category are removed once they are older than the duration."
@@ -70,9 +70,9 @@ export const PolicyCreatePage: ComponentType<PluginPageProps> = () => {
       />
       <form
         onSubmit={(e) => void submit(e)}
-        className="flex max-w-lg flex-col gap-4"
+        className="flex max-w-lg min-w-0 flex-col gap-4"
       >
-        <div className="flex flex-col gap-1.5">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <Label htmlFor="policy-category">Category</Label>
           <Input
             id="policy-category"

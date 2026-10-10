@@ -67,7 +67,7 @@ export const DocumentsPage: ComponentType<PluginPageProps> = () => {
   }
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Documents"
         description="Newest first. A document's state is where its ingest got to."

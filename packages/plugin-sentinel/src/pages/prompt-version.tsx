@@ -39,11 +39,11 @@ function PromptVersionBody({ versionId }: { versionId: string }) {
   const [making, setMaking] = useState(false)
   const [target, setTarget] = useState<PromptVersion | null>(null)
   return (
-    <section className="flex flex-col gap-6">
+    <section className="flex min-w-0 flex-col gap-4">
       <SettledBoundary title="Prompt version" query={detail} skeletonRows={5}>
         {(v) => (
-          <div className="flex flex-col gap-6">
-            <div className="flex flex-col gap-2">
+          <div className="flex min-w-0 flex-col gap-4">
+            <div className="flex min-w-0 flex-col gap-2">
               <PageHeader
                 title={`Version ${v.version}`}
                 actions={
@@ -99,7 +99,7 @@ function PromptVersionBody({ versionId }: { versionId: string }) {
             />
             <section
               aria-labelledby="sentinel-version-prompt"
-              className="flex flex-col gap-2"
+              className="flex min-w-0 flex-col gap-2"
             >
               <h2 id="sentinel-version-prompt" className="text-sm font-medium">
                 Prompt
@@ -137,7 +137,7 @@ function Changes({ version }: { version: PromptVersionDetail }) {
   return (
     <section
       aria-labelledby="sentinel-version-changes"
-      className="flex flex-col gap-2"
+      className="flex min-w-0 flex-col gap-2"
     >
       <h2 id="sentinel-version-changes" className="text-sm font-medium">
         {`Changes from version ${previous.version}`}

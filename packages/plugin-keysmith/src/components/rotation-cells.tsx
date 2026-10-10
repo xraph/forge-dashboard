@@ -17,7 +17,7 @@ import type { RotationItem } from "../types"
 export function KeyCell({ item }: { item: RotationItem }) {
   if (item.keyName === null) {
     return (
-      <div className="flex flex-col gap-0.5">
+      <div className="flex min-w-0 flex-col gap-0.5">
         <span className="font-mono text-xs font-normal">{item.keyId}</span>
         <span className="text-xs font-normal text-muted-foreground">
           Key no longer exists
@@ -26,7 +26,7 @@ export function KeyCell({ item }: { item: RotationItem }) {
     )
   }
   return (
-    <div className="flex flex-col gap-0.5">
+    <div className="flex min-w-0 flex-col gap-0.5">
       <PluginLink to={keyPath(item.keyId)}>{item.keyName}</PluginLink>
       <span className="font-mono text-xs font-normal text-muted-foreground">
         {rotationMasked(item, "new")}

@@ -40,7 +40,7 @@ const BrowserPage: ComponentType<PluginPageProps> = ({ params }) => {
   const uploadsRefused = casBucket !== null && casBucket === bucket
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <nav aria-label="Breadcrumb" className="text-sm text-muted-foreground">
         <PluginLink to={`${TROVE_MOUNT}/buckets`} className="hover:underline">
           Buckets

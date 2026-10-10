@@ -400,7 +400,7 @@ function CaseForm({
           )}
         </Field>
         <fieldset
-          className="flex flex-col gap-3"
+          className="flex min-w-0 flex-col gap-3"
           aria-describedby={invalid === "scorers" ? id("error") : undefined}
         >
           <legend className="text-sm font-medium">Scorers</legend>
@@ -422,7 +422,7 @@ function CaseForm({
             return (
               <div
                 key={row.key}
-                className="flex flex-col gap-2 rounded-md border p-3"
+                className="flex min-w-0 flex-col gap-2 rounded-md border p-3"
               >
                 <div className="flex items-end gap-2">
                   <Field className="flex-1">

@@ -68,7 +68,7 @@ export function VariablesTab({
   }
 
   return (
-    <div ref={root} className="flex flex-col gap-4">
+    <div ref={root} className="flex min-w-0 flex-col gap-4">
       <table className="w-full table-fixed text-sm">
         <caption className="mb-2 text-left text-sm text-muted-foreground">
           {plural(variables.length, "variable")}

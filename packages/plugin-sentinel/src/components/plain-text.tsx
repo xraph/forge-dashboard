@@ -39,7 +39,7 @@ export function RevealText({
   const [shown, setShown] = useState(false)
   if (!shown) {
     return (
-      <div className="flex flex-col items-start gap-2 rounded-md border border-dashed p-3">
+      <div className="flex min-w-0 flex-col items-start gap-2 rounded-md border border-dashed p-3">
         <p className="text-sm text-muted-foreground">
           Red-team output stays hidden until you ask for it: it may repeat the
           system prompt or carry the attack.
@@ -53,7 +53,7 @@ export function RevealText({
     )
   }
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex min-w-0 flex-col gap-2">
       <PlainText value={value} label={label} />
       <IconButton
         variant="ghost"

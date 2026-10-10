@@ -42,7 +42,7 @@ function ChunkRow({
     )
   const [shared, rest] = splitAtByte(chunk.content, overlap)
   return (
-    <article className="flex flex-col gap-1 border-b py-2">
+    <article className="flex min-w-0 flex-col gap-1 border-b py-2">
       <header className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
         <PluginLink
           to={chunkPath(chunk.id)}

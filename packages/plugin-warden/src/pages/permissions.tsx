@@ -90,7 +90,7 @@ function CreatePermissionForm({
   }
 
   return (
-    <div className="flex flex-col gap-3 rounded-md border p-4">
+    <div className="flex min-w-0 flex-col gap-3 rounded-md border p-4">
       <CommandAlert
         error={create.error}
         title="Could not create the permission"
@@ -99,7 +99,7 @@ function CreatePermissionForm({
         A check matches on resource and action, not on the name, so the name
         below is derived from them rather than asked for.
       </p>
-      <div className="flex flex-col gap-1.5">
+      <div className="flex min-w-0 flex-col gap-1.5">
         <Label htmlFor="perm-resource">Resource</Label>
         <Input
           id="perm-resource"
@@ -107,7 +107,7 @@ function CreatePermissionForm({
           onChange={(e) => setResource(e.target.value)}
         />
       </div>
-      <div className="flex flex-col gap-1.5">
+      <div className="flex min-w-0 flex-col gap-1.5">
         <Label htmlFor="perm-action">Action</Label>
         <Input
           id="perm-action"
@@ -115,7 +115,7 @@ function CreatePermissionForm({
           onChange={(e) => setAction(e.target.value)}
         />
       </div>
-      <div className="flex flex-col gap-1.5">
+      <div className="flex min-w-0 flex-col gap-1.5">
         <Label htmlFor="perm-description">Description</Label>
         <Input
           id="perm-description"
@@ -246,7 +246,7 @@ export function WardenPermissionsPage() {
   ]
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Permissions"
         actions={
@@ -270,7 +270,7 @@ export function WardenPermissionsPage() {
       />
 
       <form className="flex flex-wrap items-end gap-3" onSubmit={apply}>
-        <span className="flex flex-col gap-1.5">
+        <span className="flex min-w-0 flex-col gap-1.5">
           <Label htmlFor="permissions-filter-resource">
             Filter by resource
           </Label>
@@ -284,7 +284,7 @@ export function WardenPermissionsPage() {
             }
           />
         </span>
-        <span className="flex flex-col gap-1.5">
+        <span className="flex min-w-0 flex-col gap-1.5">
           <Label htmlFor="permissions-filter-action">Filter by action</Label>
           <Input
             id="permissions-filter-action"

@@ -86,7 +86,7 @@ export function RunCharts({
   regression: Regression
 }) {
   return (
-    <div className="grid grid-cols-1 gap-8 xl:grid-cols-2">
+    <div className="grid min-w-0 grid-cols-1 gap-4 xl:grid-cols-2">
       {regression.state === "compared" &&
       regression.baseline &&
       regression.threshold !== undefined ? (
@@ -122,7 +122,7 @@ function CaseChanges({
   if (!results.data || !baseline.data) {
     const error = results.error ?? baseline.error
     return (
-      <section className="flex flex-col gap-2">
+      <section className="flex min-w-0 flex-col gap-2">
         <h2 className="text-sm font-medium">Change from baseline</h2>
         {error ? (
           <p
@@ -182,7 +182,7 @@ function CaseChanges({
         />
       }
     >
-      <div className="flex flex-col gap-2">
+      <div className="flex min-w-0 flex-col gap-2">
         {changes.length > 0 ? (
           <DeltaBars
             rows={changes}
@@ -210,7 +210,7 @@ function DimensionScores({ run }: { run: Run }) {
   const partial = run.state !== "completed"
   if (rows.length === 0) {
     return (
-      <section className="flex flex-col gap-2">
+      <section className="flex min-w-0 flex-col gap-2">
         <h2 className="text-sm font-medium">Dimension scores</h2>
         <p className="text-sm text-muted-foreground">
           {run.state === "running"
@@ -240,7 +240,7 @@ function DimensionScores({ run }: { run: Run }) {
         />
       }
     >
-      <div className="flex flex-col gap-2">
+      <div className="flex min-w-0 flex-col gap-2">
         {rows.length === 1 ? (
           // One bar is not a chart: say the number.
           <p className="text-sm">{`${rows[0].dim} ${formatScore(rows[0].score)}`}</p>

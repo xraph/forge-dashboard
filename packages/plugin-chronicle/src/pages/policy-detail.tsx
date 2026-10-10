@@ -42,7 +42,7 @@ export const PolicyDetailPage: ComponentType<PluginPageProps> = ({
   const [deleted, setDeleted] = useState(false)
   const onDeleted = () => setDeleted(true)
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title={id}
         description="A retention policy removes events in its category once they are older than its duration."
@@ -73,7 +73,7 @@ function PolicyView({
   onDeleted: () => void
 }) {
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex min-w-0 flex-col gap-4">
       <DescriptionList
         items={[
           {
@@ -156,7 +156,7 @@ function EditForm({ policy }: { policy: PolicySummary }) {
   return (
     <form
       onSubmit={(e) => void submit(e)}
-      className="flex max-w-lg flex-col gap-4"
+      className="flex max-w-lg min-w-0 flex-col gap-4"
     >
       <p className="text-sm">
         The category cannot be changed. To use a different category, delete this

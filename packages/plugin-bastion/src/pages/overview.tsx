@@ -105,7 +105,7 @@ export const BastionOverviewPage: ComponentType<PluginPageProps> = () => {
   usePoll(query.refetch)
 
   return (
-    <section className="flex flex-col gap-6">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Gateway"
         description="Traffic, upstream health and circuit state for this gateway process."
@@ -116,7 +116,7 @@ export const BastionOverviewPage: ComponentType<PluginPageProps> = () => {
             <StatGrid items={items(s)} />
             <section
               aria-labelledby="busiest-heading"
-              className="flex flex-col gap-2"
+              className="flex min-w-0 flex-col gap-2"
             >
               <h2 id="busiest-heading" className="text-sm font-medium">
                 Busiest routes

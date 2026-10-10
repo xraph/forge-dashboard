@@ -170,7 +170,7 @@ function ScopeCell({ a }: { a: AssignmentSummary }) {
   if (type === "" && id === "") return <NoneCell label="scope" />
   if (type === "") {
     return (
-      <span className="flex flex-col gap-0.5">
+      <span className="flex min-w-0 flex-col gap-0.5">
         <span>Global</span>
         <span className="text-xs text-destructive">
           Warden ignores the resource id <span className="font-mono">{id}</span>{" "}
@@ -182,7 +182,7 @@ function ScopeCell({ a }: { a: AssignmentSummary }) {
   }
   if (id === "") {
     return (
-      <span className="flex flex-col gap-0.5">
+      <span className="flex min-w-0 flex-col gap-0.5">
         <span className="font-mono text-xs">{type}</span>
         <span className="text-xs text-destructive">
           No resource id, so this matches only checks on a {type} whose id is
@@ -207,7 +207,7 @@ function RoleSelect({
   const items = roles.data?.items ?? []
 
   return (
-    <span className="flex flex-col gap-1.5">
+    <span className="flex min-w-0 flex-col gap-1.5">
       <Label htmlFor="assignment-role">Role</Label>
       <NativeSelect
         id="assignment-role"
@@ -297,7 +297,7 @@ function ExpiringList({
     `${windowHours} hours`
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex min-w-0 flex-col gap-2">
       <p className="text-sm text-muted-foreground">
         Assignments that expire within the next {window}, in every namespace of
         this tenant, earliest expiry first. Assignments that have already
@@ -313,7 +313,7 @@ function ExpiringList({
           // stopped there, so a full page is the only sign it may have.
           const cut = rows.length >= EXPIRING_LIMIT
           return (
-            <div className="flex flex-col gap-2">
+            <div className="flex min-w-0 flex-col gap-2">
               <ResourceTable<AssignmentSummary>
                 columns={columns}
                 rows={rows}
@@ -572,7 +572,7 @@ export function WardenAssignmentsPage() {
   )
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Assignments"
         actions={<Button onClick={openCreate}>New assignment</Button>}
@@ -655,7 +655,7 @@ export function WardenAssignmentsPage() {
             className="flex flex-wrap items-end gap-3"
             onSubmit={applySubjectId}
           >
-            <span className="flex flex-col gap-1.5">
+            <span className="flex min-w-0 flex-col gap-1.5">
               <Label htmlFor="assignments-filter-subject-id">
                 Filter by subject id
               </Label>
@@ -728,7 +728,7 @@ export function WardenAssignmentsPage() {
           value={form.roleId}
           onChange={(roleId) => setForm((f) => ({ ...f, roleId }))}
         />
-        <div className="flex flex-col gap-1.5">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <Label htmlFor="assignment-subject-kind">Subject kind</Label>
           <NativeSelect
             id="assignment-subject-kind"
@@ -745,7 +745,7 @@ export function WardenAssignmentsPage() {
             ))}
           </NativeSelect>
         </div>
-        <div className="flex flex-col gap-1.5">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <Label htmlFor="assignment-subject-id">Subject id</Label>
           <Input
             id="assignment-subject-id"
@@ -756,7 +756,7 @@ export function WardenAssignmentsPage() {
             }
           />
         </div>
-        <div className="flex flex-col gap-1.5">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <Label htmlFor="assignment-resource-type">
             Resource type (optional)
           </Label>
@@ -771,7 +771,7 @@ export function WardenAssignmentsPage() {
         </div>
         {/* The hints below sit outside the description now, so they carry
             its text style themselves. */}
-        <div className="flex flex-col gap-1.5">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <Label htmlFor="assignment-resource-id">Resource id (optional)</Label>
           <Input
             id="assignment-resource-id"
@@ -793,7 +793,7 @@ export function WardenAssignmentsPage() {
             </span>
           )}
         </div>
-        <div className="flex flex-col gap-1.5">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <Label htmlFor="assignment-expires">Expires (optional)</Label>
           <Input
             id="assignment-expires"

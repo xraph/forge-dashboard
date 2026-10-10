@@ -15,7 +15,7 @@ export function OverviewPage() {
         {(data) => (
           <>
             <Section title="Jobs">
-              <div className="grid grid-cols-2 gap-2 @xl/main:grid-cols-3 @5xl/main:grid-cols-6">
+              <div className="grid min-w-0 grid-cols-2 gap-2 @xl/main:grid-cols-3 @5xl/main:grid-cols-6">
                 {Object.entries(data.jobs.counts).map(([state, count]) => (
                   <PluginLink
                     key={state}
@@ -34,7 +34,7 @@ export function OverviewPage() {
               </div>
             </Section>
             <Section title="Workflows">
-              <div className="grid grid-cols-1 gap-2 @xl/main:grid-cols-3">
+              <div className="grid min-w-0 grid-cols-1 gap-2 @xl/main:grid-cols-3">
                 {Object.entries(data.runs).map(([state, count]) => (
                   <PluginLink
                     key={state}

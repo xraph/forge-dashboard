@@ -15,7 +15,7 @@ export function LedgerCouponCreatePage() {
     navigate(couponPath(result.id))
   }
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="New coupon"
         description="A discount code a subscription can apply to its invoices."

@@ -101,7 +101,7 @@ export const BastionTrafficPage: ComponentType<PluginPageProps> = () => {
   usePoll(query.refetch)
 
   return (
-    <section className="flex flex-col gap-6">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Traffic"
         description="Requests the gateway proxied since it started, and how each route is doing."

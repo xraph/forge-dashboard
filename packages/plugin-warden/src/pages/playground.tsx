@@ -351,12 +351,12 @@ function BatchSection({
   ]
 
   return (
-    <details className="flex flex-col gap-3">
+    <details className="flex min-w-0 flex-col gap-3">
       <summary className="cursor-pointer text-sm font-medium">
         Run a batch
       </summary>
-      <form className="mt-3 flex flex-col gap-3" onSubmit={submit}>
-        <div className="flex flex-col gap-1.5">
+      <form className="mt-3 flex min-w-0 flex-col gap-3" onSubmit={submit}>
+        <div className="flex min-w-0 flex-col gap-1.5">
           <Label htmlFor={`${id}-lines`}>Checks, one per line</Label>
           <Textarea
             id={`${id}-lines`}
@@ -393,7 +393,7 @@ function BatchSection({
               result: results[i],
             }))
             return (
-              <div className="flex flex-col gap-3">
+              <div className="flex min-w-0 flex-col gap-3">
                 {stale && (
                   <p className="text-sm text-muted-foreground">
                     The lines or namespace have changed since this run. Run the
@@ -439,14 +439,14 @@ function ResultView({
   const deciding = decidingLane(result)
   const obligations = result.obligations ?? []
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex min-w-0 flex-col gap-4">
       {stale && (
         <p className="text-sm text-muted-foreground">
           The form has changed since this run. Run it again to check the new
           input.
         </p>
       )}
-      <div className="flex flex-col gap-1.5">
+      <div className="flex min-w-0 flex-col gap-1.5">
         <div className="flex flex-wrap items-center gap-2 text-sm">
           <Badge variant={decisionVariant(result.decision)}>
             {result.decision}
@@ -470,7 +470,7 @@ function ResultView({
         )}
       </div>
 
-      <ol aria-label="Models" className="flex flex-col gap-2">
+      <ol aria-label="Models" className="flex min-w-0 flex-col gap-2">
         {(result.lanes ?? []).map((lane) => (
           <LaneRow
             key={lane.model}
@@ -673,7 +673,7 @@ function Playground({ checkId }: { checkId: string | undefined }) {
   const listId = `${ids}-namespaces`
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader title="Playground" />
 
       {/* Not found leaves the empty builder below it usable. */}
@@ -692,9 +692,9 @@ function Playground({ checkId }: { checkId: string | undefined }) {
         </p>
       )}
 
-      <div className="grid gap-6 md:grid-cols-[minmax(0,24rem)_minmax(0,1fr)]">
-        <form className="flex flex-col gap-3" onSubmit={run}>
-          <div className="flex flex-col gap-1.5">
+      <div className="grid min-w-0 gap-4 md:grid-cols-[minmax(0,24rem)_minmax(0,1fr)]">
+        <form className="flex min-w-0 flex-col gap-3" onSubmit={run}>
+          <div className="flex min-w-0 flex-col gap-1.5">
             <Label htmlFor={`${ids}-subject-kind`}>Subject kind</Label>
             <NativeSelect
               id={`${ids}-subject-kind`}
@@ -713,7 +713,7 @@ function Playground({ checkId }: { checkId: string | undefined }) {
               )}
             </NativeSelect>
           </div>
-          <div className="flex flex-col gap-1.5">
+          <div className="flex min-w-0 flex-col gap-1.5">
             <Label htmlFor={`${ids}-subject-id`}>Subject id</Label>
             <Input
               id={`${ids}-subject-id`}
@@ -732,7 +732,7 @@ function Playground({ checkId }: { checkId: string | undefined }) {
               </PluginLink>
             )}
           </div>
-          <div className="flex flex-col gap-1.5">
+          <div className="flex min-w-0 flex-col gap-1.5">
             <Label htmlFor={`${ids}-action`}>Action</Label>
             <Input
               id={`${ids}-action`}
@@ -742,7 +742,7 @@ function Playground({ checkId }: { checkId: string | undefined }) {
               onChange={(e) => edit({ action: e.target.value })}
             />
           </div>
-          <div className="flex flex-col gap-1.5">
+          <div className="flex min-w-0 flex-col gap-1.5">
             <Label htmlFor={`${ids}-resource-type`}>Resource type</Label>
             <Input
               id={`${ids}-resource-type`}
@@ -752,7 +752,7 @@ function Playground({ checkId }: { checkId: string | undefined }) {
               onChange={(e) => edit({ resourceType: e.target.value })}
             />
           </div>
-          <div className="flex flex-col gap-1.5">
+          <div className="flex min-w-0 flex-col gap-1.5">
             <Label htmlFor={`${ids}-resource-id`}>Resource id</Label>
             <Input
               id={`${ids}-resource-id`}
@@ -761,7 +761,7 @@ function Playground({ checkId }: { checkId: string | undefined }) {
               onChange={(e) => edit({ resourceId: e.target.value })}
             />
           </div>
-          <div className="flex flex-col gap-1.5">
+          <div className="flex min-w-0 flex-col gap-1.5">
             <Label htmlFor={`${ids}-namespace`}>Namespace</Label>
             <Input
               id={`${ids}-namespace`}
@@ -781,17 +781,17 @@ function Playground({ checkId }: { checkId: string | undefined }) {
           <details
             open={attributesOpen}
             onToggle={(e) => setAttributesOpen(e.currentTarget.open)}
-            className="flex flex-col gap-3"
+            className="flex min-w-0 flex-col gap-3"
           >
             <summary className="cursor-pointer text-sm font-medium">
               attributes and context
             </summary>
-            <div className="mt-3 flex flex-col gap-3">
+            <div className="mt-3 flex min-w-0 flex-col gap-3">
               {JSON_FIELDS.map(({ key, label }) => {
                 const message = jsonErrors[key]
                 const fieldId = `${ids}-${key}`
                 return (
-                  <div key={key} className="flex flex-col gap-1.5">
+                  <div key={key} className="flex min-w-0 flex-col gap-1.5">
                     <Label htmlFor={fieldId}>{label}</Label>
                     <Textarea
                       id={fieldId}

@@ -34,7 +34,7 @@ export function PasswordPolicyPage({ params }: PluginPageProps) {
   const query = useQuery<PasswordPolicy>("password.policy")
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex min-w-0 flex-col gap-4">
       <QueryBoundary title="Password policy" query={query}>
         {(policy) => (
           <DescriptionList

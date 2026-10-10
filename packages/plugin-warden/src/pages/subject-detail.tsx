@@ -184,11 +184,11 @@ function SubjectAccess({ kind, id }: { kind: string; id: string }) {
   const at = shown(namespace)
 
   return (
-    <section className="flex flex-col gap-6">
+    <section className="flex min-w-0 flex-col gap-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <h1 className="font-mono text-lg font-medium">{`${kind}:${id}`}</h1>
         <div className="flex flex-wrap items-end gap-3">
-          <form onSubmit={submit} className="flex flex-col gap-1.5">
+          <form onSubmit={submit} className="flex min-w-0 flex-col gap-1.5">
             <Label htmlFor={inputId}>Namespace</Label>
             <Input
               id={inputId}
@@ -273,7 +273,7 @@ function WithheldNotice({
   section: WithheldSection
 }) {
   return (
-    <section className="flex flex-col gap-3">
+    <section className="flex min-w-0 flex-col gap-3">
       <Heading>{heading}</Heading>
       <p className={NOTE}>{withheldSentence(section)}</p>
     </section>
@@ -373,7 +373,7 @@ function RolesSection({
     },
   ]
   return (
-    <section className="flex flex-col gap-3">
+    <section className="flex min-w-0 flex-col gap-3">
       <Heading>{`Roles at ${at}`}</Heading>
       <ResourceTable<SubjectRole>
         columns={columns}
@@ -446,7 +446,7 @@ function AssignmentsSection({
     },
   ]
   return (
-    <section className="flex flex-col gap-3">
+    <section className="flex min-w-0 flex-col gap-3">
       <Heading>Assignments</Heading>
       <ResourceTable<SubjectAssignment>
         columns={columns}
@@ -524,7 +524,7 @@ function RelationsSection({
     },
   ]
   return (
-    <section className="flex flex-col gap-3">
+    <section className="flex min-w-0 flex-col gap-3">
       <Heading>Relations</Heading>
       <ResourceTable<SubjectRelation>
         columns={columns}
@@ -616,7 +616,7 @@ function PoliciesSection({
     },
   ]
   return (
-    <section className="flex flex-col gap-3">
+    <section className="flex min-w-0 flex-col gap-3">
       <Heading>{heading}</Heading>
       {abacOff && (
         <p className={NOTE}>
@@ -657,7 +657,7 @@ function RecentChecksSection({ kind, id }: { kind: string; id: string }) {
     limit: RECENT_CHECKS,
   })
   return (
-    <section className="flex flex-col gap-3">
+    <section className="flex min-w-0 flex-col gap-3">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <Heading>Recent checks</Heading>
         <PluginLink to="/check-log" className={`text-sm ${LINK}`}>

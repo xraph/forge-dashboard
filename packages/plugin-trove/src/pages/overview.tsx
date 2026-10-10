@@ -118,7 +118,7 @@ export const OverviewPage: ComponentType<PluginPageProps> = () => {
   const status = useQuery<SystemStatus>("system.status", withStore(store, {}))
 
   return (
-    <section className="flex flex-col gap-6">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Overview"
         description="What this store's driver can do, and which protections are actually switched on."
@@ -142,14 +142,14 @@ export const OverviewPage: ComponentType<PluginPageProps> = () => {
             {data.routingNote ? (
               <Alert>
                 <AlertTitle>Some keys go to other backends</AlertTitle>
-                <AlertDescription className="flex flex-col gap-2">
+                <AlertDescription className="flex min-w-0 flex-col gap-2">
                   <span>{data.routingNote}</span>
                   <TagList values={data.backends} label="other backends" />
                 </AlertDescription>
               </Alert>
             ) : null}
 
-            <section className="flex flex-col gap-2">
+            <section className="flex min-w-0 flex-col gap-2">
               <h2 className="text-sm font-medium">Protection</h2>
               <p className="text-sm text-muted-foreground">
                 Configured is what the config asks for. Applied means it runs
@@ -166,7 +166,7 @@ export const OverviewPage: ComponentType<PluginPageProps> = () => {
               />
             </section>
 
-            <section className="flex flex-col gap-2">
+            <section className="flex min-w-0 flex-col gap-2">
               <h2 className="text-sm font-medium">What this driver can do</h2>
               <DescriptionList
                 items={CAPABILITIES.map((c) => ({
@@ -176,7 +176,7 @@ export const OverviewPage: ComponentType<PluginPageProps> = () => {
               />
             </section>
 
-            <section className="flex flex-col gap-2">
+            <section className="flex min-w-0 flex-col gap-2">
               <h2 className="text-sm font-medium">Configuration</h2>
               <DescriptionList
                 items={[

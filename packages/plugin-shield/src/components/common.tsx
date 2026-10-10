@@ -176,7 +176,7 @@ export function Value({
     if (value.every((v) => typeof v === "string"))
       return <TagList values={value as string[]} label={field} />
     return (
-      <div className="grid gap-1.5">
+      <div className="grid min-w-0 gap-1.5">
         {value.map((v, i) => (
           <div key={i} className="rounded border bg-muted/20 px-2 py-1.5">
             <Value value={v} field={field} />

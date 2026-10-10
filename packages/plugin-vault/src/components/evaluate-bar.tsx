@@ -56,14 +56,14 @@ export function EvaluateBar({
   }
 
   return (
-    <div className="flex flex-col gap-3 rounded-lg border p-3">
+    <div className="flex min-w-0 flex-col gap-3 rounded-lg border p-3">
       <form
         aria-label="Evaluate as"
         onSubmit={submit}
         className="flex flex-wrap items-end gap-x-3 gap-y-2"
       >
         <span className="self-center text-sm font-medium">Evaluate as</span>
-        <div className="flex flex-col gap-1">
+        <div className="flex min-w-0 flex-col gap-1">
           <Label
             htmlFor="evaluate-tenant"
             className="text-xs text-muted-foreground"
@@ -79,7 +79,7 @@ export function EvaluateBar({
             onChange={(e) => onTenantId(e.target.value)}
           />
         </div>
-        <div className="flex flex-col gap-1">
+        <div className="flex min-w-0 flex-col gap-1">
           <Label
             htmlFor="evaluate-user"
             className="text-xs text-muted-foreground"
@@ -185,7 +185,7 @@ export function EvaluationSummary(props: EvaluationSummaryProps) {
     <div
       role="status"
       data-slot="evaluation-result"
-      className="flex flex-col gap-1 text-sm"
+      className="flex min-w-0 flex-col gap-1 text-sm"
     >
       <p className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
         <span>Returns</span>

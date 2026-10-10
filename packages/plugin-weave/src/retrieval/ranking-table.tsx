@@ -169,7 +169,7 @@ export function RankingTable({
                 <TableCell className="max-w-xl">
                   <button
                     type="button"
-                    className="flex w-full flex-col items-start gap-1 text-left"
+                    className="flex w-full min-w-0 flex-col items-start gap-1 text-left"
                     aria-label={`Inspect hit ${hit.rank}`}
                     onClick={() => onSelect(i)}
                   >

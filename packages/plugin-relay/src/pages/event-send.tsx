@@ -78,13 +78,13 @@ export function RelayEventSendPage() {
   const activeTypes = types.data?.types ?? []
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Send an event"
         description="Relay checks it against its type's schema and delivers it to every endpoint that matches, as it would for your application."
       />
       <form
-        className="flex max-w-xl flex-col gap-4"
+        className="flex max-w-xl min-w-0 flex-col gap-4"
         onSubmit={submit}
         noValidate
       >
@@ -94,7 +94,7 @@ export function RelayEventSendPage() {
             {notice}
           </p>
         )}
-        <div className="flex flex-col gap-1.5">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <Label htmlFor={`${id}-type`}>Event type</Label>
           <NativeSelect
             id={`${id}-type`}
@@ -110,7 +110,7 @@ export function RelayEventSendPage() {
             ))}
           </NativeSelect>
         </div>
-        <div className="flex flex-col gap-1.5">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <Label htmlFor={`${id}-tenant`}>Tenant ID</Label>
           <Input
             id={`${id}-tenant`}
@@ -123,7 +123,7 @@ export function RelayEventSendPage() {
             Only this tenant's endpoints receive it.
           </span>
         </div>
-        <div className="flex flex-col gap-1.5">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <div className="flex items-baseline justify-between gap-2">
             <Label htmlFor={`${id}-data`}>Payload</Label>
             {type && <UseExample type={type} onUse={(text) => setData(text)} />}
@@ -147,7 +147,7 @@ export function RelayEventSendPage() {
             </span>
           )}
         </div>
-        <div className="flex flex-col gap-1.5">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <Label htmlFor={`${id}-key`}>Idempotency key</Label>
           <Input
             id={`${id}-key`}

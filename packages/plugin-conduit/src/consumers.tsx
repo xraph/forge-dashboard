@@ -315,7 +315,7 @@ export function ConduitConsumersPage() {
         confirmDisabled={!valid}
         onConfirm={() => void backfill()}
       >
-        <div className="grid gap-2">
+        <div className="grid min-w-0 gap-2">
           <label className="text-sm" htmlFor="backfill-id">
             Operation ID
           </label>
@@ -325,7 +325,7 @@ export function ConduitConsumersPage() {
             disabled={run.loading}
             onChange={(e) => setInput((v) => ({ ...v, id: e.target.value }))}
           />
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid min-w-0 grid-cols-2 gap-2">
             <label className="text-sm">
               Start sequence
               <Input

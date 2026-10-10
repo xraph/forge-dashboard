@@ -111,7 +111,7 @@ function Editor({ tenant }: { tenant?: Tenant }) {
       )}
       <CommandAlert title="Tenant could not be saved" error={command.error} />
       <fieldset disabled={command.loading} className="space-y-4">
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid min-w-0 gap-3 sm:grid-cols-2">
           <label className="space-y-1 text-sm">
             Name
             <Input
@@ -134,7 +134,7 @@ function Editor({ tenant }: { tenant?: Tenant }) {
           </label>
         </div>
         <Section title="Quotas">
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          <div className="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-3">
             {(Object.keys(quotaLabels) as (keyof Quota)[]).map((key) => (
               <div key={key} className="space-y-1">
                 <div className="flex flex-wrap items-center justify-between gap-2">
@@ -187,7 +187,7 @@ function Editor({ tenant }: { tenant?: Tenant }) {
           enforce a budget.
         </Notice>
         <Section title="Configuration">
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid min-w-0 gap-3 sm:grid-cols-2">
             {(
               [
                 ["defaultModel", "Default model"],

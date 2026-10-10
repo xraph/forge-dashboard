@@ -138,7 +138,7 @@ function GenerateForm({
           them with the rest. Nothing runs now.
         </DialogDescription>
       </DialogHeader>
-      <fieldset className="flex flex-col gap-2">
+      <fieldset className="flex min-w-0 flex-col gap-2">
         <legend className="text-sm font-medium">Attack types</legend>
         {ATTACK_TYPES.map((type) => (
           <Label key={type} className="items-start font-normal">
@@ -147,7 +147,7 @@ function GenerateForm({
               disabled={command.loading}
               onCheckedChange={(on) => toggle(type, on === true)}
             />
-            <span className="flex flex-col gap-0.5">
+            <span className="flex min-w-0 flex-col gap-0.5">
               <span>{attackLabel(type)}</span>
               <span className="text-xs text-muted-foreground">
                 {ABOUT[type]}
@@ -156,7 +156,7 @@ function GenerateForm({
           </Label>
         ))}
       </fieldset>
-      <div className="flex flex-col gap-1">
+      <div className="flex min-w-0 flex-col gap-1">
         <Label htmlFor={`${id}-count`}>Cases per type</Label>
         <NativeSelect
           id={`${id}-count`}

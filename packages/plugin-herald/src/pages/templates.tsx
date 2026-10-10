@@ -119,7 +119,7 @@ function TemplatesView({
   }
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <HeraldHeader
         title={withoutFallback ? "Templates without a fallback" : "Templates"}
         description={

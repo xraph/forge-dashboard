@@ -25,3 +25,6 @@
 @source "../../../packages/plugin-conduit/src";
 
 @source "../../../packages/plugin-dispatch/src";
+
+@source "../../../packages/plugin/src";
+@source "../../../packages/runtime/src";

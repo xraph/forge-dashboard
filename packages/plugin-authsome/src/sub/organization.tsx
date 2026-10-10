@@ -152,7 +152,7 @@ function formatMetadata(metadata?: Record<string, string>) {
     return <span aria-label="No metadata">–</span>
   }
   return (
-    <ul className="flex flex-col gap-0.5">
+    <ul className="flex min-w-0 flex-col gap-0.5">
       {entries.map(([key, value]) => (
         <li key={key} className="font-mono text-xs">
           <span>{key}</span>: <span>{value}</span>
@@ -201,7 +201,7 @@ export function OrgListPage() {
   ]
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Organizations"
         actions={
@@ -271,7 +271,7 @@ function EditOrgForm({ org, onDone }: { org: OrgDetail; onDone: () => void }) {
         </DialogDescription>
       </DialogHeader>
       <CommandAlert error={update.error} title="Could not save" />
-      <div className="flex flex-col gap-1.5">
+      <div className="flex min-w-0 flex-col gap-1.5">
         <Label htmlFor="org-edit-name">Name</Label>
         <Input
           id="org-edit-name"
@@ -279,7 +279,7 @@ function EditOrgForm({ org, onDone }: { org: OrgDetail; onDone: () => void }) {
           onChange={(e) => setName(e.target.value)}
         />
       </div>
-      <div className="flex flex-col gap-1.5">
+      <div className="flex min-w-0 flex-col gap-1.5">
         <Label htmlFor="org-edit-logo">Logo URL</Label>
         <Input
           id="org-edit-logo"
@@ -416,7 +416,7 @@ function OrgMembers({ orgId }: { orgId: string }) {
   ]
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex min-w-0 flex-col gap-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h3 className="text-sm font-semibold">Members</h3>
@@ -469,7 +469,7 @@ function OrgMembers({ orgId }: { orgId: string }) {
             />
           ) : (
             <>
-              <div className="grid gap-2 sm:hidden">
+              <div className="grid min-w-0 gap-2 sm:hidden">
                 <p className="text-xs text-muted-foreground">{caption}</p>
                 {members.map((member) => (
                   <div
@@ -568,7 +568,7 @@ function OrgMembers({ orgId }: { orgId: string }) {
           ]
           return (
             <>
-              <div className="grid gap-2 sm:hidden">
+              <div className="grid min-w-0 gap-2 sm:hidden">
                 {invitations.map((inv) => (
                   <div
                     key={inv.id}
@@ -614,8 +614,8 @@ function OrgMembers({ orgId }: { orgId: string }) {
             </DialogDescription>
           </DialogHeader>
           <CommandAlert error={addMember.error} title="Could not add member" />
-          <div className="grid gap-3">
-            <div className="grid gap-1.5">
+          <div className="grid min-w-0 gap-3">
+            <div className="grid min-w-0 gap-1.5">
               <Label htmlFor="org-member-user">Email or user ID</Label>
               <Input
                 id="org-member-user"
@@ -624,7 +624,7 @@ function OrgMembers({ orgId }: { orgId: string }) {
                 placeholder="person@example.com"
               />
             </div>
-            <div className="grid gap-1.5">
+            <div className="grid min-w-0 gap-1.5">
               <Label htmlFor="org-member-role">Role</Label>
               <NativeSelect
                 id="org-member-role"
@@ -667,7 +667,7 @@ function OrgMembers({ orgId }: { orgId: string }) {
             </DialogDescription>
           </DialogHeader>
           {created ? (
-            <div className="grid gap-3 text-sm">
+            <div className="grid min-w-0 gap-3 text-sm">
               <p>
                 Share the token with{" "}
                 <span className="font-medium">{created.email}</span> through
@@ -695,8 +695,8 @@ function OrgMembers({ orgId }: { orgId: string }) {
                 error={createInvitation.error}
                 title="Could not create invitation"
               />
-              <div className="grid gap-3">
-                <div className="grid gap-1.5">
+              <div className="grid min-w-0 gap-3">
+                <div className="grid min-w-0 gap-1.5">
                   <Label htmlFor="org-invite-email">Email</Label>
                   <Input
                     id="org-invite-email"
@@ -706,7 +706,7 @@ function OrgMembers({ orgId }: { orgId: string }) {
                     placeholder="person@example.com"
                   />
                 </div>
-                <div className="grid gap-1.5">
+                <div className="grid min-w-0 gap-1.5">
                   <Label htmlFor="org-invite-role">Role</Label>
                   <NativeSelect
                     id="org-invite-role"
@@ -978,7 +978,7 @@ function OrgDetailBody({ orgId }: { orgId: string }) {
   }
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <QueryBoundary title="Organization" query={query} skeletonRows={3}>
         {(org) => (
           <>
@@ -1128,13 +1128,13 @@ export function OrgCreatePage() {
   }
 
   return (
-    <section className="flex max-w-xl flex-col gap-4">
+    <section className="flex max-w-xl min-w-0 flex-col gap-4">
       <PageHeader title="New organization" />
       <CommandAlert
         error={create.error}
         title="Could not create the organization"
       />
-      <div className="flex flex-col gap-1.5">
+      <div className="flex min-w-0 flex-col gap-1.5">
         <Label htmlFor="org-create-name">Name</Label>
         <Input
           id="org-create-name"
@@ -1142,7 +1142,7 @@ export function OrgCreatePage() {
           onChange={(e) => onNameChange(e.target.value)}
         />
       </div>
-      <div className="flex flex-col gap-1.5">
+      <div className="flex min-w-0 flex-col gap-1.5">
         <Label htmlFor="org-create-slug">Slug</Label>
         <Input
           id="org-create-slug"
@@ -1154,7 +1154,7 @@ export function OrgCreatePage() {
           until you edit it.
         </p>
       </div>
-      <div className="flex flex-col gap-1.5">
+      <div className="flex min-w-0 flex-col gap-1.5">
         <Label htmlFor="org-create-logo">Logo URL</Label>
         <Input
           id="org-create-logo"

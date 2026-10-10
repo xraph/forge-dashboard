@@ -39,7 +39,7 @@ export function RelayEndpointCreatePage() {
   }
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="New endpoint"
         description="Relay generates a signing secret for it. Rotate it from the endpoint's page to see it."

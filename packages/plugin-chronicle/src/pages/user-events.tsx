@@ -33,7 +33,7 @@ function UserEventsView({ userId }: { userId: string }) {
     offset,
   })
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title={`Events by ${userId}`}
         description="Every event this user took part in, newest first."

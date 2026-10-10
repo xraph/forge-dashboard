@@ -71,7 +71,7 @@ export function RotateKeyReveal({ rotation, onDone }: RotateKeyRevealProps) {
         onDone={onDone}
         showHeading={false}
       >
-        <div className="flex flex-col gap-2">
+        <div className="flex min-w-0 flex-col gap-2">
           {windows.length === 0 ? (
             <p className="text-sm text-muted-foreground">
               {windowsEnded
@@ -80,7 +80,7 @@ export function RotateKeyReveal({ rotation, onDone }: RotateKeyRevealProps) {
             </p>
           ) : (
             <>
-              <ul className="flex flex-col gap-2">
+              <ul className="flex min-w-0 flex-col gap-2">
                 {windows.map((p, i) => (
                   <PreviousKeyRow
                     // rotationId is "" on the window the server worked out

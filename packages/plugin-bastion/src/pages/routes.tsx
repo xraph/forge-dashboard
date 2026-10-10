@@ -99,7 +99,7 @@ export const BastionRoutesPage: ComponentType<PluginPageProps> = () => {
   })
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Routes"
         description="Every route in match order: manual routes from config or this dashboard, and routes discovery found."

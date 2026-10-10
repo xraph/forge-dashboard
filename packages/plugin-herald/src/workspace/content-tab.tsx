@@ -207,9 +207,9 @@ export function ContentTab(props: ContentTabProps) {
               )}
               <Cue marks={otherMarks} />
             </CollapsibleTrigger>
-            <CollapsibleContent className="mt-3 flex flex-col gap-4">
+            <CollapsibleContent className="mt-3 flex min-w-0 flex-col gap-4">
               {other.map((field) => (
-                <div key={field} className="flex flex-col gap-1.5">
+                <div key={field} className="flex min-w-0 flex-col gap-1.5">
                   <p className="text-sm font-medium">{FIELD_LABEL[field]}</p>
                   {editor(field)}
                 </div>
@@ -227,7 +227,7 @@ export function ContentTab(props: ContentTabProps) {
         aria-label="Preview"
         className="flex min-w-0 flex-col gap-4 lg:col-span-2 xl:col-span-1"
       >
-        <div className="flex flex-col gap-1.5">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <div className="flex items-center justify-between gap-2">
             <p className="text-sm font-medium">Sample data</p>
             <IconButton

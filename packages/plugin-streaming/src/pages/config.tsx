@@ -39,7 +39,7 @@ function OpenMap({
   )
 
   return (
-    <section className="flex flex-col gap-2">
+    <section className="flex min-w-0 flex-col gap-2">
       <h2 className="text-sm font-medium">{title}</h2>
       {entries.length === 0 ? (
         <EmptyState title={`No ${title.toLowerCase()} configured.`} />
@@ -64,7 +64,7 @@ export function StreamingConfigPage() {
   const query = useQuery<ConfigSummary>("config")
 
   return (
-    <section className="flex flex-col gap-6">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Configuration"
         description="How this streaming node is set up."

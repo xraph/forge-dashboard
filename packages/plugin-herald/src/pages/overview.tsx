@@ -103,8 +103,8 @@ function Posture({
   const keyName = info.encryption.keyId
 
   return (
-    <div className="flex flex-col gap-5 text-sm">
-      <section className="flex flex-col gap-1.5">
+    <div className="flex min-w-0 flex-col gap-4 text-sm">
+      <section className="flex min-w-0 flex-col gap-1.5">
         <h3 className="font-medium">Encryption</h3>
         {plaintext + encrypted === 0 ? (
           <p>No credentials are stored.</p>
@@ -145,7 +145,7 @@ function Posture({
         )}
       </section>
 
-      <section className="flex flex-col gap-1.5">
+      <section className="flex min-w-0 flex-col gap-1.5">
         <h3 className="font-medium">REST API</h3>
         <p>
           {info.apiProtected
@@ -154,7 +154,7 @@ function Posture({
         </p>
       </section>
 
-      <section className="flex flex-col gap-1.5">
+      <section className="flex min-w-0 flex-col gap-1.5">
         <h3 className="font-medium">Fallback coverage</h3>
         {missing === 0 ? (
           <p>
@@ -184,7 +184,7 @@ function Posture({
         )}
       </section>
 
-      <section className="flex flex-col gap-1.5">
+      <section className="flex min-w-0 flex-col gap-1.5">
         <h3 className="font-medium">Providers</h3>
         <p>
           {data.providers.enabled} of {plural(data.providers.total, "provider")}{" "}
@@ -230,15 +230,15 @@ export const OverviewPage: ComponentType<PluginPageProps> = () => {
   const keyId = info.data?.encryption.keyId
 
   return (
-    <section className="flex flex-col gap-6">
+    <section className="flex min-w-0 flex-col gap-4">
       <HeraldHeader
         title="Notifications"
         description="What Herald handed to providers, and how this install is protected."
       />
-      <div className="grid gap-8 @3xl/main:grid-cols-[2fr_1fr]">
+      <div className="grid min-w-0 gap-4 @3xl/main:grid-cols-[2fr_1fr]">
         <section
           aria-labelledby="counts-heading"
-          className="flex flex-col gap-3"
+          className="flex min-w-0 flex-col gap-3"
         >
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h2 id="counts-heading" className="text-sm font-medium">
@@ -268,7 +268,7 @@ export const OverviewPage: ComponentType<PluginPageProps> = () => {
         </section>
         <section
           aria-labelledby="posture-heading"
-          className="flex flex-col gap-3"
+          className="flex min-w-0 flex-col gap-3"
         >
           <h2 id="posture-heading" className="text-sm font-medium">
             Posture

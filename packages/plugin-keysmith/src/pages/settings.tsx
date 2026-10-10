@@ -41,7 +41,10 @@ function Section({
   const headingId = `keysmith-settings-${id}`
   const Heading = level === 2 ? "h2" : "h3"
   return (
-    <section aria-labelledby={headingId} className="flex flex-col gap-2">
+    <section
+      aria-labelledby={headingId}
+      className="flex min-w-0 flex-col gap-2"
+    >
       <Heading
         id={headingId}
         className={cn("text-sm font-medium", mono && "font-mono text-xs")}
@@ -158,7 +161,7 @@ function Enforcement({ data }: { data: Settings }) {
       <Line>
         {`This deployment enforces ${data.enforcedFields} of ${rows.length} policy fields.`}
       </Line>
-      <div className="flex flex-col gap-6">
+      <div className="flex min-w-0 flex-col gap-4">
         {ENFORCEMENT_GROUPS.map((g) => (
           <Section key={g.id} id={`group-${g.id}`} title={g.heading} level={3}>
             <Line>{groupLine(g.id, data.rateLimiterConfigured)}</Line>
@@ -185,7 +188,7 @@ function SettingsView({ data }: { data: Settings }) {
   const plugins = data.plugins ?? []
   return (
     <>
-      <div className="grid gap-6 @3xl/main:grid-cols-2">
+      <div className="grid min-w-0 gap-4 @3xl/main:grid-cols-2">
         <Section id="store" title="Store">
           <div>
             {data.storeHealthy ? (
@@ -255,7 +258,7 @@ export const SettingsPage: ComponentType<PluginPageProps> = () => {
   const query = useQuery<Settings>("settings")
 
   return (
-    <section className="flex flex-col gap-6">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Settings"
         description="What this deployment runs with. These come from the server's configuration and cannot be changed here."

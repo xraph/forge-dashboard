@@ -40,7 +40,7 @@ export function ProblemsList({
   onSelect: (d: Diagnostic) => void
 }) {
   return (
-    <section aria-label="Problems" className="flex flex-col gap-1.5">
+    <section aria-label="Problems" className="flex min-w-0 flex-col gap-1.5">
       <p className="text-sm font-medium">
         {rendered ? `Problems (${diagnostics.length})` : "Problems"}
       </p>
@@ -53,7 +53,7 @@ export function ProblemsList({
           None in the last render.
         </p>
       ) : (
-        <ul className="flex flex-col gap-1 text-sm">
+        <ul className="flex min-w-0 flex-col gap-1 text-sm">
           {diagnostics.map((d, i) => (
             <li key={i}>
               {d.field !== "" && d.line > 0 ? (

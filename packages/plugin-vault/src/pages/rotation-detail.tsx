@@ -199,7 +199,7 @@ function RotationDetailBody({ secretKey }: { secretKey: string }) {
         const records = data.records ?? []
         const policy = data.policy
         return (
-          <section className="flex flex-col gap-6">
+          <section className="flex min-w-0 flex-col gap-4">
             <PageHeader
               title={secretKey}
               description="Rotation policy and history for this secret."
@@ -219,7 +219,7 @@ function RotationDetailBody({ secretKey }: { secretKey: string }) {
               </p>
             )}
 
-            <section className="flex flex-col gap-3">
+            <section className="flex min-w-0 flex-col gap-3">
               <h2 className="text-sm font-medium">Policy</h2>
               {policy !== null && <PolicySummary policy={policy} />}
               <CommandAlert
@@ -248,7 +248,7 @@ function RotationDetailBody({ secretKey }: { secretKey: string }) {
               )}
             </section>
 
-            <section className="flex flex-col gap-2">
+            <section className="flex min-w-0 flex-col gap-2">
               <h2 className="text-sm font-medium">Rotate now</h2>
               <div className="flex flex-wrap items-center gap-3">
                 <IconButton
@@ -273,7 +273,7 @@ function RotationDetailBody({ secretKey }: { secretKey: string }) {
               </div>
             </section>
 
-            <section className="flex flex-col gap-2">
+            <section className="flex min-w-0 flex-col gap-2">
               <h2 className="text-sm font-medium">Rotation history</h2>
               <ResourceTable<RotationRecord>
                 columns={recordColumns}
@@ -412,11 +412,11 @@ function PolicyForm({
   return (
     <form
       onSubmit={submit}
-      className="flex flex-col gap-3"
+      className="flex min-w-0 flex-col gap-3"
       aria-label="Rotation policy"
     >
       <div className="flex flex-wrap items-end gap-2">
-        <div className="flex flex-col gap-1.5">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <Label htmlFor="rotation-interval">Rotate every</Label>
           <Input
             id="rotation-interval"

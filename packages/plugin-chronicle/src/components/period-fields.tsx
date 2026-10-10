@@ -45,7 +45,7 @@ export function PeriodFields({
 }) {
   const problem = periodProblem(value)
   return (
-    <fieldset className="flex flex-col gap-1.5">
+    <fieldset className="flex min-w-0 flex-col gap-1.5">
       <legend className="text-sm font-medium">Period (optional, UTC)</legend>
       <div className="flex flex-wrap items-center gap-2">
         <Label htmlFor={`${idPrefix}-from`} className="sr-only">

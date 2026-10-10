@@ -71,7 +71,7 @@ export function FallbackAuthGate({
   reason: "no-provider" | "screen-failed"
 }) {
   return (
-    <div className="mx-auto flex max-w-sm flex-col gap-3 rounded-md border p-6 text-sm">
+    <div className="mx-auto flex max-w-sm min-w-0 flex-col gap-3 rounded-md border p-4 text-sm">
       <p className="font-medium" role="alert">
         {reason === "no-provider"
           ? "This dashboard cannot sign anybody in: no plugin declares auth."

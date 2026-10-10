@@ -35,7 +35,7 @@ function Field({
   hint?: ReactNode
 }) {
   return (
-    <div className="flex flex-col gap-1.5">
+    <div className="flex min-w-0 flex-col gap-1.5">
       <Label id={labelId} htmlFor={htmlFor}>
         {label}
       </Label>
@@ -84,7 +84,7 @@ function Rollout({ rule, onChange }: Pick<RuleFormProps, "rule" | "onChange">) {
   }
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex min-w-0 flex-col gap-2">
       <Label id={`${idBase}-label`} htmlFor={idBase}>
         Percentage of tenants
       </Label>
@@ -139,7 +139,7 @@ function Schedule({
   // The instant is not known to be wrong until both ends have been looked at,
   // so the message sits under the pair and both controls point at it.
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex min-w-0 flex-col gap-2">
       <div className="flex flex-wrap gap-4">
         <Field label="Start (UTC)" htmlFor={`${rule.uid}-start`}>
           <Input
@@ -185,7 +185,7 @@ function Schedule({
 export function RuleForm({ rule, flagType, onChange }: RuleFormProps) {
   const valueId = `${rule.uid}-value`
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex min-w-0 flex-col gap-4">
       {rule.type === "when_tenant" ? (
         <Field label="Tenant ids" htmlFor={`${rule.uid}-tenants`}>
           <ChipInput
@@ -213,7 +213,7 @@ export function RuleForm({ rule, flagType, onChange }: RuleFormProps) {
         <Schedule rule={rule} onChange={onChange} />
       ) : null}
       {rule.kept !== undefined ? (
-        <div className="flex flex-col gap-1">
+        <div className="flex min-w-0 flex-col gap-1">
           <p className="text-xs text-muted-foreground">
             {isKeptType(rule.type)
               ? "The engine cannot match this rule type yet, so it has no fields here. Saving keeps it exactly as it is. Remove it to drop it."

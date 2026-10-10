@@ -125,7 +125,7 @@ export default function JsonEditor({
   }, [label])
 
   return (
-    <div className="flex flex-col gap-1.5">
+    <div className="flex min-w-0 flex-col gap-1.5">
       <div ref={host} className="max-h-96 overflow-auto rounded-md border" />
       {problem === undefined ? null : (
         <p role="status" className="text-sm text-destructive">

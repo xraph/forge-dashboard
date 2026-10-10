@@ -34,7 +34,7 @@ function formatMetadata(metadata?: Record<string, string>): ReactNode {
     return <NoneCell label="metadata" />
   }
   return (
-    <ul className="flex flex-col gap-0.5">
+    <ul className="flex min-w-0 flex-col gap-0.5">
       {entries.map(([key, value]) => (
         <li key={key} className="font-mono text-xs">
           {key}: {value}
@@ -61,10 +61,10 @@ function EditEnvironment({ env }: { env: EnvDetail }) {
   const dirty = Object.keys(changed).length > 1
 
   return (
-    <div className="flex flex-col gap-3 rounded-md border p-4">
+    <div className="flex min-w-0 flex-col gap-3 rounded-md border p-4">
       <h2 className="text-sm font-medium">Edit</h2>
       <CommandAlert error={update.error} title="Could not save" />
-      <div className="flex flex-col gap-1.5">
+      <div className="flex min-w-0 flex-col gap-1.5">
         <Label htmlFor="env-name">Name</Label>
         <Input
           id="env-name"
@@ -72,7 +72,7 @@ function EditEnvironment({ env }: { env: EnvDetail }) {
           onChange={(e) => setName(e.target.value)}
         />
       </div>
-      <div className="flex flex-col gap-1.5">
+      <div className="flex min-w-0 flex-col gap-1.5">
         <Label htmlFor="env-description">Description</Label>
         <Textarea
           id="env-description"
@@ -80,7 +80,7 @@ function EditEnvironment({ env }: { env: EnvDetail }) {
           onChange={(e) => setDescription(e.target.value)}
         />
       </div>
-      <div className="flex flex-col gap-1.5">
+      <div className="flex min-w-0 flex-col gap-1.5">
         <Label htmlFor="env-color">Color</Label>
         <Input
           id="env-color"
@@ -114,7 +114,7 @@ function EnvironmentDetailBody({ envId }: { envId: string }) {
   const query = useQuery<EnvDetail>("environments.detail", { id: envId })
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <QueryBoundary title="Environment" query={query} skeletonRows={3}>
         {(env) => (
           <>

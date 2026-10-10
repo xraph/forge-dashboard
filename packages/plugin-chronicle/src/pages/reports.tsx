@@ -64,7 +64,7 @@ export const ReportsPage: ComponentType<PluginPageProps> = () => {
   })
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Reports"
         description="Compliance reports generated from this scope's events, each with the integrity check that was run when it was generated."

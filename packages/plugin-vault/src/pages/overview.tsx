@@ -169,7 +169,7 @@ export const OverviewPage: ComponentType<PluginPageProps> = () => {
   const stats = useQuery<OverviewStats>("overview.stats", {})
 
   return (
-    <section className="flex flex-col gap-6">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Overview"
         description="What needs attention in this vault, then what it holds."
@@ -181,11 +181,11 @@ export const OverviewPage: ComponentType<PluginPageProps> = () => {
           return (
             <>
               {list.length > 0 ? (
-                <section className="flex flex-col gap-2">
+                <section className="flex min-w-0 flex-col gap-2">
                   <h2 className="text-sm font-medium text-destructive">
                     Needs attention
                   </h2>
-                  <ul className="flex flex-col gap-1 text-sm">
+                  <ul className="flex min-w-0 flex-col gap-1 text-sm">
                     {list.map((p) => (
                       <li key={p.id}>
                         <PluginLink
@@ -222,7 +222,7 @@ export const OverviewPage: ComponentType<PluginPageProps> = () => {
                 ]}
               />
 
-              <div className="flex flex-col gap-2">
+              <div className="flex min-w-0 flex-col gap-2">
                 <RecentActivity entries={data.recentActivity ?? []} showKey />
                 <PluginLink
                   to="/audit"

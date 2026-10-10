@@ -59,7 +59,7 @@ export function RuleSummary({ rule }: { rule: FlagRuleSummary }) {
       )
     case "rollout":
       return (
-        <span className="flex flex-col gap-0.5">
+        <span className="flex min-w-0 flex-col gap-0.5">
           <span>
             Rollout to <span className="tabular-nums">{rule.percentage}%</span>{" "}
             of tenants

@@ -80,7 +80,7 @@ export const BastionApiExplorerPage: ComponentType<PluginPageProps> = () => {
   }
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="API explorer"
         description="The OpenAPI document bastion merges from the services it routes to."

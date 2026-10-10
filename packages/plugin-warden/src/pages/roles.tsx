@@ -84,14 +84,14 @@ function CreateRoleForm({
   }
 
   return (
-    <div className="flex flex-col gap-3 rounded-md border p-4">
+    <div className="flex min-w-0 flex-col gap-3 rounded-md border p-4">
       <CommandAlert error={create.error} title="Could not create the role" />
       <p className="text-sm text-muted-foreground">
         Creating in {namespacePath === "" ? "the tenant root" : namespacePath}.
         Slugs are unique per namespace, so the same slug can exist in two of
         them.
       </p>
-      <div className="flex flex-col gap-1.5">
+      <div className="flex min-w-0 flex-col gap-1.5">
         <Label htmlFor="role-name">Name</Label>
         <Input
           id="role-name"
@@ -99,7 +99,7 @@ function CreateRoleForm({
           onChange={(e) => setName(e.target.value)}
         />
       </div>
-      <div className="flex flex-col gap-1.5">
+      <div className="flex min-w-0 flex-col gap-1.5">
         <Label htmlFor="role-slug">Slug</Label>
         <Input
           id="role-slug"
@@ -107,7 +107,7 @@ function CreateRoleForm({
           onChange={(e) => setSlug(e.target.value)}
         />
       </div>
-      <div className="flex flex-col gap-1.5">
+      <div className="flex min-w-0 flex-col gap-1.5">
         <Label htmlFor="role-description">Description</Label>
         <Input
           id="role-description"
@@ -212,7 +212,7 @@ export function WardenRolesPage() {
   ]
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Roles"
         actions={

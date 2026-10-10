@@ -36,7 +36,7 @@ function SessionDetailBody({ sessionId }: { sessionId: string }) {
   const query = useQuery<SessionDetail>("sessions.detail", { id: sessionId })
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <QueryBoundary title="Session" query={query} skeletonRows={3}>
         {(session) => (
           <>

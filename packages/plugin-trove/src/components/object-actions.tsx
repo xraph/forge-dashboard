@@ -53,7 +53,7 @@ export function ObjectActions({
   const [open, setOpen] = useState<"share" | "copy" | "delete" | null>(null)
   const key = head.object.key
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex min-w-0 flex-col gap-2">
       <div className="flex flex-wrap gap-2">
         {head.presign.available ? (
           <IconButton
@@ -135,7 +135,10 @@ function ShareDialog({
       onOpenChange={(next) => !next && !presign.loading && onClose()}
     >
       <DialogContent>
-        <form onSubmit={(e) => void submit(e)} className="flex flex-col gap-4">
+        <form
+          onSubmit={(e) => void submit(e)}
+          className="flex min-w-0 flex-col gap-4"
+        >
           <DialogHeader>
             <DialogTitle>Share link</DialogTitle>
             <DialogDescription>
@@ -148,7 +151,7 @@ function ShareDialog({
             error={presign.error}
             title="Could not create the link"
           />
-          <div className="flex flex-col gap-1.5">
+          <div className="flex min-w-0 flex-col gap-1.5">
             <Label htmlFor="share-lifetime">Expires after</Label>
             <NativeSelect
               id="share-lifetime"
@@ -163,7 +166,7 @@ function ShareDialog({
             </NativeSelect>
           </div>
           {presign.data ? (
-            <div className="flex flex-col gap-1.5">
+            <div className="flex min-w-0 flex-col gap-1.5">
               <Label htmlFor="share-url">Link</Label>
               <Input
                 id="share-url"
@@ -261,7 +264,10 @@ function CopyDialog({
   return (
     <Dialog open onOpenChange={(next) => !next && !copy.loading && onClose()}>
       <DialogContent>
-        <form onSubmit={(e) => void submit(e)} className="flex flex-col gap-4">
+        <form
+          onSubmit={(e) => void submit(e)}
+          className="flex min-w-0 flex-col gap-4"
+        >
           <DialogHeader>
             <DialogTitle>Copy to</DialogTitle>
             <DialogDescription>
@@ -275,7 +281,7 @@ function CopyDialog({
               title="Could not copy the object"
             />
           )}
-          <div className="flex flex-col gap-1.5">
+          <div className="flex min-w-0 flex-col gap-1.5">
             <Label htmlFor="copy-bucket">Destination bucket</Label>
             <NativeSelect
               id="copy-bucket"
@@ -294,7 +300,7 @@ function CopyDialog({
               ))}
             </NativeSelect>
           </div>
-          <div className="flex flex-col gap-1.5">
+          <div className="flex min-w-0 flex-col gap-1.5">
             <Label htmlFor="copy-key">Destination key</Label>
             <Input
               id="copy-key"
@@ -307,7 +313,7 @@ function CopyDialog({
             />
           </div>
           {exists ? (
-            <div className="flex flex-col gap-2">
+            <div className="flex min-w-0 flex-col gap-2">
               <p className="text-sm">An object already exists at this key.</p>
               <div className="flex items-center gap-2">
                 <Checkbox

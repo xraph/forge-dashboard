@@ -91,7 +91,7 @@ export const FlagCreatePage: ComponentType<PluginPageProps> = () => {
   const conflict = create.error?.code === "CONFLICT"
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="New flag"
         description="Give it a key, a type and a default. Rules and tenant overrides come after it exists."
@@ -116,9 +116,9 @@ export const FlagCreatePage: ComponentType<PluginPageProps> = () => {
       ) : null}
       <form
         onSubmit={(e) => void submit(e)}
-        className="flex max-w-lg flex-col gap-4"
+        className="flex max-w-lg min-w-0 flex-col gap-4"
       >
-        <div className="flex flex-col gap-1.5">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <Label htmlFor="flag-key">Key</Label>
           <Input
             id="flag-key"
@@ -129,7 +129,7 @@ export const FlagCreatePage: ComponentType<PluginPageProps> = () => {
             onChange={(e) => setKey(e.target.value)}
           />
         </div>
-        <div className="flex flex-col gap-1.5">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <Label htmlFor="flag-type">Type</Label>
           <NativeSelect
             id="flag-type"
@@ -149,7 +149,7 @@ export const FlagCreatePage: ComponentType<PluginPageProps> = () => {
             ))}
           </NativeSelect>
         </div>
-        <div className="flex flex-col gap-1.5">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <Label id="flag-default-label" htmlFor="flag-default">
             Default
           </Label>
@@ -164,7 +164,7 @@ export const FlagCreatePage: ComponentType<PluginPageProps> = () => {
             What the flag returns when nothing else decides it.
           </p>
         </div>
-        <div className="flex flex-col gap-1.5">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <Label htmlFor="flag-description">Description</Label>
           <Input
             id="flag-description"
@@ -172,7 +172,7 @@ export const FlagCreatePage: ComponentType<PluginPageProps> = () => {
             onChange={(e) => setDescription(e.target.value)}
           />
         </div>
-        <div className="flex flex-col gap-1.5">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <Label htmlFor="flag-tags">Tags</Label>
           <Input
             id="flag-tags"

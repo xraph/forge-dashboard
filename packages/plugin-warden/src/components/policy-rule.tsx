@@ -362,7 +362,7 @@ export function PolicyRule({
       aria-label="Rule"
       data-dimmed={dimmed ? "true" : "false"}
       className={cn(
-        "flex flex-col gap-3 rounded-md border p-4",
+        "flex min-w-0 flex-col gap-3 rounded-md border p-4",
         dimmed && "opacity-60"
       )}
     >
@@ -376,7 +376,7 @@ export function PolicyRule({
       >
         {isAllow ? "Allow" : "Deny"}
       </h2>
-      <dl className="grid grid-cols-[6rem_minmax(0,1fr)] items-baseline gap-x-4 gap-y-2 text-sm">
+      <dl className="grid min-w-0 grid-cols-[6rem_minmax(0,1fr)] items-baseline gap-x-4 gap-y-2 text-sm">
         <dt className={LABEL}>subject</dt>
         <dd data-row="subject">
           <Matchers

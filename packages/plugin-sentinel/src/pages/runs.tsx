@@ -5,7 +5,7 @@ import { RunsList } from "../components/runs-list"
 
 /** Every run in the app, newest first, with suite and state filters. */
 export const RunsPage: ComponentType<PluginPageProps> = () => (
-  <section className="flex flex-col gap-4">
+  <section className="flex min-w-0 flex-col gap-4">
     <PageHeader
       title="Runs"
       description="Each run sends a suite's cases to a target and scores what comes back. Start one from its suite."

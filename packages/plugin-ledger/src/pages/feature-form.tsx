@@ -153,11 +153,11 @@ export function FeatureForm({
   }
 
   return (
-    <form onSubmit={submit} className="flex max-w-2xl flex-col gap-4">
+    <form onSubmit={submit} className="flex max-w-2xl min-w-0 flex-col gap-4">
       <CommandAlert error={error} title={errorTitle} />
       <ProblemsAlert problems={problems} />
       {mode === "create" ? (
-        <div className="flex flex-col gap-1.5">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <Label htmlFor="feature-key">Key</Label>
           <Input
             id="feature-key"
@@ -178,7 +178,7 @@ export function FeatureForm({
           Neither can change.
         </p>
       )}
-      <div className="flex flex-col gap-1.5">
+      <div className="flex min-w-0 flex-col gap-1.5">
         <Label htmlFor="feature-name">Name</Label>
         <Input
           id="feature-name"
@@ -186,7 +186,7 @@ export function FeatureForm({
           onChange={(e) => set("name", e.target.value)}
         />
       </div>
-      <div className="flex flex-col gap-1.5">
+      <div className="flex min-w-0 flex-col gap-1.5">
         <Label htmlFor="feature-description">Description</Label>
         <Textarea
           id="feature-description"
@@ -195,7 +195,7 @@ export function FeatureForm({
         />
       </div>
       {mode === "create" && (
-        <div className="flex flex-col gap-1.5">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <Label htmlFor="feature-type">Type</Label>
           <NativeSelect
             id="feature-type"
@@ -212,7 +212,7 @@ export function FeatureForm({
           </p>
         </div>
       )}
-      <div className="flex flex-col gap-1.5">
+      <div className="flex min-w-0 flex-col gap-1.5">
         <Label htmlFor="feature-limit">Default limit</Label>
         <Input
           id="feature-limit"
@@ -238,7 +238,7 @@ export function FeatureForm({
           </label>
         )}
       </div>
-      <div className="flex flex-col gap-1.5">
+      <div className="flex min-w-0 flex-col gap-1.5">
         <Label htmlFor="feature-period">Resets</Label>
         <NativeSelect
           id="feature-period"

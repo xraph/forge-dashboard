@@ -92,10 +92,10 @@ function EditWebhookPanel({
   }
 
   return (
-    <div className="flex flex-col gap-3 rounded-md border p-4">
+    <div className="flex min-w-0 flex-col gap-3 rounded-md border p-4">
       <h2 className="text-sm font-medium">Edit webhook</h2>
       <CommandAlert error={update.error} title="Could not save" />
-      <div className="flex flex-col gap-1.5">
+      <div className="flex min-w-0 flex-col gap-1.5">
         <Label htmlFor="webhook-edit-url">URL</Label>
         <Input
           id="webhook-edit-url"
@@ -103,7 +103,7 @@ function EditWebhookPanel({
           onChange={(e) => setUrl(e.target.value)}
         />
       </div>
-      <div className="flex flex-col gap-1.5">
+      <div className="flex min-w-0 flex-col gap-1.5">
         <Label htmlFor="webhook-edit-events">Events</Label>
         <Input
           id="webhook-edit-events"
@@ -172,10 +172,10 @@ function CreateWebhookPanel({ onDone }: { onDone: () => void }) {
   }
 
   return (
-    <div className="flex flex-col gap-3 rounded-md border p-4">
+    <div className="flex min-w-0 flex-col gap-3 rounded-md border p-4">
       <h2 className="text-sm font-medium">New webhook</h2>
       <CommandAlert error={create.error} title="Could not create the webhook" />
-      <div className="flex flex-col gap-1.5">
+      <div className="flex min-w-0 flex-col gap-1.5">
         <Label htmlFor="webhook-create-url">URL</Label>
         <Input
           id="webhook-create-url"
@@ -183,7 +183,7 @@ function CreateWebhookPanel({ onDone }: { onDone: () => void }) {
           onChange={(e) => setUrl(e.target.value)}
         />
       </div>
-      <div className="flex flex-col gap-1.5">
+      <div className="flex min-w-0 flex-col gap-1.5">
         <Label htmlFor="webhook-create-events">Events</Label>
         <Input
           id="webhook-create-events"
@@ -262,7 +262,7 @@ export function AuthWebhooksPage() {
   ]
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Webhooks"
         actions={

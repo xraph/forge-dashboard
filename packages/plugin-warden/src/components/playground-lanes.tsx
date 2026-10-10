@@ -317,12 +317,12 @@ export function LaneRow({
       data-lane={lane.model}
       data-deciding={deciding ? "true" : undefined}
       className={cn(
-        "grid grid-cols-[3.5rem_minmax(0,1fr)] items-baseline gap-x-3 rounded-md border px-3 py-2 text-sm",
+        "grid min-w-0 grid-cols-[3.5rem_minmax(0,1fr)] items-baseline gap-x-3 rounded-md border px-3 py-2 text-sm",
         deciding && "border-l-2 border-l-foreground"
       )}
     >
       <span className="font-medium">{MODEL_NAME[lane.model]}</span>
-      <div className="flex flex-col gap-1">
+      <div className="flex min-w-0 flex-col gap-1">
         <span className="flex flex-wrap items-center gap-2">
           <span
             className={bad ? "font-medium text-destructive" : "font-medium"}

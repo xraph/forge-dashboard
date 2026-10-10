@@ -54,13 +54,13 @@ function CreateEnvironmentForm({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <div className="flex flex-col gap-3 rounded-md border p-4">
+    <div className="flex min-w-0 flex-col gap-3 rounded-md border p-4">
       <h2 className="text-sm font-medium">New environment</h2>
       <CommandAlert
         error={create.error}
         title="Could not create the environment"
       />
-      <div className="flex flex-col gap-1.5">
+      <div className="flex min-w-0 flex-col gap-1.5">
         <Label htmlFor="new-env-name">Name</Label>
         <Input
           id="new-env-name"
@@ -68,7 +68,7 @@ function CreateEnvironmentForm({ onClose }: { onClose: () => void }) {
           onChange={(e) => setName(e.target.value)}
         />
       </div>
-      <div className="flex flex-col gap-1.5">
+      <div className="flex min-w-0 flex-col gap-1.5">
         <Label htmlFor="new-env-slug">Slug</Label>
         <Input
           id="new-env-slug"
@@ -76,7 +76,7 @@ function CreateEnvironmentForm({ onClose }: { onClose: () => void }) {
           onChange={(e) => setSlug(e.target.value)}
         />
       </div>
-      <div className="flex flex-col gap-1.5">
+      <div className="flex min-w-0 flex-col gap-1.5">
         <Label htmlFor="new-env-type">Type</Label>
         <Input
           id="new-env-type"
@@ -84,7 +84,7 @@ function CreateEnvironmentForm({ onClose }: { onClose: () => void }) {
           onChange={(e) => setType(e.target.value)}
         />
       </div>
-      <div className="flex flex-col gap-1.5">
+      <div className="flex min-w-0 flex-col gap-1.5">
         <Label htmlFor="new-env-description">Description</Label>
         <Textarea
           id="new-env-description"
@@ -92,7 +92,7 @@ function CreateEnvironmentForm({ onClose }: { onClose: () => void }) {
           onChange={(e) => setDescription(e.target.value)}
         />
       </div>
-      <div className="flex flex-col gap-1.5">
+      <div className="flex min-w-0 flex-col gap-1.5">
         <Label htmlFor="new-env-color">Color</Label>
         <Input
           id="new-env-color"
@@ -214,7 +214,7 @@ export function AuthEnvironmentsPage() {
   ]
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Environments"
         actions={
@@ -317,7 +317,7 @@ export function AuthEnvironmentsPage() {
         onConfirm={() => void confirmClone()}
         description="Copies its settings into a new environment under the same app."
       >
-        <div className="flex flex-col gap-1.5">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <Label htmlFor="clone-env-name">New name</Label>
           <Input
             id="clone-env-name"
@@ -325,7 +325,7 @@ export function AuthEnvironmentsPage() {
             onChange={(e) => setCloneName(e.target.value)}
           />
         </div>
-        <div className="flex flex-col gap-1.5">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <Label htmlFor="clone-env-slug">New slug</Label>
           <Input
             id="clone-env-slug"
@@ -333,7 +333,7 @@ export function AuthEnvironmentsPage() {
             onChange={(e) => setCloneSlug(e.target.value)}
           />
         </div>
-        <div className="flex flex-col gap-1.5">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <Label htmlFor="clone-env-type">Type</Label>
           <Input
             id="clone-env-type"

@@ -37,7 +37,7 @@ export function Panel({
 }) {
   return (
     <Card className={cn("min-w-0 gap-0 py-0", className)}>
-      <CardHeader className="flex flex-row items-center justify-between gap-4 border-b px-5 py-4">
+      <CardHeader className="flex flex-row items-center justify-between gap-4 border-b px-4 py-3">
         <div className="min-w-0 space-y-1">
           <CardTitle>
             <h2>{title}</h2>
@@ -46,7 +46,7 @@ export function Panel({
         </div>
         {actions}
       </CardHeader>
-      <CardContent className="p-5">{children}</CardContent>
+      <CardContent className="p-4">{children}</CardContent>
     </Card>
   )
 }
@@ -83,7 +83,7 @@ export function ResourceTable<Row>({
       className={cn(
         appearance === "quiet"
           ? "min-w-0 [&_caption]:sr-only [&_tbody_tr]:border-0 [&_tbody_tr:nth-child(odd)]:bg-muted/25 [&_td]:px-3 [&_td]:py-2 [&_td_a]:no-underline [&_td_a]:hover:underline [&_th]:h-8 [&_th]:px-3 [&_thead_tr]:border-0"
-          : "min-w-0 overflow-hidden rounded-md border bg-card [&_caption]:m-0 [&_caption]:border-t [&_caption]:px-5 [&_caption]:py-3 [&_caption]:text-left [&_caption]:text-xs [&_td_a]:no-underline [&_td_a]:hover:underline",
+          : "min-w-0 overflow-hidden rounded-md border bg-card [&_caption]:m-0 [&_caption]:border-t [&_caption]:px-4 [&_caption]:py-3 [&_caption]:text-left [&_caption]:text-xs [&_td_a]:no-underline [&_td_a]:hover:underline",
         props.className
       )}
     />
@@ -101,7 +101,7 @@ export function DescriptionList({ items, className }: DescriptionListProps) {
       {items.map(({ term, value }) => (
         <div
           key={term}
-          className="grid min-w-0 gap-2 px-5 py-3 @lg/main:grid-cols-[minmax(8rem,1fr)_minmax(0,2fr)]"
+          className="grid min-w-0 gap-2 px-4 py-3 @lg/main:grid-cols-[minmax(8rem,1fr)_minmax(0,2fr)]"
         >
           <dt className="text-muted-foreground">{term}</dt>
           <dd className="min-w-0 [overflow-wrap:anywhere] break-words">

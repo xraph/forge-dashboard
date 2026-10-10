@@ -38,7 +38,7 @@ export function LedgerInvoicesPage() {
       : listEmptyMessage("invoices", page, statusLabel)
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Invoices"
         description="Newest first. Generate one from a subscription's page."
@@ -78,7 +78,7 @@ export function LedgerInvoicesPage() {
         {(data) => {
           const rows = data.items ?? []
           return (
-            <div className="flex flex-col gap-3">
+            <div className="flex min-w-0 flex-col gap-3">
               <ResourceTable<Invoice>
                 columns={columns}
                 rows={rows}

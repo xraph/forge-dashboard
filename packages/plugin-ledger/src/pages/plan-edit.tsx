@@ -36,7 +36,7 @@ function PlanEditBody({ id }: { id: string }) {
   }
 
   const form = (p: Plan) => (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title={`Edit ${p.name}`}
         description="Price and feature changes apply from the next invoice. Existing invoices are not recalculated."

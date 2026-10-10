@@ -441,7 +441,7 @@ export function WardenResourceTypeDetailPage({ params }: PluginPageProps) {
         const relations = rt.relations ?? []
         const permissions = rt.permissions ?? []
         return (
-          <section className="flex flex-col gap-6">
+          <section className="flex min-w-0 flex-col gap-4">
             <PageHeader
               title={rt.name}
               actions={
@@ -543,7 +543,7 @@ function RelationsTable({ relations }: { relations: RelationDef[] }) {
     },
   ]
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex min-w-0 flex-col gap-2">
       <ResourceTable<RelationDef>
         columns={columns}
         rows={relations}
@@ -626,7 +626,7 @@ function ExpressionCell({
 }) {
   const analysis = analyseExpression(expression, relations, permissions)
   return (
-    <div className="flex flex-col gap-1">
+    <div className="flex min-w-0 flex-col gap-1">
       {expression.trim() === "" ? (
         <NoneCell label="expression" />
       ) : (
@@ -638,7 +638,7 @@ function ExpressionCell({
         </Warning>
       )}
       {analysis.undeclared.map((u) => (
-        <div key={u.name} className="flex flex-col gap-1">
+        <div key={u.name} className="flex min-w-0 flex-col gap-1">
           <Warning>{undeclaredWarning(u)}</Warning>
           {u.negated && <Warning>{negatedWarning(u.name)}</Warning>}
         </div>
@@ -812,14 +812,14 @@ function EditForm({
   const orphans = diagnostics.filter((d) => !submittedNames.has(d.permission))
 
   return (
-    <div className="flex flex-col gap-4 rounded-md border p-4">
+    <div className="flex min-w-0 flex-col gap-4 rounded-md border p-4">
       <p className="text-sm text-muted-foreground">
         The name and namespace cannot change, because tuples name a type by its
         name. Only what you change is saved. A list you leave alone stays as it
         is, and removing every row of one clears it.
       </p>
 
-      <div className="flex flex-col gap-1.5">
+      <div className="flex min-w-0 flex-col gap-1.5">
         <label
           htmlFor="resource-type-edit-description"
           className="text-sm font-medium"
@@ -833,7 +833,7 @@ function EditForm({
         />
       </div>
 
-      <fieldset className="flex flex-col gap-2">
+      <fieldset className="flex min-w-0 flex-col gap-2">
         <legend className="text-sm font-medium">Relations</legend>
         <p className="text-xs text-muted-foreground">
           Each relation lists the subject types it allows, separated by commas.
@@ -898,7 +898,7 @@ function EditForm({
         </div>
       </fieldset>
 
-      <fieldset className="flex flex-col gap-2">
+      <fieldset className="flex min-w-0 flex-col gap-2">
         <legend className="text-sm font-medium">Permissions</legend>
         <p className="text-xs text-muted-foreground">
           An expression combines relations with or, and, not, and parentheses,
@@ -918,7 +918,7 @@ function EditForm({
               key={row.key}
               role="group"
               aria-label={`Permission ${i + 1}`}
-              className="flex flex-col gap-1.5"
+              className="flex min-w-0 flex-col gap-1.5"
             >
               <div className="flex gap-2">
                 <Input
@@ -967,7 +967,7 @@ function EditForm({
               {rowDiagnostics.length > 0 && (
                 <div
                   id={describedBy}
-                  className="flex flex-col gap-1 text-xs text-destructive"
+                  className="flex min-w-0 flex-col gap-1 text-xs text-destructive"
                 >
                   {rowDiagnostics.map((d, n) => {
                     const where = locationOf(d)
@@ -979,7 +979,7 @@ function EditForm({
                       d.col >= 1 &&
                       row.expression.trim() === sent.expression
                     return (
-                      <div key={n} className="flex flex-col gap-0.5">
+                      <div key={n} className="flex min-w-0 flex-col gap-0.5">
                         <p>{where ? `At ${where}: ${d.message}` : d.message}</p>
                         {pointer && (
                           <pre aria-hidden className="font-mono">
@@ -1009,7 +1009,7 @@ function EditForm({
       </fieldset>
 
       {orphans.length > 0 && (
-        <ul className="flex flex-col gap-1 text-xs text-destructive">
+        <ul className="flex min-w-0 flex-col gap-1 text-xs text-destructive">
           {orphans.map((d, n) => {
             const where = locationOf(d)
             return (

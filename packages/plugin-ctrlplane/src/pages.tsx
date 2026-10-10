@@ -124,7 +124,7 @@ function Toolbar({
   return (
     <div className="flex flex-wrap items-end gap-2">
       {filters.map((name) => (
-        <label key={name} className="flex flex-col gap-1 text-xs">
+        <label key={name} className="flex min-w-0 flex-col gap-1 text-xs">
           {label(name)}
           <Input
             className="w-40"

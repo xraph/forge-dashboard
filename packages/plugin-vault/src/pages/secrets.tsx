@@ -144,7 +144,7 @@ export const SecretsPage: ComponentType<PluginPageProps> = () => {
   })
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Secrets"
         description="Values are write-only: you can set and replace them here, never read them back."

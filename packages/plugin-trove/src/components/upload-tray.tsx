@@ -103,7 +103,7 @@ export function UploadDropZone({
 
   return (
     <div
-      className="relative flex h-full min-h-0 flex-col gap-3"
+      className="relative flex h-full min-h-0 min-w-0 flex-col gap-3"
       onDragEnter={onDragOver}
       onDragOver={onDragOver}
       onDragLeave={(e) => {
@@ -118,7 +118,7 @@ export function UploadDropZone({
       {children}
       {refusal ? <p className="text-sm text-destructive">{refusal}</p> : null}
       {dragging ? (
-        <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-1 rounded-md border-2 border-dashed bg-background/90 text-sm">
+        <div className="pointer-events-none absolute inset-0 flex min-w-0 flex-col items-center justify-center gap-1 rounded-md border-2 border-dashed bg-background/90 text-sm">
           <span>Drop files to upload to</span>
           <span className="font-mono text-xs">{`${bucket}/${folder}`}</span>
           {maxBytes !== null ? (
@@ -186,7 +186,7 @@ export function UploadTray() {
   return (
     <section
       aria-label="Uploads"
-      className="flex flex-col gap-2 rounded-md border p-3"
+      className="flex min-w-0 flex-col gap-2 rounded-md border p-3"
     >
       <div className="flex items-center justify-between gap-2">
         <h3 className="text-sm font-medium">{`Uploads (${uploads.length})`}</h3>
@@ -199,13 +199,13 @@ export function UploadTray() {
         ) : null}
       </div>
       <ul
-        className="flex flex-col gap-2 overflow-auto"
+        className="flex min-w-0 flex-col gap-2 overflow-auto"
         style={{ maxHeight: "12rem" }}
       >
         {uploads.map((u) => {
           const pct = u.size > 0 ? Math.round((u.loaded / u.size) * 100) : 0
           return (
-            <li key={u.id} className="flex flex-col gap-1">
+            <li key={u.id} className="flex min-w-0 flex-col gap-1">
               <div className="flex items-center justify-between gap-2">
                 <span
                   className="block max-w-sm truncate font-mono text-xs"

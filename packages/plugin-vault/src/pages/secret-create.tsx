@@ -96,7 +96,7 @@ export const SecretCreatePage: ComponentType<PluginPageProps> = () => {
   const conflict = create.error?.code === "CONFLICT"
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="New secret"
         description="The value is write-only. Once you save it, it cannot be shown again."
@@ -121,9 +121,9 @@ export const SecretCreatePage: ComponentType<PluginPageProps> = () => {
       ) : null}
       <form
         onSubmit={(e) => void submit(e)}
-        className="flex max-w-lg flex-col gap-4"
+        className="flex max-w-lg min-w-0 flex-col gap-4"
       >
-        <div className="flex flex-col gap-1.5">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <Label htmlFor="secret-key">Key</Label>
           <Input
             id="secret-key"
@@ -134,7 +134,7 @@ export const SecretCreatePage: ComponentType<PluginPageProps> = () => {
             onChange={(e) => setKey(e.target.value)}
           />
         </div>
-        <div className="flex flex-col gap-1.5">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <Label htmlFor="secret-value">Value</Label>
           {/*
             "new-password" rather than "off": browsers ignore "off" on
@@ -151,7 +151,7 @@ export const SecretCreatePage: ComponentType<PluginPageProps> = () => {
             onChange={(e) => setHasValue(e.target.value !== "")}
           />
         </div>
-        <div className="flex flex-col gap-1.5">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <Label htmlFor="secret-expires">Expires (optional)</Label>
           <Input
             id="secret-expires"

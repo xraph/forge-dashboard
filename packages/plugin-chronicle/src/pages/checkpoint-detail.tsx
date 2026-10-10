@@ -58,7 +58,7 @@ export const CheckpointDetailPage: ComponentType<PluginPageProps> = ({
   }
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title={id}
         description="A signed statement of how far the chain had reached when it was taken."
@@ -67,7 +67,7 @@ export const CheckpointDetailPage: ComponentType<PluginPageProps> = ({
         {({ checkpoint: cp }) => {
           const ownerId = cp.streamId || owningChain(cp, list.data)?.id
           return (
-            <div className="flex flex-col gap-6">
+            <div className="flex min-w-0 flex-col gap-4">
               <DescriptionList
                 items={[
                   {

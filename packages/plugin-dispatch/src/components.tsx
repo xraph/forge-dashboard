@@ -183,7 +183,7 @@ export function SettingValue({
   if (typeof value === "string") return <Text value={value} />
   if (Array.isArray(value))
     return value.length ? (
-      <ul className="flex flex-col gap-1">
+      <ul className="flex min-w-0 flex-col gap-1">
         {value.map((item, index) => (
           <li key={index}>
             <SettingValue value={item} rawKeys={rawKeys} />

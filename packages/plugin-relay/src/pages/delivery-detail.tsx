@@ -32,7 +32,7 @@ export function RelayDeliveryDetailPage({ params }: PluginPageProps) {
 function DeliveryDetailView({ id }: { id: string }) {
   const query = useQuery<DeliveryDetail>("deliveries.detail", { id })
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <QueryBoundary title="Delivery" query={query} skeletonRows={6}>
         {(d) => (
           <>
@@ -48,7 +48,7 @@ function DeliveryDetailView({ id }: { id: string }) {
               main={
                 <section
                   aria-labelledby="retry-heading"
-                  className="flex flex-col gap-4"
+                  className="flex min-w-0 flex-col gap-4"
                 >
                   <h2 id="retry-heading" className="text-sm font-medium">
                     Retry sequence

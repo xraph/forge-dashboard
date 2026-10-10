@@ -92,11 +92,11 @@ function CaseDetailBody({ caseId }: { caseId: string }) {
   const [deleting, setDeleting] = useState(false)
   const [target, setTarget] = useState<TestCase | null>(null)
   return (
-    <section className="flex flex-col gap-6">
+    <section className="flex min-w-0 flex-col gap-4">
       <SettledBoundary title="Case" query={testCase} skeletonRows={5}>
         {(c) => (
-          <div className="flex flex-col gap-6">
-            <div className="flex flex-col gap-2">
+          <div className="flex min-w-0 flex-col gap-4">
+            <div className="flex min-w-0 flex-col gap-2">
               <PageHeader
                 title={c.name}
                 actions={
@@ -155,7 +155,7 @@ function CaseDetailBody({ caseId }: { caseId: string }) {
             />
             <section
               aria-labelledby="sentinel-case-input"
-              className="flex flex-col gap-2"
+              className="flex min-w-0 flex-col gap-2"
             >
               <h2 id="sentinel-case-input" className="text-sm font-medium">
                 Input
@@ -164,7 +164,7 @@ function CaseDetailBody({ caseId }: { caseId: string }) {
             </section>
             <section
               aria-labelledby="sentinel-case-expected"
-              className="flex flex-col gap-2"
+              className="flex min-w-0 flex-col gap-2"
             >
               <h2 id="sentinel-case-expected" className="text-sm font-medium">
                 Expected output
@@ -177,7 +177,7 @@ function CaseDetailBody({ caseId }: { caseId: string }) {
             </section>
             <section
               aria-labelledby="sentinel-case-scorers"
-              className="flex flex-col gap-2"
+              className="flex min-w-0 flex-col gap-2"
             >
               <h2 id="sentinel-case-scorers" className="text-sm font-medium">
                 Its own scorers
@@ -199,7 +199,7 @@ function CaseDetailBody({ caseId }: { caseId: string }) {
             {Object.keys(c.context).length > 0 && (
               <section
                 aria-labelledby="sentinel-case-context"
-                className="flex flex-col gap-2"
+                className="flex min-w-0 flex-col gap-2"
               >
                 <h2 id="sentinel-case-context" className="text-sm font-medium">
                   Context
@@ -213,7 +213,7 @@ function CaseDetailBody({ caseId }: { caseId: string }) {
             {Object.keys(c.metadata).length > 0 && (
               <section
                 aria-labelledby="sentinel-case-metadata"
-                className="flex flex-col gap-2"
+                className="flex min-w-0 flex-col gap-2"
               >
                 <h2 id="sentinel-case-metadata" className="text-sm font-medium">
                   Metadata

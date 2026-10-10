@@ -323,7 +323,7 @@ function FieldView({
     )
   if (field.kind === "array" && Array.isArray(value) && value.length)
     return (
-      <div className="grid gap-2">
+      <div className="grid min-w-0 gap-2">
         {value.map((v, i) => (
           <div key={i} className="rounded-md border p-3">
             <FieldView field={field.item!} value={v} owner={owner} />
@@ -337,7 +337,7 @@ function FieldView({
         {field.fields?.map((f) => (
           <div
             key={f.key}
-            className="grid gap-1 sm:grid-cols-[10rem_minmax(0,1fr)]"
+            className="grid min-w-0 gap-1 sm:grid-cols-[10rem_minmax(0,1fr)]"
           >
             <dt className="text-xs text-muted-foreground">{f.label}</dt>
             <dd className="min-w-0 text-sm">
@@ -450,7 +450,7 @@ function AgentActivity({ agent }: { agent: Agent }) {
   }>("agents.stats", { id: agent.id })
   usePoll(stats.refetch)
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex min-w-0 flex-col gap-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-sm font-medium">Execution</h2>
         <div className="flex flex-wrap gap-1">

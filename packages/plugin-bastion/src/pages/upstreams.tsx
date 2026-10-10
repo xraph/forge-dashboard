@@ -72,7 +72,7 @@ export const BastionUpstreamsPage: ComponentType<PluginPageProps> = () => {
   const list = useQuery<UpstreamsList>("upstreams.list")
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Upstreams"
         description="Each upstream once, however many routes use it. An upstream is healthy only when every route's entry for it is."

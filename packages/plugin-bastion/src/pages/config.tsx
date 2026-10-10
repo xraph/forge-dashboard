@@ -13,7 +13,7 @@ function Section({ s }: { s: ConfigSection }) {
   return (
     <section
       aria-labelledby={headingId}
-      className="flex flex-col gap-2 rounded-lg border p-4"
+      className="flex min-w-0 flex-col gap-2 rounded-lg border p-4"
     >
       <h2
         id={headingId}
@@ -50,14 +50,14 @@ export const BastionConfigPage: ComponentType<PluginPageProps> = () => {
   const query = useQuery<ConfigDetail>("config.detail")
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Config"
         description="The gateway's running configuration. Paths to keys and certificates show only as set or not set, and IP lists only as counts."
       />
       <QueryBoundary title="Config" query={query} skeletonRows={6}>
         {(c) => (
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid min-w-0 gap-4 md:grid-cols-2">
             {c.sections.map((s) => (
               <Section key={s.id} s={s} />
             ))}

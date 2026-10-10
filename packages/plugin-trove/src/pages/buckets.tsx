@@ -91,7 +91,7 @@ export const BucketsPage: ComponentType<PluginPageProps> = () => {
   }
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Buckets"
         description="Buckets as the driver reports them."
@@ -171,7 +171,10 @@ function CreateBucketDialog({
   return (
     <Dialog open onOpenChange={(next) => !next && !create.loading && onClose()}>
       <DialogContent>
-        <form onSubmit={(e) => void submit(e)} className="flex flex-col gap-4">
+        <form
+          onSubmit={(e) => void submit(e)}
+          className="flex min-w-0 flex-col gap-4"
+        >
           <DialogHeader>
             <DialogTitle>Create a bucket</DialogTitle>
             <DialogDescription>
@@ -182,7 +185,7 @@ function CreateBucketDialog({
             error={create.error}
             title="Could not create the bucket"
           />
-          <div className="flex flex-col gap-1.5">
+          <div className="flex min-w-0 flex-col gap-1.5">
             <Label htmlFor="bucket-name">Name</Label>
             <Input
               id="bucket-name"

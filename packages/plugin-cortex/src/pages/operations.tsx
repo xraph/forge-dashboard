@@ -189,7 +189,7 @@ function ResumePanel({ detail }: { detail: RunDetail }) {
     )
   return (
     <form
-      className="grid gap-3 rounded-md border p-3"
+      className="grid min-w-0 gap-3 rounded-md border p-3"
       onSubmit={async (e) => {
         e.preventDefault()
         await cmd.execute({
@@ -203,7 +203,7 @@ function ResumePanel({ detail }: { detail: RunDetail }) {
     >
       <h2 className="text-sm font-medium">External tool results</h2>
       {pending.map((p) => (
-        <div key={p.id} className="grid gap-2">
+        <div key={p.id} className="grid min-w-0 gap-2">
           <p className="text-sm">
             {p.name} · <code>{p.id}</code>
           </p>
@@ -307,7 +307,7 @@ export function RunPage({ id }: { id: string }) {
               <ScopeLine scope={data.run.scope} />
             </div>
             <AuditDates created={data.run.created_at} />
-            <div className="grid grid-cols-2 gap-3 text-sm">
+            <div className="grid min-w-0 grid-cols-2 gap-3 text-sm">
               <p>{data.run.step_count} steps</p>
               <p>{data.run.tokens_used} tokens</p>
             </div>
@@ -356,7 +356,7 @@ export function RunPage({ id }: { id: string }) {
                   {(data.tool_calls[step.id] ?? []).map((call) => (
                     <div
                       key={call.id}
-                      className="grid gap-2 rounded-md bg-muted/30 p-3"
+                      className="grid min-w-0 gap-2 rounded-md bg-muted/30 p-3"
                     >
                       <h4 className="text-sm font-medium">{call.tool_name}</h4>
                       <Code
@@ -442,7 +442,7 @@ export function CheckpointsPage() {
     })
   usePoll(q.refetch)
   return (
-    <section className="flex flex-col gap-3">
+    <section className="flex min-w-0 flex-col gap-3">
       <PageHeader
         title="Pending approvals"
         description="Review the stored context before allowing a paused tool call."
@@ -472,7 +472,7 @@ export function CheckpointPage({ id }: { id: string }) {
     cmd = useCommand("checkpoints.resolve"),
     allowed = useAccess("approve")
   return (
-    <section className="flex flex-col gap-3">
+    <section className="flex min-w-0 flex-col gap-3">
       <Back to="/checkpoints" label="pending approvals" />
       <QueryBoundary title="Checkpoint" query={q} keepPreviousData>
         {(data) => (
@@ -639,13 +639,13 @@ export function SessionsPage({ agentId }: { agentId?: string }) {
     })
   usePoll(q.refetch)
   return (
-    <section className="flex flex-col gap-3">
+    <section className="flex min-w-0 flex-col gap-3">
       <PageHeader
         title="Sessions and memory"
         description="Persistent conversations with stable IDs, message counts and scoped history."
         actions={<Reload onClick={q.refetch} />}
       />
-      <div className="grid gap-3 md:grid-cols-2">
+      <div className="grid min-w-0 gap-3 md:grid-cols-2">
         <AgentPicker
           selected={agent}
           onChange={(v) => {
@@ -904,7 +904,7 @@ function IntegrationSummary() {
     }
   }>("safety.scans", { limit: 1, offset: 0 })
   return (
-    <div className="grid gap-2 text-xs sm:grid-cols-2">
+    <div className="grid min-w-0 gap-2 text-xs sm:grid-cols-2">
       <QueryBoundary
         title="Knowledge summary"
         query={knowledge}
@@ -1000,7 +1000,7 @@ export function OverviewPage() {
       <IntegrationSummary />
       <QueryBoundary title="Pending approvals" query={checks} keepPreviousData>
         {(data) => (
-          <div className="flex flex-col gap-2">
+          <div className="flex min-w-0 flex-col gap-2">
             <div className="flex justify-between text-sm">
               <h2 className="font-medium">Pending approvals</h2>
               <PluginLink to="/checkpoints" className="underline">
@@ -1019,7 +1019,7 @@ export function OverviewPage() {
       </QueryBoundary>
       <QueryBoundary title="Recent runs" query={runs} keepPreviousData>
         {(data) => (
-          <div className="flex flex-col gap-2">
+          <div className="flex min-w-0 flex-col gap-2">
             <h2 className="text-sm font-medium">Recent runs</h2>
             <ResourceTable
               rows={data.items}

@@ -84,7 +84,7 @@ export const CollectionCreatePage: ComponentType<PluginPageProps> = () => {
   }
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="New collection"
         description="A collection groups documents that are chunked and embedded the same way."
@@ -95,9 +95,9 @@ export const CollectionCreatePage: ComponentType<PluginPageProps> = () => {
       />
       <form
         onSubmit={(e) => void submit(e)}
-        className="flex max-w-2xl flex-col gap-4"
+        className="flex max-w-2xl min-w-0 flex-col gap-4"
       >
-        <div className="flex flex-col gap-1.5">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <Label htmlFor="collection-name">Name</Label>
           <Input
             id="collection-name"
@@ -110,7 +110,7 @@ export const CollectionCreatePage: ComponentType<PluginPageProps> = () => {
             tenant.
           </p>
         </div>
-        <div className="flex flex-col gap-1.5">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <Label htmlFor="collection-description">Description</Label>
           <Textarea
             id="collection-description"
@@ -119,8 +119,8 @@ export const CollectionCreatePage: ComponentType<PluginPageProps> = () => {
             onChange={(e) => setDescription(e.target.value)}
           />
         </div>
-        <div className="grid grid-cols-2 gap-4">
-          <div className="flex flex-col gap-1.5">
+        <div className="grid min-w-0 grid-cols-2 gap-4">
+          <div className="flex min-w-0 flex-col gap-1.5">
             <Label htmlFor="collection-size">Chunk size</Label>
             <Input
               id="collection-size"
@@ -138,7 +138,7 @@ export const CollectionCreatePage: ComponentType<PluginPageProps> = () => {
                 : null}
             </p>
           </div>
-          <div className="flex flex-col gap-1.5">
+          <div className="flex min-w-0 flex-col gap-1.5">
             <Label htmlFor="collection-overlap">Chunk overlap</Label>
             <Input
               id="collection-overlap"
@@ -170,7 +170,7 @@ export const CollectionCreatePage: ComponentType<PluginPageProps> = () => {
             {problem}
           </p>
         ) : null}
-        <div className="flex flex-col gap-1.5">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <span className="text-sm font-medium">Metadata</span>
           <MetadataEditor rows={rows} onChange={setRows} />
           {"error" in meta ? (
@@ -179,7 +179,7 @@ export const CollectionCreatePage: ComponentType<PluginPageProps> = () => {
             </p>
           ) : null}
         </div>
-        <section className="flex flex-col gap-1 rounded-md border p-3 text-sm">
+        <section className="flex min-w-0 flex-col gap-1 rounded-md border p-3 text-sm">
           <h2 className="font-medium">Recorded, not used</h2>
           <QueryBoundary
             title="What this deployment runs"

@@ -62,7 +62,7 @@ export const BastionServicesPage: ComponentType<PluginPageProps> = () => {
   const list = useQuery<ServicesList>("services.list")
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Services"
         description="Services discovery found, and how many routes it built for each."

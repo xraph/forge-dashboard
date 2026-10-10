@@ -466,7 +466,7 @@ export function Fields({
   setValues: (value: Row) => void
 }) {
   return (
-    <div className="grid grid-cols-1 gap-x-3 gap-y-2 sm:grid-cols-2">
+    <div className="grid min-w-0 grid-cols-1 gap-x-3 gap-y-2 sm:grid-cols-2">
       {fields.map((field) => (
         <div
           key={field.key}

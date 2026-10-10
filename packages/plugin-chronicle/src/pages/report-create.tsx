@@ -49,7 +49,7 @@ export const ReportCreatePage: ComponentType<PluginPageProps> = () => {
   }
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Generate a report"
         description="The report reads this scope's events for the period and runs an integrity check over the chain when it is generated."
@@ -60,9 +60,9 @@ export const ReportCreatePage: ComponentType<PluginPageProps> = () => {
       />
       <form
         onSubmit={(e) => void submit(e)}
-        className="flex max-w-lg flex-col gap-4"
+        className="flex max-w-lg min-w-0 flex-col gap-4"
       >
-        <div className="flex flex-col gap-1.5">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <Label htmlFor="report-type">Report type</Label>
           <NativeSelect
             id="report-type"

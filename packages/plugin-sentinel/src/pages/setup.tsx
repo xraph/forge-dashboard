@@ -76,18 +76,18 @@ const scorerColumns: Column<ScorerInfo>[] = [
 export const SetupPage: ComponentType<PluginPageProps> = () => {
   const config = useQuery<SentinelConfig>("config.get")
   return (
-    <section className="flex flex-col gap-6">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Setup"
         description="The configuration this engine runs with, the targets a run can call, and the scorers that can judge one."
       />
       <QueryBoundary title="Setup" query={config} skeletonRows={6}>
         {(data) => (
-          <div className="flex flex-col gap-6">
+          <div className="flex min-w-0 flex-col gap-4">
             {data.targets.length === 0 && <NoTargetNotice />}
             <section
               aria-labelledby="sentinel-setup-config"
-              className="flex flex-col gap-2"
+              className="flex min-w-0 flex-col gap-2"
             >
               <h2 id="sentinel-setup-config" className="text-sm font-medium">
                 Engine configuration
@@ -121,7 +121,7 @@ export const SetupPage: ComponentType<PluginPageProps> = () => {
             </section>
             <section
               aria-labelledby="sentinel-setup-targets"
-              className="flex flex-col gap-2"
+              className="flex min-w-0 flex-col gap-2"
             >
               <h2 id="sentinel-setup-targets" className="text-sm font-medium">
                 Targets
@@ -136,7 +136,7 @@ export const SetupPage: ComponentType<PluginPageProps> = () => {
             </section>
             <section
               aria-labelledby="sentinel-setup-scorers"
-              className="flex flex-col gap-2"
+              className="flex min-w-0 flex-col gap-2"
             >
               <h2 id="sentinel-setup-scorers" className="text-sm font-medium">
                 Scorers
@@ -165,7 +165,7 @@ function NoTargetNotice() {
   return (
     <div
       role="note"
-      className="flex flex-col gap-1 rounded-md border px-4 py-3 text-sm"
+      className="flex min-w-0 flex-col gap-1 rounded-md border px-4 py-3 text-sm"
     >
       <span className="font-medium">
         No target is registered, so no run can start.

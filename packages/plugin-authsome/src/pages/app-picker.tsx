@@ -66,7 +66,7 @@ export function AuthAppPicker() {
   ]
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Choose an app"
         description="Pick an app to scope its users, roles, sessions and devices. Switching apps clears the current environment, and most of the rest of this dashboard keeps answering for the platform app regardless of what you pick here."

@@ -106,7 +106,7 @@ export const MiddlewarePage: ComponentType<PluginPageProps> = () => {
   }
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Middleware"
         description="Every middleware registered on this store, in the order it runs. This is the configuration now. Trove records nothing about how an existing object was written."
@@ -114,7 +114,7 @@ export const MiddlewarePage: ComponentType<PluginPageProps> = () => {
       />
 
       <form onSubmit={submit} className="flex flex-wrap items-end gap-3">
-        <div className="flex flex-col gap-1.5">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <Label htmlFor="mw-bucket">Bucket</Label>
           <Input
             id="mw-bucket"
@@ -125,7 +125,7 @@ export const MiddlewarePage: ComponentType<PluginPageProps> = () => {
             onChange={(e) => setBucket(e.target.value)}
           />
         </div>
-        <div className="flex flex-col gap-1.5">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <Label htmlFor="mw-key">Key</Label>
           <Input
             id="mw-key"

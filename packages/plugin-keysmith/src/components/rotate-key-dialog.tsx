@@ -364,7 +364,7 @@ function RotateKeyForm({
             aria-label="Reason"
             value={reason}
             onValueChange={(v) => changeReason(v as RotationReason)}
-            className="flex flex-col gap-2"
+            className="flex min-w-0 flex-col gap-2"
           >
             {REASONS.map((r) => (
               <Label key={r.value} className="font-normal">

@@ -54,13 +54,13 @@ export function ContextView({
   }
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex min-w-0 flex-col gap-3">
       <p className="text-sm text-muted-foreground">
         Built by Weave's default assembler (token counts are estimates:
         characters ÷ 4). Your app may assemble its own way.
       </p>
       <div className="flex flex-wrap items-end gap-2">
-        <div className="flex flex-col gap-1">
+        <div className="flex min-w-0 flex-col gap-1">
           <Label htmlFor="context-budget">Token budget</Label>
           <Input
             id="context-budget"

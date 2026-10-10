@@ -65,7 +65,7 @@ export function settingsPanelFor(
     }
 
     return (
-      <section className="flex min-w-0 flex-col gap-6">
+      <section className="flex min-w-0 flex-col gap-4">
         {params !== undefined && (
           <PageHeader
             title={label}

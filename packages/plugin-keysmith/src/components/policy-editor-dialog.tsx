@@ -519,7 +519,7 @@ function PolicyForm({
             </FieldDescription>
           )}
           <FieldGroup>
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid min-w-0 gap-4 sm:grid-cols-2">
               {durationField(
                 "maxKeyLifetime",
                 "Max key lifetime",
@@ -547,7 +547,7 @@ function PolicyForm({
           <FieldDescription>
             {rateLimiterLine(rateLimiterConfigured)}
           </FieldDescription>
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid min-w-0 gap-4 sm:grid-cols-2">
             {countField("rateLimit", "Rate limit", "No limit")}
             {durationField("rateLimitWindow", "Window")}
           </div>
@@ -564,7 +564,7 @@ function PolicyForm({
             <ApplicationGroupLine />
           </FieldDescription>
           <FieldGroup>
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid min-w-0 gap-4 sm:grid-cols-2">
               {countField("burstLimit", "Burst limit", "No limit")}
               {durationField("rotationPeriod", "Rotation period", "None")}
               {countField("dailyQuota", "Daily quota", "No quota")}
