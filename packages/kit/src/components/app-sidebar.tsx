@@ -1,5 +1,5 @@
 import * as React from "react"
-import { Fragment } from "react"
+import { NavigationSection } from "@forge-go/dashboard-kit/components/navigation-section"
 import type { ReactElement, ReactNode } from "react"
 
 import { NavTree } from "@forge-go/dashboard-kit/components/nav-tree"
@@ -9,7 +9,6 @@ import type {
   NavGroup,
   NavNode,
 } from "@forge-go/dashboard-kit/components/nav-tree"
-import { SectionLabel } from "@forge-go/dashboard-kit/components/section-label"
 import {
   Sidebar,
   SidebarContent,
@@ -106,9 +105,8 @@ function EmptyNotice({
 
 /**
  * The secondary sidebar: the pages of the rail entry you are in, one section
- * per group. A section's label stays on screen as vertical text when the
- * sidebar collapses to icons. NavMain draws each section's rows; it is handed
- * one unlabelled group at a time so the label here is the only one.
+ * per group. Each heading folds its destinations. NavMain draws the rows
+ * from one unlabelled group at a time so the heading here is the only one.
  */
 export function AppSidebar({
   areas,
@@ -123,7 +121,7 @@ export function AppSidebar({
   mobileFooter,
   ...props
 }: AppSidebarProps) {
-  const { isMobile } = useSidebar()
+  const { isMobile, state } = useSidebar()
   const Navigation = navigationLayout === "collapsible" ? NavMain : NavTree
   const active =
     areas && areas.length > 0
@@ -140,7 +138,13 @@ export function AppSidebar({
 
   return (
     <Sidebar collapsible="offcanvas" {...props}>
-      <SidebarHeader>
+      <SidebarHeader
+        className={
+          isMobile
+            ? "gap-0 p-0"
+            : "h-(--header-height) justify-center border-b border-sidebar-border"
+        }
+      >
         {isMobile ? mobileHeader : null}
         {!isMobile && active ? (
           <div
@@ -151,28 +155,27 @@ export function AppSidebar({
           </div>
         ) : null}
       </SidebarHeader>
-      <SidebarContent>
+      <SidebarContent className="gap-1 px-3 group-data-[collapsible=icon]:px-2 [&_[data-slot=sidebar-group]]:p-0 [&_[data-slot=sidebar-menu]]:gap-px">
         {empty ? (
           <EmptyNotice {...empty} search={search} renderLink={renderLink} />
         ) : null}
         {shown.map((group, index) => (
-          <Fragment key={`${group.label ?? ""}:${index}`}>
-            {group.label ? (
-              <div className="px-2 pt-2">
-                <SectionLabel>{group.label}</SectionLabel>
-              </div>
-            ) : null}
+          <NavigationSection
+            key={`${group.label ?? ""}:${index}`}
+            label={isMobile || state === "expanded" ? group.label : undefined}
+            navigationKey={currentPath}
+          >
             <Navigation
               groups={[{ ...group, label: undefined }]}
               currentPath={holdsHref(group, winner) ? currentPath : ""}
               search={search}
               renderLink={renderLink}
             />
-          </Fragment>
+          </NavigationSection>
         ))}
       </SidebarContent>
       {isMobile && mobileFooter ? (
-        <SidebarFooter>{mobileFooter}</SidebarFooter>
+        <SidebarFooter className="mx-3 px-0 py-3">{mobileFooter}</SidebarFooter>
       ) : null}
       {navigationLayout === "collapsible" && <SidebarRail />}
     </Sidebar>

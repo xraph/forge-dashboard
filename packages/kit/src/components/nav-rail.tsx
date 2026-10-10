@@ -1,4 +1,6 @@
 import { Fragment } from "react"
+import { SidebarBrand } from "@forge-go/dashboard-kit/components/sidebar-brand"
+import { NavigationSection } from "@forge-go/dashboard-kit/components/navigation-section"
 import type { ReactNode } from "react"
 
 import { cn } from "@forge-go/dashboard-kit/lib/utils"
@@ -21,7 +23,7 @@ export interface RailGroup {
 }
 
 export interface NavRailProps {
-  /** The scope switcher. */
+  /** The scope switcher, pinned with the account menu. */
   switcher?: ReactNode
   /** The scope's context control (App / Environment). Absent for a scope with none. */
   context?: ReactNode
@@ -85,45 +87,14 @@ function RailSlot({
 }
 
 /**
- * Fits the host's search trigger to the rail. That trigger is an outline
- * Button built for the old sidebar header: indented, 36px tall, white with a
- * shadow. Here it should read like the context control above it: full width,
- * 32px, sidebar-toned, no shadow. Narrow, it keeps its own 32px square.
+ * Fits the host's search trigger to the reference's flat navigation row.
+ * Wide, it fills the row. Narrow, it keeps its own 32px square.
  */
 const SEARCH_SLOT =
-  "[&>button]:mx-0 [&>button]:border-sidebar-border [&>button]:bg-transparent [&>button]:shadow-none [&>button]:text-sidebar-foreground/70 [&>button]:hover:bg-sidebar-accent [&>button]:hover:text-sidebar-accent-foreground"
+  "[&>button]:mx-0 [&>button]:border-transparent [&>button]:bg-transparent [&>button]:shadow-none [&>button]:text-sidebar-foreground/70 [&>button]:hover:bg-sidebar-accent [&>button]:hover:text-sidebar-accent-foreground [&_kbd]:rounded-[3px] [&_kbd]:border [&_kbd]:border-sidebar-border [&_kbd]:px-1"
 
 /** Wide rail only: the trigger fills the row at the context control's height. */
 const SEARCH_SLOT_WIDE = "[&>button]:h-8 [&>button]:w-full [&>button]:px-2"
-
-/**
- * The rail's right border, made clickable: a 16px strip straddling it with a
- * 2px line that shows on hover and focus. A real button in the tab order,
- * because it is the rail's only way to widen.
- */
-function RailEdgeToggle({
-  expanded,
-  onToggle,
-}: {
-  expanded: boolean
-  onToggle: () => void
-}) {
-  const name = expanded ? "Collapse navigation" : "Expand navigation"
-  return (
-    <button
-      type="button"
-      aria-expanded={expanded}
-      title={name}
-      onClick={onToggle}
-      className={cn(
-        "absolute inset-y-0 -right-2 z-20 flex w-4 outline-hidden after:absolute after:inset-y-0 after:left-1/2 after:w-[2px] after:transition-colors hover:after:bg-sidebar-ring focus-visible:after:bg-sidebar-ring",
-        expanded ? "cursor-w-resize" : "cursor-e-resize"
-      )}
-    >
-      <span className="sr-only">{name}</span>
-    </button>
-  )
-}
 
 /**
  * The far-left rail, after TwinOS Studio's AreaRail. A plain `nav`, not a
@@ -164,85 +135,119 @@ export function NavRail({
       data-state={expanded ? "expanded" : "collapsed"}
       data-collapsible={expanded ? "" : "icon"}
       className={cn(
-        "group sticky top-0 z-20 flex h-svh shrink-0 flex-col gap-1 border-r border-sidebar-border bg-sidebar py-2 text-sidebar-foreground transition-[width] duration-200 ease-linear",
-        expanded ? "w-(--sidebar-width) px-2" : "w-(--sidebar-width-icon)",
+        "group sticky top-0 z-20 flex h-svh shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground transition-[width] duration-200 ease-linear",
+        expanded ? "w-(--sidebar-width)" : "w-(--sidebar-width-icon)",
         column
       )}
     >
-      <RailEdgeToggle expanded={expanded} onToggle={onToggle} />
-      {switcher ? (
-        <RailSlot expanded={expanded} title="Switch scope">
-          {switcher}
-        </RailSlot>
-      ) : null}
-      {context ? (
-        <RailSlot expanded={expanded} title="App and environment">
-          {context}
-        </RailSlot>
-      ) : null}
-      {searchControl ? (
-        <RailSlot
-          expanded={expanded}
-          title="Search pages"
-          className={cn(SEARCH_SLOT, expanded && SEARCH_SLOT_WIDE)}
-        >
-          {searchControl}
-        </RailSlot>
-      ) : null}
+      <SidebarBrand expanded={expanded} onToggle={onToggle} />
       <div
         className={cn(
-          "relative mt-2 no-scrollbar flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto",
+          "flex shrink-0 flex-col gap-1",
+          expanded ? "px-3 pt-[18px] pb-[9px]" : "items-center px-2 py-2"
+        )}
+      >
+        {context ? (
+          <RailSlot expanded={expanded} title="App and environment">
+            {context}
+          </RailSlot>
+        ) : null}
+        {searchControl ? (
+          <RailSlot
+            expanded={expanded}
+            title="Search pages"
+            className={cn(SEARCH_SLOT, expanded && SEARCH_SLOT_WIDE)}
+          >
+            {searchControl}
+          </RailSlot>
+        ) : null}
+      </div>
+      <div
+        className={cn(
+          "relative no-scrollbar flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto",
+          expanded && "px-3",
           column
         )}
       >
         {groups.map((group, index) => (
           <Fragment key={`${group.label ?? ""}:${index}`}>
-            {expanded && group.label ? (
-              <span className="px-2 pt-3 pb-0.5 text-[10.5px] font-medium tracking-normal text-sidebar-foreground/50 uppercase">
-                {group.label}
-              </span>
-            ) : null}
             {!expanded && index > 0 ? (
               <span data-slot="rail-gap" aria-hidden="true" className="h-3" />
             ) : null}
-            <RailEntries
-              items={group.items}
-              label={group.label}
-              activeId={activeId}
-              renderLink={renderLink}
-              search={search}
-              expanded={expanded}
-            />
+            {expanded ? (
+              <NavigationSection label={group.label} navigationKey={activeId}>
+                <RailEntries
+                  items={group.items}
+                  label={group.label}
+                  activeId={activeId}
+                  renderLink={renderLink}
+                  search={search}
+                  expanded
+                />
+              </NavigationSection>
+            ) : (
+              <RailEntries
+                items={group.items}
+                label={group.label}
+                activeId={activeId}
+                renderLink={renderLink}
+                search={search}
+                expanded={expanded}
+              />
+            )}
           </Fragment>
         ))}
         {plugins.length > 0 ? (
           <>
-            {expanded ? (
-              <span className="px-2 pt-3 pb-0.5 text-[10.5px] font-medium tracking-normal text-sidebar-foreground/50 uppercase">
-                Plugins
-              </span>
-            ) : (
+            {!expanded ? (
               <span
                 data-slot="rail-divider"
                 aria-hidden="true"
                 className="my-2 w-5 border-t border-sidebar-border"
               />
+            ) : null}
+            {expanded ? (
+              <NavigationSection label="Plugins" navigationKey={activeId}>
+                <RailEntries
+                  items={plugins}
+                  label="Plugins"
+                  activeId={activeId}
+                  renderLink={renderLink}
+                  search={search}
+                  expanded
+                />
+              </NavigationSection>
+            ) : (
+              <RailEntries
+                items={plugins}
+                label="Plugins"
+                activeId={activeId}
+                renderLink={renderLink}
+                search={search}
+                expanded={expanded}
+              />
             )}
-            <RailEntries
-              items={plugins}
-              label="Plugins"
-              activeId={activeId}
-              renderLink={renderLink}
-              search={search}
-              expanded={expanded}
-            />
           </>
         ) : null}
       </div>
-      {account ? (
-        <RailSlot expanded={expanded} title="Account">
-          {account}
-        </RailSlot>
+      {switcher || account ? (
+        <div
+          className={cn(
+            "flex shrink-0 flex-col gap-px border-t border-sidebar-border py-3",
+            expanded ? "mx-3" : "mx-2"
+          )}
+        >
+          {switcher ? (
+            <RailSlot expanded={expanded} title="Switch scope">
+              {switcher}
+            </RailSlot>
+          ) : null}
+          {account ? (
+            <RailSlot expanded={expanded} title="Account">
+              {account}
+            </RailSlot>
+          ) : null}
+        </div>
       ) : null}
     </nav>
   )

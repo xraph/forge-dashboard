@@ -13,9 +13,9 @@ describe("useRailExpanded", () => {
     vi.restoreAllMocks()
   })
 
-  it("starts collapsed with nothing stored", () => {
+  it("starts expanded with nothing stored", () => {
     const { result } = renderHook(() => useRailExpanded())
-    expect(result.current.expanded).toBe(false)
+    expect(result.current.expanded).toBe(true)
   })
 
   it("starts expanded when that is what was stored", () => {
@@ -24,14 +24,20 @@ describe("useRailExpanded", () => {
     expect(result.current.expanded).toBe(true)
   })
 
+  it("respects a stored choice to collapse", () => {
+    window.localStorage.setItem(RAIL_STORAGE_KEY, "collapsed")
+    const { result } = renderHook(() => useRailExpanded())
+    expect(result.current.expanded).toBe(false)
+  })
+
   it("toggles and writes the new state", () => {
     const { result } = renderHook(() => useRailExpanded())
     act(() => result.current.toggle())
-    expect(result.current.expanded).toBe(true)
-    expect(window.localStorage.getItem(RAIL_STORAGE_KEY)).toBe("expanded")
-    act(() => result.current.toggle())
     expect(result.current.expanded).toBe(false)
     expect(window.localStorage.getItem(RAIL_STORAGE_KEY)).toBe("collapsed")
+    act(() => result.current.toggle())
+    expect(result.current.expanded).toBe(true)
+    expect(window.localStorage.getItem(RAIL_STORAGE_KEY)).toBe("expanded")
   })
 
   it("still toggles when storage throws", () => {
@@ -42,8 +48,8 @@ describe("useRailExpanded", () => {
       throw new Error("blocked")
     })
     const { result } = renderHook(() => useRailExpanded())
-    expect(result.current.expanded).toBe(false)
-    act(() => result.current.toggle())
     expect(result.current.expanded).toBe(true)
+    act(() => result.current.toggle())
+    expect(result.current.expanded).toBe(false)
   })
 })

@@ -135,7 +135,7 @@ export function RailEntries({
       data-slot="rail-entries"
       aria-label={label}
       className={cn(
-        "flex flex-col gap-1",
+        "flex flex-col gap-px",
         expanded ? "items-stretch" : "items-center"
       )}
     >

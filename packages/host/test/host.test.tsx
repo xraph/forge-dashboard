@@ -553,7 +553,9 @@ describe("PluginHost", () => {
         within(rail()).getByRole("button", { name: /core-contract/ })
       )
     )
-    fireEvent.click(screen.getByRole("menuitem", { name: /gateway-contract/ }))
+    fireEvent.click(
+      await screen.findByRole("menuitem", { name: /gateway-contract/ })
+    )
 
     expect(await screen.findByText("gateway first page")).toBeTruthy()
     expect(screen.queryByText("gateway second page")).toBeNull()
@@ -1265,9 +1267,9 @@ describe("PluginHost root destination", () => {
         .getByRole("link", { name: "Users" })
         .getAttribute("aria-current")
     ).toBe("page")
-    fireEvent.click(
-      within(rail()).getByRole("button", { name: "Expand navigation" })
-    )
+    expect(
+      within(rail()).getByRole("button", { name: "Collapse navigation" })
+    ).toBeTruthy()
     expect(within(rail()).queryByText("Plugins")).toBeNull()
   })
 
@@ -1421,11 +1423,10 @@ describe("PluginHost root destination", () => {
     const { container } = renderWithSubPlugins("/@auth/plans")
     await screen.findByText("billing plans body")
 
-    // The "Plugins" heading only shows on a wide rail, and the rail starts
-    // narrow. The afterEach puts the saved width back.
-    fireEvent.click(
-      within(rail()).getByRole("button", { name: "Expand navigation" })
-    )
+    // Navigation starts expanded so section headings are visible.
+    expect(
+      within(rail()).getByRole("button", { name: "Collapse navigation" })
+    ).toBeTruthy()
     expect(within(rail()).getByText("Plugins")).toBeTruthy()
     const billing = within(rail()).getByRole("link", { name: "Subscription" })
     expect(billing.getAttribute("aria-current")).toBe("page")

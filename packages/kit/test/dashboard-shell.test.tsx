@@ -207,8 +207,14 @@ describe("DashboardShell", () => {
     expect(screen.getAllByText("Ada Lovelace")).toHaveLength(1)
   })
 
-  it("follows the rail's width with --sidebar-offset when it widens", () => {
+  it("follows the rail's width when it collapses and expands", () => {
     const { container } = renderShell()
+    expect(wrapperStyle(container)).toContain(
+      "--sidebar-offset: var(--sidebar-width)"
+    )
+    fireEvent.click(
+      within(rail()).getByRole("button", { name: "Collapse navigation" })
+    )
     expect(wrapperStyle(container)).toContain(
       "--sidebar-offset: var(--sidebar-width-icon)"
     )

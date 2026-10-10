@@ -82,7 +82,9 @@ function UserAvatar({
 export function NavUser({
   user,
   onSignOut,
+  compact = false,
 }: {
+  compact?: boolean
   user: {
     name: string
     email: string
@@ -105,13 +107,30 @@ export function NavUser({
         <DropdownMenu>
           <DropdownMenuTrigger
             render={
-              <SidebarMenuButton size="lg" className="aria-expanded:bg-muted" />
+              <SidebarMenuButton
+                size={compact ? "default" : "lg"}
+                className="aria-expanded:bg-muted"
+              />
             }
           >
-            <UserAvatar user={user} className="size-8 rounded-lg grayscale" />
+            {compact ? (
+              <CircleUserRoundIcon className="size-4" />
+            ) : (
+              <UserAvatar user={user} className="size-8 rounded-lg grayscale" />
+            )}
             <div className="grid flex-1 text-left text-sm leading-tight">
-              <span className="truncate font-medium">{user.name}</span>
-              <span className="truncate text-xs text-foreground/70">
+              <span
+                className={
+                  compact ? "truncate font-normal" : "truncate font-medium"
+                }
+              >
+                {user.name}
+              </span>
+              <span
+                className={
+                  compact ? "sr-only" : "truncate text-xs text-foreground/70"
+                }
+              >
                 {user.email}
               </span>
             </div>

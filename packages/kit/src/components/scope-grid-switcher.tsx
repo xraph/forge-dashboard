@@ -1,5 +1,5 @@
 import type { ReactNode } from "react"
-import { CheckIcon, ChevronsUpDownIcon } from "lucide-react"
+import { CheckIcon, ChevronsUpDownIcon, LayersIcon } from "lucide-react"
 
 import { cn } from "@forge-go/dashboard-kit/lib/utils"
 import {
@@ -73,7 +73,8 @@ export function ScopeGridSwitcher({
   home,
   menuSide = "bottom",
   fallbackLabel = "Dashboard",
-}: ScopeSwitcherProps) {
+  compact = false,
+}: ScopeSwitcherProps & { compact?: boolean }) {
   const { isMobile } = useSidebar()
   const active = scopes.find((scope) => scope.id === activeId)
   const label = active?.label ?? home?.label ?? fallbackLabel
@@ -85,24 +86,50 @@ export function ScopeGridSwitcher({
           <DropdownMenuTrigger
             render={
               <SidebarMenuButton
-                size="lg"
+                size={compact ? "default" : "lg"}
                 disabled={scopes.length === 0 && !home}
               />
             }
           >
             <ScopeTile
-              icon={active ? active.icon : home?.icon}
+              icon={
+                (active ? active.icon : home?.icon) ??
+                (compact ? <LayersIcon /> : undefined)
+              }
               label={label}
-              active
+              active={!compact}
+              className={
+                compact
+                  ? "size-4 rounded-sm border-0 bg-transparent text-[11px] text-muted-foreground [&_svg]:stroke-[1.5]"
+                  : undefined
+              }
             />
             <div className="grid flex-1 text-left leading-tight">
-              <span className="truncate font-semibold">{label}</span>
+              <span
+                className={
+                  compact ? "truncate font-normal" : "truncate font-semibold"
+                }
+              >
+                {label}
+              </span>
               {active ? (
-                <span className="truncate text-xs text-muted-foreground">
+                <span
+                  className={
+                    compact
+                      ? "sr-only"
+                      : "truncate text-xs text-muted-foreground"
+                  }
+                >
                   @{active.namespace}
                 </span>
               ) : home ? (
-                <span className="truncate text-xs text-muted-foreground">
+                <span
+                  className={
+                    compact
+                      ? "sr-only"
+                      : "truncate text-xs text-muted-foreground"
+                  }
+                >
                   Application dashboard
                 </span>
               ) : null}
@@ -110,7 +137,7 @@ export function ScopeGridSwitcher({
             <ChevronsUpDownIcon className="ml-auto size-4" />
           </DropdownMenuTrigger>
           <DropdownMenuContent
-            className="w-80"
+            className="w-80 max-w-[calc(100vw-8px)]"
             align="start"
             side={isMobile ? "bottom" : menuSide}
           >

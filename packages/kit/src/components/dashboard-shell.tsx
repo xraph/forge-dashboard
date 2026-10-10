@@ -1,5 +1,7 @@
 import type { CSSProperties, ReactNode } from "react"
 
+import { SidebarBrand } from "@forge-go/dashboard-kit/components/sidebar-brand"
+
 import { AppSidebar } from "@forge-go/dashboard-kit/components/app-sidebar"
 import type { AppSidebarProps } from "@forge-go/dashboard-kit/components/app-sidebar"
 import { ContentHeader } from "@forge-go/dashboard-kit/components/content-header"
@@ -15,6 +17,7 @@ import type {
 import {
   SidebarInset,
   SidebarProvider,
+  useSidebar,
 } from "@forge-go/dashboard-kit/components/sidebar"
 import { useIsMobile } from "@forge-go/dashboard-kit/hooks/use-mobile"
 import { useRailExpanded } from "@forge-go/dashboard-kit/hooks/use-rail-expanded"
@@ -112,6 +115,13 @@ export function railActiveId(
   return best?.id
 }
 
+function MobileBrand() {
+  const { toggleSidebar } = useSidebar()
+  return (
+    <SidebarBrand onToggle={toggleSidebar} toggleLabel="Close navigation" />
+  )
+}
+
 /**
  * The dashboard's chrome, after TwinOS Studio: a rail with the scope switcher,
  * the context control, search, the scope's own pages and its plugins, and the
@@ -144,9 +154,10 @@ export function DashboardShell({
         onSelect={onScopeSelect}
         home={scopeHome}
         menuSide="right"
+        compact
       />
     ) : null
-  const account = <NavUser user={user} onSignOut={onSignOut} />
+  const account = <NavUser user={user} onSignOut={onSignOut} compact />
   const isMobile = useIsMobile()
   const areas = pane.areas ?? []
   const scopeArea = areas.find((area) => area.kind === "scope")
@@ -219,12 +230,19 @@ export function DashboardShell({
           activeAreaId={secondary?.id ?? pane.activeAreaId}
           mobileHeader={
             <>
-              {switcher}
-              {context}
-              {searchControl}
+              <MobileBrand />
+              <div className="flex flex-col gap-1 px-3 pt-[18px] pb-[9px] [&_button[data-slot=button]]:mx-0 [&_button[data-slot=button]]:h-8 [&_button[data-slot=button]]:w-full [&_button[data-slot=button]]:border-transparent [&_button[data-slot=button]]:bg-transparent [&_button[data-slot=button]]:px-2 [&_button[data-slot=button]]:shadow-none [&_kbd]:rounded-[3px] [&_kbd]:border [&_kbd]:border-sidebar-border [&_kbd]:px-1">
+                {context}
+                {searchControl}
+              </div>
             </>
           }
-          mobileFooter={account}
+          mobileFooter={
+            <>
+              {switcher}
+              {account}
+            </>
+          }
           variant="sidebar"
           collapsible="icon"
           navigationLayout="collapsible"

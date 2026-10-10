@@ -88,16 +88,16 @@ describe("NavRail", () => {
     })
   })
 
-  it("puts switcher, context and search above the entries and the account at the foot", () => {
+  it("puts context and search above the entries and scope switching with the account at the foot", () => {
     renderRail()
     const order = within(rail())
       .getAllByRole("button")
       .map((b) => b.textContent)
       .filter((t) => t && !/navigation/.test(t))
     expect(order).toEqual([
-      "Switch scope",
       "Platform / Production",
       "Search pages",
+      "Switch scope",
       "Account menu",
     ])
     const account = within(rail()).getByRole("button", { name: "Account menu" })
@@ -171,7 +171,7 @@ describe("NavRail", () => {
     expect(scroller!.classList.contains("relative")).toBe(true)
   })
 
-  it("has an edge toggle named for the way it moves", () => {
+  it("has a visible header toggle named for the way it moves", () => {
     const { onToggle } = renderRail()
     const toggle = within(rail()).getByRole("button", {
       name: "Expand navigation",

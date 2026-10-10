@@ -4,15 +4,15 @@ export const RAIL_STORAGE_KEY = "forge-dashboard.rail"
 
 function readStored(): boolean {
   try {
-    return window.localStorage.getItem(RAIL_STORAGE_KEY) === "expanded"
+    return window.localStorage.getItem(RAIL_STORAGE_KEY) !== "collapsed"
   } catch {
-    return false
+    return true
   }
 }
 
 /**
  * Whether the rail shows labels. Per browser, not per scope, and
- * collapsed until somebody widens it. Storage that throws (private windows,
+ * expanded unless somebody chooses icons. Storage that throws (private windows,
  * blocked site data) leaves the rail working and merely forgetful.
  */
 export function useRailExpanded(): { expanded: boolean; toggle: () => void } {
