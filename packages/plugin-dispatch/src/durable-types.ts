@@ -83,7 +83,8 @@ export function encodeRunPart(value: string) {
   const bytes = new TextEncoder().encode(value)
   if (
     !value ||
-    new TextDecoder("utf-8", { fatal: true }).decode(bytes) !== value
+    new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(bytes) !==
+      value
   )
     throw new Error("Invalid execution identity")
   return (
@@ -97,7 +98,10 @@ export function encodeRunPart(value: string) {
 export function decodeRunPart(segment: string | undefined): string {
   if (!segment || !/^v1\.[A-Za-z0-9_-]+$/.test(segment))
     throw new Error("Invalid execution identity")
-  const value = new TextDecoder("utf-8", { fatal: true }).decode(
+  const value = new TextDecoder("utf-8", {
+    fatal: true,
+    ignoreBOM: true,
+  }).decode(
     Uint8Array.from(
       atob(segment.slice(3).replaceAll("-", "+").replaceAll("_", "/")),
       (char) => char.charCodeAt(0)

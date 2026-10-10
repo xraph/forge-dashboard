@@ -79,6 +79,24 @@ export class QueryStore {
 
   private contextVersion = 0
   private contextListeners = new Set<() => void>()
+  private contextResetReaders = new Map<string, Map<object, boolean>>()
+  private keyResetVersions = new Map<string, number>()
+  /** Active readers determine clear policy; direct reads keep their fallback. */
+  observeContextReset(key: string, reset: boolean): () => void {
+    const reader = {}
+    const readers =
+      this.contextResetReaders.get(key) ?? new Map<object, boolean>()
+    readers.set(reader, reset)
+    this.contextResetReaders.set(key, readers)
+    return () => {
+      readers.delete(reader)
+      if (readers.size === 0) this.contextResetReaders.delete(key)
+    }
+  }
+  /** A deferred clear wakes ordinary readers sharing an opted-in key too. */
+  resetVersionFor(key: string): number {
+    return this.keyResetVersions.get(key) ?? 0
+  }
   /** Authorization/app/environment resets, excluding invalidation and polling. */
   contextSnapshot = (): number => this.contextVersion
   subscribeContext = (listener: () => void): (() => void) => {
@@ -128,6 +146,7 @@ export class QueryStore {
       set.delete(listener)
       if (set.size === 0) {
         this.listeners.delete(key)
+        this.keyResetVersions.delete(key)
         const record = this.records.get(key)
         if (record?.cancelOnUnused && record.pending) {
           record.abort.abort()
@@ -178,7 +197,8 @@ export class QueryStore {
     const replaced = !!(opts?.owner && stored && stored.owner !== opts.owner)
     if (replaced && stored.cancelOnUnused) stored.abort.abort()
     const record = replaced ? undefined : stored
-    if (record && opts?.resetOnContextChange) record.resetOnContextChange = true
+    if (record && opts?.resetOnContextChange !== undefined)
+      record.resetOnContextChange = opts.resetOnContextChange
     const fresh =
       record !== undefined &&
       record.settledAt > 0 &&
@@ -288,11 +308,17 @@ export class QueryStore {
     for (const key of keys) {
       const record = this.records.get(key)
       if (!record) continue
-      if (blank && record.resetOnContextChange) {
+      const readers = this.contextResetReaders.get(key)
+      const resetOnContextChange = readers
+        ? [...readers.values()].some(Boolean)
+        : record.resetOnContextChange
+      if (blank && resetOnContextChange) {
         // A mounted reader must construct new params before fetching again.
         // Replaying a captured cursor here would bind it to the old principal.
         record.abort.abort()
         this.records.delete(key)
+        if ((this.listeners.get(key)?.size ?? 0) > 0)
+          this.keyResetVersions.set(key, ++this.nextGeneration)
         this.notify(key)
         continue
       }

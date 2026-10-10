@@ -959,3 +959,29 @@ slash, bare percent and Unicode in all three identity positions. Context reset,
 client replacement, ignored abort and rejected-continuation recovery are mounted
 React/shared-store verified. The browser checks cover seeded reads and manual
 discovery restart; they do not qualify a deployed identity-switch flow.
+
+## Dispatch durable identity and reader-policy correction, 2026-10-09
+
+Both identity decoders preserve leading U+FEFF, and active shared readers determine
+context-reset policy. The isolated Vite manifest still has 28 recursive eager
+entries, excluding both durable routes and the JSON viewer/editor imports.
+
+| Asset                                   | Raw bytes | gzip bytes |
+| --------------------------------------- | --------: | ---------: |
+| `assets/index-DV60bFRc.js`              | 1,649,983 |    426,638 |
+| `assets/durable-executions-B-JbsKPW.js` |     4,471 |      1,763 |
+| `assets/durable-execution-DKCsEBCV.js`  |    11,232 |      3,760 |
+| `assets/json-view-CDilcUGJ.js`          |     1,203 |        689 |
+| `assets/index-DagtfqOd.css`             |   278,214 |     41,538 |
+
+Measurements use Python gzip after concurrent Kit density commit `d6d9254`, with
+Conduit already installed. They describe the whole shared checkout; they do not
+attribute entry or CSS changes to Dispatch. The isolated command was
+`pnpm --filter @forge-go/dashboard-shell exec vite build --manifest --outDir
+/Users/rexraphael/Work/xraph/forge-dashboard/output/dispatch-task2-fix2-bundle
+--emptyOutDir`. Root lint, types, all 5,974 tests across 27 packages and configured
+production build passed. Existing build warnings, two Authsome jsdom navigation
+errors and Vitest performance suggestions remain disclosed in the correction
+report. Leading U+FEFF reached real Go unchanged in all identity positions;
+shared-policy transitions and mixed-reader recovery are mounted React/store
+verified, with the deployed identity-switch boundary unchanged.

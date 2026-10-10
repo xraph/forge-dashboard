@@ -18,7 +18,7 @@ function RoutedDetail() {
   return <DurableExecutionPage params={useParams()} />
 }
 for (const part of ["namespace", "workflow_id", "run_id"] as const) {
-  it.each(["%2F", "/", "%", "雪☃"])(
+  it.each(["%2F", "/", "%", "雪☃", "\uFEFFinvoice"])(
     `round-trips ${part} %s through the installed router, page and client`,
     async (value) => {
       const target = {
@@ -102,4 +102,11 @@ it("refuses empty and malformed UTF-16 identities without normalization", () => 
   expect(() => encodeRunPart("")).toThrow()
   expect(() => encodeRunPart("\uD800")).toThrow()
   expect(() => decodeRunPart("v1.Lx")).toThrow()
+})
+
+it("preserves leading U+FEFF when validating identity encoding", () => {
+  expect(encodeRunPart("\uFEFFinvoice")).toBe("v1.77u_aW52b2ljZQ")
+})
+it("preserves leading U+FEFF when decoding a canonical identity", () => {
+  expect(decodeRunPart("v1.77u_aW52b2ljZQ")).toBe("\uFEFFinvoice")
 })

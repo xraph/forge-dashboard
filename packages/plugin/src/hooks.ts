@@ -21,7 +21,11 @@ export interface QueryState<T> {
 export interface QueryOptions {
   /** Abort in-flight HTTP when the last reader unmounts or pauses. */
   cancelOnUnused?: boolean
-  /** Drop captured requests on host clear; fetch again after current params render. */
+  /**
+   * Drop captured requests on host clear; fetch after current params render.
+   * Any active reader of a key can require this. Removing the last opt-in
+   * restores ordinary clear/reissue behavior for the remaining readers.
+   */
   resetOnContextChange?: boolean
   /**
    * `false` makes the query wait: no request, no store entry read, no
@@ -95,6 +99,12 @@ export function useQuery<T = unknown>(
   // Reads what the server said about this intent last time. Unknown intents
   // answer 0, so a first read always goes out.
   const staleMs = queryStore.staleTimeFor(client.extension, intent)
+  const keyResetVersion = queryStore.resetVersionFor(key)
+
+  useEffect(() => {
+    if (!enabled) return
+    return queryStore.observeContextReset(key, resetOnContextChange)
+  }, [key, enabled, resetOnContextChange])
 
   useEffect(() => {
     if (!enabled) return
@@ -119,6 +129,7 @@ export function useQuery<T = unknown>(
     cancelOnUnused,
     resetOnContextChange,
     contextVersion,
+    keyResetVersion,
   ])
 
   const refetch = useCallback(() => {

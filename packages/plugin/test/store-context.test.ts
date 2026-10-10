@@ -89,3 +89,50 @@ it.each(["pending", "fresh"])(
     expect(store.snapshot(key, owner).data).toBeUndefined()
   }
 )
+
+it("aggregates active reset policies, restores default reissue and releases key reset bookkeeping", () => {
+  const store = new QueryStore()
+  const key = store.keyOf("dispatch", "history")
+  const read = vi.fn(() => new Promise(() => {}))
+  const unsubscribe = store.subscribe(key, () => {})
+  const ordinary = store.observeContextReset(key, false)
+  const opted = store.observeContextReset(key, true)
+  store.read(key, read, 0, { resetOnContextChange: true })
+  store.clear()
+  expect(read).toHaveBeenCalledOnce()
+  expect(store.resetVersionFor(key)).toBeGreaterThan(0)
+  store.read(key, read, 0, { resetOnContextChange: true })
+  opted()
+  store.clear()
+  expect(read).toHaveBeenCalledTimes(3)
+  ordinary()
+  unsubscribe()
+  expect(store.resetVersionFor(key)).toBe(0)
+  store.clear()
+  expect(read).toHaveBeenCalledTimes(3)
+})
+
+it.each(["pending", "fresh"])(
+  "removes the direct-read reset fallback before a %s cache return",
+  async (state) => {
+    const store = new QueryStore()
+    const key = store.keyOf("dispatch", "direct")
+    let resolve!: (value: string) => void
+    const read = vi.fn(
+      () =>
+        new Promise<string>((r) => {
+          resolve = r
+        })
+    )
+    store.subscribe(key, () => {})
+    store.read(key, read, 60_000, { resetOnContextChange: true })
+    if (state === "fresh") {
+      resolve("old")
+      await Promise.resolve()
+    }
+    store.read(key, read, 60_000, { resetOnContextChange: false })
+    expect(read).toHaveBeenCalledOnce()
+    store.clear()
+    expect(read).toHaveBeenCalledTimes(2)
+  }
+)
