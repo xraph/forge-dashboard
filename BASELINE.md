@@ -985,3 +985,45 @@ errors and Vitest performance suggestions remain disclosed in the correction
 report. Leading U+FEFF reached real Go unchanged in all identity positions;
 shared-policy transitions and mixed-reader recovery are mounted React/store
 verified, with the deployed identity-switch boundary unchanged.
+
+## Dispatch durable commands and manual query, 2026-10-09
+
+You can start, signal with start, signal an explicit run and request cancellation
+through the durable pages. Submitted retries retain their original identity and
+bytes in page memory. Protected queries remain manual and outside the shared
+cache. Exact-byte file inputs preserve CRLF, BOM and binary data; text entry uses
+the browser editor's current value.
+
+Both durable routes, their shared controls and the existing JSON viewer remain
+outside the recursive eager entry closure, which has 29 entries in this build.
+The shared durable-table chunk now includes the command/query controls.
+
+| Asset                                   | Raw bytes | gzip bytes |
+| --------------------------------------- | --------: | ---------: |
+| `assets/index-JCF-Hwwj.js`              | 1,653,022 |    427,396 |
+| `assets/durable-executions-B8-gTOn0.js` |     4,741 |      1,871 |
+| `assets/durable-execution-CN4TLpYm.js`  |    10,206 |      3,366 |
+| `assets/durable-table-DHZxejLJ.js`      |    19,486 |      6,632 |
+| `assets/json-view-CDilcUGJ.js`          |     1,203 |        689 |
+| `assets/index-P_meFCwI.css`             |   279,503 |     41,770 |
+
+These are whole-checkout measurements with concurrent Kit navigation changes,
+committed separately as `e7fde9c`. They do not isolate Dispatch entry or CSS growth.
+The manifest came from `pnpm --filter @forge-go/dashboard-shell exec vite build
+--manifest --outDir /Users/rexraphael/Work/xraph/forge-dashboard/output/dispatch-task3-bundle
+--emptyOutDir`; gzip sizes use Python gzip. Root lint, types, all 6,009 tests across
+27 packages and configured production build passed. The final focused pass
+contains 99 Dispatch tests after an additional inactive-input regression. Existing Vite native-loader
+and large-chunk warnings, the Next output declaration warning, Authsome jsdom
+navigation diagnostics and Vitest performance suggestions remain disclosed.
+
+Actual Go browser checks cover both atomic signal-start branches, every human
+command, original lost-response retry with one persisted start event, exact file
+and text bytes, string counters, query mutation refusal, real permission denial,
+command invalidation and desktop/narrow layouts. The reviewed fixture's optional
+workers-off mode demonstrates cancellation requested while the run remains
+running. It is not a drain or readiness qualification. Mounted tests cover client
+and context replacement, ignored aborts, private file/read cleanup and hidden-tab
+clearing. The browser kept reporting visible when another tab was selected, so
+native hidden-tab behavior remains unverified. Shell identity bootstrap remains
+fixture-only; domain requests use actual Forge/Authsome/Warden HTTP.

@@ -1,3 +1,5 @@
+import { validIdentifier } from "../durable-bytes"
+import { DurableStartControls } from "../durable-commands"
 import { useState } from "react"
 import { PluginLink } from "@forge-go/dashboard-plugin"
 import { Button } from "@forge-go/dashboard-kit/components/button"
@@ -23,6 +25,7 @@ const filterLabels = {
 const blank = { workflow_id: "", workflow_type: "", build_id: "", state: "" }
 export function DurableExecutionsPage() {
   const [namespace, setNamespace] = useState("")
+  const [invalidNamespace, setInvalidNamespace] = useState(false)
   const discoveryPaging = useDurableCursor("namespaces")
   const discovery = useDurableRead<DurablePage<DurableNamespace>>(
     "durable.namespaces",
@@ -39,7 +42,9 @@ export function DurableExecutionsPage() {
           onSubmit={(event) => {
             event.preventDefault()
             const form = new FormData(event.currentTarget)
-            setNamespace(String(form.get("namespace") ?? "").trim())
+            const value = String(form.get("namespace") ?? "")
+            setInvalidNamespace(!validIdentifier(value))
+            if (validIdentifier(value)) setNamespace(value)
           }}
         >
           <label className="flex min-w-0 flex-col gap-1 text-xs">
@@ -61,6 +66,12 @@ export function DurableExecutionsPage() {
             Discovery does not grant execution access.
           </p>
         </form>
+        {invalidNamespace && (
+          <p role="alert" className="text-xs text-destructive">
+            Enter a valid namespace without surrounding whitespace, within 512
+            UTF-8 bytes.
+          </p>
+        )}
         <details open={!namespace} className="text-xs">
           <summary className="cursor-pointer rounded-sm py-1 text-muted-foreground focus-visible:outline-2 focus-visible:outline-ring">
             Browse namespace catalog
@@ -114,7 +125,12 @@ export function DurableExecutionsPage() {
           </DurablePageRead>
         </details>
       </Section>
-      {namespace && <ExecutionList key={namespace} namespace={namespace} />}
+      {namespace && (
+        <>
+          <DurableStartControls namespace={namespace} />
+          <ExecutionList key={namespace} namespace={namespace} />
+        </>
+      )}
     </Frame>
   )
 }

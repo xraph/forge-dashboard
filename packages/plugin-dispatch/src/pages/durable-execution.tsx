@@ -1,3 +1,4 @@
+import { DurableRunControls } from "../durable-commands"
 import { useState } from "react"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
 import { PluginLink } from "@forge-go/dashboard-plugin"
@@ -74,6 +75,7 @@ function ExecutionDetail({ target }: { target: RunKey }) {
         </PluginLink>
       }
     >
+      <DurableRunControls target={target} build={query.data?.build_id} />
       <Read title="Durable execution" query={query} intervalMs={10_000}>
         {(data) => (
           <>

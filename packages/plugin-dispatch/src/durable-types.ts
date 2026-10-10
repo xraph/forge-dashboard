@@ -119,3 +119,46 @@ export function displayState(value: string) {
   const label = value.replaceAll("_", " ")
   return label.charAt(0).toUpperCase() + label.slice(1)
 }
+
+export interface DurableCapabilities {
+  runtime: "available" | "unavailable"
+  actions: Record<string, boolean>
+}
+export interface DurableStart extends RunKey {
+  request_id: string
+  workflow_type: string
+  build_id: string
+  queue: string
+  input: string
+}
+export interface DurableSignal extends RunKey {
+  request_id: string
+  build_id: string
+  name: string
+  input: string
+}
+export interface DurableSignalStart {
+  start: DurableStart
+  name: string
+  input: string
+}
+export interface DurableCancel extends RunKey {
+  request_id: string
+  build_id: string
+  reason: string
+}
+export interface DurableAcceptance extends RunKey {
+  request_id: string
+  revision: string
+  first_sequence: string
+  last_sequence: string
+  status: string
+  started?: boolean
+}
+export interface DurableQueryResult extends RunKey {
+  state: string
+  revision: string
+  last_sequence: string
+  encoding: "base64"
+  output: string | null
+}
