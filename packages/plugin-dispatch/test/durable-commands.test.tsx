@@ -3,6 +3,7 @@ import { act, fireEvent, screen, waitFor, within } from "@testing-library/react"
 import { expect, it, vi } from "vitest"
 import {
   ContractError,
+  createScopedClient,
   PluginProvider,
   queryStore,
 } from "@forge-go/dashboard-plugin"
@@ -126,6 +127,110 @@ it("retains original operation, exact bytes, target, build and both IDs through 
     "9007199254740995"
   )
   expect(screen.queryByText(/private policy detail/)).toBeNull()
+})
+it.each([
+  ["malformed success envelope", {}],
+  [
+    "unrecognized failure code",
+    { ok: false, error: { code: "FUTURE_FAILURE" } },
+  ],
+])(
+  "keeps %s uncertain through a denied retry via the real scoped client",
+  async (_label, firstResponse) => {
+    const bodies: string[] = []
+    const fetcher: typeof fetch = async (_url, options) => {
+      if (options?.method !== "POST")
+        return Response.json({ token: "fixture-csrf" })
+      const body = String(options.body)
+      const envelope = JSON.parse(body)
+      if (envelope.kind === "query")
+        return Response.json({ ok: true, data: capabilities })
+      bodies.push(body)
+      return bodies.length === 1
+        ? Response.json(firstResponse)
+        : Response.json(
+            {
+              ok: false,
+              error: {
+                code: "PERMISSION_DENIED",
+                message: "private policy detail",
+              },
+            },
+            { status: 403 }
+          )
+    }
+    const client = createScopedClient("/contract", "dispatch", fetcher)
+    renderWithClient(<DurableRunControls target={target} build="b1" />, client)
+    await waitFor(() =>
+      expect(
+        screen
+          .getByRole("button", { name: "Send signal" })
+          .hasAttribute("disabled")
+      ).toBe(false)
+    )
+    await signal()
+    await screen.findByText(/The earlier request may have committed/)
+    expect(screen.getAllByText("Acceptance uncertain").length).toBeGreaterThan(
+      0
+    )
+    expect(bodies).toHaveLength(1)
+    const original = JSON.parse(bodies[0])
+    expect(original).toMatchObject({
+      kind: "command",
+      intent: "durable.signal",
+      contributor: "dispatch",
+      payload: {
+        ...target,
+        build_id: "b1",
+        name: "finish",
+        input: inputBase64(exact),
+      },
+    })
+    expect(original.payload.request_id).toBeTruthy()
+    expect(original.idempotencyKey).toBeTruthy()
+    await confirm("Retry original request")
+    await screen.findByText("Permission denied for this attempt.")
+    expect(screen.getAllByText("Acceptance uncertain").length).toBeGreaterThan(
+      0
+    )
+    expect(
+      screen.getByText(/The earlier request may have committed/)
+    ).toBeTruthy()
+    expect(bodies).toEqual([bodies[0], bodies[0]])
+    expect(screen.queryByText(/private policy detail/)).toBeNull()
+  }
+)
+it("keeps a definitive first permission refusal distinct from uncertainty", async () => {
+  const fetcher: typeof fetch = async (_url, options) => {
+    if (options?.method !== "POST")
+      return Response.json({ token: "fixture-csrf" })
+    return JSON.parse(String(options.body)).kind === "query"
+      ? Response.json({ ok: true, data: capabilities })
+      : Response.json(
+          { ok: false, error: { code: "PERMISSION_DENIED" } },
+          { status: 403 }
+        )
+  }
+  renderWithClient(
+    <DurableRunControls target={target} build="b1" />,
+    createScopedClient("/contract", "dispatch", fetcher)
+  )
+  await waitFor(() =>
+    expect(
+      screen
+        .getByRole("button", { name: "Send signal" })
+        .hasAttribute("disabled")
+    ).toBe(false)
+  )
+  await signal()
+  await screen.findByText("Permission denied for this attempt.")
+  expect(screen.queryByText("Acceptance uncertain")).toBeNull()
+  expect(
+    screen.queryByText(/The earlier request may have committed/)
+  ).toBeNull()
+  expect(screen.getAllByText("Request needs attention").length).toBeGreaterThan(
+    0
+  )
 })
 it.each(["Start workflow", "Signal with start"])(
   "preserves BOM identifiers and original start/signal bytes for %s",

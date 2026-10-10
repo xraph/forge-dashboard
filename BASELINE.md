@@ -1027,3 +1027,32 @@ and context replacement, ignored aborts, private file/read cleanup and hidden-ta
 clearing. The browser kept reporting visible when another tab was selected, so
 native hidden-tab behavior remains unverified. Shell identity bootstrap remains
 fixture-only; domain requests use actual Forge/Authsome/Warden HTTP.
+
+## Dispatch command uncertainty correction, 2026-10-09
+
+Malformed responses and unrecognized command failure codes now retain uncertain
+acceptance. A later permission denial keeps that warning and retries the exact
+submitted envelope. Only recognized rejection codes establish nonacceptance.
+
+The real scoped-client regression covers malformed 2xx and unfamiliar failure
+codes followed by denial, plus a definitive first refusal. All 102 Dispatch tests,
+workspace lint and types, and the isolated production bundle passed. The earlier
+6,009-test workspace pass remains the full-suite evidence; it was not rerun for
+this local classifier correction.
+
+The isolated bundle uses the same command as above with output directory
+`output/dispatch-task3-fix1-bundle`. Its 29-entry recursive eager closure still
+excludes both durable routes, the shared controls and the JSON viewer.
+
+| Asset                                   | Raw bytes | gzip bytes |
+| --------------------------------------- | --------: | ---------: |
+| `assets/json-view-CDilcUGJ.js`          |     1,203 |        689 |
+| `assets/durable-execution-BdY-P4nt.js`  |    10,206 |      3,365 |
+| `assets/durable-executions-B1QLWIxS.js` |     4,741 |      1,870 |
+| `assets/durable-table-YTi2wwXH.js`      |    19,515 |      6,624 |
+| `assets/index-rKYKDeXD.js`              | 1,653,022 |    427,395 |
+| `assets/index-P_meFCwI.css`             |   279,503 |     41,770 |
+
+Measurements describe the shared checkout. Existing browser evidence and its
+native visibility and shared focus-warning limits are unchanged. No browser host
+was restarted for this response-decoding regression.

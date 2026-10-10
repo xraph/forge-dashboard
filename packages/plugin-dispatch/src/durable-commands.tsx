@@ -307,9 +307,17 @@ function Commands({
     } catch (cause) {
       if (owns()) {
         const code = cause instanceof ContractError ? cause.code : "TRANSPORT"
+        // Only recognized rejection codes establish nonacceptance. A malformed
+        // or future response code cannot resolve whether this send committed.
         const unknown =
           uncertain ||
-          ["TRANSPORT", "TIMEOUT", "INTERNAL", "UNAVAILABLE"].includes(code)
+          ![
+            "BAD_REQUEST",
+            "NOT_FOUND",
+            "CONFLICT",
+            "PERMISSION_DENIED",
+            "UNAUTHENTICATED",
+          ].includes(code)
         const message =
           code === "PERMISSION_DENIED"
             ? "Permission denied for this attempt."
