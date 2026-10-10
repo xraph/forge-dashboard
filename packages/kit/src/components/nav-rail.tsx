@@ -23,7 +23,7 @@ export interface RailGroup {
 }
 
 export interface NavRailProps {
-  /** The scope switcher, pinned with the account menu. */
+  /** The scope switcher in the compact brand header. */
   switcher?: ReactNode
   /** The scope's context control (App / Environment). Absent for a scope with none. */
   context?: ReactNode
@@ -140,13 +140,22 @@ export function NavRail({
         column
       )}
     >
-      <SidebarBrand expanded={expanded} onToggle={onToggle} />
+      <SidebarBrand
+        expanded={expanded}
+        onToggle={onToggle}
+        switcher={switcher}
+      />
       <div
         className={cn(
           "flex shrink-0 flex-col gap-1",
           expanded ? "px-3 pt-[18px] pb-[9px]" : "items-center px-2 py-2"
         )}
       >
+        {!expanded && switcher ? (
+          <RailSlot expanded={expanded} title="Switch scope">
+            {switcher}
+          </RailSlot>
+        ) : null}
         {context ? (
           <RailSlot expanded={expanded} title="App and environment">
             {context}
@@ -230,18 +239,13 @@ export function NavRail({
           </>
         ) : null}
       </div>
-      {switcher || account ? (
+      {account ? (
         <div
           className={cn(
             "flex shrink-0 flex-col gap-px border-t border-sidebar-border py-3",
             expanded ? "mx-3" : "mx-2"
           )}
         >
-          {switcher ? (
-            <RailSlot expanded={expanded} title="Switch scope">
-              {switcher}
-            </RailSlot>
-          ) : null}
           {account ? (
             <RailSlot expanded={expanded} title="Account">
               {account}

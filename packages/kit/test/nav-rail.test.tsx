@@ -88,16 +88,16 @@ describe("NavRail", () => {
     })
   })
 
-  it("puts context and search above the entries and scope switching with the account at the foot", () => {
+  it("puts scope switching at the top, then context and search, with the account at the foot", () => {
     renderRail()
     const order = within(rail())
       .getAllByRole("button")
       .map((b) => b.textContent)
       .filter((t) => t && !/navigation/.test(t))
     expect(order).toEqual([
+      "Switch scope",
       "Platform / Production",
       "Search pages",
-      "Switch scope",
       "Account menu",
     ])
     const account = within(rail()).getByRole("button", { name: "Account menu" })
@@ -106,6 +106,17 @@ describe("NavRail", () => {
       lastLink.compareDocumentPosition(account) &
         Node.DOCUMENT_POSITION_FOLLOWING
     ).toBeTruthy()
+  })
+
+  it("places the expanded scope switcher inside the brand header exactly once", () => {
+    renderRail({ expanded: true })
+    const switcher = within(rail()).getByRole("button", {
+      name: "Switch scope",
+    })
+    expect(switcher.closest('[data-slot="sidebar-brand"]')).toBeTruthy()
+    expect(
+      within(rail()).getAllByRole("button", { name: "Switch scope" })
+    ).toHaveLength(1)
   })
 
   it("links every entry with the query string and marks the active one", () => {

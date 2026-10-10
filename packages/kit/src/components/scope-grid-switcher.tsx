@@ -74,7 +74,8 @@ export function ScopeGridSwitcher({
   menuSide = "bottom",
   fallbackLabel = "Dashboard",
   compact = false,
-}: ScopeSwitcherProps & { compact?: boolean }) {
+  header = false,
+}: ScopeSwitcherProps & { compact?: boolean; header?: boolean }) {
   const { isMobile } = useSidebar()
   const active = scopes.find((scope) => scope.id === activeId)
   const label = active?.label ?? home?.label ?? fallbackLabel
@@ -84,11 +85,20 @@ export function ScopeGridSwitcher({
       <SidebarMenuItem>
         <DropdownMenu>
           <DropdownMenuTrigger
+            aria-label={`${label}${active ? ` @${active.namespace}` : home ? " Application dashboard" : ""}`}
             render={
-              <SidebarMenuButton
-                size={compact ? "default" : "lg"}
-                disabled={scopes.length === 0 && !home}
-              />
+              header ? (
+                <button
+                  type="button"
+                  disabled={scopes.length === 0 && !home}
+                  className="flex h-8 w-full min-w-0 items-center gap-2.5 overflow-hidden rounded-md px-2 text-left text-sidebar-foreground outline-none group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:p-2 hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-sidebar-ring disabled:pointer-events-none disabled:opacity-50"
+                />
+              ) : (
+                <SidebarMenuButton
+                  size={compact ? "default" : "lg"}
+                  disabled={scopes.length === 0 && !home}
+                />
+              )
             }
           >
             <ScopeTile
@@ -97,17 +107,23 @@ export function ScopeGridSwitcher({
                 (compact ? <LayersIcon /> : undefined)
               }
               label={label}
-              active={!compact}
+              active={!compact && !header}
               className={
-                compact
-                  ? "size-4 rounded-sm border-0 bg-transparent text-[11px] text-muted-foreground [&_svg]:stroke-[1.5]"
-                  : undefined
+                header
+                  ? "size-6 rounded-sm border-0 bg-transparent text-sidebar-foreground group-data-[collapsible=icon]:size-4 [&>svg]:size-6 [&>svg]:stroke-[1.5] group-data-[collapsible=icon]:[&>svg]:size-4"
+                  : compact
+                    ? "size-4 rounded-sm border-0 bg-transparent text-[11px] text-muted-foreground [&_svg]:stroke-[1.5]"
+                    : undefined
               }
             />
-            <div className="grid flex-1 text-left leading-tight">
+            <div className="grid min-w-0 flex-1 text-left leading-tight group-data-[collapsible=icon]:hidden">
               <span
                 className={
-                  compact ? "truncate font-normal" : "truncate font-semibold"
+                  header
+                    ? "truncate text-lg font-semibold tracking-tight"
+                    : compact
+                      ? "truncate font-normal"
+                      : "truncate font-semibold"
                 }
               >
                 {label}
@@ -115,7 +131,7 @@ export function ScopeGridSwitcher({
               {active ? (
                 <span
                   className={
-                    compact
+                    compact || header
                       ? "sr-only"
                       : "truncate text-xs text-muted-foreground"
                   }
@@ -125,7 +141,7 @@ export function ScopeGridSwitcher({
               ) : home ? (
                 <span
                   className={
-                    compact
+                    compact || header
                       ? "sr-only"
                       : "truncate text-xs text-muted-foreground"
                   }
@@ -134,7 +150,7 @@ export function ScopeGridSwitcher({
                 </span>
               ) : null}
             </div>
-            <ChevronsUpDownIcon className="ml-auto size-4" />
+            <ChevronsUpDownIcon className="ml-auto size-3.5 shrink-0 stroke-[1.5] group-data-[collapsible=icon]:hidden" />
           </DropdownMenuTrigger>
           <DropdownMenuContent
             className="w-80 max-w-[calc(100vw-8px)]"

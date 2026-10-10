@@ -115,10 +115,14 @@ export function railActiveId(
   return best?.id
 }
 
-function MobileBrand() {
+function MobileBrand({ switcher }: { switcher: ReactNode }) {
   const { toggleSidebar } = useSidebar()
   return (
-    <SidebarBrand onToggle={toggleSidebar} toggleLabel="Close navigation" />
+    <SidebarBrand
+      onToggle={toggleSidebar}
+      toggleLabel="Close navigation"
+      switcher={switcher}
+    />
   )
 }
 
@@ -153,8 +157,9 @@ export function DashboardShell({
         activeId={activeScopeId}
         onSelect={onScopeSelect}
         home={scopeHome}
-        menuSide="right"
+        menuSide="bottom"
         compact
+        header
       />
     ) : null
   const account = <NavUser user={user} onSignOut={onSignOut} compact />
@@ -230,19 +235,14 @@ export function DashboardShell({
           activeAreaId={secondary?.id ?? pane.activeAreaId}
           mobileHeader={
             <>
-              <MobileBrand />
+              <MobileBrand switcher={switcher} />
               <div className="flex flex-col gap-1 px-3 pt-[18px] pb-[9px] [&_button[data-slot=button]]:mx-0 [&_button[data-slot=button]]:h-8 [&_button[data-slot=button]]:w-full [&_button[data-slot=button]]:border-transparent [&_button[data-slot=button]]:bg-transparent [&_button[data-slot=button]]:px-2 [&_button[data-slot=button]]:shadow-none [&_kbd]:rounded-[3px] [&_kbd]:border [&_kbd]:border-sidebar-border [&_kbd]:px-1">
                 {context}
                 {searchControl}
               </div>
             </>
           }
-          mobileFooter={
-            <>
-              {switcher}
-              {account}
-            </>
-          }
+          mobileFooter={account}
           variant="sidebar"
           collapsible="icon"
           navigationLayout="collapsible"

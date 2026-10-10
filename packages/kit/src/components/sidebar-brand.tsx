@@ -1,3 +1,4 @@
+import type { ReactNode } from "react"
 import { PanelLeftIcon } from "lucide-react"
 import { ForgeMark } from "@forge-go/dashboard-kit/components/brand-marks"
 import { cn } from "@forge-go/dashboard-kit/lib/utils"
@@ -7,7 +8,9 @@ export function SidebarBrand({
   expanded = true,
   onToggle,
   toggleLabel,
+  switcher,
 }: {
+  switcher?: ReactNode
   expanded?: boolean
   onToggle: () => void
   toggleLabel?: string
@@ -19,12 +22,14 @@ export function SidebarBrand({
       data-slot="sidebar-brand"
       className={cn(
         "flex h-(--header-height) w-full shrink-0 items-center gap-2.5 border-b border-sidebar-border",
-        expanded ? "px-[23px]" : "justify-center"
+        expanded ? "px-3" : "justify-center"
       )}
     >
-      {expanded ? (
+      {expanded && switcher ? (
+        <div className="min-w-0 flex-1">{switcher}</div>
+      ) : expanded ? (
         <>
-          <ForgeMark className="size-6 shrink-0 text-sidebar-foreground" />
+          <ForgeMark className="ml-[11px] size-6 shrink-0 text-sidebar-foreground" />
           <span className="text-[25px] font-semibold tracking-[-1.1px] text-foreground">
             forge
           </span>
