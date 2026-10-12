@@ -324,7 +324,9 @@ function Paged<T>({
 function TaskState({ task }: { task: DurableTask }) {
   const deferral = task.deferral
   return (
-    <div className="flex max-w-72 min-w-0 flex-col gap-1 text-xs whitespace-normal">
+    <div
+      className={`flex max-w-72 flex-col gap-1 text-xs whitespace-normal ${deferral ? "min-w-72" : "min-w-0"}`}
+    >
       <span className="font-medium">{displayState(task.state)}</span>
       {deferral && (
         <>
