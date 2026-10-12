@@ -6,7 +6,7 @@ import { ZeroState } from "@forge-go/dashboard-kit/components/zero-state"
 import { Badge } from "@forge-go/dashboard-kit/components/badge"
 import { Button } from "@forge-go/dashboard-kit/components/button"
 import { Input } from "@forge-go/dashboard-kit/components/input"
-import { Frame, Section, Facts, Stamp } from "../components"
+import { Frame, Section, Facts, Stamp, Text } from "../components"
 import { useDurableCursor } from "../durable-cursor"
 import { Read } from "../read"
 import { DurablePayloadPanel } from "../durable-payload"
@@ -321,6 +321,120 @@ function Paged<T>({
     </Section>
   )
 }
+function TaskState({ task }: { task: DurableTask }) {
+  const deferral = task.deferral
+  return (
+    <div className="flex max-w-72 min-w-0 flex-col gap-1 text-xs whitespace-normal">
+      <span className="font-medium">{displayState(task.state)}</span>
+      {deferral && (
+        <>
+          <span
+            className={
+              deferral.active ? "font-medium" : "text-muted-foreground"
+            }
+          >
+            {deferral.active
+              ? `Deferred: ${displayState(deferral.reason)}`
+              : "Previous deferral (inactive)"}
+          </span>
+          {deferral.active && (
+            <>
+              <span>
+                Target{" "}
+                <span className="font-mono break-all">
+                  {deferral.target_build_id}
+                </span>
+              </span>
+              <span>
+                Retry <Stamp value={deferral.retry_at} label="deferral retry" />
+              </span>
+            </>
+          )}
+          <span className="text-muted-foreground">
+            Deferral count <span className="font-mono">{deferral.count}</span>
+          </span>
+          <details>
+            <summary className="cursor-pointer rounded-sm py-1 text-muted-foreground focus-visible:outline-2 focus-visible:outline-ring">
+              {deferral.active
+                ? "Deferral source details"
+                : "Historical deferral details"}
+            </summary>
+            <Facts
+              items={[
+                [
+                  deferral.active ? "Reason" : "Previous reason",
+                  <span className="font-mono text-xs break-all">
+                    {deferral.reason}
+                  </span>,
+                ],
+                [
+                  "Target build",
+                  <span className="font-mono text-xs break-all">
+                    {deferral.target_build_id}
+                  </span>,
+                ],
+                [
+                  "Recorded target state",
+                  <span className="font-mono text-xs">
+                    {deferral.target_state}
+                  </span>,
+                ],
+                [
+                  "Target retirement epoch",
+                  <span className="font-mono text-xs break-all">
+                    {deferral.target_retirement_epoch}
+                  </span>,
+                ],
+                [
+                  "Source epoch",
+                  <span className="font-mono text-xs break-all">
+                    {deferral.source_epoch}
+                  </span>,
+                ],
+                [
+                  "Source revision",
+                  <span className="font-mono text-xs break-all">
+                    {deferral.source_revision}
+                  </span>,
+                ],
+                [
+                  "Recorded task version",
+                  <span className="font-mono text-xs break-all">
+                    {deferral.task_version}
+                  </span>,
+                ],
+                ["Reference kind", deferral.reference_kind],
+                [
+                  "Command ID",
+                  <span className="font-mono text-xs break-all">
+                    <Text value={deferral.command_id} label="command ID" />
+                  </span>,
+                ],
+                [
+                  "Recorded at",
+                  <Stamp
+                    value={deferral.recorded_at}
+                    label="deferral record time"
+                  />,
+                ],
+                [
+                  "Recorded retry",
+                  <Stamp value={deferral.retry_at} label="recorded retry" />,
+                ],
+                [
+                  "Policy version",
+                  <span className="font-mono text-xs break-all">
+                    {deferral.policy_version}
+                  </span>,
+                ],
+              ]}
+            />
+          </details>
+        </>
+      )}
+    </div>
+  )
+}
 function Tasks({ target }: { target: RunKey }) {
   const [kind, setKind] = useState("")
   return (
@@ -355,7 +469,7 @@ function Tasks({ target }: { target: RunKey }) {
           {
             id: "state",
             header: "State",
-            cell: (row) => displayState(row.state),
+            cell: (row) => <TaskState task={row} />,
           },
           {
             id: "attempt",

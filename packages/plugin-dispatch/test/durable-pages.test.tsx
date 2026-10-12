@@ -1,4 +1,4 @@
-import { act, fireEvent, screen, waitFor } from "@testing-library/react"
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react"
 import { afterEach, expect, it, vi } from "vitest"
 import {
   ContractError,
@@ -145,6 +145,144 @@ it("renders metadata, history strings, run links, tasks and restricted children 
   fireEvent.click(screen.getByRole("button", { name: "Hook delivery" }))
   await screen.findByText(/Webhook endpoint delivery: unavailable/)
   expect(screen.getByText(/includes blocked 1/)).toBeTruthy()
+})
+it("updates mounted tasks from active to historical deferral to ordinary null metadata", async () => {
+  const tasks = vi.fn((): unknown => wire.tasks_deferred.data)
+  renderWithClient(
+    <DurableExecutionPage {...detailProps} />,
+    clientFor({ ...queries, "durable.tasks": tasks })
+  )
+  fireEvent.click(await screen.findByRole("button", { name: "Tasks" }))
+  await screen.findByText("Deferred: Target retiring")
+  const row = screen.getByText("Pending").closest("tr")!
+  expect(within(row).getByText("2 / 9007199254740996")).toBeTruthy()
+  expect(within(row).getByText(/Deferral count/).textContent).toBe(
+    "Deferral count 2"
+  )
+  expect(within(row).getByText("Retry").textContent).toContain(
+    new Date(
+      wire.tasks_deferred.data.items[0].deferral.retry_at
+    ).toLocaleString()
+  )
+  fireEvent.click(within(row).getByText("Deferral source details"))
+  for (const [term, value] of [
+    ["Target build", "next-build"],
+    ["Target retirement epoch", "9007199254740993"],
+    ["Source epoch", "9007199254740994"],
+    ["Source revision", "9007199254740995"],
+    ["Recorded task version", "9007199254740996"],
+    ["Reference kind", "child"],
+    ["Command ID", "child:payment"],
+    ["Policy version", "1"],
+  ]) {
+    expect(within(row).getByText(term).nextElementSibling?.textContent).toBe(
+      value
+    )
+  }
+  tasks.mockReturnValue(wire.tasks_deferral_retained.data)
+  act(() => queryStore.invalidate("dispatch", ["durable.tasks"]))
+  await screen.findByText("Previous deferral (inactive)")
+  expect(screen.getByText("Leased")).toBeTruthy()
+  expect(screen.getByText("3 / 9007199254740997")).toBeTruthy()
+  expect(screen.queryByText("Deferred: Target retiring")).toBeNull()
+  expect(screen.queryByText("Retry", { exact: true })).toBeNull()
+  fireEvent.click(screen.getByText("Historical deferral details"))
+  expect(
+    screen.getByText("Previous reason").nextElementSibling?.textContent
+  ).toBe("target_retiring")
+  expect(screen.getByText("Recorded retry")).toBeTruthy()
+  expect(
+    screen.getByText("Recorded task version").nextElementSibling?.textContent
+  ).toBe("9007199254740996")
+  // The ordinary example has a different task identity and no deferral record.
+  tasks.mockReturnValue(wire.tasks.data)
+  act(() => queryStore.invalidate("dispatch", ["durable.tasks"]))
+  await screen.findByText("Awaiting callback")
+  expect(screen.getByText("9007199254740993 / 9007199254740994")).toBeTruthy()
+  expect(screen.queryByText(/Deferral count/)).toBeNull()
+  expect(screen.queryByText(/deferral details/)).toBeNull()
+  expect(screen.queryByText("next-build")).toBeNull()
+})
+it("preserves continuation's empty command identity and decimal deferral counts", async () => {
+  const child = wire.tasks_deferred.data.items[0]
+  renderWithClient(
+    <DurableExecutionPage {...detailProps} />,
+    clientFor({
+      ...queries,
+      "durable.tasks": () => ({
+        ...wire.tasks_deferred.data,
+        items: [
+          {
+            ...child,
+            deferral: {
+              ...child.deferral,
+              reason: "target_retired",
+              target_state: "retired",
+              reference_kind: "continuation",
+              command_id: "",
+              count: "9007199254740993123",
+              policy_version: "9007199254740997",
+            },
+          },
+        ],
+      }),
+    })
+  )
+  fireEvent.click(await screen.findByRole("button", { name: "Tasks" }))
+  await screen.findByText("Deferred: Target retired")
+  expect(screen.getByText("9007199254740993123")).toBeTruthy()
+  expect(screen.getByText("2 / 9007199254740996")).toBeTruthy()
+  fireEvent.click(screen.getByText("Deferral source details"))
+  expect(
+    screen.getByText("Reference kind").nextElementSibling?.textContent
+  ).toBe("continuation")
+  expect(
+    screen
+      .getByText("Command ID")
+      .nextElementSibling?.querySelector('[aria-label="no command ID"]')
+  ).toBeTruthy()
+  expect(screen.queryByText("child:payment")).toBeNull()
+  expect(
+    screen.getByText("Policy version").nextElementSibling?.textContent
+  ).toBe("9007199254740997")
+})
+it("marks failed deferral refresh stale, removes denied facts and recovers with filtered empty results", async () => {
+  let failure = ""
+  const tasks = vi.fn((params: unknown) => {
+    if (failure) throw new ContractError(failure, "Task read refused")
+    if ((params as { kind: string }).kind)
+      return { ...wire.tasks.data, items: [] }
+    return wire.tasks_deferred.data
+  })
+  renderWithClient(
+    <DurableExecutionPage {...detailProps} />,
+    clientFor({ ...queries, "durable.tasks": tasks })
+  )
+  fireEvent.click(await screen.findByRole("button", { name: "Tasks" }))
+  await screen.findByText("Deferred: Target retiring")
+  failure = "UNAVAILABLE"
+  act(() => queryStore.invalidate("dispatch", ["durable.tasks"]))
+  await screen.findByText(/Task read refused/)
+  expect(screen.getByText("Deferred: Target retiring")).toBeTruthy()
+  expect(screen.getByText(/stale/i)).toBeTruthy()
+  failure = "PERMISSION_DENIED"
+  act(() => queryStore.invalidate("dispatch", ["durable.tasks"]))
+  await screen.findByText(/PERMISSION_DENIED/)
+  expect(screen.queryByText("next-build")).toBeNull()
+  expect(screen.queryByText(/Deferral count/)).toBeNull()
+  failure = ""
+  act(() => queryStore.invalidate("dispatch", ["durable.tasks"]))
+  await screen.findByText("Deferred: Target retiring")
+  fireEvent.change(screen.getByLabelText("Task kind"), {
+    target: { value: "unmatched" },
+  })
+  await screen.findByText("No matching tasks")
+  expect(screen.queryByText("next-build")).toBeNull()
+  fireEvent.click(screen.getByRole("button", { name: "Clear filters" }))
+  await screen.findByText("Deferred: Target retiring")
+  expect(tasks).toHaveBeenLastCalledWith(
+    expect.objectContaining({ kind: "", cursor: "" })
+  )
 })
 it.each([
   "UNAUTHENTICATED",

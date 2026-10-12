@@ -46,7 +46,24 @@ export interface DurableEvent {
   sequence: string
   time: string
 }
+export interface DurableTaskDeferral {
+  active: boolean
+  reason: string
+  target_build_id: string
+  target_state: "unregistered" | "retiring" | "retired"
+  target_retirement_epoch: string
+  source_epoch: string
+  source_revision: string
+  task_version: string
+  count: string
+  reference_kind: "child" | "continuation"
+  command_id: string
+  recorded_at: string
+  retry_at: string
+  policy_version: string
+}
 export interface DurableTask {
+  deferral: DurableTaskDeferral | null
   id: string
   kind: string
   state: string

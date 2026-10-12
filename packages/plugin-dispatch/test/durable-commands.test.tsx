@@ -328,6 +328,13 @@ it("fences a replaced client and drops retained retries on unmount", async () =>
     <DurableRunControls target={target} build="b1" />,
     first.client
   )
+  await waitFor(() =>
+    expect(
+      screen
+        .getByRole("button", { name: "Send signal" })
+        .hasAttribute("disabled")
+    ).toBe(false)
+  )
   expect(screen.queryByText(/Review send signal/)).toBeNull()
 })
 it("reports cancellation requested without claiming terminal cancellation", async () => {
