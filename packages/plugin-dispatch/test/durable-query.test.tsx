@@ -1,4 +1,4 @@
-import { act, fireEvent, screen, waitFor } from "@testing-library/react"
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react"
 import { expect, it, vi } from "vitest"
 import { PluginProvider, queryStore } from "@forge-go/dashboard-plugin"
 import { DurableQueryPanel } from "../src/durable-query"
@@ -65,8 +65,11 @@ it("queries only explicitly with exact bytes, never stores private output, and p
     input: inputBase64(exact),
   })
   await act(async () => s.finish())
-  expect(screen.getByText("9007199254740993")).toBeTruthy()
-  expect(screen.getByText("9007199254740995")).toBeTruthy()
+  const output = await screen.findByLabelText("Query output")
+  expect(await within(output).findByText("9007199254740993")).toBeTruthy()
+  const observation = screen.getByText(/Observed revision/)
+  expect(within(observation).getByText("9007199254740993")).toBeTruthy()
+  expect(within(observation).getByText("9007199254740995")).toBeTruthy()
   expect(outputText(result.output)).toBe(exact)
   await screen.findByText("Query output")
   expect(JSON.stringify(localStorage)).not.toContain("9007199254740993")
@@ -76,6 +79,7 @@ it("queries only explicitly with exact bytes, never stores private output, and p
   expect(s.calls).toHaveBeenCalledTimes(1)
   fireEvent.click(screen.getByRole("button", { name: "Clear query" }))
   expect(screen.queryByText("9007199254740993")).toBeNull()
+  expect(screen.queryByLabelText("Query output")).toBeNull()
 })
 it.each(["context", "client", "target", "build", "hide", "clear", "unmount"])(
   "aborts and fences ignored late output on %s",
