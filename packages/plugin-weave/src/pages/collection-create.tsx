@@ -98,6 +98,38 @@ export const CollectionCreatePage: ComponentType<PluginPageProps> = () => {
         onSubmit={(e) => void submit(e)}
         className="flex max-w-2xl min-w-0 flex-col gap-4"
       >
+        <Section title="Recorded, not used" inset>
+          <div className="flex min-w-0 flex-col gap-4 text-sm">
+            <QueryBoundary
+              title="What this deployment runs"
+              query={report}
+              skeletonRows={2}
+            >
+              {(data) => (
+                <p className="text-muted-foreground">
+                  A new collection records the model{" "}
+                  <span className="font-mono text-xs">
+                    {data.config.default_embedding_model}
+                  </span>
+                  , {data.components.embedder.dimensions ?? 0} dimensions and
+                  the strategy{" "}
+                  <span className="font-mono text-xs">
+                    {data.config.default_chunk_strategy}
+                  </span>
+                  . Weave never reads them back: this deployment embeds with{" "}
+                  <span className="font-mono text-xs">
+                    {data.components.embedder.kind || "no embedder"}
+                  </span>{" "}
+                  and chunks with{" "}
+                  <span className="font-mono text-xs">
+                    {data.components.chunker.kind || "no chunker"}
+                  </span>{" "}
+                  for every collection.
+                </p>
+              )}
+            </QueryBoundary>
+          </div>
+        </Section>
         <Section aria-label="Collection details" inset>
           <div className="flex min-w-0 flex-col gap-4">
             <div className="flex min-w-0 flex-col gap-1.5">
@@ -184,38 +216,6 @@ export const CollectionCreatePage: ComponentType<PluginPageProps> = () => {
                 </p>
               ) : null}
             </div>
-          </div>
-        </Section>
-        <Section title="Recorded, not used" inset>
-          <div className="flex min-w-0 flex-col gap-4 text-sm">
-            <QueryBoundary
-              title="What this deployment runs"
-              query={report}
-              skeletonRows={2}
-            >
-              {(data) => (
-                <p className="text-muted-foreground">
-                  A new collection records the model{" "}
-                  <span className="font-mono text-xs">
-                    {data.config.default_embedding_model}
-                  </span>
-                  , {data.components.embedder.dimensions ?? 0} dimensions and
-                  the strategy{" "}
-                  <span className="font-mono text-xs">
-                    {data.config.default_chunk_strategy}
-                  </span>
-                  . Weave never reads them back: this deployment embeds with{" "}
-                  <span className="font-mono text-xs">
-                    {data.components.embedder.kind || "no embedder"}
-                  </span>{" "}
-                  and chunks with{" "}
-                  <span className="font-mono text-xs">
-                    {data.components.chunker.kind || "no chunker"}
-                  </span>{" "}
-                  for every collection.
-                </p>
-              )}
-            </QueryBoundary>
             <div className="flex gap-2">
               <Button type="submit" disabled={!canSubmit}>
                 {create.loading ? "Creating…" : "Create collection"}

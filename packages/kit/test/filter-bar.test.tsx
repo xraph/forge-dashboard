@@ -37,6 +37,25 @@ describe("FilterBar", () => {
     expect(onChange).toHaveBeenCalledWith("banned")
   })
 
+  it("keeps a filter label on one line beside its control", () => {
+    render(
+      <FilterBar
+        filters={[
+          {
+            id: "status",
+            label: "Status",
+            value: "all",
+            onChange: vi.fn(),
+            options: [{ label: "All", value: "all" }],
+          },
+        ]}
+      />
+    )
+    const label = screen.getByText("Status")
+    expect(label.className).toContain("whitespace-nowrap")
+    expect(label.className).toContain("shrink-0")
+  })
+
   it("renders nothing at all when it has no search, no filters and no actions", () => {
     const { container } = render(<FilterBar />)
     expect(container.firstChild).toBeNull()

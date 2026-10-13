@@ -38,7 +38,10 @@ function Filter({ filter }: { filter: FilterConfig }) {
   const id = useId()
   return (
     <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-      <label htmlFor={id} className="text-xs text-muted-foreground">
+      <label
+        htmlFor={id}
+        className="shrink-0 text-xs whitespace-nowrap text-muted-foreground"
+      >
         {filter.label}
       </label>
       <NativeSelect

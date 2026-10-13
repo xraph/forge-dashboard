@@ -85,6 +85,8 @@ function StatCell({ label, value, hint, tone = "default" }: StatItem) {
       )}
     >
       <span className="text-xs text-muted-foreground">{label}</span>
+      {/* Keep the value on one line: overflow-x-auto makes this span a scroll
+          container, so a taller node would clip or scroll vertically. */}
       <span
         data-slot="stat-value"
         className={cn(
@@ -125,7 +127,12 @@ function columnsFor(count: number): string {
   return cn(narrow, WIDE[4])
 }
 
-/** Renders a linked cell, the way the host links: the kit has no router. */
+/**
+ * Renders a linked cell, the way the host links: the kit has no router.
+ *
+ * The host's link wrapper must be a `grid` element, not `block`, so the cell
+ * fills the row and keeps its full-height rules. Show focus with an inset ring.
+ */
 export type RenderStatLink = (href: string, cell: ReactElement) => ReactElement
 
 export interface StatGridProps {

@@ -1051,7 +1051,7 @@ export function HealthPage() {
               aria-label="Health counts"
               items={Object.entries(record(data.counts)).map(
                 ([key, value]) => ({
-                  label: label(key),
+                  label: label(key) || "Unknown",
                   value: text(value),
                   tone:
                     FAILING_STATES.includes(key) && Number(value) > 0

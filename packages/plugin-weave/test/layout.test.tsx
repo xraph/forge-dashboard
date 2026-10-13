@@ -272,6 +272,14 @@ describe("weave pages follow the shared layout", () => {
     renderWithNavigate(CollectionCreatePage, client)
     await screen.findByText(/Weave never reads them back/)
     expectLayout(["Collection details", "Recorded, not used"])
+    // The submit row belongs to the real form, not to the unused-settings note.
+    const note = screen.getByRole("region", { name: "Recorded, not used" })
+    const submit = screen.getByRole("button", { name: "Create collection" })
+    expect(note.contains(submit)).toBe(false)
+    expect(screen.getByRole("link", { name: "Cancel" })).toBeTruthy()
+    expect(note.contains(screen.getByRole("link", { name: "Cancel" }))).toBe(
+      false
+    )
   })
 
   it("Edit collection follows the shared layout", async () => {

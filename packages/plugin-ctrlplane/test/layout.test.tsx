@@ -133,7 +133,7 @@ function answer(req: ContractEnvelopeRequest) {
       })
     case "health.summary":
       return success({
-        counts: { healthy: 1, unknown: 2, unhealthy: 3 },
+        counts: { healthy: 1, unknown: 2, unhealthy: 3, "": 4 },
         items: [
           {
             instance: {
@@ -318,6 +318,8 @@ describe("Ctrlplane pages follow the shared layout", () => {
     expect(within(cell("Unhealthy") as HTMLElement).getByText("3")).toBeTruthy()
     expect(cell("Unhealthy")?.getAttribute("data-tone")).toBe("danger")
     expect(cell("Healthy")?.getAttribute("data-tone")).toBe("default")
+    // A state reported under an empty key still gets a visible label.
+    expect(within(counts).getAllByText("Unknown")).toHaveLength(2)
     expect(layoutViolations(container)).toEqual([])
     expect(screen.getByRole("region", { name: "Workload health" })).toBeTruthy()
     expect(screen.getByRole("region", { name: "Instances" })).toBeTruthy()
