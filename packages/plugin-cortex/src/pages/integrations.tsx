@@ -24,6 +24,7 @@ import {
   QueryBoundary,
 } from "@forge-go/dashboard-kit/components/query-boundary"
 import { ResourceTable } from "@forge-go/dashboard-kit/components/resource-table"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { ZeroState } from "@forge-go/dashboard-kit/components/zero-state"
 import {
@@ -117,7 +118,7 @@ export function CatalogPage({
     })
   usePoll(q.refetch)
   return (
-    <section className="flex min-w-0 flex-col gap-3">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title={spec.label}
         description={
@@ -127,87 +128,98 @@ export function CatalogPage({
         }
         actions={<Reload onClick={q.refetch} />}
       />
-      <div className="flex flex-wrap gap-2">
-        <Input
-          aria-label="Search catalog"
-          placeholder="Search"
-          className="max-w-sm"
-          value={search}
-          onChange={(e) => {
-            setSearch(e.target.value)
-            setPage(1)
-          }}
-        />
-        {kind === "models" && (
-          <Input
-            aria-label="Provider filter"
-            placeholder="Provider"
-            className="max-w-48"
-            value={provider}
-            onChange={(e) => {
-              setProvider(e.target.value)
-              setPage(1)
-            }}
-          />
-        )}
-      </div>
-      <QueryBoundary title={spec.label} query={q} keepPreviousData>
-        {(data) =>
-          !data.available ? (
-            <ZeroState
-              title={`${spec.label} provider unavailable`}
-              body={data.reason ?? "An authorized provider is required."}
-              action={
-                <PluginLink to="/settings">
-                  Review runtime capabilities
-                </PluginLink>
-              }
+      <Section
+        aria-label={`${spec.label} list`}
+        actions={
+          <>
+            <Input
+              aria-label="Search catalog"
+              placeholder="Search"
+              className="max-w-sm"
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value)
+                setPage(1)
+              }}
             />
-          ) : (
-            <>
-              {data.summary && (
-                <Value value={data.summary} label="scan summary" />
-              )}
-              {data.complete === false && (
-                <p role="status" className="text-xs text-muted-foreground">
-                  This provider returned a partial result.
-                </p>
-              )}
-              <ResourceTable
-                rows={data.items}
-                rowKey={(r) => String(r.id)}
-                caption={`${data.total ?? data.items.length} ${spec.label.toLowerCase()}`}
-                emptyMessage={`No ${spec.label.toLowerCase()} match these filters`}
-                columns={spec.columns.map((key) => ({
-                  id: key,
-                  header: key.replaceAll("_", " "),
-                  cell: (r: Record<string, unknown>) =>
-                    key === "name" && spec.detail ? (
-                      <PluginLink
-                        to={`/${spec.detail}/${encodeURIComponent(String(r.id))}`}
-                        className="underline"
-                      >
-                        {String(r.name ?? r.id)}
-                      </PluginLink>
-                    ) : key === "created_at" ? (
-                      <Timestamp value={String(r[key])} label="created" />
-                    ) : (
-                      <div className="max-w-80">
-                        <Value value={r[key]} label={key} />
-                      </div>
-                    ),
-                }))}
-                pagination={
-                  data.total !== undefined
-                    ? { page, pageSize: 25, total: data.total }
-                    : undefined
-                }
-                onPageChange={setPage}
+            {kind === "models" && (
+              <Input
+                aria-label="Provider filter"
+                placeholder="Provider"
+                className="max-w-48"
+                value={provider}
+                onChange={(e) => {
+                  setProvider(e.target.value)
+                  setPage(1)
+                }}
               />
-            </>
-          )
+            )}
+          </>
         }
-      </QueryBoundary>
+      >
+        <QueryBoundary title={spec.label} query={q} keepPreviousData>
+          {(data) =>
+            !data.available ? (
+              <ZeroState
+                title={`${spec.label} provider unavailable`}
+                body={data.reason ?? "An authorized provider is required."}
+                action={
+                  <PluginLink to="/settings">
+                    Review runtime capabilities
+                  </PluginLink>
+                }
+              />
+            ) : (
+              <>
+                {data.summary && (
+                  <div className="border-b px-4 py-3">
+                    <Value value={data.summary} label="scan summary" />
+                  </div>
+                )}
+                {data.complete === false && (
+                  <p
+                    role="status"
+                    className="border-b px-4 py-3 text-xs text-muted-foreground"
+                  >
+                    This provider returned a partial result.
+                  </p>
+                )}
+                <ResourceTable
+                  rows={data.items}
+                  rowKey={(r) => String(r.id)}
+                  caption={`${data.total ?? data.items.length} ${spec.label.toLowerCase()}`}
+                  emptyMessage={`No ${spec.label.toLowerCase()} match these filters`}
+                  columns={spec.columns.map((key) => ({
+                    id: key,
+                    header: key.replaceAll("_", " "),
+                    cell: (r: Record<string, unknown>) =>
+                      key === "name" && spec.detail ? (
+                        <PluginLink
+                          to={`/${spec.detail}/${encodeURIComponent(String(r.id))}`}
+                          className="underline"
+                        >
+                          {String(r.name ?? r.id)}
+                        </PluginLink>
+                      ) : key === "created_at" ? (
+                        <Timestamp value={String(r[key])} label="created" />
+                      ) : (
+                        <div className="max-w-80">
+                          <Value value={r[key]} label={key} />
+                        </div>
+                      ),
+                  }))}
+                  pagination={
+                    data.total !== undefined
+                      ? { page, pageSize: 25, total: data.total }
+                      : undefined
+                  }
+                  onPageChange={setPage}
+                />
+              </>
+            )
+          }
+        </QueryBoundary>
+      </Section>
     </section>
   )
 }
@@ -220,29 +232,33 @@ export function CatalogDetail({
 }) {
   const q = useQuery<Catalog>(`${kind}.detail`, { id: decodeURIComponent(id) })
   return (
-    <section className="flex min-w-0 flex-col gap-3">
+    <section className="flex min-w-0 flex-col gap-4">
       <Back to={`/${kind}`} label={kind} />
       <PageHeader
         title={kind === "models" ? "Model details" : "Knowledge collection"}
       />
-      <QueryBoundary title="Catalog detail" query={q}>
-        {(data) =>
-          !data.available ? (
-            <ZeroState
-              title="Provider unavailable"
-              body={data.reason}
-              action={<PluginLink to="/settings">Review runtime</PluginLink>}
-            />
-          ) : data.items.length ? (
-            <Value value={data.items[0]} label="details" />
-          ) : (
-            <ZeroState
-              title="Resource unavailable"
-              body="The provider returned no matching resource."
-            />
-          )
-        }
-      </QueryBoundary>
+      <Section title="Details">
+        <QueryBoundary title="Catalog detail" query={q}>
+          {(data) =>
+            !data.available ? (
+              <ZeroState
+                title="Provider unavailable"
+                body={data.reason}
+                action={<PluginLink to="/settings">Review runtime</PluginLink>}
+              />
+            ) : data.items.length ? (
+              <div className="p-4">
+                <Value value={data.items[0]} label="details" />
+              </div>
+            ) : (
+              <ZeroState
+                title="Resource unavailable"
+                body="The provider returned no matching resource."
+              />
+            )
+          }
+        </QueryBoundary>
+      </Section>
     </section>
   )
 }
@@ -291,7 +307,7 @@ export function ToolsPage({ agentId }: { agentId?: string }) {
       { enabled: !!agent }
     )
   return (
-    <section className="flex min-w-0 flex-col gap-3">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Authorized tools"
         description="Definitions visible to this agent through runtime overlays and the host tool authorizer."
@@ -306,17 +322,21 @@ export function ToolsPage({ agentId }: { agentId?: string }) {
         />
       </div>
       {agent ? (
-        <>
-          <Input
-            aria-label="Search tools"
-            placeholder="Search tools"
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value)
-              setPage(1)
-            }}
-            className="max-w-sm"
-          />
+        <Section
+          aria-label="Tool list"
+          actions={
+            <Input
+              aria-label="Search tools"
+              placeholder="Search tools"
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value)
+                setPage(1)
+              }}
+              className="max-w-sm"
+            />
+          }
+        >
           <QueryBoundary title="Tools" query={q}>
             {(data) => {
               const filtered = data.items.filter((t) =>
@@ -382,7 +402,7 @@ export function ToolsPage({ agentId }: { agentId?: string }) {
               )
             }}
           </QueryBoundary>
-        </>
+        </Section>
       ) : (
         <ZeroState
           title="Select an agent"
@@ -404,68 +424,76 @@ export function ToolPage({ agentId, name }: { agentId: string; name: string }) {
       skills: Record<string, unknown>[]
     }>("tools.usage", { id: agentId, name: decodeURIComponent(name) })
   return (
-    <section className="flex min-w-0 flex-col gap-3">
+    <section className="flex min-w-0 flex-col gap-4">
       <Back to={`/tools/${agentId}`} label="authorized tools" />
       <PageHeader title={decodeURIComponent(name)} />
-      <QueryBoundary title="Tool definition" query={q}>
-        {(data) => {
-          const tool = data.items.find(
-            (t) => t.Name === decodeURIComponent(name)
-          )
-          return tool ? (
-            <>
-              <p className="text-sm">{tool.Description}</p>
-              <Code
-                text={JSON.stringify(tool.Parameters, null, 2)}
-                label="Tool input schema"
-                json
-              />
-            </>
-          ) : (
-            <ZeroState
-              title="Tool is not visible"
-              body="The agent or host policy may have changed."
-            />
-          )
-        }}
-      </QueryBoundary>
-      <QueryBoundary title="Scoped tool usage" query={usage}>
-        {(data) => (
-          <>
-            <p className="text-sm">
-              {data.calls} recorded calls · {data.errors} errors ·{" "}
-              {data.error_rate === null
-                ? "No error rate yet"
-                : `${(data.error_rate * 100).toFixed(1)}% error rate`}
-            </p>
-            <h2 className="text-sm font-medium">Agent references</h2>
-            {data.agents.length ? (
-              <div className="flex flex-wrap gap-3 text-sm">
-                {data.agents.map((a) => (
-                  <PluginLink
-                    key={a.id}
-                    to={`/agents/${a.id}`}
-                    className="underline"
-                  >
-                    {a.name}
-                  </PluginLink>
-                ))}
+      <Section title="Definition">
+        <QueryBoundary title="Tool definition" query={q}>
+          {(data) => {
+            const tool = data.items.find(
+              (t) => t.Name === decodeURIComponent(name)
+            )
+            return tool ? (
+              <div className="grid min-w-0 gap-3 p-4">
+                <p className="text-sm">{tool.Description}</p>
+                <Code
+                  text={JSON.stringify(tool.Parameters, null, 2)}
+                  label="Tool input schema"
+                  json
+                />
               </div>
             ) : (
               <ZeroState
-                title="No direct agent references"
-                body="This tool may still be inherited or supplied by runtime policy."
+                title="Tool is not visible"
+                body="The agent or host policy may have changed."
               />
-            )}
-            <h2 className="text-sm font-medium">Skill bindings</h2>
-            {data.skills.length ? (
-              <Value value={data.skills} label="skill bindings" />
-            ) : (
-              <ZeroState
-                title="No skill bindings"
-                body="No scoped skill binds this tool."
-              />
-            )}
+            )
+          }}
+        </QueryBoundary>
+      </Section>
+      <QueryBoundary title="Scoped tool usage" query={usage}>
+        {(data) => (
+          <>
+            <Section title="Usage" inset>
+              <p className="text-sm">
+                {data.calls} recorded calls · {data.errors} errors ·{" "}
+                {data.error_rate === null
+                  ? "No error rate yet"
+                  : `${(data.error_rate * 100).toFixed(1)}% error rate`}
+              </p>
+            </Section>
+            <Section title="Agent references">
+              {data.agents.length ? (
+                <div className="flex flex-wrap gap-3 p-4 text-sm">
+                  {data.agents.map((a) => (
+                    <PluginLink
+                      key={a.id}
+                      to={`/agents/${a.id}`}
+                      className="underline"
+                    >
+                      {a.name}
+                    </PluginLink>
+                  ))}
+                </div>
+              ) : (
+                <ZeroState
+                  title="No direct agent references"
+                  body="This tool may still be inherited or supplied by runtime policy."
+                />
+              )}
+            </Section>
+            <Section title="Skill bindings">
+              {data.skills.length ? (
+                <div className="p-4">
+                  <Value value={data.skills} label="skill bindings" />
+                </div>
+              ) : (
+                <ZeroState
+                  title="No skill bindings"
+                  body="No scoped skill binds this tool."
+                />
+              )}
+            </Section>
           </>
         )}
       </QueryBoundary>
@@ -476,44 +504,48 @@ export function SettingsPage() {
   const runtime = useQuery<Runtime>("runtime.detail"),
     settings = useQuery<Record<string, unknown>>("settings.detail")
   return (
-    <section className="flex min-w-0 flex-col gap-3">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Runtime settings"
         description="Actual process configuration. These defaults are read-only and are not persisted by Cortex."
       />
-      <QueryBoundary title="Runtime capabilities" query={runtime}>
-        {(data) => (
-          <>
-            <div className="flex flex-wrap gap-3 text-sm">
-              <span>{data.execution_label}</span>
-              <ScopeLine scope={data.scope} />
+      <Section title="Runtime capabilities" inset>
+        <QueryBoundary title="Runtime capabilities" query={runtime}>
+          {(data) => (
+            <div className="grid min-w-0 gap-3">
+              <div className="flex flex-wrap gap-3 text-sm">
+                <span>{data.execution_label}</span>
+                <ScopeLine scope={data.scope} />
+              </div>
+              <Value
+                value={{
+                  llm: data.llm,
+                  safety_scanner: data.safety,
+                  knowledge_provider: data.knowledge,
+                  tool_authorizer: data.tool_authorizer,
+                  audit_recorder: data.audit,
+                  a2a_bus: data.a2a,
+                  plugins: data.plugins,
+                }}
+                label="runtime capabilities"
+              />
+              <div className="rounded-md border p-3">
+                <h3 className="mb-2 text-sm font-medium">Runtime boundaries</h3>
+                <ul className="list-inside list-disc space-y-1 text-xs text-muted-foreground">
+                  {data.limitations.map((l) => (
+                    <li key={l}>{l}</li>
+                  ))}
+                </ul>
+              </div>
             </div>
-            <Value
-              value={{
-                llm: data.llm,
-                safety_scanner: data.safety,
-                knowledge_provider: data.knowledge,
-                tool_authorizer: data.tool_authorizer,
-                audit_recorder: data.audit,
-                a2a_bus: data.a2a,
-                plugins: data.plugins,
-              }}
-              label="runtime capabilities"
-            />
-            <div className="rounded-md border p-3">
-              <h2 className="mb-2 text-sm font-medium">Runtime boundaries</h2>
-              <ul className="list-inside list-disc space-y-1 text-xs text-muted-foreground">
-                {data.limitations.map((l) => (
-                  <li key={l}>{l}</li>
-                ))}
-              </ul>
-            </div>
-          </>
-        )}
-      </QueryBoundary>
-      <QueryBoundary title="Runtime defaults" query={settings}>
-        {(data) => <Value value={data} label="settings" />}
-      </QueryBoundary>
+          )}
+        </QueryBoundary>
+      </Section>
+      <Section title="Runtime defaults" inset>
+        <QueryBoundary title="Runtime defaults" query={settings}>
+          {(data) => <Value value={data} label="settings" />}
+        </QueryBoundary>
+      </Section>
       <PluginSlot name="cortex.settings.tabs" />
     </section>
   )
@@ -533,49 +565,56 @@ function OverlayForm({
     allowed = useAccess("overlay")
   return (
     <form
-      className="grid min-w-0 gap-3 rounded-md border p-3"
+      className="min-w-0"
       onSubmit={async (e) => {
         e.preventDefault()
         if (await cmd.execute({ ...draft, id: initial?.id, agent_id: agentId }))
           onSaved()
       }}
     >
-      <h2 className="text-sm font-medium">
-        {initial ? "Edit overlay" : "New host overlay"}
-      </h2>
-      <p className="text-xs text-muted-foreground">
-        This applies at the agent’s exact stored scope. Narrower overlays may
-        regrant tools; only host operators should hold overlay permission.
-      </p>
-      <fieldset
-        disabled={cmd.loading || !allowed}
-        className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2"
+      <Section
+        title={initial ? "Edit overlay" : "New host overlay"}
+        description="This applies at the agent’s exact stored scope. Narrower overlays may regrant tools; only host operators should hold overlay permission."
+        inset
       >
-        <FormFields
-          fields={overlayFields}
-          value={draft}
-          onChange={setDraft}
-          onValidity={(path, valid) =>
-            setInvalid((prev) => {
-              const next = { ...prev }
-              if (valid) delete next[path]
-              else next[path] = true
-              return next
-            })
-          }
-        />
-      </fieldset>
-      <CommandAlert error={cmd.error} title="Overlay save failed" />
-      <div className="flex gap-2">
-        <Button
-          type="submit"
-          size="sm"
-          disabled={cmd.loading || !allowed || Object.keys(invalid).length > 0}
-        >
-          Save overlay
-        </Button>
-        <IconButton variant="outline" onClick={onSaved} label="Close editor" />
-      </div>
+        <div className="grid min-w-0 gap-3">
+          <fieldset
+            disabled={cmd.loading || !allowed}
+            className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2"
+          >
+            <FormFields
+              fields={overlayFields}
+              value={draft}
+              onChange={setDraft}
+              onValidity={(path, valid) =>
+                setInvalid((prev) => {
+                  const next = { ...prev }
+                  if (valid) delete next[path]
+                  else next[path] = true
+                  return next
+                })
+              }
+            />
+          </fieldset>
+          <CommandAlert error={cmd.error} title="Overlay save failed" />
+          <div className="flex gap-2">
+            <Button
+              type="submit"
+              size="sm"
+              disabled={
+                cmd.loading || !allowed || Object.keys(invalid).length > 0
+              }
+            >
+              Save overlay
+            </Button>
+            <IconButton
+              variant="outline"
+              onClick={onSaved}
+              label="Close editor"
+            />
+          </div>
+        </div>
+      </Section>
     </form>
   )
 }
@@ -591,7 +630,7 @@ export function OverlaysPage({ agentId }: { agentId: string }) {
       offset: page * 25,
     })
   return (
-    <section className="flex min-w-0 flex-col gap-3">
+    <section className="flex min-w-0 flex-col gap-4">
       <Back to={`/agents/${agentId}`} label="agent" />
       <PageHeader
         title="Prompt overlays"
@@ -614,70 +653,72 @@ export function OverlaysPage({ agentId }: { agentId: string }) {
           onSaved={() => setEdit(undefined)}
         />
       )}
-      <QueryBoundary title="Overlays" query={q} keepPreviousData>
-        {(data) => (
-          <>
-            <ResourceTable
-              rows={data.items}
-              rowKey={(r) => r.id}
-              caption={`Showing ${data.items.length} overlays${data.has_more ? ", more available" : ""}`}
-              emptyMessage="No overlays"
-              columns={[
-                {
-                  id: "scope",
-                  header: "Scope",
-                  cell: (r) => <ScopeLine scope={r.scope} />,
-                },
-                {
-                  id: "patches",
-                  header: "Patches",
-                  cell: (r) => r.patches?.length ?? 0,
-                },
-                {
-                  id: "model",
-                  header: "Model",
-                  cell: (r) => <Value value={r.model} label="model" />,
-                },
-              ]}
-              rowActions={
-                allowed
-                  ? (r) => (
-                      <>
-                        <IconAction
-                          label="Edit"
-                          icon={Pencil}
-                          onClick={() => setEdit(r)}
-                        />
-                        <IconAction
-                          label="Delete"
-                          icon={Trash2}
-                          onClick={() => {
-                            cmd.reset()
-                            setSelected(r)
-                          }}
-                        />
-                      </>
-                    )
-                  : undefined
-              }
-            />
-            <div className="flex gap-2">
-              <IconAction
-                label="Previous"
-                icon={ChevronLeft}
-                disabled={!page}
-                onClick={() => setPage(page - 1)}
+      <Section aria-label="Overlay list">
+        <QueryBoundary title="Overlays" query={q} keepPreviousData>
+          {(data) => (
+            <>
+              <ResourceTable
+                rows={data.items}
+                rowKey={(r) => r.id}
+                caption={`Showing ${data.items.length} overlays${data.has_more ? ", more available" : ""}`}
+                emptyMessage="No overlays"
+                columns={[
+                  {
+                    id: "scope",
+                    header: "Scope",
+                    cell: (r) => <ScopeLine scope={r.scope} />,
+                  },
+                  {
+                    id: "patches",
+                    header: "Patches",
+                    cell: (r) => r.patches?.length ?? 0,
+                  },
+                  {
+                    id: "model",
+                    header: "Model",
+                    cell: (r) => <Value value={r.model} label="model" />,
+                  },
+                ]}
+                rowActions={
+                  allowed
+                    ? (r) => (
+                        <>
+                          <IconAction
+                            label="Edit"
+                            icon={Pencil}
+                            onClick={() => setEdit(r)}
+                          />
+                          <IconAction
+                            label="Delete"
+                            icon={Trash2}
+                            onClick={() => {
+                              cmd.reset()
+                              setSelected(r)
+                            }}
+                          />
+                        </>
+                      )
+                    : undefined
+                }
               />
-              <IconAction
-                label="Next"
-                icon={ChevronRight}
-                disabled={!data.has_more}
-                onClick={() => setPage(page + 1)}
-              />
-            </div>
-          </>
-        )}
-      </QueryBoundary>
+              <nav aria-label="Pagination" className="flex gap-2">
+                <IconAction
+                  label="Previous"
+                  icon={ChevronLeft}
+                  disabled={!page}
+                  onClick={() => setPage(page - 1)}
+                />
+                <IconAction
+                  label="Next"
+                  icon={ChevronRight}
+                  disabled={!data.has_more}
+                  onClick={() => setPage(page + 1)}
+                />
+              </nav>
+            </>
+          )}
+        </QueryBoundary>
+      </Section>
       <ConfirmDialog
         open={selected !== null}
         onOpenChange={(v) => {
@@ -724,7 +765,7 @@ export function ConversationsPage({ id }: { id?: string }) {
   usePoll(list.refetch)
   usePoll(detail.refetch)
   return (
-    <section className="flex min-w-0 flex-col gap-3">
+    <section className="flex min-w-0 flex-col gap-4">
       {id && <Back to="/conversations" label="conversations" />}
       <PageHeader
         title="Agent messaging"
@@ -740,162 +781,176 @@ export function ConversationsPage({ id }: { id?: string }) {
         <QueryBoundary title="Conversation" query={detail} keepPreviousData>
           {(data) => (
             <>
-              <ScopeLine scope={data.conversation.scope} />
-              <Value value={data.conversation} label="conversation" />
+              <Section title="Conversation" inset>
+                <div className="grid min-w-0 gap-3">
+                  <ScopeLine scope={data.conversation.scope} />
+                  <Value value={data.conversation} label="conversation" />
+                </div>
+              </Section>
               {!data.complete && (
                 <p className="text-xs text-muted-foreground">
                   Showing the latest 100 messages. This history is partial.
                 </p>
               )}
-              {data.messages.length ? (
-                data.messages.map((m) => (
-                  <article
-                    key={m.id}
-                    className="grid min-w-0 gap-2 rounded-md border p-3"
-                  >
-                    <header className="flex flex-wrap justify-between gap-2 text-xs">
-                      <span>
-                        {m.sender.agent} →{" "}
-                        {m.receivers.map((r) => r.agent).join(", ")} ·{" "}
-                        {m.performative}
-                      </span>
-                      <Timestamp value={m.created_at} label="message time" />
-                    </header>
-                    <Code text={m.content} label="Message content" />
-                    {m.reply_with && (
-                      <IconAction
-                        label={`Reply to ${m.reply_with}`}
-                        icon={Reply}
-                        className="w-fit"
-                        onClick={() => setReply(m.reply_with!)}
-                      />
-                    )}
-                  </article>
-                ))
-              ) : (
-                <ZeroState
-                  title="No messages"
-                  body="This conversation has no saved envelopes."
-                />
-              )}
+              <Section title="Messages" inset={data.messages.length > 0}>
+                {data.messages.length ? (
+                  <div className="grid min-w-0 gap-3">
+                    {data.messages.map((m) => (
+                      <article
+                        key={m.id}
+                        className="grid min-w-0 gap-2 rounded-md border p-3"
+                      >
+                        <header className="flex flex-wrap justify-between gap-2 text-xs">
+                          <span>
+                            {m.sender.agent} →{" "}
+                            {m.receivers.map((r) => r.agent).join(", ")} ·{" "}
+                            {m.performative}
+                          </span>
+                          <Timestamp
+                            value={m.created_at}
+                            label="message time"
+                          />
+                        </header>
+                        <Code text={m.content} label="Message content" />
+                        {m.reply_with && (
+                          <IconAction
+                            label={`Reply to ${m.reply_with}`}
+                            icon={Reply}
+                            className="w-fit"
+                            onClick={() => setReply(m.reply_with!)}
+                          />
+                        )}
+                      </article>
+                    ))}
+                  </div>
+                ) : (
+                  <ZeroState
+                    title="No messages"
+                    body="This conversation has no saved envelopes."
+                  />
+                )}
+              </Section>
             </>
           )}
         </QueryBoundary>
       ) : (
-        <QueryBoundary title="Conversations" query={list} keepPreviousData>
-          {(data) => (
-            <>
-              <ResourceTable
-                rows={data.items}
-                rowKey={(r) => r.id}
-                caption={`${data.items.length} conversations shown${data.has_more ? ", more available" : ""}`}
-                emptyMessage="No conversations yet"
-                columns={[
-                  {
-                    id: "id",
-                    header: "Conversation",
-                    cell: (r) => (
-                      <PluginLink
-                        to={`/conversations/${r.id}`}
-                        className="font-mono text-xs underline"
-                      >
-                        {r.id}
-                      </PluginLink>
-                    ),
-                  },
-                  {
-                    id: "state",
-                    header: "State",
-                    cell: (r) => <State value={r.status} />,
-                  },
-                  {
-                    id: "hops",
-                    header: "Hops",
-                    cell: (r) => `${r.hops_used} / ${r.hop_ceiling}`,
-                  },
-                  {
-                    id: "created",
-                    header: "Created",
-                    cell: (r) => (
-                      <Timestamp value={r.created_at} label="created" />
-                    ),
-                  },
-                ]}
-              />
-              <div className="flex gap-2">
-                <IconAction
-                  label="Previous"
-                  icon={ChevronLeft}
-                  disabled={!page}
-                  onClick={() => setPage(page - 1)}
+        <Section aria-label="Conversation list">
+          <QueryBoundary title="Conversations" query={list} keepPreviousData>
+            {(data) => (
+              <>
+                <ResourceTable
+                  rows={data.items}
+                  rowKey={(r) => r.id}
+                  caption={`${data.items.length} conversations shown${data.has_more ? ", more available" : ""}`}
+                  emptyMessage="No conversations yet"
+                  columns={[
+                    {
+                      id: "id",
+                      header: "Conversation",
+                      cell: (r) => (
+                        <PluginLink
+                          to={`/conversations/${r.id}`}
+                          className="font-mono text-xs underline"
+                        >
+                          {r.id}
+                        </PluginLink>
+                      ),
+                    },
+                    {
+                      id: "state",
+                      header: "State",
+                      cell: (r) => <State value={r.status} />,
+                    },
+                    {
+                      id: "hops",
+                      header: "Hops",
+                      cell: (r) => `${r.hops_used} / ${r.hop_ceiling}`,
+                    },
+                    {
+                      id: "created",
+                      header: "Created",
+                      cell: (r) => (
+                        <Timestamp value={r.created_at} label="created" />
+                      ),
+                    },
+                  ]}
                 />
-                <IconAction
-                  label="Next"
-                  icon={ChevronRight}
-                  disabled={!data.has_more}
-                  onClick={() => setPage(page + 1)}
-                />
-              </div>
-            </>
-          )}
-        </QueryBoundary>
+                <nav aria-label="Pagination" className="flex gap-2">
+                  <IconAction
+                    label="Previous"
+                    icon={ChevronLeft}
+                    disabled={!page}
+                    onClick={() => setPage(page - 1)}
+                  />
+                  <IconAction
+                    label="Next"
+                    icon={ChevronRight}
+                    disabled={!data.has_more}
+                    onClick={() => setPage(page + 1)}
+                  />
+                </nav>
+              </>
+            )}
+          </QueryBoundary>
+        </Section>
       )}
-      <div className="grid min-w-0 gap-3 rounded-md border p-3">
-        <h2 className="text-sm font-medium">Send an operator message</h2>
-        <p className="text-xs text-muted-foreground">
-          The server stamps your identity as sender. Messages cannot impersonate
-          an agent.
-        </p>
-        <AgentPicker selected={receiver} onChange={setReceiver} />
-        <Input
-          aria-label="Reply correlation"
-          placeholder="Reply correlation token (optional)"
-          value={reply}
-          onChange={(e) => setReply(e.target.value)}
-        />
-        <Code text={content} label="Operator message" onChange={setContent} />
-        <CommandAlert
-          error={send.error ?? inbox.error}
-          title="Messaging failed"
-        />
-        <div className="flex flex-wrap gap-2">
-          <Button
-            size="sm"
-            disabled={
-              !allowed ||
-              !runtime.data?.a2a ||
-              !receiver ||
-              !content.trim() ||
-              send.loading
-            }
-            onClick={async () => {
-              const saved = await send.execute({
-                receiver_id: receiver,
-                conversation_id: id ?? "",
-                content,
-                in_reply_to: reply,
-              })
-              if (saved) {
-                setContent("")
-                navigate(`/conversations/${saved.conversation_id}`)
-              }
-            }}
-          >
-            Send message
-          </Button>
-          <IconAction
-            label="Read and mark inbox"
-            icon={MailCheck}
-            disabled={
-              !manage || !runtime.data?.a2a || !receiver || inbox.loading
-            }
-            onClick={() => inbox.execute({ id: receiver })}
+      <Section
+        title="Send an operator message"
+        description="The server stamps your identity as sender. Messages cannot impersonate an agent."
+        inset
+      >
+        <div className="grid min-w-0 gap-3">
+          <AgentPicker selected={receiver} onChange={setReceiver} />
+          <Input
+            aria-label="Reply correlation"
+            placeholder="Reply correlation token (optional)"
+            value={reply}
+            onChange={(e) => setReply(e.target.value)}
           />
+          <Code text={content} label="Operator message" onChange={setContent} />
+          <CommandAlert
+            error={send.error ?? inbox.error}
+            title="Messaging failed"
+          />
+          <div className="flex flex-wrap gap-2">
+            <Button
+              size="sm"
+              disabled={
+                !allowed ||
+                !runtime.data?.a2a ||
+                !receiver ||
+                !content.trim() ||
+                send.loading
+              }
+              onClick={async () => {
+                const saved = await send.execute({
+                  receiver_id: receiver,
+                  conversation_id: id ?? "",
+                  content,
+                  in_reply_to: reply,
+                })
+                if (saved) {
+                  setContent("")
+                  navigate(`/conversations/${saved.conversation_id}`)
+                }
+              }}
+            >
+              Send message
+            </Button>
+            <IconAction
+              label="Read and mark inbox"
+              icon={MailCheck}
+              disabled={
+                !manage || !runtime.data?.a2a || !receiver || inbox.loading
+              }
+              onClick={() => inbox.execute({ id: receiver })}
+            />
+          </div>
+          {inbox.data && (
+            <Value value={inbox.data.items} label="Inbox (latest 100)" />
+          )}
         </div>
-        {inbox.data && (
-          <Value value={inbox.data.items} label="Inbox (latest 100)" />
-        )}
-      </div>
+      </Section>
     </section>
   )
 }
@@ -926,7 +981,7 @@ export function OrchestrationRunsPage({ id }: { id?: string }) {
   usePoll(list.refetch)
   usePoll(detail.refetch)
   return (
-    <section className="flex min-w-0 flex-col gap-3">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader title="Orchestration runs" />
       {id ? (
         <>
@@ -937,76 +992,88 @@ export function OrchestrationRunsPage({ id }: { id?: string }) {
             keepPreviousData
           >
             {(data) => (
-              <>
-                <Value value={data} label="orchestration result" />
-                {data.config_id && (
-                  <PluginLink
-                    to={`/orchestrations/${data.config_id}`}
-                    className="text-sm underline"
-                  >
-                    Saved configuration
-                  </PluginLink>
-                )}
-                <div className="flex flex-wrap gap-3">
-                  {data.agent_run_ids?.map((run) => (
+              <Section title="Details" inset>
+                <div className="grid min-w-0 gap-3">
+                  <Value value={data} label="orchestration result" />
+                  {data.config_id && (
                     <PluginLink
-                      key={run}
-                      to={`/runs/${run}`}
-                      className="font-mono text-xs underline"
+                      to={`/orchestrations/${data.config_id}`}
+                      className="text-sm underline"
                     >
-                      {run}
+                      Saved configuration
                     </PluginLink>
-                  ))}
+                  )}
+                  <div className="flex flex-wrap gap-3">
+                    {data.agent_run_ids?.map((run) => (
+                      <PluginLink
+                        key={run}
+                        to={`/runs/${run}`}
+                        className="font-mono text-xs underline"
+                      >
+                        {run}
+                      </PluginLink>
+                    ))}
+                  </div>
                 </div>
-              </>
+              </Section>
             )}
           </QueryBoundary>
         </>
       ) : (
-        <QueryBoundary title="Orchestration runs" query={list} keepPreviousData>
-          {(data) => (
-            <ResourceTable
-              rows={data.items}
-              rowKey={(r) => r.id}
-              caption={`${data.total} orchestration runs`}
-              emptyMessage="No orchestration runs yet"
-              emptyAction={
-                <PluginLink to="/orchestrations">
-                  Review orchestration configurations
-                </PluginLink>
-              }
-              columns={[
-                {
-                  id: "id",
-                  header: "Run",
-                  cell: (r) => (
-                    <PluginLink
-                      to={`/orchestration-runs/${r.id}`}
-                      className="font-mono text-xs underline"
-                    >
-                      {r.id}
-                    </PluginLink>
-                  ),
-                },
-                { id: "strategy", header: "Strategy", cell: (r) => r.strategy },
-                {
-                  id: "state",
-                  header: "State",
-                  cell: (r) => <State value={r.status} />,
-                },
-                {
-                  id: "started",
-                  header: "Started",
-                  cell: (r) => (
-                    <Timestamp value={r.started_at} label="started" />
-                  ),
-                },
-              ]}
-              pagination={{ page, pageSize: 25, total: data.total }}
-              onPageChange={setPage}
-            />
-          )}
-        </QueryBoundary>
+        <Section aria-label="Orchestration run list">
+          <QueryBoundary
+            title="Orchestration runs"
+            query={list}
+            keepPreviousData
+          >
+            {(data) => (
+              <ResourceTable
+                rows={data.items}
+                rowKey={(r) => r.id}
+                caption={`${data.total} orchestration runs`}
+                emptyMessage="No orchestration runs yet"
+                emptyAction={
+                  <PluginLink to="/orchestrations">
+                    Review orchestration configurations
+                  </PluginLink>
+                }
+                columns={[
+                  {
+                    id: "id",
+                    header: "Run",
+                    cell: (r) => (
+                      <PluginLink
+                        to={`/orchestration-runs/${r.id}`}
+                        className="font-mono text-xs underline"
+                      >
+                        {r.id}
+                      </PluginLink>
+                    ),
+                  },
+                  {
+                    id: "strategy",
+                    header: "Strategy",
+                    cell: (r) => r.strategy,
+                  },
+                  {
+                    id: "state",
+                    header: "State",
+                    cell: (r) => <State value={r.status} />,
+                  },
+                  {
+                    id: "started",
+                    header: "Started",
+                    cell: (r) => (
+                      <Timestamp value={r.started_at} label="started" />
+                    ),
+                  },
+                ]}
+                pagination={{ page, pageSize: 25, total: data.total }}
+                onPageChange={setPage}
+              />
+            )}
+          </QueryBoundary>
+        </Section>
       )}
     </section>
   )
@@ -1017,32 +1084,36 @@ export function OrchestrationExecute({ id }: { id: string }) {
     runtime = useQuery<Runtime>("runtime.detail"),
     allowed = useAccess("run")
   return (
-    <section className="flex min-w-0 flex-col gap-3">
+    <section className="flex min-w-0 flex-col gap-4">
       <Back to={`/orchestrations/${id}`} label="orchestration" />
       <PageHeader
         title="Execute orchestration"
         description="Run the saved strategy with its scoped participant agents."
       />
-      <Code text={input} label="Orchestration input" onChange={setInput} />
-      <Button
-        size="sm"
-        className="w-fit"
-        disabled={
-          !allowed || !runtime.data?.llm || !input.trim() || cmd.loading
-        }
-        onClick={() => cmd.execute({ id, input })}
-      >
-        {cmd.loading ? "Running…" : "Execute"}
-      </Button>
-      <CommandAlert error={cmd.error} title="Orchestration failed" />
-      {cmd.data && (
-        <PluginLink
-          to={`/orchestration-runs/${cmd.data.id}`}
-          className="text-sm underline"
-        >
-          Review orchestration result
-        </PluginLink>
-      )}
+      <Section aria-label="Execution" inset>
+        <div className="flex min-w-0 flex-col gap-3">
+          <Code text={input} label="Orchestration input" onChange={setInput} />
+          <Button
+            size="sm"
+            className="w-fit"
+            disabled={
+              !allowed || !runtime.data?.llm || !input.trim() || cmd.loading
+            }
+            onClick={() => cmd.execute({ id, input })}
+          >
+            {cmd.loading ? "Running…" : "Execute"}
+          </Button>
+          <CommandAlert error={cmd.error} title="Orchestration failed" />
+          {cmd.data && (
+            <PluginLink
+              to={`/orchestration-runs/${cmd.data.id}`}
+              className="text-sm underline"
+            >
+              Review orchestration result
+            </PluginLink>
+          )}
+        </div>
+      </Section>
     </section>
   )
 }

@@ -21,6 +21,7 @@ import {
   NativeSelectOption,
 } from "@forge-go/dashboard-kit/components/native-select"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
+import { DescriptionList } from "@forge-go/dashboard-kit/components/detail-layout"
 import {
   CommandAlert,
   QueryBoundary,
@@ -29,6 +30,7 @@ import {
   ResourceTable,
   type Column,
 } from "@forge-go/dashboard-kit/components/resource-table"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { StatGrid } from "@forge-go/dashboard-kit/components/stat-grid"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { ZeroState } from "@forge-go/dashboard-kit/components/zero-state"
@@ -106,62 +108,68 @@ export function RunsPage({ agentId }: { agentId?: string }) {
   })
   usePoll(q.refetch)
   return (
-    <section className="flex min-w-0 flex-col gap-3">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Runs"
         description="Saved execution, tool activity and failures."
         actions={<Reload onClick={q.refetch} />}
       />
-      <div className="flex flex-wrap gap-2">
-        <Input
-          aria-label="Filter agent ID"
-          placeholder="Agent ID"
-          className="max-w-96"
-          value={agent}
-          onChange={(e) => {
-            setAgent(e.target.value)
-            setPage(1)
-          }}
-        />
-        <NativeSelect
-          aria-label="Run state"
-          value={state}
-          onChange={(e) => {
-            setState(e.target.value)
-            setPage(1)
-          }}
-        >
-          {[
-            "",
-            "created",
-            "running",
-            "paused",
-            "completed",
-            "failed",
-            "cancelled",
-          ].map((v) => (
-            <NativeSelectOption key={v} value={v}>
-              {v || "All states"}
-            </NativeSelectOption>
-          ))}
-        </NativeSelect>
-      </div>
-      <QueryBoundary title="Runs" query={q} keepPreviousData>
-        {(data) => (
-          <ResourceTable
-            columns={runColumns}
-            rows={data.items}
-            rowKey={(r) => r.id}
-            caption={`${data.total} runs`}
-            emptyMessage={
-              agent || state ? "No runs match these filters" : "No runs yet"
-            }
-            emptyAction={<PluginLink to="/chat">Open chat</PluginLink>}
-            pagination={{ page, pageSize: 25, total: data.total }}
-            onPageChange={setPage}
-          />
-        )}
-      </QueryBoundary>
+      <Section
+        aria-label="Run list"
+        actions={
+          <>
+            <Input
+              aria-label="Filter agent ID"
+              placeholder="Agent ID"
+              className="max-w-96"
+              value={agent}
+              onChange={(e) => {
+                setAgent(e.target.value)
+                setPage(1)
+              }}
+            />
+            <NativeSelect
+              aria-label="Run state"
+              value={state}
+              onChange={(e) => {
+                setState(e.target.value)
+                setPage(1)
+              }}
+            >
+              {[
+                "",
+                "created",
+                "running",
+                "paused",
+                "completed",
+                "failed",
+                "cancelled",
+              ].map((v) => (
+                <NativeSelectOption key={v} value={v}>
+                  {v || "All states"}
+                </NativeSelectOption>
+              ))}
+            </NativeSelect>
+          </>
+        }
+      >
+        <QueryBoundary title="Runs" query={q} keepPreviousData>
+          {(data) => (
+            <ResourceTable
+              columns={runColumns}
+              rows={data.items}
+              rowKey={(r) => r.id}
+              caption={`${data.total} runs`}
+              emptyMessage={
+                agent || state ? "No runs match these filters" : "No runs yet"
+              }
+              emptyAction={<PluginLink to="/chat">Open chat</PluginLink>}
+              pagination={{ page, pageSize: 25, total: data.total }}
+              onPageChange={setPage}
+            />
+          )}
+        </QueryBoundary>
+      </Section>
     </section>
   )
 }
@@ -189,7 +197,7 @@ function ResumePanel({ detail }: { detail: RunDetail }) {
     )
   return (
     <form
-      className="grid min-w-0 gap-3 rounded-md border p-3"
+      className="min-w-0"
       onSubmit={async (e) => {
         e.preventDefault()
         await cmd.execute({
@@ -201,56 +209,61 @@ function ResumePanel({ detail }: { detail: RunDetail }) {
         })
       }}
     >
-      <h2 className="text-sm font-medium">External tool results</h2>
-      {pending.map((p) => (
-        <div key={p.id} className="grid min-w-0 gap-2">
-          <p className="text-sm">
-            {p.name} · <code>{p.id}</code>
-          </p>
-          <Code text={p.arguments} label={`${p.name} arguments`} json />
-          <Input
-            aria-label={`${p.name} result`}
-            placeholder="Result"
-            value={results[p.id]?.content ?? ""}
-            onChange={(e) =>
-              setResults({
-                ...results,
-                [p.id]: {
-                  content: e.target.value,
-                  error: results[p.id]?.error ?? "",
-                },
-              })
+      <Section title="External tool results" inset>
+        <div className="grid min-w-0 gap-3">
+          {pending.map((p) => (
+            <div key={p.id} className="grid min-w-0 gap-2">
+              <p className="text-sm">
+                {p.name} · <code>{p.id}</code>
+              </p>
+              <Code text={p.arguments} label={`${p.name} arguments`} json />
+              <Input
+                aria-label={`${p.name} result`}
+                placeholder="Result"
+                value={results[p.id]?.content ?? ""}
+                onChange={(e) =>
+                  setResults({
+                    ...results,
+                    [p.id]: {
+                      content: e.target.value,
+                      error: results[p.id]?.error ?? "",
+                    },
+                  })
+                }
+              />
+              <Input
+                aria-label={`${p.name} error`}
+                placeholder="Execution error, if any"
+                value={results[p.id]?.error ?? ""}
+                onChange={(e) =>
+                  setResults({
+                    ...results,
+                    [p.id]: {
+                      error: e.target.value,
+                      content: results[p.id]?.content ?? "",
+                    },
+                  })
+                }
+              />
+            </div>
+          ))}
+          <CommandAlert error={cmd.error} title="Resume failed" />
+          <Button
+            type="submit"
+            size="sm"
+            className="w-fit"
+            disabled={
+              cmd.loading ||
+              !allowed ||
+              pending.some(
+                (p) => !results[p.id]?.content && !results[p.id]?.error
+              )
             }
-          />
-          <Input
-            aria-label={`${p.name} error`}
-            placeholder="Execution error, if any"
-            value={results[p.id]?.error ?? ""}
-            onChange={(e) =>
-              setResults({
-                ...results,
-                [p.id]: {
-                  error: e.target.value,
-                  content: results[p.id]?.content ?? "",
-                },
-              })
-            }
-          />
+          >
+            {cmd.loading ? "Resuming…" : "Submit results and resume"}
+          </Button>
         </div>
-      ))}
-      <CommandAlert error={cmd.error} title="Resume failed" />
-      <Button
-        type="submit"
-        size="sm"
-        className="w-fit"
-        disabled={
-          cmd.loading ||
-          !allowed ||
-          pending.some((p) => !results[p.id]?.content && !results[p.id]?.error)
-        }
-      >
-        {cmd.loading ? "Resuming…" : "Submit results and resume"}
-      </Button>
+      </Section>
     </form>
   )
 }
@@ -261,7 +274,7 @@ export function RunPage({ id }: { id: string }) {
     [open, setOpen] = useState(false),
     allowed = useAccess("run")
   return (
-    <section className="flex min-w-0 flex-col gap-3">
+    <section className="flex min-w-0 flex-col gap-4">
       <Back to="/runs" label="runs" />
       <QueryBoundary title="Run" query={q} keepPreviousData>
         {(data) => (
@@ -269,57 +282,60 @@ export function RunPage({ id }: { id: string }) {
             <PageHeader
               title="Run review"
               description={data.run.id}
-              actions={
+              meta={
                 <>
                   <State value={data.run.state} />
-                  {allowed &&
-                    ["running", "paused"].includes(data.run.state) && (
-                      <IconAction
-                        label="Cancel run"
-                        icon={CircleStop}
-                        onClick={() => {
-                          cmd.reset()
-                          setOpen(true)
-                        }}
-                      />
-                    )}
+                  <PluginLink
+                    to={`/agents/${data.run.agent_id}`}
+                    className="underline"
+                  >
+                    Agent configuration
+                  </PluginLink>
+                  {data.run.session_id && (
+                    <PluginLink
+                      to={`/sessions/${data.run.session_id}`}
+                      className="underline"
+                    >
+                      Conversation memory
+                    </PluginLink>
+                  )}
+                  <PluginLink
+                    to={`/safety/scans/run/${id}`}
+                    className="underline"
+                  >
+                    Safety scans
+                  </PluginLink>
+                  <ScopeLine scope={data.run.scope} />
+                  <AuditDates created={data.run.created_at} />
                 </>
               }
+              actions={
+                allowed && ["running", "paused"].includes(data.run.state) ? (
+                  <IconAction
+                    label="Cancel run"
+                    icon={CircleStop}
+                    onClick={() => {
+                      cmd.reset()
+                      setOpen(true)
+                    }}
+                  />
+                ) : undefined
+              }
             />
-            <div className="flex flex-wrap items-center gap-3 text-sm">
-              <PluginLink
-                to={`/agents/${data.run.agent_id}`}
-                className="underline"
-              >
-                Agent configuration
-              </PluginLink>
-              {data.run.session_id && (
-                <PluginLink
-                  to={`/sessions/${data.run.session_id}`}
-                  className="underline"
-                >
-                  Conversation memory
-                </PluginLink>
-              )}
-              <PluginLink to={`/safety/scans/run/${id}`} className="underline">
-                Safety scans
-              </PluginLink>
-              <ScopeLine scope={data.run.scope} />
-            </div>
-            <AuditDates created={data.run.created_at} />
-            <div className="grid min-w-0 grid-cols-2 gap-3 text-sm">
-              <p>{data.run.step_count} steps</p>
-              <p>{data.run.tokens_used} tokens</p>
-            </div>
-            <div className="grid min-w-0 gap-3 lg:grid-cols-2">
-              <div className="min-w-0">
-                <h2 className="mb-2 text-sm font-medium">Input</h2>
+            <StatGrid
+              aria-label="Run counters"
+              items={[
+                { label: "Steps", value: data.run.step_count },
+                { label: "Tokens", value: data.run.tokens_used },
+              ]}
+            />
+            <div className="grid min-w-0 gap-4 lg:grid-cols-2">
+              <Section title="Input" inset>
                 <Code text={data.run.input} label="Run input" />
-              </div>
-              <div className="min-w-0">
-                <h2 className="mb-2 text-sm font-medium">Output</h2>
+              </Section>
+              <Section title="Output" inset>
                 <Code text={data.run.output ?? ""} label="Run output" />
-              </div>
+              </Section>
             </div>
             {data.run.error && (
               <p
@@ -330,57 +346,62 @@ export function RunPage({ id }: { id: string }) {
               </p>
             )}
             <ResumePanel detail={data} />
-            <h2 className="text-sm font-medium">Steps and tool calls</h2>
-            {data.steps.length ? (
-              data.steps.map((step) => (
-                <article
-                  key={step.id}
-                  className="grid min-w-0 gap-2 rounded-md border p-3"
-                >
-                  <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
-                    <h3>
-                      Step {step.index + 1} · {step.type}
-                    </h3>
-                    <span>{step.tokens_used} tokens</span>
-                  </div>
-                  {step.input && (
-                    <Code
-                      text={step.input}
-                      label={`Step ${step.index + 1} input`}
-                    />
-                  )}
-                  <Code
-                    text={step.output ?? ""}
-                    label={`Step ${step.index + 1} output`}
-                  />
-                  {(data.tool_calls[step.id] ?? []).map((call) => (
-                    <div
-                      key={call.id}
-                      className="grid min-w-0 gap-2 rounded-md bg-muted/30 p-3"
+            <Section title="Steps and tool calls" inset={data.steps.length > 0}>
+              {data.steps.length ? (
+                <div className="grid min-w-0 gap-3">
+                  {data.steps.map((step) => (
+                    <article
+                      key={step.id}
+                      className="grid min-w-0 gap-2 rounded-md border p-3"
                     >
-                      <h4 className="text-sm font-medium">{call.tool_name}</h4>
-                      <Code
-                        text={call.arguments}
-                        label={`${call.tool_name} arguments`}
-                        json
-                      />
-                      {call.result && (
+                      <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                        <h3>
+                          Step {step.index + 1} · {step.type}
+                        </h3>
+                        <span>{step.tokens_used} tokens</span>
+                      </div>
+                      {step.input && (
                         <Code
-                          text={call.result}
-                          label={`${call.tool_name} result`}
+                          text={step.input}
+                          label={`Step ${step.index + 1} input`}
                         />
                       )}
-                      <Value value={call.error} label="tool error" />
-                    </div>
+                      <Code
+                        text={step.output ?? ""}
+                        label={`Step ${step.index + 1} output`}
+                      />
+                      {(data.tool_calls[step.id] ?? []).map((call) => (
+                        <div
+                          key={call.id}
+                          className="grid min-w-0 gap-2 rounded-md bg-muted/30 p-3"
+                        >
+                          <h4 className="text-sm font-medium">
+                            {call.tool_name}
+                          </h4>
+                          <Code
+                            text={call.arguments}
+                            label={`${call.tool_name} arguments`}
+                            json
+                          />
+                          {call.result && (
+                            <Code
+                              text={call.result}
+                              label={`${call.tool_name} result`}
+                            />
+                          )}
+                          <Value value={call.error} label="tool error" />
+                        </div>
+                      ))}
+                    </article>
                   ))}
-                </article>
-              ))
-            ) : (
-              <ZeroState
-                title="No steps recorded"
-                body="Recorded steps appear here as execution progresses."
-              />
-            )}
+                </div>
+              ) : (
+                <ZeroState
+                  title="No steps recorded"
+                  body="Recorded steps appear here as execution progresses."
+                />
+              )}
+            </Section>
             <PluginSlot
               name="cortex.run.detail.sections"
               params={{ runId: id, run: data.run }}
@@ -442,25 +463,27 @@ export function CheckpointsPage() {
     })
   usePoll(q.refetch)
   return (
-    <section className="flex min-w-0 flex-col gap-3">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Pending approvals"
         description="Review the stored context before allowing a paused tool call."
         actions={<Reload onClick={q.refetch} />}
       />
-      <QueryBoundary title="Checkpoints" query={q} keepPreviousData>
-        {(data) => (
-          <ResourceTable
-            columns={checkpointColumns}
-            rows={data.items}
-            rowKey={(r) => r.id}
-            caption={`${data.total} pending checkpoints`}
-            emptyMessage="No pending approvals"
-            pagination={{ page, pageSize: 25, total: data.total }}
-            onPageChange={setPage}
-          />
-        )}
-      </QueryBoundary>
+      <Section aria-label="Approval list">
+        <QueryBoundary title="Checkpoints" query={q} keepPreviousData>
+          {(data) => (
+            <ResourceTable
+              columns={checkpointColumns}
+              rows={data.items}
+              rowKey={(r) => r.id}
+              caption={`${data.total} pending checkpoints`}
+              emptyMessage="No pending approvals"
+              pagination={{ page, pageSize: 25, total: data.total }}
+              onPageChange={setPage}
+            />
+          )}
+        </QueryBoundary>
+      </Section>
     </section>
   )
 }
@@ -472,7 +495,7 @@ export function CheckpointPage({ id }: { id: string }) {
     cmd = useCommand("checkpoints.resolve"),
     allowed = useAccess("approve")
   return (
-    <section className="flex min-w-0 flex-col gap-3">
+    <section className="flex min-w-0 flex-col gap-4">
       <Back to="/checkpoints" label="pending approvals" />
       <QueryBoundary title="Checkpoint" query={q} keepPreviousData>
         {(data) => (
@@ -480,46 +503,63 @@ export function CheckpointPage({ id }: { id: string }) {
             <PageHeader
               title="Review checkpoint"
               description={data.reason}
-              actions={<State value={data.state} />}
+              meta={
+                <>
+                  <State value={data.state} />
+                  <code className="font-mono text-xs break-all">{data.id}</code>
+                  <ScopeLine scope={data.scope} />
+                </>
+              }
             />
-            <p className="font-mono text-xs break-all">{data.id}</p>
-            <ScopeLine scope={data.scope} />
-            <PluginLink
-              to={`/runs/${data.run_id}`}
-              className="text-sm underline"
-            >
-              Review run and tool arguments
-            </PluginLink>
-            <p className="text-sm">Step {data.step_index + 1}</p>
-            {data.decision ? (
-              <Value value={data.decision} label="decision" />
-            ) : (
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  size="sm"
-                  disabled={!allowed}
-                  onClick={() => {
-                    cmd.reset()
-                    setReason("")
-                    setChoice(true)
-                  }}
-                >
-                  Approve
-                </Button>
-                <Button
-                  size="sm"
-                  variant="destructive"
-                  disabled={!allowed}
-                  onClick={() => {
-                    cmd.reset()
-                    setReason("")
-                    setChoice(false)
-                  }}
-                >
-                  Reject
-                </Button>
-              </div>
-            )}
+            <Section title="Details" inset>
+              <DescriptionList
+                items={[
+                  {
+                    term: "Run",
+                    value: (
+                      <PluginLink
+                        to={`/runs/${data.run_id}`}
+                        className="underline"
+                      >
+                        Review run and tool arguments
+                      </PluginLink>
+                    ),
+                  },
+                  { term: "Step", value: data.step_index + 1 },
+                ]}
+              />
+            </Section>
+            <Section title="Decision" inset>
+              {data.decision ? (
+                <Value value={data.decision} label="decision" />
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    size="sm"
+                    disabled={!allowed}
+                    onClick={() => {
+                      cmd.reset()
+                      setReason("")
+                      setChoice(true)
+                    }}
+                  >
+                    Approve
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    disabled={!allowed}
+                    onClick={() => {
+                      cmd.reset()
+                      setReason("")
+                      setChoice(false)
+                    }}
+                  >
+                    Reject
+                  </Button>
+                </div>
+              )}
+            </Section>
           </>
         )}
       </QueryBoundary>
@@ -639,96 +679,102 @@ export function SessionsPage({ agentId }: { agentId?: string }) {
     })
   usePoll(q.refetch)
   return (
-    <section className="flex min-w-0 flex-col gap-3">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Sessions and memory"
         description="Persistent conversations with stable IDs, message counts and scoped history."
         actions={<Reload onClick={q.refetch} />}
       />
-      <div className="grid min-w-0 gap-3 md:grid-cols-2">
-        <AgentPicker
-          selected={agent}
-          onChange={(v) => {
-            setAgent(v)
-            setPage(1)
-          }}
-        />
-        <form
-          className="flex flex-wrap items-end gap-2"
-          onSubmit={async (e) => {
-            e.preventDefault()
-            const saved = await create.execute({ agent_id: agent, title })
-            if (saved) navigate(`/sessions/${saved.id}`)
-          }}
-        >
-          <Input
-            className="min-w-48 flex-1"
-            aria-label="New session title"
-            placeholder="New session title"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            required
+      <Section aria-label="Session controls" inset>
+        <div className="grid min-w-0 gap-3 md:grid-cols-2">
+          <AgentPicker
+            selected={agent}
+            onChange={(v) => {
+              setAgent(v)
+              setPage(1)
+            }}
           />
-          <Button
-            type="submit"
-            size="sm"
-            disabled={!agent || !title.trim() || create.loading || !allowed}
+          <form
+            className="flex flex-wrap items-end gap-2"
+            onSubmit={async (e) => {
+              e.preventDefault()
+              const saved = await create.execute({ agent_id: agent, title })
+              if (saved) navigate(`/sessions/${saved.id}`)
+            }}
           >
-            Create session
-          </Button>
-        </form>
-      </div>
+            <Input
+              className="min-w-48 flex-1"
+              aria-label="New session title"
+              placeholder="New session title"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              required
+            />
+            <Button
+              type="submit"
+              size="sm"
+              disabled={!agent || !title.trim() || create.loading || !allowed}
+            >
+              Create session
+            </Button>
+          </form>
+        </div>
+      </Section>
       <CommandAlert error={create.error} title="Session creation failed" />
-      <QueryBoundary title="Sessions" query={q} keepPreviousData>
-        {(data) => (
-          <ResourceTable
-            rows={data.items}
-            rowKey={(r) => r.id}
-            caption={`${data.total} sessions`}
-            emptyMessage="No sessions yet"
-            emptyAction={
-              <PluginLink to="/chat">Start a conversation</PluginLink>
-            }
-            columns={[
-              {
-                id: "title",
-                header: "Session",
-                cell: (r) => (
-                  <PluginLink to={`/sessions/${r.id}`} className="underline">
-                    {r.title || "Untitled session"}
-                    {r.is_default ? " (default)" : ""}
-                  </PluginLink>
-                ),
-              },
-              {
-                id: "agent",
-                header: "Agent",
-                cell: (r) => (
-                  <PluginLink
-                    to={`/agents/${r.agent_id}`}
-                    className="font-mono text-xs"
-                  >
-                    {r.agent_id}
-                  </PluginLink>
-                ),
-              },
-              {
-                id: "messages",
-                header: "Messages",
-                cell: (r) => r.message_count,
-              },
-              { id: "tokens", header: "Tokens", cell: (r) => r.token_count },
-              {
-                id: "updated",
-                header: "Updated",
-                cell: (r) => <Timestamp value={r.updated_at} label="updated" />,
-              },
-            ]}
-            pagination={{ page, pageSize: 25, total: data.total }}
-            onPageChange={setPage}
-          />
-        )}
-      </QueryBoundary>
+      <Section aria-label="Session list">
+        <QueryBoundary title="Sessions" query={q} keepPreviousData>
+          {(data) => (
+            <ResourceTable
+              rows={data.items}
+              rowKey={(r) => r.id}
+              caption={`${data.total} sessions`}
+              emptyMessage="No sessions yet"
+              emptyAction={
+                <PluginLink to="/chat">Start a conversation</PluginLink>
+              }
+              columns={[
+                {
+                  id: "title",
+                  header: "Session",
+                  cell: (r) => (
+                    <PluginLink to={`/sessions/${r.id}`} className="underline">
+                      {r.title || "Untitled session"}
+                      {r.is_default ? " (default)" : ""}
+                    </PluginLink>
+                  ),
+                },
+                {
+                  id: "agent",
+                  header: "Agent",
+                  cell: (r) => (
+                    <PluginLink
+                      to={`/agents/${r.agent_id}`}
+                      className="font-mono text-xs"
+                    >
+                      {r.agent_id}
+                    </PluginLink>
+                  ),
+                },
+                {
+                  id: "messages",
+                  header: "Messages",
+                  cell: (r) => r.message_count,
+                },
+                { id: "tokens", header: "Tokens", cell: (r) => r.token_count },
+                {
+                  id: "updated",
+                  header: "Updated",
+                  cell: (r) => (
+                    <Timestamp value={r.updated_at} label="updated" />
+                  ),
+                },
+              ]}
+              pagination={{ page, pageSize: 25, total: data.total }}
+              onPageChange={setPage}
+            />
+          )}
+        </QueryBoundary>
+      </Section>
     </section>
   )
 }
@@ -744,7 +790,7 @@ export function SessionPage({ id }: { id: string }) {
     navigate = useNavigateTo(),
     cmd = mode === "delete" ? del : mode === "rename" ? rename : clear
   return (
-    <section className="flex min-w-0 flex-col gap-3">
+    <section className="flex min-w-0 flex-col gap-4">
       <Back to="/sessions" label="sessions" />
       <QueryBoundary title="Memory" query={q} keepPreviousData>
         {(data) => (
@@ -788,54 +834,63 @@ export function SessionPage({ id }: { id: string }) {
                   </>
                 ) : undefined
               }
+              meta={
+                <>
+                  <ScopeLine scope={data.session.scope} />
+                  <span>
+                    {data.session.message_count} messages ·{" "}
+                    {data.session.token_count} tokens
+                  </span>
+                  <PluginLink
+                    to={`/chat/${data.session.agent_id}/session/${id}`}
+                    className="underline"
+                  >
+                    Continue chat
+                  </PluginLink>
+                </>
+              }
             />
-            <div className="flex flex-wrap items-center gap-3 text-sm">
-              <ScopeLine scope={data.session.scope} />
-              <span>
-                {data.session.message_count} messages ·{" "}
-                {data.session.token_count} tokens
-              </span>
-              <PluginLink
-                to={`/chat/${data.session.agent_id}/session/${id}`}
-                className="underline"
-              >
-                Continue chat
-              </PluginLink>
-            </div>
             {!data.complete && (
               <p role="status" className="text-xs text-muted-foreground">
                 Showing the latest 500 messages. This is a partial history.
               </p>
             )}
-            {data.messages.length ? (
-              data.messages.map((m, i) => (
-                <article
-                  key={`${i}-${m.timestamp}`}
-                  className="grid min-w-0 gap-2 rounded-md border p-3"
-                >
-                  <header className="flex flex-wrap justify-between gap-2 text-xs">
-                    <span className="font-medium">{m.role}</span>
-                    <Timestamp value={m.timestamp} label="message time" />
-                  </header>
-                  <Code text={m.content} label={`${m.role} message ${i + 1}`} />
-                  {m.tool_calls && (
-                    <Value value={m.tool_calls} label="tool calls" />
-                  )}
-                </article>
-              ))
-            ) : (
-              <ZeroState
-                title="No messages"
-                body="This session has no saved conversation history."
-                action={
-                  <PluginLink
-                    to={`/chat/${data.session.agent_id}/session/${id}`}
-                  >
-                    Start chatting
-                  </PluginLink>
-                }
-              />
-            )}
+            <Section title="Messages" inset={data.messages.length > 0}>
+              {data.messages.length ? (
+                <div className="grid min-w-0 gap-3">
+                  {data.messages.map((m, i) => (
+                    <article
+                      key={`${i}-${m.timestamp}`}
+                      className="grid min-w-0 gap-2 rounded-md border p-3"
+                    >
+                      <header className="flex flex-wrap justify-between gap-2 text-xs">
+                        <span className="font-medium">{m.role}</span>
+                        <Timestamp value={m.timestamp} label="message time" />
+                      </header>
+                      <Code
+                        text={m.content}
+                        label={`${m.role} message ${i + 1}`}
+                      />
+                      {m.tool_calls && (
+                        <Value value={m.tool_calls} label="tool calls" />
+                      )}
+                    </article>
+                  ))}
+                </div>
+              ) : (
+                <ZeroState
+                  title="No messages"
+                  body="This session has no saved conversation history."
+                  action={
+                    <PluginLink
+                      to={`/chat/${data.session.agent_id}/session/${id}`}
+                    >
+                      Start chatting
+                    </PluginLink>
+                  }
+                />
+              )}
+            </Section>
           </>
         )}
       </QueryBoundary>
@@ -904,7 +959,7 @@ function IntegrationSummary() {
     }
   }>("safety.scans", { limit: 1, offset: 0 })
   return (
-    <div className="grid min-w-0 gap-2 text-xs sm:grid-cols-2">
+    <Section title="Integrations">
       <QueryBoundary
         title="Knowledge summary"
         query={knowledge}
@@ -912,7 +967,7 @@ function IntegrationSummary() {
         keepPreviousData
       >
         {(data) => (
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md border px-3 py-2">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b px-4 py-3 text-xs">
             <PluginLink to="/knowledge" className="font-medium underline">
               Knowledge
             </PluginLink>
@@ -933,7 +988,7 @@ function IntegrationSummary() {
         keepPreviousData
       >
         {(data) => (
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md border px-3 py-2">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3 text-xs">
             <PluginLink to="/safety/scans" className="font-medium underline">
               Safety scans
             </PluginLink>
@@ -947,7 +1002,7 @@ function IntegrationSummary() {
           </div>
         )}
       </QueryBoundary>
-    </div>
+    </Section>
   )
 }
 export function OverviewPage() {
@@ -962,32 +1017,39 @@ export function OverviewPage() {
   usePoll(runs.refetch)
   usePoll(checks.refetch)
   return (
-    <section className="flex min-w-0 flex-col gap-3">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Cortex"
         description="Agent configuration, execution and human review."
+        meta={
+          runtime.data ? (
+            <>
+              <span>
+                {runtime.data.execution_label} ·{" "}
+                <ScopeLine scope={runtime.data.scope} />
+              </span>
+              <PluginLink to="/settings" className="underline">
+                Runtime capabilities
+              </PluginLink>
+            </>
+          ) : undefined
+        }
         actions={
           <PluginLink to="/chat" className={buttonVariants({ size: "sm" })}>
             Open chat
           </PluginLink>
         }
       />
-      <QueryBoundary title="Runtime" query={runtime} skeletonRows={1}>
-        {(data) => (
-          <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border px-3 py-2 text-xs">
-            <span>
-              {data.execution_label} · <ScopeLine scope={data.scope} />
-            </span>
-            <PluginLink to="/settings" className="underline">
-              Runtime capabilities
-            </PluginLink>
-          </div>
-        )}
-      </QueryBoundary>
+      {/* The runtime line now lives in the header; a failed read still shows its card. */}
+      {runtime.error && (
+        <QueryBoundary title="Runtime" query={runtime} skeletonRows={1}>
+          {() => null}
+        </QueryBoundary>
+      )}
       <QueryBoundary title="Counts" query={stats} keepPreviousData>
         {(data) => (
           <StatGrid
-            className="grid-cols-2 gap-2 @xl/main:grid-cols-4"
+            aria-label="Counts"
             items={Object.entries(data).map(([label, value]) => ({
               label,
               value,
@@ -998,15 +1060,22 @@ export function OverviewPage() {
         )}
       </QueryBoundary>
       <IntegrationSummary />
-      <QueryBoundary title="Pending approvals" query={checks} keepPreviousData>
-        {(data) => (
-          <div className="flex min-w-0 flex-col gap-2">
-            <div className="flex justify-between text-sm">
-              <h2 className="font-medium">Pending approvals</h2>
-              <PluginLink to="/checkpoints" className="underline">
-                View all ({data.total})
-              </PluginLink>
-            </div>
+      <Section
+        title="Pending approvals"
+        actions={
+          checks.data ? (
+            <PluginLink to="/checkpoints" className="text-sm underline">
+              View all ({checks.data.total})
+            </PluginLink>
+          ) : undefined
+        }
+      >
+        <QueryBoundary
+          title="Pending approvals"
+          query={checks}
+          keepPreviousData
+        >
+          {(data) => (
             <ResourceTable
               rows={data.items}
               rowKey={(r) => r.id}
@@ -1014,13 +1083,12 @@ export function OverviewPage() {
               caption={`${data.total} pending checkpoints`}
               emptyMessage="No pending approvals"
             />
-          </div>
-        )}
-      </QueryBoundary>
-      <QueryBoundary title="Recent runs" query={runs} keepPreviousData>
-        {(data) => (
-          <div className="flex min-w-0 flex-col gap-2">
-            <h2 className="text-sm font-medium">Recent runs</h2>
+          )}
+        </QueryBoundary>
+      </Section>
+      <Section title="Recent runs">
+        <QueryBoundary title="Recent runs" query={runs} keepPreviousData>
+          {(data) => (
             <ResourceTable
               rows={data.items}
               rowKey={(r) => r.id}
@@ -1031,9 +1099,9 @@ export function OverviewPage() {
                 <PluginLink to="/chat">Start a conversation</PluginLink>
               }
             />
-          </div>
-        )}
-      </QueryBoundary>
+          )}
+        </QueryBoundary>
+      </Section>
       <PluginSlot name="cortex.overview.widgets" />
     </section>
   )

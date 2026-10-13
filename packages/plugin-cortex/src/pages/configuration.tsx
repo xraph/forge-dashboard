@@ -32,6 +32,7 @@ import {
   ResourceTable,
   type Column,
 } from "@forge-go/dashboard-kit/components/resource-table"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { ZeroState } from "@forge-go/dashboard-kit/components/zero-state"
 import {
@@ -144,7 +145,7 @@ export function ConfigList({ resource }: { resource: Resource }) {
       }
     )
   return (
-    <section className="flex min-w-0 flex-col gap-3">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title={title(resource)}
         description={spec.description}
@@ -161,87 +162,97 @@ export function ConfigList({ resource }: { resource: Resource }) {
           </>
         }
       />
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="min-w-56 flex-1">
-          <FilterBar
-            search={{
-              value: search,
-              onChange: (v) => {
-                setSearch(v)
-                setPage(1)
-              },
-              label: `Search ${resource}`,
-              placeholder: `Search ${resource}`,
-            }}
-          />
-        </div>
-        <label className="flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            checked={exact}
-            onChange={(e) => {
-              setExact(e.target.checked)
-              setPage(1)
-            }}
-          />
-          Exact scope
-        </label>
-      </div>
-      <QueryBoundary title={title(resource)} query={q} keepPreviousData>
-        {(data) => (
-          <ResourceTable
-            columns={columns}
-            rows={data.items}
-            rowKey={(r) => r.id}
-            caption={`${data.total} ${resource}`}
-            emptyMessage={
-              search ? `No ${resource} match your search` : `No ${resource} yet`
-            }
-            emptyAction={
-              search ? (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setSearch("")
-                    setPage(1)
-                  }}
-                >
-                  Clear search
-                </Button>
-              ) : allowed ? (
-                <PluginLink to={`/${resource}/new`}>
-                  Create {spec.singular.toLowerCase()}
-                </PluginLink>
-              ) : undefined
-            }
-            rowActions={(r) => (
-              <>
-                <IconLink to={`/${resource}/${r.id}`} label="View" icon={Eye} />
-                {allowed && (
-                  <>
-                    <IconLink
-                      to={`/${resource}/${r.id}/edit`}
-                      label="Edit"
-                      icon={Pencil}
-                    />
-                    <IconAction
-                      label="Delete"
-                      icon={Trash2}
-                      onClick={() => {
-                        del.reset()
-                        setSelected(r)
-                      }}
-                    />
-                  </>
-                )}
-              </>
-            )}
-            pagination={{ page, pageSize: 25, total: data.total }}
-            onPageChange={setPage}
-          />
-        )}
-      </QueryBoundary>
+      <Section
+        aria-label={`${title(resource)} list`}
+        actions={
+          <>
+            <FilterBar
+              search={{
+                value: search,
+                onChange: (v) => {
+                  setSearch(v)
+                  setPage(1)
+                },
+                label: `Search ${resource}`,
+                placeholder: `Search ${resource}`,
+              }}
+            />
+            <label className="flex shrink-0 items-center gap-2 text-sm whitespace-nowrap">
+              <input
+                type="checkbox"
+                checked={exact}
+                onChange={(e) => {
+                  setExact(e.target.checked)
+                  setPage(1)
+                }}
+              />
+              Exact scope
+            </label>
+          </>
+        }
+      >
+        <QueryBoundary title={title(resource)} query={q} keepPreviousData>
+          {(data) => (
+            <ResourceTable
+              columns={columns}
+              rows={data.items}
+              rowKey={(r) => r.id}
+              caption={`${data.total} ${resource}`}
+              emptyMessage={
+                search
+                  ? `No ${resource} match your search`
+                  : `No ${resource} yet`
+              }
+              emptyAction={
+                search ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setSearch("")
+                      setPage(1)
+                    }}
+                  >
+                    Clear search
+                  </Button>
+                ) : allowed ? (
+                  <PluginLink to={`/${resource}/new`}>
+                    Create {spec.singular.toLowerCase()}
+                  </PluginLink>
+                ) : undefined
+              }
+              rowActions={(r) => (
+                <>
+                  <IconLink
+                    to={`/${resource}/${r.id}`}
+                    label="View"
+                    icon={Eye}
+                  />
+                  {allowed && (
+                    <>
+                      <IconLink
+                        to={`/${resource}/${r.id}/edit`}
+                        label="Edit"
+                        icon={Pencil}
+                      />
+                      <IconAction
+                        label="Delete"
+                        icon={Trash2}
+                        onClick={() => {
+                          del.reset()
+                          setSelected(r)
+                        }}
+                      />
+                    </>
+                  )}
+                </>
+              )}
+              pagination={{ page, pageSize: 25, total: data.total }}
+              onPageChange={setPage}
+            />
+          )}
+        </QueryBoundary>
+      </Section>
       <ConfirmDialog
         open={selected !== null}
         onOpenChange={(v) => {
@@ -450,10 +461,10 @@ function AgentActivity({ agent }: { agent: Agent }) {
   }>("agents.stats", { id: agent.id })
   usePoll(stats.refetch)
   return (
-    <div className="flex min-w-0 flex-col gap-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-sm font-medium">Execution</h2>
-        <div className="flex flex-wrap gap-1">
+    <Section
+      title="Execution"
+      actions={
+        <>
           <IconLink
             to={`/chat/${agent.id}`}
             label="Chat"
@@ -484,8 +495,9 @@ function AgentActivity({ agent }: { agent: Agent }) {
             label="Prompt overlays"
             icon={Layers}
           />
-        </div>
-      </div>
+        </>
+      }
+    >
       <QueryBoundary
         title="Agent statistics"
         query={stats}
@@ -493,7 +505,7 @@ function AgentActivity({ agent }: { agent: Agent }) {
         keepPreviousData
       >
         {(data) => (
-          <p className="text-sm text-muted-foreground">
+          <p className="border-b px-4 py-3 text-sm text-muted-foreground">
             {data.total} runs · {data.completed} completed ·{" "}
             {data.success_rate === null
               ? "No success rate yet"
@@ -555,7 +567,7 @@ function AgentActivity({ agent }: { agent: Agent }) {
           )
         }
       </QueryBoundary>
-    </div>
+    </Section>
   )
 }
 export function ConfigDetail({
@@ -569,7 +581,7 @@ export function ConfigDetail({
     allowed = useAccess("manage"),
     spec = schemas[resource]
   return (
-    <section className="flex min-w-0 flex-col gap-3">
+    <section className="flex min-w-0 flex-col gap-4">
       <Back to={`/${resource}`} label={resource} />
       <QueryBoundary title={spec.singular} query={q}>
         {(row) => (
@@ -577,8 +589,26 @@ export function ConfigDetail({
             <PageHeader
               title={row.name}
               description={row.description}
+              meta={
+                <>
+                  <code className="text-xs break-all">{row.id}</code>
+                  <ScopeLine scope={row.scope} />
+                  <AuditDates
+                    created={row.created_at}
+                    updated={row.updated_at}
+                  />
+                </>
+              }
               actions={
                 <>
+                  {resource === "orchestrations" && (
+                    <PluginLink
+                      to={`/orchestrations/${id}/execute`}
+                      className={buttonVariants({ size: "sm" })}
+                    >
+                      Execute orchestration
+                    </PluginLink>
+                  )}
                   {allowed && (
                     <>
                       {["agents", "personas"].includes(resource) && (
@@ -595,77 +625,66 @@ export function ConfigDetail({
                 </>
               }
             />
-            <div className="flex flex-wrap items-center gap-3">
-              <code className="text-xs break-all">{row.id}</code>
-              <ScopeLine scope={row.scope} />
-            </div>
-            <AuditDates created={row.created_at} updated={row.updated_at} />
-            {resource === "orchestrations" && (
-              <PluginLink
-                to={`/orchestrations/${id}/execute`}
-                className={buttonVariants({ size: "sm" })}
-              >
-                Execute orchestration
-              </PluginLink>
-            )}
             {resource === "agents" && <AgentActivity agent={row as Agent} />}
-            <div className="grid min-w-0 grid-cols-1 gap-x-6 gap-y-1 lg:grid-cols-2">
-              {spec.fields
-                .filter((f) => !["name", "description"].includes(f.key))
-                .map((f) => {
-                  const value = (row as unknown as Draft)[f.key]
-                  const structured = [
-                    "array",
-                    "object",
-                    "json",
-                    "prompt",
-                  ].includes(f.kind ?? "")
-                  return structured ? (
-                    <div
-                      key={f.key}
-                      className="col-span-full min-w-0 border-b py-2"
-                    >
-                      <details>
-                        <summary className="cursor-pointer text-xs font-medium">
-                          {f.label}{" "}
-                          <span className="ml-1 font-normal text-muted-foreground">
-                            {Array.isArray(value)
-                              ? `${value.length} entries`
-                              : value &&
-                                  (typeof value !== "object" ||
-                                    Object.keys(value).length > 0)
-                                ? "Configured"
-                                : "Empty"}
-                          </span>
-                        </summary>
-                        <div className="mt-2 min-w-0 text-sm">
+            <Section title="Details" inset>
+              <div className="grid min-w-0 grid-cols-1 gap-x-6 gap-y-1 lg:grid-cols-2">
+                {spec.fields
+                  .filter((f) => !["name", "description"].includes(f.key))
+                  .map((f) => {
+                    const value = (row as unknown as Draft)[f.key]
+                    const structured = [
+                      "array",
+                      "object",
+                      "json",
+                      "prompt",
+                    ].includes(f.kind ?? "")
+                    return structured ? (
+                      <div
+                        key={f.key}
+                        className="col-span-full min-w-0 border-b py-2"
+                      >
+                        <details>
+                          <summary className="cursor-pointer text-xs font-medium">
+                            {f.label}{" "}
+                            <span className="ml-1 font-normal text-muted-foreground">
+                              {Array.isArray(value)
+                                ? `${value.length} entries`
+                                : value &&
+                                    (typeof value !== "object" ||
+                                      Object.keys(value).length > 0)
+                                  ? "Configured"
+                                  : "Empty"}
+                            </span>
+                          </summary>
+                          <div className="mt-2 min-w-0 text-sm">
+                            <FieldView
+                              field={f}
+                              value={value}
+                              owner={{ kind: resource, id }}
+                            />
+                          </div>
+                        </details>
+                      </div>
+                    ) : (
+                      <dl
+                        key={f.key}
+                        className="grid min-w-0 grid-cols-[8rem_minmax(0,1fr)] items-start gap-2 border-b py-1.5"
+                      >
+                        <dt className="text-xs text-muted-foreground">
+                          {f.label}
+                        </dt>
+                        <dd className="min-w-0 text-sm">
                           <FieldView
                             field={f}
                             value={value}
                             owner={{ kind: resource, id }}
                           />
-                        </div>
-                      </details>
-                    </div>
-                  ) : (
-                    <dl
-                      key={f.key}
-                      className="grid min-w-0 grid-cols-[8rem_minmax(0,1fr)] items-start gap-2 border-b py-1.5"
-                    >
-                      <dt className="text-xs text-muted-foreground">
-                        {f.label}
-                      </dt>
-                      <dd className="min-w-0 text-sm">
-                        <FieldView
-                          field={f}
-                          value={value}
-                          owner={{ kind: resource, id }}
-                        />
-                      </dd>
-                    </dl>
-                  )
-                })}
-            </div>
+                        </dd>
+                      </dl>
+                    )
+                  })}
+              </div>
+            </Section>
             {resource === "agents" && (
               <PluginSlot
                 name="cortex.agent.detail.sections"
@@ -705,7 +724,7 @@ function ConfigForm({
     patch = changedFields(initialDraft, draft, fields)
   return (
     <form
-      className="flex min-w-0 flex-col gap-3"
+      className="flex min-w-0 flex-col gap-4"
       onSubmit={async (e) => {
         e.preventDefault()
         setLocalError("")
@@ -772,49 +791,53 @@ function ConfigForm({
           {localError}
         </p>
       )}
-      <fieldset
-        disabled={cmd.loading || !allowed}
-        className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2"
-      >
-        <FormFields
-          fields={fields}
-          value={draft}
-          onChange={setDraft}
-          onValidity={(path, valid) =>
-            setInvalid((prev) => {
-              const next = { ...prev }
-              if (valid) {
-                for (const key of Object.keys(next)) {
-                  if (key === path || key.startsWith(path + "."))
-                    delete next[key]
-                }
-              } else next[path] = true
-              return next
-            })
-          }
-          owner={initial ? { kind: resource, id: initial.id } : undefined}
-        />
-      </fieldset>
-      <div className="flex gap-3">
-        <Button
-          type="submit"
-          size="sm"
-          disabled={
-            cmd.loading ||
-            !allowed ||
-            Object.keys(invalid).length > 0 ||
-            (!!initial && Object.keys(patch).length === 0)
-          }
-        >
-          {cmd.loading ? "Saving…" : "Save configuration"}
-        </Button>
-        <PluginLink
-          to={initial ? `/${resource}/${initial.id}` : `/${resource}`}
-          className={buttonVariants({ variant: "outline", size: "sm" })}
-        >
-          Cancel
-        </PluginLink>
-      </div>
+      <Section aria-label={`${spec.singular} fields`} inset>
+        <div className="flex min-w-0 flex-col gap-3">
+          <fieldset
+            disabled={cmd.loading || !allowed}
+            className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2"
+          >
+            <FormFields
+              fields={fields}
+              value={draft}
+              onChange={setDraft}
+              onValidity={(path, valid) =>
+                setInvalid((prev) => {
+                  const next = { ...prev }
+                  if (valid) {
+                    for (const key of Object.keys(next)) {
+                      if (key === path || key.startsWith(path + "."))
+                        delete next[key]
+                    }
+                  } else next[path] = true
+                  return next
+                })
+              }
+              owner={initial ? { kind: resource, id: initial.id } : undefined}
+            />
+          </fieldset>
+          <div className="flex gap-3">
+            <Button
+              type="submit"
+              size="sm"
+              disabled={
+                cmd.loading ||
+                !allowed ||
+                Object.keys(invalid).length > 0 ||
+                (!!initial && Object.keys(patch).length === 0)
+              }
+            >
+              {cmd.loading ? "Saving…" : "Save configuration"}
+            </Button>
+            <PluginLink
+              to={initial ? `/${resource}/${initial.id}` : `/${resource}`}
+              className={buttonVariants({ variant: "outline", size: "sm" })}
+            >
+              Cancel
+            </PluginLink>
+          </div>
+        </div>
+      </Section>
     </form>
   )
 }
@@ -831,7 +854,7 @@ export function ConfigEdit({
     { enabled: !!id }
   )
   return (
-    <section className="flex min-w-0 flex-col gap-3">
+    <section className="flex min-w-0 flex-col gap-4">
       <Back to={id ? `/${resource}/${id}` : `/${resource}`} label={resource} />
       {id ? (
         <QueryBoundary title={schemas[resource].singular} query={q}>

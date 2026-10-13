@@ -22,6 +22,7 @@ import {
   CommandAlert,
   QueryBoundary,
 } from "@forge-go/dashboard-kit/components/query-boundary"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { ZeroState } from "@forge-go/dashboard-kit/components/zero-state"
 import {
   IconAction,
@@ -351,234 +352,235 @@ function ChatPane({
       overrides,
     })
   return (
-    <section className="flex min-w-0 flex-col gap-3">
-      <h2 className="text-sm font-medium">{label}</h2>
-      <QueryBoundary title="Agent" query={ag} skeletonRows={1}>
-        {(agent) => (
-          <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
-            <PluginLink to={`/agents/${agent.id}`} className="underline">
-              {agent.name}
-            </PluginLink>
-            <ScopeLine scope={agent.scope} />
-            <State value={agent.enabled ? "enabled" : "disabled"} />
-          </div>
-        )}
-      </QueryBoundary>
-      <fieldset disabled={active} className="flex min-w-0 flex-col gap-2">
-        <SessionSelector
-          agentId={agentId}
-          value={session}
-          onChange={setSession}
-        />
-      </fieldset>
-      {compare && !session && (
-        <p className="text-xs text-muted-foreground">
-          A separate session is created for this comparison pane before the
-          first run.
-        </p>
-      )}
-      {playground && (
-        <details className="rounded-md border p-3">
-          <summary className="cursor-pointer text-sm font-medium">
-            Run overrides
-          </summary>
-          <p className="my-2 text-xs text-muted-foreground">
-            Overrides apply to this run. ReAct is the implemented loop. Stored
-            behavior rules and cognitive phases do not change execution.
-          </p>
-          <fieldset
-            disabled={active}
-            className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2"
-          >
-            <FormFields
-              fields={overrideFields}
-              value={overrides}
-              onChange={setOverrides}
-              owner={{ kind: "agents", id: agentId }}
-              onValidity={(path, valid) =>
-                setInvalid((prev) => {
-                  const next = { ...prev }
-                  if (valid) delete next[path]
-                  else next[path] = true
-                  return next
-                })
-              }
-            />
-          </fieldset>
-          <IconAction
-            label={
-              preview ? "Close prompt preview" : "Preview assembled prompt"
-            }
-            icon={preview ? X : Eye}
-            className="mt-3"
-            onClick={() => setPreview((v) => !v)}
-          />
-          {preview && (
-            <div className="mt-3">
-              <QueryBoundary
-                title="Prompt preview"
-                query={prompt}
-                keepPreviousData
-              >
-                {(data) => (
-                  <Code text={data.prompt} label="Assembled system prompt" />
-                )}
-              </QueryBoundary>
+    <Section title={label} inset>
+      <div className="flex min-w-0 flex-col gap-3">
+        <QueryBoundary title="Agent" query={ag} skeletonRows={1}>
+          {(agent) => (
+            <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+              <PluginLink to={`/agents/${agent.id}`} className="underline">
+                {agent.name}
+              </PluginLink>
+              <ScopeLine scope={agent.scope} />
+              <State value={agent.enabled ? "enabled" : "disabled"} />
             </div>
           )}
-          {panels.map((p) => (
-            <div key={p.key} className="mt-3">
-              {p.node}
-            </div>
-          ))}
-          {tabs.map((t) => (
-            <details key={t.key}>
-              <summary>{t.label ?? t.id}</summary>
-              {t.node}
-            </details>
-          ))}
-        </details>
-      )}
-      {session && (
-        <QueryBoundary title="Saved history" query={history} keepPreviousData>
-          {(data) =>
-            data.messages.length ? (
-              <div
-                className="grid max-h-96 min-w-0 gap-2 overflow-auto rounded-md border p-3"
-                aria-label="Saved conversation"
-              >
-                {data.messages.map((m, i) => (
-                  <div key={`${m.timestamp}-${i}`}>
-                    <p className="text-xs font-medium text-muted-foreground">
-                      {m.role}
-                    </p>
-                    <p className="text-sm break-words whitespace-pre-wrap">
-                      {m.content}
-                    </p>
-                  </div>
-                ))}
-                {!data.complete && (
-                  <p className="text-xs text-muted-foreground">
-                    Latest 100 messages. Open session memory for more.
-                  </p>
-                )}
-              </div>
-            ) : (
-              <ZeroState
-                title="No saved messages"
-                body="Send a message to start this session."
-              />
-            )
-          }
         </QueryBoundary>
-      )}
-      {runId && (
-        <LiveRun
-          key={runId}
-          id={runId}
-          state={detail.data?.run.state}
-          onDone={() => {
-            setActive(false)
-            void detail.refetch()
-            void history.refetch()
-          }}
-        />
-      )}
-      <PluginSlot
-        name="cortex.chat.toolbar"
-        params={{ agentId, sessionId: session }}
-      />
-      <form
-        className="grid min-w-0 gap-2"
-        onSubmit={async (e) => {
-          e.preventDefault()
-          setLocalError("")
-          if (active) return
-          let sid = session
-          if (compare && !sid) {
-            if (!canManage) {
-              setLocalError(
-                "Choose a saved session for comparison, or request session management access."
-              )
-              return
-            }
-            const saved = await create.execute({
-              agent_id: agentId,
-              title: `${label} ${new Date().toISOString()}`,
-            })
-            if (!saved) return
-            sid = saved.id
-            setSession(sid)
-          }
-          setActive(true)
-          const saved = await start.execute({
-            id: agentId,
-            input,
-            session_id: sid,
-            overrides,
-          })
-          if (saved) {
-            setRunId(saved.id)
-            setInput("")
-          } else setActive(false)
-        }}
-      >
-        <CommandAlert
-          error={runtime.error}
-          title="Execution provider check failed"
-        />
-        {runtime.error && (
-          <IconButton
-            variant="outline"
-            type="button"
-            onClick={() => void runtime.refetch()}
-            label="Retry execution provider check"
+        <fieldset disabled={active} className="flex min-w-0 flex-col gap-2">
+          <SessionSelector
+            agentId={agentId}
+            value={session}
+            onChange={setSession}
           />
-        )}
-        <Code text={input} label={`${label} input`} onChange={setInput} />
-        <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
-          <span>
-            {runtime.data?.execution_label ?? "Checking execution provider…"}
-          </span>
-          <Button
-            type="submit"
-            size="sm"
-            disabled={
-              active ||
-              start.loading ||
-              !input.trim() ||
-              !allowed ||
-              !runtime.data?.llm ||
-              !ag.data?.enabled ||
-              Object.keys(invalid).length > 0
-            }
-          >
-            {active ? "Running…" : "Send"}
-          </Button>
-        </div>
-        <CommandAlert
-          error={start.error ?? create.error}
-          title="Execution failed"
-        />
-        {localError && (
-          <p role="alert" className="text-sm text-destructive">
-            {localError}
+        </fieldset>
+        {compare && !session && (
+          <p className="text-xs text-muted-foreground">
+            A separate session is created for this comparison pane before the
+            first run.
           </p>
         )}
-      </form>
-      {detail.data?.run.session_id && !session && (
-        <IconButton
-          variant="outline"
-          onClick={() => setSession(detail.data!.run.session_id!)}
-          label="Show saved session"
+        {playground && (
+          <details className="rounded-md border p-3">
+            <summary className="cursor-pointer text-sm font-medium">
+              Run overrides
+            </summary>
+            <p className="my-2 text-xs text-muted-foreground">
+              Overrides apply to this run. ReAct is the implemented loop. Stored
+              behavior rules and cognitive phases do not change execution.
+            </p>
+            <fieldset
+              disabled={active}
+              className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2"
+            >
+              <FormFields
+                fields={overrideFields}
+                value={overrides}
+                onChange={setOverrides}
+                owner={{ kind: "agents", id: agentId }}
+                onValidity={(path, valid) =>
+                  setInvalid((prev) => {
+                    const next = { ...prev }
+                    if (valid) delete next[path]
+                    else next[path] = true
+                    return next
+                  })
+                }
+              />
+            </fieldset>
+            <IconAction
+              label={
+                preview ? "Close prompt preview" : "Preview assembled prompt"
+              }
+              icon={preview ? X : Eye}
+              className="mt-3"
+              onClick={() => setPreview((v) => !v)}
+            />
+            {preview && (
+              <div className="mt-3">
+                <QueryBoundary
+                  title="Prompt preview"
+                  query={prompt}
+                  keepPreviousData
+                >
+                  {(data) => (
+                    <Code text={data.prompt} label="Assembled system prompt" />
+                  )}
+                </QueryBoundary>
+              </div>
+            )}
+            {panels.map((p) => (
+              <div key={p.key} className="mt-3">
+                {p.node}
+              </div>
+            ))}
+            {tabs.map((t) => (
+              <details key={t.key}>
+                <summary>{t.label ?? t.id}</summary>
+                {t.node}
+              </details>
+            ))}
+          </details>
+        )}
+        {session && (
+          <QueryBoundary title="Saved history" query={history} keepPreviousData>
+            {(data) =>
+              data.messages.length ? (
+                <div
+                  className="grid max-h-96 min-w-0 gap-2 overflow-auto rounded-md border p-3"
+                  aria-label="Saved conversation"
+                >
+                  {data.messages.map((m, i) => (
+                    <div key={`${m.timestamp}-${i}`}>
+                      <p className="text-xs font-medium text-muted-foreground">
+                        {m.role}
+                      </p>
+                      <p className="text-sm break-words whitespace-pre-wrap">
+                        {m.content}
+                      </p>
+                    </div>
+                  ))}
+                  {!data.complete && (
+                    <p className="text-xs text-muted-foreground">
+                      Latest 100 messages. Open session memory for more.
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <ZeroState
+                  title="No saved messages"
+                  body="Send a message to start this session."
+                />
+              )
+            }
+          </QueryBoundary>
+        )}
+        {runId && (
+          <LiveRun
+            key={runId}
+            id={runId}
+            state={detail.data?.run.state}
+            onDone={() => {
+              setActive(false)
+              void detail.refetch()
+              void history.refetch()
+            }}
+          />
+        )}
+        <PluginSlot
+          name="cortex.chat.toolbar"
+          params={{ agentId, sessionId: session }}
         />
-      )}
-      {runId && (
-        <PluginLink to={`/runs/${runId}`} className="text-sm underline">
-          Open saved run review
-        </PluginLink>
-      )}
-    </section>
+        <form
+          className="grid min-w-0 gap-2"
+          onSubmit={async (e) => {
+            e.preventDefault()
+            setLocalError("")
+            if (active) return
+            let sid = session
+            if (compare && !sid) {
+              if (!canManage) {
+                setLocalError(
+                  "Choose a saved session for comparison, or request session management access."
+                )
+                return
+              }
+              const saved = await create.execute({
+                agent_id: agentId,
+                title: `${label} ${new Date().toISOString()}`,
+              })
+              if (!saved) return
+              sid = saved.id
+              setSession(sid)
+            }
+            setActive(true)
+            const saved = await start.execute({
+              id: agentId,
+              input,
+              session_id: sid,
+              overrides,
+            })
+            if (saved) {
+              setRunId(saved.id)
+              setInput("")
+            } else setActive(false)
+          }}
+        >
+          <CommandAlert
+            error={runtime.error}
+            title="Execution provider check failed"
+          />
+          {runtime.error && (
+            <IconButton
+              variant="outline"
+              type="button"
+              onClick={() => void runtime.refetch()}
+              label="Retry execution provider check"
+            />
+          )}
+          <Code text={input} label={`${label} input`} onChange={setInput} />
+          <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+            <span>
+              {runtime.data?.execution_label ?? "Checking execution provider…"}
+            </span>
+            <Button
+              type="submit"
+              size="sm"
+              disabled={
+                active ||
+                start.loading ||
+                !input.trim() ||
+                !allowed ||
+                !runtime.data?.llm ||
+                !ag.data?.enabled ||
+                Object.keys(invalid).length > 0
+              }
+            >
+              {active ? "Running…" : "Send"}
+            </Button>
+          </div>
+          <CommandAlert
+            error={start.error ?? create.error}
+            title="Execution failed"
+          />
+          {localError && (
+            <p role="alert" className="text-sm text-destructive">
+              {localError}
+            </p>
+          )}
+        </form>
+        {detail.data?.run.session_id && !session && (
+          <IconButton
+            variant="outline"
+            onClick={() => setSession(detail.data!.run.session_id!)}
+            label="Show saved session"
+          />
+        )}
+        {runId && (
+          <PluginLink to={`/runs/${runId}`} className="text-sm underline">
+            Open saved run review
+          </PluginLink>
+        )}
+      </div>
+    </Section>
   )
 }
 export function ChatPage({
@@ -595,7 +597,7 @@ export function ChatPage({
     [leftActive, setLeftActive] = useState(false),
     [rightActive, setRightActive] = useState(false)
   return (
-    <section className="flex min-w-0 flex-col gap-3">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title={playground ? "Playground" : "Chat"}
         description={
