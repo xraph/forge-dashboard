@@ -9,6 +9,7 @@ import {
   ResourceTable,
   type Column,
 } from "@forge-go/dashboard-kit/components/resource-table"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { MessageStatusBadge } from "../badges"
 import { CursorPager, useCursorStack } from "../components/cursor-pager"
@@ -102,66 +103,77 @@ export const MessagesPage: ComponentType<PluginPageProps> = () => {
         title="Messages"
         description="Every send Herald logged, newest first."
       />
-      <FilterBar
-        filters={[
-          {
-            id: "channel",
-            label: "Channel",
-            value: channel,
-            onChange: change(setChannel),
-            options: [
-              { label: "All channels", value: "" },
-              ...(info.data?.channels ?? []).map((c) => ({
-                label: c,
-                value: c,
-              })),
-            ],
-          },
-          {
-            id: "status",
-            label: "Status",
-            value: status,
-            onChange: change(setStatus),
-            options: [
-              { label: "All statuses", value: "" },
-              ...WRITTEN_STATUSES.map((s) => ({
-                label: statusLabel(s),
-                value: s,
-              })),
-            ],
-          },
-        ]}
-      />
-      <p className="text-sm text-muted-foreground">
-        Herald records sending, accepted, failed and suppressed. Delivered and
-        bounced are never recorded, so a filter for them would always be empty.
-      </p>
-      <QueryBoundary title="Messages" query={list} skeletonRows={8}>
-        {(data) => (
-          <div className="flex min-w-0 flex-col gap-3">
-            <ResourceTable<MessageSummary>
-              columns={columns}
-              rows={data.messages}
-              rowKey={(m) => m.id}
-              caption={`${plural(data.messages.length, "message")} on this page`}
-              emptyMessage={
-                pager.canGoBack
-                  ? "Nothing further."
-                  : filtered
-                    ? "No messages match these filters."
-                    : "Nothing has been sent in this app yet."
-              }
-            />
-            <CursorPager
-              shown={data.messages.length}
-              nextCursor={data.nextCursor}
-              onNext={pager.next}
-              onPrevious={pager.previous}
-              canGoBack={pager.canGoBack}
-            />
-          </div>
-        )}
-      </QueryBoundary>
+      <Section
+        aria-label="Message log"
+        description="Herald records sending, accepted, failed and suppressed. Delivered and bounced are never recorded, so a filter for them would always be empty."
+        actions={
+          <FilterBar
+            filters={[
+              {
+                id: "channel",
+                label: "Channel",
+                value: channel,
+                onChange: change(setChannel),
+                options: [
+                  { label: "All channels", value: "" },
+                  ...(info.data?.channels ?? []).map((c) => ({
+                    label: c,
+                    value: c,
+                  })),
+                ],
+              },
+              {
+                id: "status",
+                label: "Status",
+                value: status,
+                onChange: change(setStatus),
+                options: [
+                  { label: "All statuses", value: "" },
+                  ...WRITTEN_STATUSES.map((s) => ({
+                    label: statusLabel(s),
+                    value: s,
+                  })),
+                ],
+              },
+            ]}
+          />
+        }
+      >
+        {/* The panel and its filters stay mounted; only the rows wait on the read. */}
+        <QueryBoundary
+          title="Messages"
+          query={list}
+          skeletonRows={8}
+          keepPreviousData
+        >
+          {(data) => (
+            <>
+              <ResourceTable<MessageSummary>
+                columns={columns}
+                rows={data.messages}
+                rowKey={(m) => m.id}
+                caption={`${plural(data.messages.length, "message")} on this page`}
+                emptyMessage={
+                  pager.canGoBack
+                    ? "Nothing further."
+                    : filtered
+                      ? "No messages match these filters."
+                      : "Nothing has been sent in this app yet."
+                }
+              />
+              <div className="border-t px-4 py-2">
+                <CursorPager
+                  shown={data.messages.length}
+                  nextCursor={data.nextCursor}
+                  onNext={pager.next}
+                  onPrevious={pager.previous}
+                  canGoBack={pager.canGoBack}
+                />
+              </div>
+            </>
+          )}
+        </QueryBoundary>
+      </Section>
     </section>
   )
 }

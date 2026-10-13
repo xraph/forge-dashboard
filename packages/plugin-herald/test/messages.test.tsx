@@ -2,7 +2,13 @@ import { describe, expect, it } from "vitest"
 import { fireEvent, screen, waitFor, within } from "@testing-library/react"
 import { MessagesPage } from "../src/pages/messages"
 import { engine, messageSummary } from "./data"
-import { pendingClient, recordingQueryClient, renderPage } from "./harness"
+import { ContractError } from "@forge-go/dashboard-plugin"
+import {
+  pendingClient,
+  recordingQueryClient,
+  renderPage,
+  scriptedClient,
+} from "./harness"
 
 const PAGE1 = {
   messages: [
@@ -226,5 +232,26 @@ describe("MessagesPage", () => {
       screen.getByRole("heading", { level: 1, name: "Messages" })
     ).toBeTruthy()
     expect(screen.getByText(/App: loading/)).toBeTruthy()
+  })
+
+  it("holds filters, table and pager in one panel", async () => {
+    renderPage(MessagesPage, client().client)
+    const log = await screen.findByRole("region", { name: "Message log" })
+    expect(within(log).getByLabelText("Channel")).toBeTruthy()
+    expect(within(log).getByLabelText("Status")).toBeTruthy()
+    expect(await within(log).findByRole("table")).toBeTruthy()
+  })
+
+  it("keeps the filters on screen when the list fails to load", async () => {
+    renderPage(
+      MessagesPage,
+      scriptedClient({
+        "engine.info": engine(),
+        "messages.list": new ContractError("TRANSPORT", "down"),
+      }).client
+    )
+    const log = await screen.findByRole("region", { name: "Message log" })
+    expect(await within(log).findByText("Messages unavailable")).toBeTruthy()
+    expect(within(log).getByLabelText("Channel")).toBeTruthy()
   })
 })
