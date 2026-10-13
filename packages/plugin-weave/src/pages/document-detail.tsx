@@ -21,6 +21,7 @@ import {
   CommandAlert,
   QueryBoundary,
 } from "@forge-go/dashboard-kit/components/query-boundary"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { DocumentStateCell } from "../badges"
 import ChunkReader from "../components/chunk-reader"
@@ -131,8 +132,7 @@ export const DocumentDetailPage: ComponentType<PluginPageProps> = ({
             </Alert>
           ) : null}
 
-          <section className="flex min-w-0 flex-col gap-2">
-            <h2 className="text-sm font-medium">Details</h2>
+          <Section title="Details" inset>
             <DescriptionList
               items={[
                 { term: "ID", value: <Id value={d.id} /> },
@@ -213,31 +213,28 @@ export const DocumentDetailPage: ComponentType<PluginPageProps> = ({
                 },
               ]}
             />
-            <p className="text-xs text-muted-foreground">
+            <p className="mt-3 text-xs text-muted-foreground">
               Weave keeps this hash and the length, never the source text.
             </p>
-          </section>
+          </Section>
 
-          <section className="flex min-w-0 flex-col gap-2">
-            <h2 className="text-sm font-medium">Metadata</h2>
+          <Section title="Metadata" inset>
             <MetadataList metadata={d.metadata} />
-          </section>
+          </Section>
 
           <QueryBoundary title="Chunks" query={spans} skeletonRows={3}>
             {(s) => (
               <>
-                <section className="flex min-w-0 flex-col gap-2">
-                  <h2 className="text-sm font-medium">Where the chunks fall</h2>
+                <Section title="Where the chunks fall" inset>
                   <SpanMap spans={s} />
-                </section>
-                <section className="flex min-w-0 flex-col gap-2">
-                  <h2 className="text-sm font-medium">Read the chunks</h2>
+                </Section>
+                <Section title="Read the chunks">
                   <ChunkReader
                     documentId={d.id}
                     total={s.total}
                     overlaps={overlapsByIndex(s.spans)}
                   />
-                </section>
+                </Section>
               </>
             )}
           </QueryBoundary>

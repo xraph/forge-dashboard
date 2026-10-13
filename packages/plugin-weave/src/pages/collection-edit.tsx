@@ -16,6 +16,7 @@ import {
   CommandAlert,
   QueryBoundary,
 } from "@forge-go/dashboard-kit/components/query-boundary"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { Textarea } from "@forge-go/dashboard-kit/components/textarea"
 import {
   MetadataEditor,
@@ -78,73 +79,78 @@ function EditForm({ collection }: { collection: CollectionDetail }) {
         title="Could not save the collection"
         error={update.error}
       />
-      <div className="flex min-w-0 flex-col gap-1.5">
-        <Label htmlFor="collection-name">Name</Label>
-        <Input
-          id="collection-name"
-          autoComplete="off"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-        />
-      </div>
-      <div className="flex min-w-0 flex-col gap-1.5">
-        <Label htmlFor="collection-description">Description</Label>
-        <Textarea
-          id="collection-description"
-          rows={2}
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-        />
-      </div>
-      <div className="flex min-w-0 flex-col gap-1.5">
-        <span className="text-sm font-medium">Metadata</span>
-        <MetadataEditor rows={rows} onChange={setRows} />
-        {"error" in meta ? (
-          <p role="alert" className="text-sm text-destructive">
-            {meta.error}
-          </p>
-        ) : null}
-      </div>
-      <section className="flex min-w-0 flex-col gap-2 rounded-md border p-3 text-sm">
-        <h2 className="font-medium">Chunk settings</h2>
-        <DescriptionList
-          items={[
-            {
-              term: "Chunk size",
-              value: (
-                <span className="font-mono text-xs">
-                  {formatCount(collection.chunk_size)} tokens
-                </span>
-              ),
-            },
-            {
-              term: "Chunk overlap",
-              value: (
-                <span className="font-mono text-xs">
-                  {formatCount(collection.chunk_overlap)} tokens
-                </span>
-              ),
-            },
-          ]}
-        />
-        <p className="text-muted-foreground">{FIXED}</p>
-      </section>
-      <div className="flex items-center gap-2">
-        <Button type="submit" disabled={!canSubmit}>
-          {update.loading ? "Saving…" : "Save changes"}
-        </Button>
-        <PluginLink
-          to={collectionPath(collection.id)}
-          className="text-sm underline"
-        >
-          Cancel
-        </PluginLink>
-        {!changed ? (
-          <span className="text-sm text-muted-foreground">
-            Nothing to save yet.
-          </span>
-        ) : null}
-      </div>
+      <Section aria-label="Collection details" inset>
+        <div className="flex min-w-0 flex-col gap-4">
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <Label htmlFor="collection-name">Name</Label>
+            <Input
+              id="collection-name"
+              autoComplete="off"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
+          </div>
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <Label htmlFor="collection-description">Description</Label>
+            <Textarea
+              id="collection-description"
+              rows={2}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+            />
+          </div>
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <span className="text-sm font-medium">Metadata</span>
+            <MetadataEditor rows={rows} onChange={setRows} />
+            {"error" in meta ? (
+              <p role="alert" className="text-sm text-destructive">
+                {meta.error}
+              </p>
+            ) : null}
+          </div>
+        </div>
+      </Section>
+      <Section title="Chunk settings" inset>
+        <div className="flex min-w-0 flex-col gap-4 text-sm">
+          <DescriptionList
+            items={[
+              {
+                term: "Chunk size",
+                value: (
+                  <span className="font-mono text-xs">
+                    {formatCount(collection.chunk_size)} tokens
+                  </span>
+                ),
+              },
+              {
+                term: "Chunk overlap",
+                value: (
+                  <span className="font-mono text-xs">
+                    {formatCount(collection.chunk_overlap)} tokens
+                  </span>
+                ),
+              },
+            ]}
+          />
+          <p className="text-muted-foreground">{FIXED}</p>
+          <div className="flex items-center gap-2">
+            <Button type="submit" disabled={!canSubmit}>
+              {update.loading ? "Saving…" : "Save changes"}
+            </Button>
+            <PluginLink
+              to={collectionPath(collection.id)}
+              className="text-sm underline"
+            >
+              Cancel
+            </PluginLink>
+            {!changed ? (
+              <span className="text-sm text-muted-foreground">
+                Nothing to save yet.
+              </span>
+            ) : null}
+          </div>
+        </div>
+      </Section>
     </form>
   )
 }

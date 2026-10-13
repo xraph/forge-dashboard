@@ -16,6 +16,7 @@ import {
   ResourceTable,
   type Column,
 } from "@forge-go/dashboard-kit/components/resource-table"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import {
   Sheet,
   SheetContent,
@@ -165,97 +166,98 @@ export const RetrievalPage: ComponentType<PluginPageProps> = () => {
         description="Ask what your app would ask, and see what the retriever ranked and what a model would be handed."
       />
 
-      <form
-        onSubmit={(e) => void submit(e)}
-        className="flex min-w-0 flex-col gap-3 rounded-md border p-3"
-      >
-        <div className="flex min-w-0 flex-col gap-1.5">
-          <Label htmlFor="retrieval-query">Query</Label>
-          <Input
-            id="retrieval-query"
-            autoComplete="off"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="What did the user ask?"
-          />
-          {tooLong ? (
-            <p role="alert" className="text-sm text-destructive">
-              Queries are capped at 8 KiB. This one is {utf8Length(query)}{" "}
-              bytes.
-            </p>
-          ) : null}
-        </div>
-        <div className="flex flex-wrap items-end gap-3">
-          <div className="flex min-w-0 flex-col gap-1">
-            <Label htmlFor="retrieval-collection">Collection</Label>
-            <NativeSelect
-              id="retrieval-collection"
-              value={collectionId}
-              onChange={(e) => setCollectionId(e.target.value)}
-            >
-              {picker.options.map((o) => (
-                <NativeSelectOption key={o.value} value={o.value}>
-                  {o.label}
-                </NativeSelectOption>
-              ))}
-            </NativeSelect>
-            {picker.note ? (
-              <p
-                className={
-                  picker.error
-                    ? "text-xs text-destructive"
-                    : "text-xs text-muted-foreground"
-                }
-                role={picker.error ? "alert" : "status"}
-              >
-                {picker.note}
+      <form onSubmit={(e) => void submit(e)} className="min-w-0">
+        <Section aria-label="Retrieval query" inset>
+          <div className="flex min-w-0 flex-col gap-3">
+            <div className="flex min-w-0 flex-col gap-1.5">
+              <Label htmlFor="retrieval-query">Query</Label>
+              <Input
+                id="retrieval-query"
+                autoComplete="off"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="What did the user ask?"
+              />
+              {tooLong ? (
+                <p role="alert" className="text-sm text-destructive">
+                  Queries are capped at 8 KiB. This one is {utf8Length(query)}{" "}
+                  bytes.
+                </p>
+              ) : null}
+            </div>
+            <div className="flex flex-wrap items-end gap-3">
+              <div className="flex min-w-0 flex-col gap-1">
+                <Label htmlFor="retrieval-collection">Collection</Label>
+                <NativeSelect
+                  id="retrieval-collection"
+                  value={collectionId}
+                  onChange={(e) => setCollectionId(e.target.value)}
+                >
+                  {picker.options.map((o) => (
+                    <NativeSelectOption key={o.value} value={o.value}>
+                      {o.label}
+                    </NativeSelectOption>
+                  ))}
+                </NativeSelect>
+                {picker.note ? (
+                  <p
+                    className={
+                      picker.error
+                        ? "text-xs text-destructive"
+                        : "text-xs text-muted-foreground"
+                    }
+                    role={picker.error ? "alert" : "status"}
+                  >
+                    {picker.note}
+                  </p>
+                ) : null}
+              </div>
+              <TenantFilter value={tenant} onChange={setTenant} />
+              <div className="flex min-w-0 flex-col gap-1">
+                <Label htmlFor="retrieval-topk">Top K</Label>
+                <Input
+                  id="retrieval-topk"
+                  inputMode="numeric"
+                  className="w-20 font-mono"
+                  placeholder={config ? String(config.default_top_k) : ""}
+                  value={topK}
+                  onChange={(e) => setTopK(e.target.value)}
+                />
+              </div>
+              <div className="flex min-w-0 flex-col gap-1">
+                <Label htmlFor="retrieval-min">Min score</Label>
+                <Input
+                  id="retrieval-min"
+                  inputMode="decimal"
+                  className="w-20 font-mono"
+                  placeholder="0"
+                  value={minScore}
+                  onChange={(e) => setMinScore(e.target.value)}
+                />
+              </div>
+              <div className="flex min-w-0 flex-col gap-1">
+                <Label htmlFor="retrieval-budget">Budget</Label>
+                <Input
+                  id="retrieval-budget"
+                  inputMode="numeric"
+                  className="w-24 font-mono"
+                  placeholder="4096"
+                  value={maxTokens}
+                  onChange={(e) => setMaxTokens(e.target.value)}
+                />
+              </div>
+              <Button type="submit" disabled={!canRun}>
+                {run.loading ? "Running…" : "Run query"}
+              </Button>
+            </div>
+            {badNumber ? (
+              <p role="alert" className="text-sm text-destructive">
+                Top K and the budget take whole numbers; min score takes a
+                number of 0 or more.
               </p>
             ) : null}
           </div>
-          <TenantFilter value={tenant} onChange={setTenant} />
-          <div className="flex min-w-0 flex-col gap-1">
-            <Label htmlFor="retrieval-topk">Top K</Label>
-            <Input
-              id="retrieval-topk"
-              inputMode="numeric"
-              className="w-20 font-mono"
-              placeholder={config ? String(config.default_top_k) : ""}
-              value={topK}
-              onChange={(e) => setTopK(e.target.value)}
-            />
-          </div>
-          <div className="flex min-w-0 flex-col gap-1">
-            <Label htmlFor="retrieval-min">Min score</Label>
-            <Input
-              id="retrieval-min"
-              inputMode="decimal"
-              className="w-20 font-mono"
-              placeholder="0"
-              value={minScore}
-              onChange={(e) => setMinScore(e.target.value)}
-            />
-          </div>
-          <div className="flex min-w-0 flex-col gap-1">
-            <Label htmlFor="retrieval-budget">Budget</Label>
-            <Input
-              id="retrieval-budget"
-              inputMode="numeric"
-              className="w-24 font-mono"
-              placeholder="4096"
-              value={maxTokens}
-              onChange={(e) => setMaxTokens(e.target.value)}
-            />
-          </div>
-          <Button type="submit" disabled={!canRun}>
-            {run.loading ? "Running…" : "Run query"}
-          </Button>
-        </div>
-        {badNumber ? (
-          <p role="alert" className="text-sm text-destructive">
-            Top K and the budget take whole numbers; min score takes a number of
-            0 or more.
-          </p>
-        ) : null}
+        </Section>
       </form>
 
       <CommandAlert title="The query did not run" error={run.error} />
@@ -266,8 +268,8 @@ export const RetrievalPage: ComponentType<PluginPageProps> = () => {
           description="Run a query to see the ranking the retriever produced, the raw vector ranking beside it, and the context a model would read."
         />
       ) : (
-        <>
-          <div className="flex min-w-0 flex-col gap-1 text-sm">
+        <Section title="Results">
+          <div className="flex min-w-0 flex-col gap-1 border-b px-4 py-3 text-sm">
             {components ? <p>{retrieverSentence(components)}</p> : null}
             <p className="tabular-nums">
               {plural(result.hits.length, "hit", "hits")} in{" "}
@@ -280,25 +282,31 @@ export const RetrievalPage: ComponentType<PluginPageProps> = () => {
             </p>
           </div>
 
-          <Tabs value={tab} onValueChange={(v) => setTab(String(v) as Tab)}>
-            <TabsList variant="line">
-              <TabsTrigger value="ranking">Ranking</TabsTrigger>
-              <TabsTrigger value="context">
-                Context sent to the model
-              </TabsTrigger>
-              <TabsTrigger value="left-out">
-                Left out ({result.left_out.length})
-              </TabsTrigger>
-            </TabsList>
+          <Tabs
+            value={tab}
+            onValueChange={(v) => setTab(String(v) as Tab)}
+            className="gap-0"
+          >
+            <div className="border-b px-4 pt-2 pb-[5px]">
+              <TabsList variant="line">
+                <TabsTrigger value="ranking">Ranking</TabsTrigger>
+                <TabsTrigger value="context">
+                  Context sent to the model
+                </TabsTrigger>
+                <TabsTrigger value="left-out">
+                  Left out ({result.left_out.length})
+                </TabsTrigger>
+              </TabsList>
+            </div>
 
             <TabsContent value="ranking">
               {empty ? (
-                <p className="py-4 text-sm">{emptinessCopy(empty)}</p>
+                <p className="px-4 py-4 text-sm">{emptinessCopy(empty)}</p>
               ) : (
                 <div
                   className={
                     wide
-                      ? "grid min-w-0 grid-cols-[minmax(0,1fr)_22rem] gap-4"
+                      ? "grid min-w-0 grid-cols-[minmax(0,1fr)_22rem]"
                       : "flex min-w-0 flex-col"
                   }
                 >
@@ -313,7 +321,7 @@ export const RetrievalPage: ComponentType<PluginPageProps> = () => {
                     onSelect={setSelected}
                   />
                   {wide ? (
-                    <aside className="rounded-md border p-3">
+                    <aside className="border-l p-4">
                       {inspector ?? (
                         <p className="text-sm text-muted-foreground">
                           Pick a hit to see its full text, where it came from
@@ -362,19 +370,19 @@ export const RetrievalPage: ComponentType<PluginPageProps> = () => {
             </TabsContent>
 
             <TabsContent value="left-out">
-              <div className="flex min-w-0 flex-col gap-2">
-                <p className="text-sm text-muted-foreground">
+              <div className="flex min-w-0 flex-col">
+                <p className="px-4 py-3 text-sm text-muted-foreground">
                   Strong vector matches inside the scanned window that the
                   retriever didn't return. Their scores are vector scores.
                 </p>
                 {result.hits.length === 0 ? (
                   // Go answers left_out [] and reordered false whenever there
                   // are no final hits, so "no reordering" would be untrue here.
-                  <p className="text-sm">
+                  <p className="px-4 pb-3 text-sm">
                     The retriever returned nothing, so nothing was left out.
                   </p>
                 ) : result.left_out.length === 0 ? (
-                  <p className="text-sm">
+                  <p className="px-4 pb-3 text-sm">
                     {noReorderingCopy(result, components) ??
                       "Nothing above the retriever's weakest hit was left out."}
                   </p>
@@ -394,7 +402,7 @@ export const RetrievalPage: ComponentType<PluginPageProps> = () => {
               </div>
             </TabsContent>
           </Tabs>
-        </>
+        </Section>
       )}
     </section>
   )

@@ -7,6 +7,7 @@ import { FilterBar } from "@forge-go/dashboard-kit/components/filter-bar"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
 import { ResourceTable } from "@forge-go/dashboard-kit/components/resource-table"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { useCollectionOptions } from "../collection-options"
 import { documentColumns } from "../components/document-columns"
 import { TenantFilter } from "../components/tenant-filter"
@@ -72,49 +73,6 @@ export const DocumentsPage: ComponentType<PluginPageProps> = () => {
         title="Documents"
         description="Newest first. A document's state is where its ingest got to."
       />
-      <FilterBar
-        search={{
-          value: search,
-          onChange: (v) => {
-            setSearch(v)
-            setOffset(0)
-          },
-          placeholder: "Search titles",
-          label: "Search documents",
-        }}
-        filters={[
-          {
-            id: "collection",
-            label: "Collection",
-            value: collectionId,
-            options: collections.options,
-            onChange: (v) => {
-              setOffset(0)
-              setParams({ collection_id: v })
-            },
-          },
-          {
-            id: "state",
-            label: "State",
-            value: state,
-            options: STATES,
-            onChange: (v) => {
-              setOffset(0)
-              setParams({ state: v })
-            },
-          },
-        ]}
-        actions={
-          <TenantFilter
-            key={clears}
-            value={tenant}
-            onChange={(t) => {
-              setTenant(t)
-              setOffset(0)
-            }}
-          />
-        }
-      />
       {collections.note !== null &&
         (collections.error ? (
           <p className="text-xs text-destructive" role="alert">
@@ -125,30 +83,79 @@ export const DocumentsPage: ComponentType<PluginPageProps> = () => {
             {collections.note}
           </p>
         ))}
-      <QueryBoundary title="Documents" query={list} keepPreviousData>
-        {(data) => (
-          <ResourceTable<DocumentRow>
-            columns={columns}
-            rows={data.items}
-            rowKey={(d) => d.id}
-            caption={plural(data.total, "document", "documents")}
-            emptyMessage={
-              filtered
-                ? "No documents match these filters."
-                : "No documents yet. Open a collection and ingest one."
+      <Section
+        aria-label="Document list"
+        actions={
+          <FilterBar
+            search={{
+              value: search,
+              onChange: (v) => {
+                setSearch(v)
+                setOffset(0)
+              },
+              placeholder: "Search titles",
+              label: "Search documents",
+            }}
+            filters={[
+              {
+                id: "collection",
+                label: "Collection",
+                value: collectionId,
+                options: collections.options,
+                onChange: (v) => {
+                  setOffset(0)
+                  setParams({ collection_id: v })
+                },
+              },
+              {
+                id: "state",
+                label: "State",
+                value: state,
+                options: STATES,
+                onChange: (v) => {
+                  setOffset(0)
+                  setParams({ state: v })
+                },
+              },
+            ]}
+            actions={
+              <TenantFilter
+                key={clears}
+                value={tenant}
+                onChange={(t) => {
+                  setTenant(t)
+                  setOffset(0)
+                }}
+              />
             }
-            emptyAction={
-              filtered ? (
-                <Button variant="outline" onClick={clear}>
-                  Clear filters
-                </Button>
-              ) : undefined
-            }
-            pagination={pageOf(data)}
-            onPageChange={(page) => setOffset(offsetFor(page, data.limit))}
           />
-        )}
-      </QueryBoundary>
+        }
+      >
+        <QueryBoundary title="Documents" query={list} keepPreviousData>
+          {(data) => (
+            <ResourceTable<DocumentRow>
+              columns={columns}
+              rows={data.items}
+              rowKey={(d) => d.id}
+              caption={plural(data.total, "document", "documents")}
+              emptyMessage={
+                filtered
+                  ? "No documents match these filters."
+                  : "No documents yet. Open a collection and ingest one."
+              }
+              emptyAction={
+                filtered ? (
+                  <Button variant="outline" onClick={clear}>
+                    Clear filters
+                  </Button>
+                ) : undefined
+              }
+              pagination={pageOf(data)}
+              onPageChange={(page) => setOffset(offsetFor(page, data.limit))}
+            />
+          )}
+        </QueryBoundary>
+      </Section>
     </section>
   )
 }

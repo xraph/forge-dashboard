@@ -22,6 +22,7 @@ import {
   QueryBoundary,
 } from "@forge-go/dashboard-kit/components/query-boundary"
 import { ResourceTable } from "@forge-go/dashboard-kit/components/resource-table"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { StatGrid } from "@forge-go/dashboard-kit/components/stat-grid"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { documentColumns } from "../components/document-columns"
@@ -178,8 +179,7 @@ export const CollectionDetailPage: ComponentType<PluginPageProps> = ({
             ]}
           />
 
-          <section className="flex min-w-0 flex-col gap-2">
-            <h2 className="text-sm font-medium">Details</h2>
+          <Section title="Details" inset>
             <DescriptionList
               items={[
                 { term: "ID", value: <Id value={c.id} /> },
@@ -229,16 +229,13 @@ export const CollectionDetailPage: ComponentType<PluginPageProps> = ({
                 },
               ]}
             />
-          </section>
+          </Section>
 
-          <section className="flex min-w-0 flex-col gap-2 rounded-md border p-3">
-            <h2 className="text-sm font-medium">
-              Embedding model, dimensions and strategy
-            </h2>
-            <p className="text-sm text-muted-foreground">
-              Recorded when the collection was made and never used: one embedder
-              and one chunker serve every collection.
-            </p>
+          <Section
+            title="Embedding model, dimensions and strategy"
+            description="Recorded when the collection was made and never used: one embedder and one chunker serve every collection."
+            inset
+          >
             <DescriptionList
               items={[
                 {
@@ -267,16 +264,15 @@ export const CollectionDetailPage: ComponentType<PluginPageProps> = ({
                 },
               ]}
             />
-          </section>
+          </Section>
 
-          <section className="flex min-w-0 flex-col gap-2">
-            <h2 className="text-sm font-medium">Metadata</h2>
+          <Section title="Metadata" inset>
             <MetadataList metadata={c.metadata} />
-          </section>
+          </Section>
 
-          <section className="flex min-w-0 flex-col gap-2">
-            <div className="flex items-center justify-between">
-              <h2 className="text-sm font-medium">Newest documents</h2>
+          <Section
+            title="Newest documents"
+            actions={
               <div className="flex gap-4 text-sm">
                 <PluginLink
                   to={documentsHref({ collection_id: c.id })}
@@ -291,7 +287,8 @@ export const CollectionDetailPage: ComponentType<PluginPageProps> = ({
                   Its chunks
                 </PluginLink>
               </div>
-            </div>
+            }
+          >
             <QueryBoundary title="Documents" query={docs} skeletonRows={3}>
               {(list) => (
                 <ResourceTable<DocumentRow>
@@ -303,7 +300,7 @@ export const CollectionDetailPage: ComponentType<PluginPageProps> = ({
                 />
               )}
             </QueryBoundary>
-          </section>
+          </Section>
 
           <ConfirmDialog
             open={dialog === "reindex"}

@@ -54,7 +54,7 @@ export function ContextView({
   }
 
   return (
-    <div className="flex min-w-0 flex-col gap-3">
+    <div className="flex min-w-0 flex-col gap-3 p-4">
       <p className="text-sm text-muted-foreground">
         Built by Weave's default assembler (token counts are estimates:
         characters ÷ 4). Your app may assemble its own way.

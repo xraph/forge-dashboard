@@ -11,6 +11,7 @@ import {
   ResourceTable,
   type Column,
 } from "@forge-go/dashboard-kit/components/resource-table"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { Id, IdLink } from "../components/id"
 import { TenantFilter } from "../components/tenant-filter"
@@ -120,43 +121,49 @@ export const CollectionsPage: ComponentType<PluginPageProps> = () => {
           </PluginLink>
         }
       />
-      <FilterBar
-        search={{
-          value: search,
-          onChange: (v) => {
-            setSearch(v)
-            setOffset(0)
-          },
-          placeholder: "Search by name",
-          label: "Search collections",
-        }}
+      <Section
+        aria-label="Collection list"
         actions={
-          <TenantFilter
-            value={tenant}
-            onChange={(t) => {
-              setTenant(t)
-              setOffset(0)
+          <FilterBar
+            search={{
+              value: search,
+              onChange: (v) => {
+                setSearch(v)
+                setOffset(0)
+              },
+              placeholder: "Search by name",
+              label: "Search collections",
             }}
+            actions={
+              <TenantFilter
+                value={tenant}
+                onChange={(t) => {
+                  setTenant(t)
+                  setOffset(0)
+                }}
+              />
+            }
           />
         }
-      />
-      <QueryBoundary title="Collections" query={list} keepPreviousData>
-        {(data) => (
-          <ResourceTable<Collection>
-            columns={columns}
-            rows={data.items}
-            rowKey={(c) => c.id}
-            caption={plural(data.total, "collection", "collections")}
-            emptyMessage={
-              filtered
-                ? "No collections match these filters."
-                : "No collections yet. Create one to start ingesting."
-            }
-            pagination={pageOf(data)}
-            onPageChange={(page) => setOffset(offsetFor(page, data.limit))}
-          />
-        )}
-      </QueryBoundary>
+      >
+        <QueryBoundary title="Collections" query={list} keepPreviousData>
+          {(data) => (
+            <ResourceTable<Collection>
+              columns={columns}
+              rows={data.items}
+              rowKey={(c) => c.id}
+              caption={plural(data.total, "collection", "collections")}
+              emptyMessage={
+                filtered
+                  ? "No collections match these filters."
+                  : "No collections yet. Create one to start ingesting."
+              }
+              pagination={pageOf(data)}
+              onPageChange={(page) => setOffset(offsetFor(page, data.limit))}
+            />
+          )}
+        </QueryBoundary>
+      </Section>
     </section>
   )
 }

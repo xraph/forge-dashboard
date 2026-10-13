@@ -19,6 +19,7 @@ import {
   CommandAlert,
   QueryBoundary,
 } from "@forge-go/dashboard-kit/components/query-boundary"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { TagList } from "@forge-go/dashboard-kit/components/tag-list"
 import { Textarea } from "@forge-go/dashboard-kit/components/textarea"
 import { MetadataEditor, metadataOf } from "../components/metadata-editor"
@@ -186,96 +187,100 @@ export const IngestPage: ComponentType<PluginPageProps> = ({ params }) => {
         onSubmit={(e) => void submit(e)}
         className="flex max-w-3xl min-w-0 flex-col gap-4"
       >
-        <div className="flex min-w-0 flex-col gap-1.5">
-          <Label htmlFor="ingest-file">Pick a text file</Label>
-          <Input
-            id="ingest-file"
-            type="file"
-            accept=".txt,.md,.markdown,.html,.htm,.csv,.json"
-            onChange={(e) => void pick(e.target.files?.[0])}
-          />
-          <p className="text-xs text-muted-foreground">
-            The browser reads it as text. Nothing is uploaded until you press
-            Ingest.
-          </p>
-        </div>
-        <div className="flex min-w-0 flex-col gap-1.5">
-          <Label htmlFor="ingest-content">Content</Label>
-          <Textarea
-            id="ingest-content"
-            rows={12}
-            className="font-mono text-xs"
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-          />
-          <p className="text-xs text-muted-foreground">
-            <span className="font-mono">
-              {formatBytes(utf8Length(content))}
-            </span>{" "}
-            of 1 MiB.
-          </p>
-          {problem ? (
-            <p role="alert" className="text-sm text-destructive">
-              {problem.message}
-            </p>
-          ) : null}
-        </div>
-        <div className="grid min-w-0 grid-cols-2 gap-4">
-          <div className="flex min-w-0 flex-col gap-1.5">
-            <Label htmlFor="ingest-title">Title</Label>
-            <Input
-              id="ingest-title"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-            />
+        <Section aria-label="Document to ingest" inset>
+          <div className="flex min-w-0 flex-col gap-4">
+            <div className="flex min-w-0 flex-col gap-1.5">
+              <Label htmlFor="ingest-file">Pick a text file</Label>
+              <Input
+                id="ingest-file"
+                type="file"
+                accept=".txt,.md,.markdown,.html,.htm,.csv,.json"
+                onChange={(e) => void pick(e.target.files?.[0])}
+              />
+              <p className="text-xs text-muted-foreground">
+                The browser reads it as text. Nothing is uploaded until you
+                press Ingest.
+              </p>
+            </div>
+            <div className="flex min-w-0 flex-col gap-1.5">
+              <Label htmlFor="ingest-content">Content</Label>
+              <Textarea
+                id="ingest-content"
+                rows={12}
+                className="font-mono text-xs"
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                <span className="font-mono">
+                  {formatBytes(utf8Length(content))}
+                </span>{" "}
+                of 1 MiB.
+              </p>
+              {problem ? (
+                <p role="alert" className="text-sm text-destructive">
+                  {problem.message}
+                </p>
+              ) : null}
+            </div>
+            <div className="grid min-w-0 grid-cols-2 gap-4">
+              <div className="flex min-w-0 flex-col gap-1.5">
+                <Label htmlFor="ingest-title">Title</Label>
+                <Input
+                  id="ingest-title"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                />
+              </div>
+              <div className="flex min-w-0 flex-col gap-1.5">
+                <Label htmlFor="ingest-source">Source</Label>
+                <Input
+                  id="ingest-source"
+                  className="font-mono text-xs"
+                  spellCheck={false}
+                  value={source}
+                  onChange={(e) => setSource(e.target.value)}
+                />
+              </div>
+            </div>
+            <div className="flex min-w-0 flex-col gap-1.5">
+              <Label htmlFor="ingest-type">Content type</Label>
+              <NativeSelect
+                id="ingest-type"
+                value={sourceType}
+                onChange={(e) => setSourceType(e.target.value)}
+              >
+                {types.map((t) => (
+                  <NativeSelectOption key={t} value={t}>
+                    {t}
+                  </NativeSelectOption>
+                ))}
+              </NativeSelect>
+              <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                <span>This deployment's loader reads</span>
+                <TagList values={supported} label="content types" />
+              </div>
+            </div>
+            <div className="flex min-w-0 flex-col gap-1.5">
+              <span className="text-sm font-medium">Metadata</span>
+              <MetadataEditor rows={rows} onChange={setRows} />
+              {"error" in meta ? (
+                <p role="alert" className="text-sm text-destructive">
+                  {meta.error}
+                </p>
+              ) : null}
+            </div>
+            <div>
+              <Button type="submit" disabled={!canSubmit}>
+                {ingest.loading
+                  ? "Ingesting…"
+                  : problem?.kind === "envelope"
+                    ? "Send anyway"
+                    : "Ingest"}
+              </Button>
+            </div>
           </div>
-          <div className="flex min-w-0 flex-col gap-1.5">
-            <Label htmlFor="ingest-source">Source</Label>
-            <Input
-              id="ingest-source"
-              className="font-mono text-xs"
-              spellCheck={false}
-              value={source}
-              onChange={(e) => setSource(e.target.value)}
-            />
-          </div>
-        </div>
-        <div className="flex min-w-0 flex-col gap-1.5">
-          <Label htmlFor="ingest-type">Content type</Label>
-          <NativeSelect
-            id="ingest-type"
-            value={sourceType}
-            onChange={(e) => setSourceType(e.target.value)}
-          >
-            {types.map((t) => (
-              <NativeSelectOption key={t} value={t}>
-                {t}
-              </NativeSelectOption>
-            ))}
-          </NativeSelect>
-          <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-            <span>This deployment's loader reads</span>
-            <TagList values={supported} label="content types" />
-          </div>
-        </div>
-        <div className="flex min-w-0 flex-col gap-1.5">
-          <span className="text-sm font-medium">Metadata</span>
-          <MetadataEditor rows={rows} onChange={setRows} />
-          {"error" in meta ? (
-            <p role="alert" className="text-sm text-destructive">
-              {meta.error}
-            </p>
-          ) : null}
-        </div>
-        <div>
-          <Button type="submit" disabled={!canSubmit}>
-            {ingest.loading
-              ? "Ingesting…"
-              : problem?.kind === "envelope"
-                ? "Send anyway"
-                : "Ingest"}
-          </Button>
-        </div>
+        </Section>
       </form>
     </section>
   )

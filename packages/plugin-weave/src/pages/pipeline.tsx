@@ -9,6 +9,7 @@ import {
   ResourceTable,
   type Column,
 } from "@forge-go/dashboard-kit/components/resource-table"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { TagList } from "@forge-go/dashboard-kit/components/tag-list"
 import { formatCount, plural } from "../format"
 import { retrieverSentence, scoreMeaning } from "../score"
@@ -149,11 +150,10 @@ export const PipelinePage: ComponentType<PluginPageProps> = () => {
       <QueryBoundary title="Pipeline" query={report} skeletonRows={6}>
         {(data) => (
           <>
-            <section className="flex min-w-0 flex-col gap-2">
-              <h2 className="text-sm font-medium">Stages</h2>
-              <p className="text-sm text-muted-foreground">
-                {retrieverSentence(data.components)}
-              </p>
+            <Section
+              title="Stages"
+              description={retrieverSentence(data.components)}
+            >
               <ResourceTable<StageRow>
                 columns={stageColumns(data.components.vector_store.score)}
                 rows={stagesOf(data.components)}
@@ -161,29 +161,25 @@ export const PipelinePage: ComponentType<PluginPageProps> = () => {
                 caption="5 stages"
                 emptyMessage="The engine reported no stages."
               />
-              <p className="text-sm">
+              <p className="border-t px-4 py-3 text-sm">
                 {data.components.tenant_filter === "verified"
                   ? "Tenant filtering on this vector store is covered by Weave's tests."
                   : "Weave can't check tenant filtering on this vector store, so treat a search filtered by tenant as unverified."}
               </p>
-            </section>
+            </Section>
 
-            <section className="flex min-w-0 flex-col gap-2">
-              <h2 className="text-sm font-medium">
-                Content types the loader reads
-              </h2>
-              <p className="text-sm text-muted-foreground">
-                Asked of the loader itself, so this is what it accepts, not a
-                list someone wrote down.
-              </p>
+            <Section
+              title="Content types the loader reads"
+              description="Asked of the loader itself, so this is what it accepts, not a list someone wrote down."
+              inset
+            >
               <TagList
                 values={data.components.loader.content_types ?? []}
                 label="content types"
               />
-            </section>
+            </Section>
 
-            <section className="flex min-w-0 flex-col gap-2">
-              <h2 className="text-sm font-medium">Engine config</h2>
+            <Section title="Engine config" inset>
               <DescriptionList
                 items={[
                   {
@@ -232,10 +228,9 @@ export const PipelinePage: ComponentType<PluginPageProps> = () => {
                   },
                 ]}
               />
-            </section>
+            </Section>
 
-            <section className="flex min-w-0 flex-col gap-2">
-              <h2 className="text-sm font-medium">What Weave doesn't do</h2>
+            <Section title="What Weave doesn't do" inset>
               <ul className="list-disc pl-5 text-sm">
                 <li>
                   One embedder and one chunker serve every collection. A
@@ -260,10 +255,9 @@ export const PipelinePage: ComponentType<PluginPageProps> = () => {
                   itself.
                 </li>
               </ul>
-            </section>
+            </Section>
 
-            <section className="flex min-w-0 flex-col gap-2">
-              <h2 className="text-sm font-medium">Extensions</h2>
+            <Section title="Extensions">
               <ResourceTable<ExtensionInfo>
                 columns={extensionColumns}
                 rows={data.extensions}
@@ -275,7 +269,7 @@ export const PipelinePage: ComponentType<PluginPageProps> = () => {
                 )}
                 emptyMessage="No extensions are registered."
               />
-            </section>
+            </Section>
           </>
         )}
       </QueryBoundary>

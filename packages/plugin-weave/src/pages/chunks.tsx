@@ -10,6 +10,7 @@ import {
   ResourceTable,
   type Column,
 } from "@forge-go/dashboard-kit/components/resource-table"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { IdLink } from "../components/id"
 import { formatCount, plural } from "../format"
 import {
@@ -93,20 +94,6 @@ export const ChunksPage: ComponentType<PluginPageProps> = () => {
         title="Chunks"
         description="What Weave stored for a collection, in reading order: by document, then by position."
       />
-      <FilterBar
-        filters={[
-          {
-            id: "collection",
-            label: "Collection",
-            value: collectionId,
-            options: picker.options,
-            onChange: (v) => {
-              setOffset(0)
-              setParams({ collection_id: v })
-            },
-          },
-        ]}
-      />
       {picker.note ? (
         <p
           className={
@@ -119,26 +106,46 @@ export const ChunksPage: ComponentType<PluginPageProps> = () => {
           {picker.note}
         </p>
       ) : null}
-      {collectionId === "" ? (
-        <EmptyState
-          title="Pick a collection"
-          description="Chunks are listed one collection at a time, because a listing across every collection is a scan nobody needs."
-        />
-      ) : (
-        <QueryBoundary title="Chunks" query={chunks} keepPreviousData>
-          {(data) => (
-            <ResourceTable<Chunk>
-              columns={columns}
-              rows={data.items}
-              rowKey={(c) => c.id}
-              caption={plural(data.total, "chunk", "chunks")}
-              emptyMessage="This collection has no chunks yet. Ingest a document into it."
-              pagination={pageOf(data)}
-              onPageChange={(page) => setOffset(offsetFor(page, data.limit))}
-            />
-          )}
-        </QueryBoundary>
-      )}
+      <Section
+        aria-label="Chunk list"
+        actions={
+          <FilterBar
+            filters={[
+              {
+                id: "collection",
+                label: "Collection",
+                value: collectionId,
+                options: picker.options,
+                onChange: (v) => {
+                  setOffset(0)
+                  setParams({ collection_id: v })
+                },
+              },
+            ]}
+          />
+        }
+      >
+        {collectionId === "" ? (
+          <EmptyState
+            title="Pick a collection"
+            description="Chunks are listed one collection at a time, because a listing across every collection is a scan nobody needs."
+          />
+        ) : (
+          <QueryBoundary title="Chunks" query={chunks} keepPreviousData>
+            {(data) => (
+              <ResourceTable<Chunk>
+                columns={columns}
+                rows={data.items}
+                rowKey={(c) => c.id}
+                caption={plural(data.total, "chunk", "chunks")}
+                emptyMessage="This collection has no chunks yet. Ingest a document into it."
+                pagination={pageOf(data)}
+                onPageChange={(page) => setOffset(offsetFor(page, data.limit))}
+              />
+            )}
+          </QueryBoundary>
+        )}
+      </Section>
     </section>
   )
 }

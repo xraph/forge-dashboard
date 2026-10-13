@@ -109,12 +109,16 @@ export default function ChunkReader({
   })
 
   if (total === 0)
-    return <p className="text-sm text-muted-foreground">No chunks to read.</p>
+    return (
+      <p className="px-4 py-3 text-sm text-muted-foreground">
+        No chunks to read.
+      </p>
+    )
 
   return (
     <div
       ref={scroller}
-      className="h-[32rem] overflow-auto rounded-md border px-3"
+      className="h-[32rem] overflow-auto px-4"
       aria-label="Chunk reader"
     >
       <div style={{ height: virtualizer.getTotalSize(), position: "relative" }}>

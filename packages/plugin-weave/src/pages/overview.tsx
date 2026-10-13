@@ -5,6 +5,7 @@ import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
 import { ResourceTable } from "@forge-go/dashboard-kit/components/resource-table"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { StatGrid } from "@forge-go/dashboard-kit/components/stat-grid"
 import { documentColumns } from "../components/document-columns"
 import { formatAge, formatCount, plural } from "../format"
@@ -94,12 +95,10 @@ export const OverviewPage: ComponentType<PluginPageProps> = () => {
                 },
               ]}
             />
-            <section className="flex min-w-0 flex-col gap-2">
-              <h2 className="text-sm font-medium">What runs</h2>
+            <Section title="What runs" inset>
               <ComponentsStrip components={data.components} />
-            </section>
-            <section className="flex min-w-0 flex-col gap-2">
-              <h2 className="text-sm font-medium">Newest documents</h2>
+            </Section>
+            <Section title="Newest documents">
               <ResourceTable<DocumentRow>
                 columns={columns}
                 rows={data.newest_documents}
@@ -119,7 +118,7 @@ export const OverviewPage: ComponentType<PluginPageProps> = () => {
                   </PluginLink>
                 }
               />
-            </section>
+            </Section>
           </>
         )}
       </QueryBoundary>

@@ -15,6 +15,7 @@ import {
   CommandAlert,
   QueryBoundary,
 } from "@forge-go/dashboard-kit/components/query-boundary"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { Textarea } from "@forge-go/dashboard-kit/components/textarea"
 import { MetadataEditor, metadataOf } from "../components/metadata-editor"
 import type { MetadataRow } from "../components/metadata-editor"
@@ -97,130 +98,137 @@ export const CollectionCreatePage: ComponentType<PluginPageProps> = () => {
         onSubmit={(e) => void submit(e)}
         className="flex max-w-2xl min-w-0 flex-col gap-4"
       >
-        <div className="flex min-w-0 flex-col gap-1.5">
-          <Label htmlFor="collection-name">Name</Label>
-          <Input
-            id="collection-name"
-            autoComplete="off"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-          />
-          <p className="text-xs text-muted-foreground">
-            Unique within its tenant. The dashboard creates collections with no
-            tenant.
-          </p>
-        </div>
-        <div className="flex min-w-0 flex-col gap-1.5">
-          <Label htmlFor="collection-description">Description</Label>
-          <Textarea
-            id="collection-description"
-            rows={2}
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-          />
-        </div>
-        <div className="grid min-w-0 grid-cols-2 gap-4">
-          <div className="flex min-w-0 flex-col gap-1.5">
-            <Label htmlFor="collection-size">Chunk size</Label>
-            <Input
-              id="collection-size"
-              inputMode="numeric"
-              className="font-mono"
-              placeholder={config ? String(config.default_chunk_size) : ""}
-              value={size}
-              aria-invalid={Number.isNaN(sizeN) || undefined}
-              onChange={(e) => setSize(e.target.value)}
-            />
-            <p className="text-xs text-muted-foreground">
-              In tokens (characters ÷ 4).{" "}
-              {config
-                ? `Leave it empty for the default (${config.default_chunk_size} tokens).`
-                : null}
-            </p>
-          </div>
-          <div className="flex min-w-0 flex-col gap-1.5">
-            <Label htmlFor="collection-overlap">Chunk overlap</Label>
-            <Input
-              id="collection-overlap"
-              inputMode="numeric"
-              className="font-mono"
-              placeholder={config ? String(config.default_chunk_overlap) : ""}
-              value={overlap}
-              aria-invalid={
-                Number.isNaN(overlapN) || problem !== null || undefined
-              }
-              onChange={(e) => setOverlap(e.target.value)}
-            />
-            <p className="text-xs text-muted-foreground">
-              {config
-                ? `Leave it empty or 0 for the default (${config.default_chunk_overlap} tokens). `
-                : null}
-              Weave reads 0 as the default, so a collection can't be created
-              with no overlap.
-            </p>
-          </div>
-        </div>
-        {Number.isNaN(sizeN) || Number.isNaN(overlapN) ? (
-          <p role="alert" className="text-sm text-destructive">
-            Use a whole number of tokens.
-          </p>
-        ) : null}
-        {problem ? (
-          <p role="alert" className="text-sm text-destructive">
-            {problem}
-          </p>
-        ) : null}
-        <div className="flex min-w-0 flex-col gap-1.5">
-          <span className="text-sm font-medium">Metadata</span>
-          <MetadataEditor rows={rows} onChange={setRows} />
-          {"error" in meta ? (
-            <p role="alert" className="text-sm text-destructive">
-              {meta.error}
-            </p>
-          ) : null}
-        </div>
-        <section className="flex min-w-0 flex-col gap-1 rounded-md border p-3 text-sm">
-          <h2 className="font-medium">Recorded, not used</h2>
-          <QueryBoundary
-            title="What this deployment runs"
-            query={report}
-            skeletonRows={2}
-          >
-            {(data) => (
-              <p className="text-muted-foreground">
-                A new collection records the model{" "}
-                <span className="font-mono text-xs">
-                  {data.config.default_embedding_model}
-                </span>
-                , {data.components.embedder.dimensions ?? 0} dimensions and the
-                strategy{" "}
-                <span className="font-mono text-xs">
-                  {data.config.default_chunk_strategy}
-                </span>
-                . Weave never reads them back: this deployment embeds with{" "}
-                <span className="font-mono text-xs">
-                  {data.components.embedder.kind || "no embedder"}
-                </span>{" "}
-                and chunks with{" "}
-                <span className="font-mono text-xs">
-                  {data.components.chunker.kind || "no chunker"}
-                </span>{" "}
-                for every collection.
+        <Section aria-label="Collection details" inset>
+          <div className="flex min-w-0 flex-col gap-4">
+            <div className="flex min-w-0 flex-col gap-1.5">
+              <Label htmlFor="collection-name">Name</Label>
+              <Input
+                id="collection-name"
+                autoComplete="off"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                Unique within its tenant. The dashboard creates collections with
+                no tenant.
               </p>
-            )}
-          </QueryBoundary>
-        </section>
-        <div className="flex gap-2">
-          <Button type="submit" disabled={!canSubmit}>
-            {create.loading ? "Creating…" : "Create collection"}
-          </Button>
-          <PluginLink
-            to="/collections"
-            className="self-center text-sm underline"
-          >
-            Cancel
-          </PluginLink>
-        </div>
+            </div>
+            <div className="flex min-w-0 flex-col gap-1.5">
+              <Label htmlFor="collection-description">Description</Label>
+              <Textarea
+                id="collection-description"
+                rows={2}
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+              />
+            </div>
+            <div className="grid min-w-0 grid-cols-2 gap-4">
+              <div className="flex min-w-0 flex-col gap-1.5">
+                <Label htmlFor="collection-size">Chunk size</Label>
+                <Input
+                  id="collection-size"
+                  inputMode="numeric"
+                  className="font-mono"
+                  placeholder={config ? String(config.default_chunk_size) : ""}
+                  value={size}
+                  aria-invalid={Number.isNaN(sizeN) || undefined}
+                  onChange={(e) => setSize(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">
+                  In tokens (characters ÷ 4).{" "}
+                  {config
+                    ? `Leave it empty for the default (${config.default_chunk_size} tokens).`
+                    : null}
+                </p>
+              </div>
+              <div className="flex min-w-0 flex-col gap-1.5">
+                <Label htmlFor="collection-overlap">Chunk overlap</Label>
+                <Input
+                  id="collection-overlap"
+                  inputMode="numeric"
+                  className="font-mono"
+                  placeholder={
+                    config ? String(config.default_chunk_overlap) : ""
+                  }
+                  value={overlap}
+                  aria-invalid={
+                    Number.isNaN(overlapN) || problem !== null || undefined
+                  }
+                  onChange={(e) => setOverlap(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">
+                  {config
+                    ? `Leave it empty or 0 for the default (${config.default_chunk_overlap} tokens). `
+                    : null}
+                  Weave reads 0 as the default, so a collection can't be created
+                  with no overlap.
+                </p>
+              </div>
+            </div>
+            {Number.isNaN(sizeN) || Number.isNaN(overlapN) ? (
+              <p role="alert" className="text-sm text-destructive">
+                Use a whole number of tokens.
+              </p>
+            ) : null}
+            {problem ? (
+              <p role="alert" className="text-sm text-destructive">
+                {problem}
+              </p>
+            ) : null}
+            <div className="flex min-w-0 flex-col gap-1.5">
+              <span className="text-sm font-medium">Metadata</span>
+              <MetadataEditor rows={rows} onChange={setRows} />
+              {"error" in meta ? (
+                <p role="alert" className="text-sm text-destructive">
+                  {meta.error}
+                </p>
+              ) : null}
+            </div>
+          </div>
+        </Section>
+        <Section title="Recorded, not used" inset>
+          <div className="flex min-w-0 flex-col gap-4 text-sm">
+            <QueryBoundary
+              title="What this deployment runs"
+              query={report}
+              skeletonRows={2}
+            >
+              {(data) => (
+                <p className="text-muted-foreground">
+                  A new collection records the model{" "}
+                  <span className="font-mono text-xs">
+                    {data.config.default_embedding_model}
+                  </span>
+                  , {data.components.embedder.dimensions ?? 0} dimensions and
+                  the strategy{" "}
+                  <span className="font-mono text-xs">
+                    {data.config.default_chunk_strategy}
+                  </span>
+                  . Weave never reads them back: this deployment embeds with{" "}
+                  <span className="font-mono text-xs">
+                    {data.components.embedder.kind || "no embedder"}
+                  </span>{" "}
+                  and chunks with{" "}
+                  <span className="font-mono text-xs">
+                    {data.components.chunker.kind || "no chunker"}
+                  </span>{" "}
+                  for every collection.
+                </p>
+              )}
+            </QueryBoundary>
+            <div className="flex gap-2">
+              <Button type="submit" disabled={!canSubmit}>
+                {create.loading ? "Creating…" : "Create collection"}
+              </Button>
+              <PluginLink
+                to="/collections"
+                className="self-center text-sm underline"
+              >
+                Cancel
+              </PluginLink>
+            </div>
+          </div>
+        </Section>
       </form>
     </section>
   )
