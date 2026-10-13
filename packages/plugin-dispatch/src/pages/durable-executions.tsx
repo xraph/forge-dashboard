@@ -198,7 +198,7 @@ function ExecutionList({ namespace }: { namespace: string }) {
                 header: "Workflow / run",
                 cell: (row) => (
                   <PluginLink
-                    className="break-all text-primary hover:underline"
+                    className="block break-all text-primary hover:underline"
                     to={runPath(row)}
                   >
                     <span className="font-medium">{row.workflow_id}</span>
