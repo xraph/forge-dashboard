@@ -289,22 +289,24 @@ export function ConduitServicesPage() {
   const query = useQuery<{ instances: Instance[] }>("services.list")
   usePoll(query.refetch)
   return (
-    <section className="flex min-w-0 flex-col gap-3">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Services"
         description="Ready instances share a service ID. Clients resolve the service name within this namespace."
       />
-      <QueryBoundary title="Services" query={query}>
-        {(data) => (
-          <ResourceTable
-            columns={instanceColumns}
-            rows={data.instances ?? []}
-            rowKey={(i) => `${i.identity.serviceID}/${i.identity.instanceID}`}
-            density="compact"
-            emptyMessage="No registered service instances."
-          />
-        )}
-      </QueryBoundary>
+      <Section aria-label="Service list">
+        <QueryBoundary title="Services" query={query}>
+          {(data) => (
+            <ResourceTable
+              columns={instanceColumns}
+              rows={data.instances ?? []}
+              rowKey={(i) => `${i.identity.serviceID}/${i.identity.instanceID}`}
+              density="compact"
+              emptyMessage="No registered service instances."
+            />
+          )}
+        </QueryBoundary>
+      </Section>
     </section>
   )
 }
@@ -376,7 +378,7 @@ export function ConduitDeadLettersPage() {
     }
   }
   return (
-    <section className="flex min-w-0 flex-col gap-3">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Dead letters"
         description="Replay sends the original message to its failed subscription. Processing may repeat business effects."
@@ -384,28 +386,35 @@ export function ConduitDeadLettersPage() {
       <QueryBoundary title="Providers" query={topology}>
         {(data) =>
           data.providers?.some((p) => p.capabilities.deadLetters) ? (
-            <>
-              <div className="flex items-center gap-2">
-                <label className="text-sm" htmlFor="conduit-provider">
-                  Provider
-                </label>
-                <NativeSelect
-                  id="conduit-provider"
-                  value={provider}
-                  onChange={(e) => {
-                    setSelected(e.target.value)
-                    setCursors([""])
-                  }}
-                >
-                  {data.providers
-                    .filter((p) => p.capabilities.deadLetters)
-                    .map((p) => (
-                      <NativeSelectOption key={p.name} value={p.name}>
-                        {p.name}
-                      </NativeSelectOption>
-                    ))}
-                </NativeSelect>
-              </div>
+            <Section
+              aria-label="Dead letter list"
+              actions={
+                <div className="flex items-center gap-2">
+                  <label
+                    className="shrink-0 text-sm whitespace-nowrap"
+                    htmlFor="conduit-provider"
+                  >
+                    Provider
+                  </label>
+                  <NativeSelect
+                    id="conduit-provider"
+                    value={provider}
+                    onChange={(e) => {
+                      setSelected(e.target.value)
+                      setCursors([""])
+                    }}
+                  >
+                    {data.providers
+                      .filter((p) => p.capabilities.deadLetters)
+                      .map((p) => (
+                        <NativeSelectOption key={p.name} value={p.name}>
+                          {p.name}
+                        </NativeSelectOption>
+                      ))}
+                  </NativeSelect>
+                </div>
+              }
+            >
               <QueryBoundary title="Dead letters" query={query}>
                 {(letters) => (
                   <>
@@ -430,7 +439,10 @@ export function ConduitDeadLettersPage() {
                         </Button>
                       )}
                     />
-                    <div className="flex justify-end gap-2">
+                    <nav
+                      aria-label="Pagination"
+                      className="flex justify-end gap-2"
+                    >
                       <Button
                         size="sm"
                         variant="outline"
@@ -449,11 +461,11 @@ export function ConduitDeadLettersPage() {
                       >
                         Next
                       </Button>
-                    </div>
+                    </nav>
                   </>
                 )}
               </QueryBoundary>
-            </>
+            </Section>
           ) : (
             <ZeroState
               title="No dead letter provider"
@@ -530,24 +542,26 @@ export function ConduitHooksPage() {
   const query = useQuery<{ events: HookEvent[] }>("hooks.list")
   usePoll(query.refetch)
   return (
-    <section className="flex min-w-0 flex-col gap-3">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Delivery hooks"
         description="The latest 100 runtime outcomes. Payloads, headers and handler error text are excluded."
       />
-      <QueryBoundary title="Delivery hooks" query={query}>
-        {(data) => (
-          <ResourceTable
-            columns={hookColumns}
-            rows={[...(data.events ?? [])].reverse()}
-            rowKey={(e) =>
-              `${e.at}/${e.stage}/${e.message?.id ?? ""}/${e.delivery?.consumerID ?? ""}`
-            }
-            density="compact"
-            emptyMessage="No communication outcomes recorded yet."
-          />
-        )}
-      </QueryBoundary>
+      <Section aria-label="Hook event list">
+        <QueryBoundary title="Delivery hooks" query={query}>
+          {(data) => (
+            <ResourceTable
+              columns={hookColumns}
+              rows={[...(data.events ?? [])].reverse()}
+              rowKey={(e) =>
+                `${e.at}/${e.stage}/${e.message?.id ?? ""}/${e.delivery?.consumerID ?? ""}`
+              }
+              density="compact"
+              emptyMessage="No communication outcomes recorded yet."
+            />
+          )}
+        </QueryBoundary>
+      </Section>
     </section>
   )
 }

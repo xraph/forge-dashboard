@@ -12,6 +12,7 @@ import {
 import { Button } from "@forge-go/dashboard-kit/components/button"
 import { Badge } from "@forge-go/dashboard-kit/components/badge"
 import { Input } from "@forge-go/dashboard-kit/components/input"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import {
   NativeSelect,
   NativeSelectOption,
@@ -178,44 +179,46 @@ export function ConduitConsumersPage() {
     if (result) setTarget(null)
   }
   return (
-    <section className="flex min-w-0 flex-col gap-3">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Consumers"
         description="Broker backlog and cursor controls. Latency averages and maxima count attempts on this instance."
       />
-      <QueryBoundary title="Consumers" query={query}>
-        {(data) => (
-          <ResourceTable
-            columns={columns}
-            rows={data.consumers}
-            rowKey={(c) => c.consumerID}
-            density="compact"
-            emptyMessage="No registered subscriptions."
-            rowActions={(c) => (
-              <div className="flex gap-1">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => {
-                    pause.reset()
-                    resume.reset()
-                    setPauseTarget(c)
-                  }}
-                >
-                  {c.paused ? "Resume" : "Pause"}
-                </Button>
-                <Button size="sm" variant="outline" onClick={() => select(c)}>
-                  Backfill
-                </Button>
-              </div>
-            )}
-          />
-        )}
-      </QueryBoundary>
+      <Section aria-label="Consumer list">
+        <QueryBoundary title="Consumers" query={query}>
+          {(data) => (
+            <ResourceTable
+              columns={columns}
+              rows={data.consumers}
+              rowKey={(c) => c.consumerID}
+              density="compact"
+              emptyMessage="No registered subscriptions."
+              rowActions={(c) => (
+                <div className="flex gap-1">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      pause.reset()
+                      resume.reset()
+                      setPauseTarget(c)
+                    }}
+                  >
+                    {c.paused ? "Resume" : "Pause"}
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => select(c)}>
+                    Backfill
+                  </Button>
+                </div>
+              )}
+            />
+          )}
+        </QueryBoundary>
+      </Section>
       {provider && (
-        <>
-          <div className="flex flex-wrap items-center gap-2">
-            <h2 className="text-sm font-medium">Backfill history</h2>
+        <Section
+          title="Backfill history"
+          actions={
             <NativeSelect
               aria-label="Backfill provider"
               value={provider}
@@ -232,7 +235,8 @@ export function ConduitConsumersPage() {
                 )
               )}
             </NativeSelect>
-          </div>
+          }
+        >
           <QueryBoundary title="Backfill history" query={history}>
             {(data) => (
               <>
@@ -260,7 +264,7 @@ export function ConduitConsumersPage() {
                     )
                   }}
                 />
-                <div className="flex justify-end gap-2">
+                <nav aria-label="Pagination" className="flex justify-end gap-2">
                   <Button
                     size="sm"
                     variant="outline"
@@ -277,11 +281,11 @@ export function ConduitConsumersPage() {
                   >
                     Next
                   </Button>
-                </div>
+                </nav>
               </>
             )}
           </QueryBoundary>
-        </>
+        </Section>
       )}
       <ConfirmDialog
         open={pauseTarget !== null}
