@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest"
 import { fireEvent, screen, waitFor, within } from "@testing-library/react"
+import { ContractError } from "@forge-go/dashboard-plugin"
 import { MessagesPage } from "../src/pages/messages"
 import { engine, messageSummary } from "./data"
-import { ContractError } from "@forge-go/dashboard-plugin"
 import {
   pendingClient,
   recordingQueryClient,
@@ -253,5 +253,25 @@ describe("MessagesPage", () => {
     const log = await screen.findByRole("region", { name: "Message log" })
     expect(await within(log).findByText("Messages unavailable")).toBeTruthy()
     expect(within(log).getByLabelText("Channel")).toBeTruthy()
+  })
+
+  it("leaves no empty ruled strip under a single page, and keeps the pager in the panel when there are more", async () => {
+    const single = renderPage(
+      MessagesPage,
+      recordingQueryClient({
+        "engine.info": engine(),
+        "messages.list": { messages: [messageSummary()] },
+      }).client
+    )
+    let log = await screen.findByRole("region", { name: "Message log" })
+    await within(log).findByRole("table")
+    expect(log.querySelector(".border-t")).toBeNull()
+    single.unmount()
+
+    renderPage(MessagesPage, client().client)
+    log = await screen.findByRole("region", { name: "Message log" })
+    expect(
+      await within(log).findByRole("navigation", { name: "Pagination" })
+    ).toBeTruthy()
   })
 })

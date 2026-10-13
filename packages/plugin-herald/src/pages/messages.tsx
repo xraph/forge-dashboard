@@ -161,15 +161,18 @@ export const MessagesPage: ComponentType<PluginPageProps> = () => {
                       : "Nothing has been sent in this app yet."
                 }
               />
-              <div className="border-t px-4 py-2">
-                <CursorPager
-                  shown={data.messages.length}
-                  nextCursor={data.nextCursor}
-                  onNext={pager.next}
-                  onPrevious={pager.previous}
-                  canGoBack={pager.canGoBack}
-                />
-              </div>
+              {/* Mirrors CursorPager's own null case, so a single page gets no empty ruled strip. */}
+              {(pager.canGoBack || data.nextCursor) && (
+                <div className="border-t px-4 py-2">
+                  <CursorPager
+                    shown={data.messages.length}
+                    nextCursor={data.nextCursor}
+                    onNext={pager.next}
+                    onPrevious={pager.previous}
+                    canGoBack={pager.canGoBack}
+                  />
+                </div>
+              )}
             </>
           )}
         </QueryBoundary>
