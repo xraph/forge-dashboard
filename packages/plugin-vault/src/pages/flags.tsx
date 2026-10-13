@@ -14,6 +14,7 @@ import {
   ResourceTable,
   type Column,
 } from "@forge-go/dashboard-kit/components/resource-table"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { TagList } from "@forge-go/dashboard-kit/components/tag-list"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { FlagEnabledBadge, FlagTypeBadge, WrongTypeBadge } from "../badges"
@@ -122,52 +123,59 @@ export const FlagsPage: ComponentType<PluginPageProps> = () => {
         actions={<NewFlagLink />}
       />
 
-      {/* Outside the boundary, so choosing a type never takes the control away. */}
-      <div className="flex items-center gap-1.5">
-        <Label
-          htmlFor="flag-type-filter"
-          className="text-xs text-muted-foreground"
-        >
-          Type
-        </Label>
-        <NativeSelect
-          id="flag-type-filter"
-          value={type}
-          onChange={(e) => {
-            const next = e.target.value
-            setType(isFlagType(next) ? next : "")
-            // Page three of "all" is not page three of "int".
-            setPage(1)
+      {/* The filter sits outside the boundary, so choosing a type never takes the control away. */}
+      <Section
+        aria-label="Flag list"
+        actions={
+          <div className="flex items-center gap-1.5">
+            <Label
+              htmlFor="flag-type-filter"
+              className="shrink-0 text-xs whitespace-nowrap text-muted-foreground"
+            >
+              Type
+            </Label>
+            <NativeSelect
+              id="flag-type-filter"
+              value={type}
+              onChange={(e) => {
+                const next = e.target.value
+                setType(isFlagType(next) ? next : "")
+                // Page three of "all" is not page three of "int".
+                setPage(1)
+              }}
+            >
+              <NativeSelectOption value="">All types</NativeSelectOption>
+              {FLAG_TYPES.map((t) => (
+                <NativeSelectOption key={t} value={t}>
+                  {t}
+                </NativeSelectOption>
+              ))}
+            </NativeSelect>
+          </div>
+        }
+      >
+        <QueryBoundary title="Flags" query={list} skeletonRows={5}>
+          {(data) => {
+            const rows = data.flags ?? []
+            // The server's total, never the page length.
+            const caption = `${data.total} ${data.total === 1 ? "flag" : "flags"}`
+            return (
+              <ResourceTable<FlagSummary>
+                columns={columns}
+                rows={rows}
+                rowKey={(f) => f.id}
+                caption={caption}
+                emptyMessage={
+                  type === "" ? "No flags yet." : `No ${type} flags.`
+                }
+                emptyAction={<NewFlagLink />}
+                pagination={{ page, pageSize: PAGE_SIZE, total: data.total }}
+                onPageChange={setPage}
+              />
+            )
           }}
-        >
-          <NativeSelectOption value="">All types</NativeSelectOption>
-          {FLAG_TYPES.map((t) => (
-            <NativeSelectOption key={t} value={t}>
-              {t}
-            </NativeSelectOption>
-          ))}
-        </NativeSelect>
-      </div>
-
-      <QueryBoundary title="Flags" query={list} skeletonRows={5}>
-        {(data) => {
-          const rows = data.flags ?? []
-          // The server's total, never the page length.
-          const caption = `${data.total} ${data.total === 1 ? "flag" : "flags"}`
-          return (
-            <ResourceTable<FlagSummary>
-              columns={columns}
-              rows={rows}
-              rowKey={(f) => f.id}
-              caption={caption}
-              emptyMessage={type === "" ? "No flags yet." : `No ${type} flags.`}
-              emptyAction={<NewFlagLink />}
-              pagination={{ page, pageSize: PAGE_SIZE, total: data.total }}
-              onPageChange={setPage}
-            />
-          )
-        }}
-      </QueryBoundary>
+        </QueryBoundary>
+      </Section>
     </section>
   )
 }

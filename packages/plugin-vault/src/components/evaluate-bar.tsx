@@ -3,6 +3,7 @@ import type { FormEvent, ReactNode } from "react"
 import { Button } from "@forge-go/dashboard-kit/components/button"
 import { Input } from "@forge-go/dashboard-kit/components/input"
 import { Label } from "@forge-go/dashboard-kit/components/label"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { WrongTypeBadge } from "../badges"
 import type { FlagEvaluation } from "../flag-types"
 import { FlagValue } from "./flag-value"
@@ -56,76 +57,78 @@ export function EvaluateBar({
   }
 
   return (
-    <div className="flex min-w-0 flex-col gap-3 rounded-lg border p-3">
-      <form
-        aria-label="Evaluate as"
-        onSubmit={submit}
-        className="flex flex-wrap items-end gap-x-3 gap-y-2"
-      >
-        <span className="self-center text-sm font-medium">Evaluate as</span>
-        <div className="flex min-w-0 flex-col gap-1">
-          <Label
-            htmlFor="evaluate-tenant"
-            className="text-xs text-muted-foreground"
-          >
-            Tenant id
-          </Label>
-          <Input
-            id="evaluate-tenant"
-            className="w-44 font-mono"
-            autoComplete="off"
-            spellCheck={false}
-            value={tenantId}
-            onChange={(e) => onTenantId(e.target.value)}
-          />
-        </div>
-        <div className="flex min-w-0 flex-col gap-1">
-          <Label
-            htmlFor="evaluate-user"
-            className="text-xs text-muted-foreground"
-          >
-            User id
-          </Label>
-          <Input
-            id="evaluate-user"
-            className="w-44 font-mono"
-            autoComplete="off"
-            spellCheck={false}
-            value={userId}
-            onChange={(e) => onUserId(e.target.value)}
-          />
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            type="submit"
-            disabled={busy || disabledReason !== undefined}
-            aria-describedby={
-              disabledReason === undefined
-                ? undefined
-                : "evaluate-disabled-reason"
-            }
-          >
-            {busy ? "Evaluating…" : "Evaluate"}
-          </Button>
-          <IconButton
-            type="button"
-            variant="outline"
-            disabled={!canClear}
-            onClick={onClear}
-            label="Clear"
-          />
-        </div>
-      </form>
-      {disabledReason === undefined ? null : (
-        <p
-          id="evaluate-disabled-reason"
-          className="text-sm text-muted-foreground"
+    <Section aria-label="Evaluation" inset>
+      <div className="flex min-w-0 flex-col gap-3">
+        <form
+          aria-label="Evaluate as"
+          onSubmit={submit}
+          className="flex flex-wrap items-end gap-x-3 gap-y-2"
         >
-          {disabledReason}
-        </p>
-      )}
-      {children}
-    </div>
+          <span className="self-center text-sm font-medium">Evaluate as</span>
+          <div className="flex min-w-0 flex-col gap-1">
+            <Label
+              htmlFor="evaluate-tenant"
+              className="text-xs text-muted-foreground"
+            >
+              Tenant id
+            </Label>
+            <Input
+              id="evaluate-tenant"
+              className="w-44 font-mono"
+              autoComplete="off"
+              spellCheck={false}
+              value={tenantId}
+              onChange={(e) => onTenantId(e.target.value)}
+            />
+          </div>
+          <div className="flex min-w-0 flex-col gap-1">
+            <Label
+              htmlFor="evaluate-user"
+              className="text-xs text-muted-foreground"
+            >
+              User id
+            </Label>
+            <Input
+              id="evaluate-user"
+              className="w-44 font-mono"
+              autoComplete="off"
+              spellCheck={false}
+              value={userId}
+              onChange={(e) => onUserId(e.target.value)}
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              type="submit"
+              disabled={busy || disabledReason !== undefined}
+              aria-describedby={
+                disabledReason === undefined
+                  ? undefined
+                  : "evaluate-disabled-reason"
+              }
+            >
+              {busy ? "Evaluating…" : "Evaluate"}
+            </Button>
+            <IconButton
+              type="button"
+              variant="outline"
+              disabled={!canClear}
+              onClick={onClear}
+              label="Clear"
+            />
+          </div>
+        </form>
+        {disabledReason === undefined ? null : (
+          <p
+            id="evaluate-disabled-reason"
+            className="text-sm text-muted-foreground"
+          >
+            {disabledReason}
+          </p>
+        )}
+        {children}
+      </div>
+    </Section>
   )
 }
 

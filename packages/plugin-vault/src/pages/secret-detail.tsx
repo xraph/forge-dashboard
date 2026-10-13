@@ -35,6 +35,7 @@ import {
   RadioGroup,
   RadioGroupItem,
 } from "@forge-go/dashboard-kit/components/radio-group"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { TagList } from "@forge-go/dashboard-kit/components/tag-list"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import {
@@ -163,7 +164,9 @@ function SecretDetailBody({ secretKey }: { secretKey: string }) {
           <DetailLayout
             main={
               <>
-                <SecretFields secret={data.secret} />
+                <Section title="Details" inset>
+                  <SecretFields secret={data.secret} />
+                </Section>
                 <VersionTimeline query={versions} />
               </>
             }
@@ -264,16 +267,17 @@ function VersionTimeline({
       {(data) => {
         const list = data.versions ?? []
         return (
-          <section className="flex min-w-0 flex-col gap-2">
-            <h2 className="text-sm font-medium">Versions ({list.length})</h2>
+          // The title carries the count, so the section is drawn once the
+          // list has arrived; loading and failure show the boundary's own.
+          <Section title={`Versions (${list.length})`}>
             {list.length === 0 ? (
               <EmptyState title="No versions recorded." />
             ) : (
-              <ol className="flex min-w-0 flex-col gap-2">
+              <ol className="flex min-w-0 flex-col divide-y">
                 {list.map((v, i) => (
                   <li
                     key={v.id}
-                    className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md border px-3 py-2 text-sm"
+                    className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2 text-sm"
                   >
                     <span className="font-mono font-medium">v{v.version}</span>
                     {i === 0 && (
@@ -303,7 +307,7 @@ function VersionTimeline({
                 ))}
               </ol>
             )}
-          </section>
+          </Section>
         )
       }}
     </QueryBoundary>
@@ -318,68 +322,69 @@ function RotationPane({
   policy: RotationPolicy | null
 }) {
   return (
-    <section className="flex min-w-0 flex-col gap-2">
-      <h2 className="text-sm font-medium">Rotation</h2>
-      {policy === null ? (
-        <>
-          <p className="text-sm text-muted-foreground">No rotation policy.</p>
-          <PluginLink
-            to={rotationPath(secretKey)}
-            className="text-sm underline underline-offset-4"
-          >
-            Set up rotation
-          </PluginLink>
-        </>
-      ) : (
-        <>
-          <DescriptionList
-            items={[
-              {
-                term: "Interval",
-                value: `Every ${formatInterval(policy.intervalSeconds)}`,
-              },
-              {
-                term: "Status",
-                value: <PolicyStatusBadge enabled={policy.enabled} />,
-              },
-              {
-                term: "Rotator",
-                value: <RotatorBadge rotatable={policy.rotatable} />,
-              },
-              {
-                term: "Next rotation",
-                // A time is shown only for a policy that will really rotate:
-                // enabled, with a rotator registered. Do not depend on the
-                // server omitting it; show "none" rather than a time that
-                // will not happen.
-                value: (
-                  <Timestamp
-                    value={
-                      policy.enabled && policy.rotatable
-                        ? policy.nextRotationAt
-                        : undefined
-                    }
-                    label="next rotation"
-                  />
-                ),
-              },
-            ]}
-          />
-          {!policy.rotatable && (
-            <p className="text-sm text-muted-foreground">
-              No rotator is registered for this secret, so this policy will not
-              rotate it.
-            </p>
-          )}
-          <PluginLink
-            to={rotationPath(secretKey)}
-            className="text-sm underline underline-offset-4"
-          >
-            Open the rotation page
-          </PluginLink>
-        </>
-      )}
-    </section>
+    <Section title="Rotation" inset>
+      <div className="flex min-w-0 flex-col gap-2">
+        {policy === null ? (
+          <>
+            <p className="text-sm text-muted-foreground">No rotation policy.</p>
+            <PluginLink
+              to={rotationPath(secretKey)}
+              className="text-sm underline underline-offset-4"
+            >
+              Set up rotation
+            </PluginLink>
+          </>
+        ) : (
+          <>
+            <DescriptionList
+              items={[
+                {
+                  term: "Interval",
+                  value: `Every ${formatInterval(policy.intervalSeconds)}`,
+                },
+                {
+                  term: "Status",
+                  value: <PolicyStatusBadge enabled={policy.enabled} />,
+                },
+                {
+                  term: "Rotator",
+                  value: <RotatorBadge rotatable={policy.rotatable} />,
+                },
+                {
+                  term: "Next rotation",
+                  // A time is shown only for a policy that will really rotate:
+                  // enabled, with a rotator registered. Do not depend on the
+                  // server omitting it; show "none" rather than a time that
+                  // will not happen.
+                  value: (
+                    <Timestamp
+                      value={
+                        policy.enabled && policy.rotatable
+                          ? policy.nextRotationAt
+                          : undefined
+                      }
+                      label="next rotation"
+                    />
+                  ),
+                },
+              ]}
+            />
+            {!policy.rotatable && (
+              <p className="text-sm text-muted-foreground">
+                No rotator is registered for this secret, so this policy will
+                not rotate it.
+              </p>
+            )}
+            <PluginLink
+              to={rotationPath(secretKey)}
+              className="text-sm underline underline-offset-4"
+            >
+              Open the rotation page
+            </PluginLink>
+          </>
+        )}
+      </div>
+    </Section>
   )
 }
 

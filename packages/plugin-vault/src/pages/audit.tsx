@@ -14,6 +14,7 @@ import {
   ResourceTable,
   type Column,
 } from "@forge-go/dashboard-kit/components/resource-table"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { formatTimestamp } from "@forge-go/dashboard-kit/lib/format"
 import {
@@ -251,94 +252,99 @@ export const AuditPage: ComponentType<PluginPageProps> = () => {
         description="Every change made to secrets, flags, config, overrides and rotation policies, and every failed attempt."
       />
 
-      {/* Outside the boundary, so filtering never takes the controls away. */}
-      <FilterBar
-        search={{
-          value: keyText,
-          onChange: typeKey,
-          label: "Key",
-          placeholder: "Exact key",
-        }}
-        filters={[
-          {
-            id: "resource",
-            label: "Resource",
-            value: resource,
-            options: RESOURCE_OPTIONS,
-            onChange: change(setResource),
-          },
-          {
-            id: "action",
-            label: "Action",
-            value: action,
-            options: ACTION_OPTIONS,
-            onChange: change(setAction),
-          },
-          {
-            id: "outcome",
-            label: "Outcome",
-            value: outcome,
-            options: OUTCOME_OPTIONS,
-            onChange: change(setOutcome),
-          },
-        ]}
+      {/* The controls sit outside the boundary, so filtering never takes them away. */}
+      <Section
+        aria-label="Audit log"
         actions={
-          <div className="flex items-center gap-2">
-            <Checkbox
-              id="audit-show-reads"
-              checked={includeReads}
-              onCheckedChange={(checked) => {
-                setIncludeReads(checked === true)
-                setPage(1)
-              }}
-            />
-            <Label htmlFor="audit-show-reads">Show reads</Label>
-          </div>
+          <FilterBar
+            search={{
+              value: keyText,
+              onChange: typeKey,
+              label: "Key",
+              placeholder: "Exact key",
+            }}
+            filters={[
+              {
+                id: "resource",
+                label: "Resource",
+                value: resource,
+                options: RESOURCE_OPTIONS,
+                onChange: change(setResource),
+              },
+              {
+                id: "action",
+                label: "Action",
+                value: action,
+                options: ACTION_OPTIONS,
+                onChange: change(setAction),
+              },
+              {
+                id: "outcome",
+                label: "Outcome",
+                value: outcome,
+                options: OUTCOME_OPTIONS,
+                onChange: change(setOutcome),
+              },
+            ]}
+            actions={
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="audit-show-reads"
+                  checked={includeReads}
+                  onCheckedChange={(checked) => {
+                    setIncludeReads(checked === true)
+                    setPage(1)
+                  }}
+                />
+                <Label htmlFor="audit-show-reads">Show reads</Label>
+              </div>
+            }
+          />
         }
-      />
+      >
+        {since === "" ? null : (
+          <div className="flex flex-wrap gap-1 border-b px-4 py-3">
+            <Badge variant="outline" className="gap-1 pr-0.5 text-xs">
+              {`Since ${formatTimestamp(since)}`}
+              <IconButton
+                type="button"
+                variant="ghost"
+                onClick={() => {
+                  setSince("")
+                  setPage(1)
+                }}
+                label="Remove since filter"
+              />
+            </Badge>
+          </div>
+        )}
 
-      {since === "" ? null : (
-        <div className="flex flex-wrap gap-1">
-          <Badge variant="outline" className="gap-1 pr-0.5 text-xs">
-            {`Since ${formatTimestamp(since)}`}
-            <IconButton
-              type="button"
-              variant="ghost"
-              onClick={() => {
-                setSince("")
-                setPage(1)
-              }}
-              label="Remove since filter"
-            />
-          </Badge>
-        </div>
-      )}
-
-      <QueryBoundary title="Audit" query={list} skeletonRows={5}>
-        {(data) => {
-          const rows = data.entries ?? []
-          // The server's total, never the page length.
-          const caption = `${data.total} ${data.total === 1 ? "entry" : "entries"}`
-          return (
-            <ResourceTable<AuditEntry>
-              columns={columns}
-              rows={rows}
-              rowKey={(e) => e.id}
-              caption={caption}
-              emptyMessage="No audit entries match these filters."
-              emptyAction={
-                readsHidden ? (
-                  <p className="text-sm text-muted-foreground">
-                    {READS_HIDDEN_HINT}
-                  </p>
-                ) : undefined
-              }
-              pagination={{ page, pageSize: PAGE_SIZE, total: data.total }}
-              onPageChange={setPage}
-            />
-          )
-        }}
-      </QueryBoundary>
+        <QueryBoundary title="Audit" query={list} skeletonRows={5}>
+          {(data) => {
+            const rows = data.entries ?? []
+            // The server's total, never the page length.
+            const caption = `${data.total} ${data.total === 1 ? "entry" : "entries"}`
+            return (
+              <ResourceTable<AuditEntry>
+                columns={columns}
+                rows={rows}
+                rowKey={(e) => e.id}
+                caption={caption}
+                emptyMessage="No audit entries match these filters."
+                emptyAction={
+                  readsHidden ? (
+                    <p className="text-sm text-muted-foreground">
+                      {READS_HIDDEN_HINT}
+                    </p>
+                  ) : undefined
+                }
+                pagination={{ page, pageSize: PAGE_SIZE, total: data.total }}
+                onPageChange={setPage}
+              />
+            )
+          }}
+        </QueryBoundary>
+      </Section>
     </section>
   )
 }

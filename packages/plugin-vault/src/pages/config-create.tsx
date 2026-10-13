@@ -15,6 +15,7 @@ import {
 } from "@forge-go/dashboard-kit/components/native-select"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { CommandAlert } from "@forge-go/dashboard-kit/components/query-boundary"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { ValueInput } from "../components/value-input"
 import { CONFIG_TYPES, isConfigType } from "../config-types"
 import type { ConfigEntrySummary, ConfigType } from "../config-types"
@@ -105,65 +106,72 @@ export const ConfigCreatePage: ComponentType<PluginPageProps> = () => {
         onSubmit={(e) => void submit(e)}
         className="flex max-w-lg min-w-0 flex-col gap-4"
       >
-        <div className="flex min-w-0 flex-col gap-1.5">
-          <Label htmlFor="config-key">Key</Label>
-          <Input
-            id="config-key"
-            className="font-mono"
-            autoComplete="off"
-            spellCheck={false}
-            value={key}
-            onChange={(e) => setKey(e.target.value)}
-          />
-        </div>
-        <div className="flex min-w-0 flex-col gap-1.5">
-          <Label htmlFor="config-type">Type</Label>
-          <NativeSelect
-            id="config-type"
-            value={valueType}
-            onChange={(e) => {
-              const next = e.target.value
-              if (!isConfigType(next)) return
-              setValueType(next)
-              // A value of one type is not a value of another.
-              setValue(undefined)
-            }}
-          >
-            {CONFIG_TYPES.map((t) => (
-              <NativeSelectOption key={t} value={t}>
-                {t}
-              </NativeSelectOption>
-            ))}
-          </NativeSelect>
-        </div>
-        <div className="flex min-w-0 flex-col gap-1.5">
-          <Label id="config-value-label" htmlFor="config-value">
-            Value
-          </Label>
-          <ValueInput
-            id="config-value"
-            aria-labelledby="config-value-label"
-            type={valueType}
-            value={value}
-            onChange={setValue}
-          />
-        </div>
-        <div className="flex min-w-0 flex-col gap-1.5">
-          <Label htmlFor="config-description">Description</Label>
-          <Input
-            id="config-description"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-          />
-        </div>
-        <div className="flex gap-2">
-          <Button type="submit" disabled={!canSubmit}>
-            {create.loading ? "Creating…" : "Create entry"}
-          </Button>
-          <PluginLink to="/config" className="self-center text-sm underline">
-            Cancel
-          </PluginLink>
-        </div>
+        <Section aria-label="Config entry details" inset>
+          <div className="flex min-w-0 flex-col gap-4">
+            <div className="flex min-w-0 flex-col gap-1.5">
+              <Label htmlFor="config-key">Key</Label>
+              <Input
+                id="config-key"
+                className="font-mono"
+                autoComplete="off"
+                spellCheck={false}
+                value={key}
+                onChange={(e) => setKey(e.target.value)}
+              />
+            </div>
+            <div className="flex min-w-0 flex-col gap-1.5">
+              <Label htmlFor="config-type">Type</Label>
+              <NativeSelect
+                id="config-type"
+                value={valueType}
+                onChange={(e) => {
+                  const next = e.target.value
+                  if (!isConfigType(next)) return
+                  setValueType(next)
+                  // A value of one type is not a value of another.
+                  setValue(undefined)
+                }}
+              >
+                {CONFIG_TYPES.map((t) => (
+                  <NativeSelectOption key={t} value={t}>
+                    {t}
+                  </NativeSelectOption>
+                ))}
+              </NativeSelect>
+            </div>
+            <div className="flex min-w-0 flex-col gap-1.5">
+              <Label id="config-value-label" htmlFor="config-value">
+                Value
+              </Label>
+              <ValueInput
+                id="config-value"
+                aria-labelledby="config-value-label"
+                type={valueType}
+                value={value}
+                onChange={setValue}
+              />
+            </div>
+            <div className="flex min-w-0 flex-col gap-1.5">
+              <Label htmlFor="config-description">Description</Label>
+              <Input
+                id="config-description"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button type="submit" disabled={!canSubmit}>
+                {create.loading ? "Creating…" : "Create entry"}
+              </Button>
+              <PluginLink
+                to="/config"
+                className="self-center text-sm underline"
+              >
+                Cancel
+              </PluginLink>
+            </div>
+          </div>
+        </Section>
       </form>
     </div>
   )

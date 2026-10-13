@@ -26,6 +26,7 @@ import {
   ResourceTable,
   type Column,
 } from "@forge-go/dashboard-kit/components/resource-table"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { formatTimestamp } from "@forge-go/dashboard-kit/lib/format"
 import { PolicyStatusBadge, RotatorBadge } from "../badges"
@@ -219,37 +220,37 @@ function RotationDetailBody({ secretKey }: { secretKey: string }) {
               </p>
             )}
 
-            <section className="flex min-w-0 flex-col gap-3">
-              <h2 className="text-sm font-medium">Policy</h2>
-              {policy !== null && <PolicySummary policy={policy} />}
-              <CommandAlert
-                error={save.error}
-                title="Could not save the policy"
-              />
-              <PolicyForm
-                // Remounts when the stored policy changes, so the fields show
-                // what was saved and not what was typed before the refetch.
-                key={
-                  policy === null ? "new" : `${policy.id}:${policy.updatedAt}`
-                }
-                policy={policy}
-                rotatable={data.rotatable}
-                saving={save.loading}
-                onSave={savePolicy}
-              />
-              {policy !== null && (
-                <div>
-                  <IconButton
-                    variant="destructive"
-                    onClick={openDelete}
-                    label="Delete policy"
-                  />
-                </div>
-              )}
-            </section>
+            <Section title="Policy" inset>
+              <div className="flex min-w-0 flex-col gap-3">
+                {policy !== null && <PolicySummary policy={policy} />}
+                <CommandAlert
+                  error={save.error}
+                  title="Could not save the policy"
+                />
+                <PolicyForm
+                  // Remounts when the stored policy changes, so the fields show
+                  // what was saved and not what was typed before the refetch.
+                  key={
+                    policy === null ? "new" : `${policy.id}:${policy.updatedAt}`
+                  }
+                  policy={policy}
+                  rotatable={data.rotatable}
+                  saving={save.loading}
+                  onSave={savePolicy}
+                />
+                {policy !== null && (
+                  <div>
+                    <IconButton
+                      variant="destructive"
+                      onClick={openDelete}
+                      label="Delete policy"
+                    />
+                  </div>
+                )}
+              </div>
+            </Section>
 
-            <section className="flex min-w-0 flex-col gap-2">
-              <h2 className="text-sm font-medium">Rotate now</h2>
+            <Section title="Rotate now" inset>
               <div className="flex flex-wrap items-center gap-3">
                 <IconButton
                   disabled={!data.rotatable}
@@ -271,10 +272,9 @@ function RotationDetailBody({ secretKey }: { secretKey: string }) {
                   </p>
                 )}
               </div>
-            </section>
+            </Section>
 
-            <section className="flex min-w-0 flex-col gap-2">
-              <h2 className="text-sm font-medium">Rotation history</h2>
+            <Section title="Rotation history">
               <ResourceTable<RotationRecord>
                 columns={recordColumns}
                 rows={records}
@@ -282,7 +282,7 @@ function RotationDetailBody({ secretKey }: { secretKey: string }) {
                 caption={`${records.length} ${records.length === 1 ? "rotation" : "rotations"}`}
                 emptyMessage="No rotations recorded yet."
               />
-            </section>
+            </Section>
 
             <ConfirmDialog
               open={rotating}

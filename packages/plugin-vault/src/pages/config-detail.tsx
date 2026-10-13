@@ -36,6 +36,7 @@ import {
   ResourceTable,
   type Column,
 } from "@forge-go/dashboard-kit/components/resource-table"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { TagList } from "@forge-go/dashboard-kit/components/tag-list"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import {
@@ -237,22 +238,23 @@ function ConfigDetailView({
       <PageHeader
         title={entry.key}
         className="[&_h1]:font-mono [&_h1]:text-base"
-        actions={
+        meta={
           <>
             <ConfigTypeBadge type={entry.valueType} />
             {entry.knownType ? null : <UnsupportedTypeBadge />}
             {entry.valueMatchesType ? null : <WrongTypeBadge />}
-            <IconButton
-              variant="destructive"
-              onClick={openDelete}
-              label="Delete"
-            />
           </>
+        }
+        actions={
+          <IconButton
+            variant="destructive"
+            onClick={openDelete}
+            label="Delete"
+          />
         }
       />
 
-      <section className="flex min-w-0 flex-col gap-2">
-        <h2 className="text-sm font-medium">Definition</h2>
+      <Section title="Definition" inset>
         <DescriptionList
           items={[
             {
@@ -299,38 +301,41 @@ function ConfigDetailView({
             },
           ]}
         />
-      </section>
+      </Section>
 
-      <section className="flex min-w-0 flex-col gap-2">
-        <h2 id="config-value-heading" className="text-sm font-medium">
-          Value
-        </h2>
-        {type === undefined ? (
-          <>
-            <p className="text-sm text-muted-foreground">
-              {`This entry's type, ${entry.valueType}, is not one the vault validates, so its value cannot be edited here.`}
+      <Section title="Value" inset>
+        <div className="flex min-w-0 flex-col gap-2">
+          {/* The section's own heading cannot be referenced, so the input is named by this. */}
+          <span id="config-value-heading" hidden>
+            Value
+          </span>
+          {type === undefined ? (
+            <>
+              <p className="text-sm text-muted-foreground">
+                {`This entry's type, ${entry.valueType}, is not one the vault validates, so its value cannot be edited here.`}
+              </p>
+              <ReadOnlyValue entry={entry} />
+            </>
+          ) : (
+            // Keyed by what is stored, not by the version. A rollback changes the
+            // value from outside, and an editor that owns its text would go on
+            // showing the old one. But a description write also mints a version,
+            // and it must not throw away a value you have typed and not saved.
+            <ValueEditor
+              key={`${entry.valueType}:${JSON.stringify(entry.value ?? null)}`}
+              entry={entry}
+              type={type}
+              onEdit={() => setNotice(null)}
+              onSaved={(version) => setNotice(`Saved as version ${version}.`)}
+            />
+          )}
+          {notice === null ? null : (
+            <p role="status" className="text-sm">
+              {notice}
             </p>
-            <ReadOnlyValue entry={entry} />
-          </>
-        ) : (
-          // Keyed by what is stored, not by the version. A rollback changes the
-          // value from outside, and an editor that owns its text would go on
-          // showing the old one. But a description write also mints a version,
-          // and it must not throw away a value you have typed and not saved.
-          <ValueEditor
-            key={`${entry.valueType}:${JSON.stringify(entry.value ?? null)}`}
-            entry={entry}
-            type={type}
-            onEdit={() => setNotice(null)}
-            onSaved={(version) => setNotice(`Saved as version ${version}.`)}
-          />
-        )}
-        {notice === null ? null : (
-          <p role="status" className="text-sm">
-            {notice}
-          </p>
-        )}
-      </section>
+          )}
+        </div>
+      </Section>
 
       <OverridesSection entry={entry} overrides={overrides} />
 
@@ -341,8 +346,7 @@ function ConfigDetailView({
         valueType={entry.valueType}
       />
 
-      <section className="flex min-w-0 flex-col gap-2">
-        <h2 className="text-sm font-medium">Versions</h2>
+      <Section title="Versions">
         {versions.data !== undefined ? (
           <VersionsTable
             entry={entry}
@@ -364,7 +368,7 @@ function ConfigDetailView({
             )}
           </QueryBoundary>
         )}
-      </section>
+      </Section>
 
       <RecentActivity entries={data.recentAudit} />
 
@@ -619,9 +623,12 @@ function VersionsTable({
   const unsupportedId = "config-rollback-unsupported"
 
   return (
-    <div className="flex min-w-0 flex-col gap-3">
+    <div className="flex min-w-0 flex-col">
       {entry.knownType ? null : (
-        <p id={unsupportedId} className="text-sm text-muted-foreground">
+        <p
+          id={unsupportedId}
+          className="border-b px-4 py-3 text-sm text-muted-foreground"
+        >
           {`This entry's type, ${entry.valueType}, is not one the vault validates, so it cannot be rolled back.`}
         </p>
       )}
@@ -664,7 +671,9 @@ function VersionsTable({
         }
       />
       {chosen !== undefined && current !== undefined ? (
-        <VersionDiff entry={entry} was={chosen} now={current} />
+        <div className="border-t p-4">
+          <VersionDiff entry={entry} was={chosen} now={current} />
+        </div>
       ) : null}
     </div>
   )

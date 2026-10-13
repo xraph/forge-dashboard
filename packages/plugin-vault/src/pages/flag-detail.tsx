@@ -33,6 +33,7 @@ import {
   CommandAlert,
   QueryBoundary,
 } from "@forge-go/dashboard-kit/components/query-boundary"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { Switch } from "@forge-go/dashboard-kit/components/switch"
 import { TagList } from "@forge-go/dashboard-kit/components/tag-list"
 import {
@@ -306,85 +307,92 @@ function FlagDetailView({
 
   return (
     <section className="flex min-w-0 flex-col gap-4">
-      <div className="flex min-w-0 flex-col gap-2">
-        <PageHeader
-          title={flag.key}
-          description={
-            flag.description === "" ? "No description" : flag.description
-          }
-          className="[&_h1]:font-mono [&_h1]:text-base"
-          actions={
-            <>
-              <FlagTypeBadge type={flag.type} />
-              <IconButton
-                variant="destructive"
-                onClick={openDelete}
-                label="Delete"
-              />
-            </>
-          }
-        />
-        <TagList values={flag.tags} label="tags" />
-      </div>
+      <PageHeader
+        title={flag.key}
+        description={
+          flag.description === "" ? "No description" : flag.description
+        }
+        className="[&_h1]:font-mono [&_h1]:text-base"
+        meta={
+          <>
+            <FlagTypeBadge type={flag.type} />
+            <TagList values={flag.tags} label="tags" />
+          </>
+        }
+        actions={
+          <IconButton
+            variant="destructive"
+            onClick={openDelete}
+            label="Delete"
+          />
+        }
+      />
 
-      <section className="flex min-w-0 flex-col gap-2">
-        <h2 className="text-sm font-medium">Definition</h2>
-        {typeReason === undefined ? null : (
-          <p id={typeReasonId} className="text-sm text-muted-foreground">
-            {typeReason}
-          </p>
-        )}
-        <DescriptionList
-          items={[
-            {
-              term: "Default",
-              value: (
-                <span className="flex flex-wrap items-center gap-2">
-                  <FlagValue value={flag.defaultValue} type={flag.type} />
-                  {flag.defaultMatchesType ? null : <WrongTypeBadge />}
-                  <EditButton
-                    label="Edit default"
-                    onClick={() => open("default")}
-                    disabledBecause={
-                      typeReason === undefined ? undefined : typeReasonId
-                    }
-                  />
-                </span>
-              ),
-            },
-            {
-              term: "Description",
-              value: (
-                <span className="flex flex-wrap items-center gap-2">
-                  {flag.description === "" ? (
-                    <NoneCell label="description" />
-                  ) : (
-                    <span>{flag.description}</span>
-                  )}
-                  <EditButton
-                    label="Edit description"
-                    onClick={() => open("description")}
-                  />
-                </span>
-              ),
-            },
-            {
-              term: "Tags",
-              value: (
-                <span className="flex flex-wrap items-center gap-2">
-                  <TagList values={flag.tags} label="tags" />
-                  <EditButton label="Edit tags" onClick={() => open("tags")} />
-                </span>
-              ),
-            },
-            {
-              term: "Variants",
-              value: <Variants variants={data.variants} type={flag.type} />,
-            },
-            { term: "Metadata", value: <Metadata metadata={data.metadata} /> },
-          ]}
-        />
-      </section>
+      <Section title="Definition" inset>
+        <div className="flex min-w-0 flex-col gap-2">
+          {typeReason === undefined ? null : (
+            <p id={typeReasonId} className="text-sm text-muted-foreground">
+              {typeReason}
+            </p>
+          )}
+          <DescriptionList
+            items={[
+              {
+                term: "Default",
+                value: (
+                  <span className="flex flex-wrap items-center gap-2">
+                    <FlagValue value={flag.defaultValue} type={flag.type} />
+                    {flag.defaultMatchesType ? null : <WrongTypeBadge />}
+                    <EditButton
+                      label="Edit default"
+                      onClick={() => open("default")}
+                      disabledBecause={
+                        typeReason === undefined ? undefined : typeReasonId
+                      }
+                    />
+                  </span>
+                ),
+              },
+              {
+                term: "Description",
+                value: (
+                  <span className="flex flex-wrap items-center gap-2">
+                    {flag.description === "" ? (
+                      <NoneCell label="description" />
+                    ) : (
+                      <span>{flag.description}</span>
+                    )}
+                    <EditButton
+                      label="Edit description"
+                      onClick={() => open("description")}
+                    />
+                  </span>
+                ),
+              },
+              {
+                term: "Tags",
+                value: (
+                  <span className="flex flex-wrap items-center gap-2">
+                    <TagList values={flag.tags} label="tags" />
+                    <EditButton
+                      label="Edit tags"
+                      onClick={() => open("tags")}
+                    />
+                  </span>
+                ),
+              },
+              {
+                term: "Variants",
+                value: <Variants variants={data.variants} type={flag.type} />,
+              },
+              {
+                term: "Metadata",
+                value: <Metadata metadata={data.metadata} />,
+              },
+            ]}
+          />
+        </div>
+      </Section>
 
       <EvaluateBar
         tenantId={draftTenant}

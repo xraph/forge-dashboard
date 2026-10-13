@@ -355,7 +355,7 @@ describe("rule editor: opening and saving", () => {
     setup()
     await ready()
     const header = rung().querySelector(
-      '[data-slot="rung-body"] > div'
+      '[data-slot="section-header"]'
     ) as HTMLElement
     const actions = header.lastElementChild as HTMLElement
     expect(

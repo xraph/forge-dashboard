@@ -3,6 +3,7 @@ import { PluginLink, useQuery } from "@forge-go/dashboard-plugin"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { StatGrid } from "@forge-go/dashboard-kit/components/stat-grid"
 import { RecentActivity } from "../components/recent-activity"
 import type { AuditEntry } from "../flag-types"
@@ -181,13 +182,13 @@ export const OverviewPage: ComponentType<PluginPageProps> = () => {
           return (
             <>
               {list.length > 0 ? (
-                <section className="flex min-w-0 flex-col gap-2">
-                  <h2 className="text-sm font-medium text-destructive">
-                    Needs attention
-                  </h2>
-                  <ul className="flex min-w-0 flex-col gap-1 text-sm">
+                <Section
+                  title="Needs attention"
+                  className="[&_h2]:text-destructive"
+                >
+                  <ul className="flex min-w-0 flex-col divide-y text-sm">
                     {list.map((p) => (
-                      <li key={p.id}>
+                      <li key={p.id} className="px-4 py-2">
                         <PluginLink
                           to={p.to}
                           className="underline underline-offset-4"
@@ -197,7 +198,7 @@ export const OverviewPage: ComponentType<PluginPageProps> = () => {
                       </li>
                     ))}
                   </ul>
-                </section>
+                </Section>
               ) : data.encryptionEnabled ? (
                 // A vault with no key is not one where nothing needs attention,
                 // and the line below says so, so this stays out of its way.
@@ -209,6 +210,7 @@ export const OverviewPage: ComponentType<PluginPageProps> = () => {
               <EncryptionLine stats={data} />
 
               <StatGrid
+                aria-label="Vault counters"
                 items={[
                   { label: "Secrets", value: data.secrets },
                   { label: "Flags", value: data.flags },
@@ -222,15 +224,18 @@ export const OverviewPage: ComponentType<PluginPageProps> = () => {
                 ]}
               />
 
-              <div className="flex min-w-0 flex-col gap-2">
-                <RecentActivity entries={data.recentActivity ?? []} showKey />
-                <PluginLink
-                  to="/audit"
-                  className="text-sm underline underline-offset-4"
-                >
-                  See the audit log
-                </PluginLink>
-              </div>
+              <RecentActivity
+                entries={data.recentActivity ?? []}
+                showKey
+                actions={
+                  <PluginLink
+                    to="/audit"
+                    className="text-sm underline underline-offset-4"
+                  >
+                    See the audit log
+                  </PluginLink>
+                }
+              />
             </>
           )
         }}

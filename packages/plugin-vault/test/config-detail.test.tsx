@@ -218,6 +218,10 @@ function renderDetail(
 }
 
 const ready = () => screen.findByRole("heading", { name: KEY })
+// The Value section is a region named by its heading, so a page-wide
+// getByLabelText("Value") finds the region as well as the input inside it.
+const valueRegion = () => screen.getByRole("region", { name: "Value" })
+const valueField = () => within(valueRegion()).getByLabelText("Value")
 const click = (name: string | RegExp) =>
   fireEvent.click(screen.getByRole("button", { name }))
 const saveButton = () =>
@@ -317,7 +321,7 @@ describe("ConfigDetailPage value editing", () => {
     )
     renderDetail(h.client)
     await ready()
-    fireEvent.change(screen.getByLabelText("Value"), {
+    fireEvent.change(valueField(), {
       target: { value: "45s" },
     })
     expect(saveButton().disabled).toBe(false)
@@ -332,7 +336,7 @@ describe("ConfigDetailPage value editing", () => {
     renderDetail(harness().client)
     await ready()
     expect(saveButton().disabled).toBe(true)
-    const input = screen.getByLabelText("Value")
+    const input = valueField()
     fireEvent.change(input, { target: { value: "45s" } })
     expect(saveButton().disabled).toBe(false)
     fireEvent.change(input, { target: { value: "30s" } })
@@ -342,7 +346,7 @@ describe("ConfigDetailPage value editing", () => {
   it("keeps Save disabled for text that is not a value of the type", async () => {
     renderDetail(harness().client)
     await ready()
-    fireEvent.change(screen.getByLabelText("Value"), {
+    fireEvent.change(valueField(), {
       target: { value: "soon" },
     })
     expect(saveButton().disabled).toBe(true)
@@ -363,16 +367,14 @@ describe("ConfigDetailPage value editing", () => {
     )
     renderDetail(h.client)
     await ready()
-    fireEvent.change(screen.getByLabelText("Value"), {
+    fireEvent.change(valueField(), {
       target: { value: "45s" },
     })
     fireEvent.click(saveButton())
     expect(
       (await screen.findAllByText(/config: value: not a duration/)).length
     ).toBeGreaterThan(0)
-    expect((screen.getByLabelText("Value") as HTMLInputElement).value).toBe(
-      "45s"
-    )
+    expect((valueField() as HTMLInputElement).value).toBe("45s")
   })
 
   it("uses a typed control for an int and sends a number", async () => {
@@ -390,7 +392,7 @@ describe("ConfigDetailPage value editing", () => {
     )
     renderDetail(h.client)
     await ready()
-    fireEvent.change(screen.getByLabelText("Value"), {
+    fireEvent.change(valueField(), {
       target: { value: "9090" },
     })
     fireEvent.click(saveButton())
@@ -411,7 +413,7 @@ describe("ConfigDetailPage value editing", () => {
       }).client
     )
     await ready()
-    expect((screen.getByLabelText("Value") as HTMLInputElement).value).toBe("")
+    expect((valueField() as HTMLInputElement).value).toBe("")
     expect(saveButton().disabled).toBe(true)
     expect(screen.getAllByText("Wrong type").length).toBeGreaterThan(0)
   })
@@ -498,7 +500,7 @@ describe("ConfigDetailPage unknown type", () => {
         "This entry's type, yaml, is not one the vault validates, so its value cannot be edited here."
       )
     ).toBeTruthy()
-    expect(screen.queryByLabelText("Value")).toBeNull()
+    expect(within(valueRegion()).queryByLabelText("Value")).toBeNull()
     expect(screen.queryByRole("button", { name: "Save value" })).toBeNull()
     expect(screen.getAllByText('"a: 1"').length).toBeGreaterThan(0)
     expect(screen.getByText("Unsupported type")).toBeTruthy()
@@ -590,7 +592,7 @@ describe("ConfigDetailPage draft and description", () => {
     } as ScopedClient
     renderDetail(client)
     await ready()
-    fireEvent.change(screen.getByLabelText("Value"), {
+    fireEvent.change(valueField(), {
       target: { value: "45s" },
     })
     click("Edit description")
@@ -603,9 +605,7 @@ describe("ConfigDetailPage draft and description", () => {
     )
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull())
     await screen.findByText("New words")
-    expect((screen.getByLabelText("Value") as HTMLInputElement).value).toBe(
-      "45s"
-    )
+    expect((valueField() as HTMLInputElement).value).toBe("45s")
     expect(saveButton().disabled).toBe(false)
   })
 
@@ -621,15 +621,13 @@ describe("ConfigDetailPage draft and description", () => {
     } as ScopedClient
     renderDetail(client)
     await ready()
-    fireEvent.change(screen.getByLabelText("Value"), {
+    fireEvent.change(valueField(), {
       target: { value: "45s" },
     })
     current = detail({ entry: entry({ value: "20s", version: 4 }) })
     queryStore.invalidate("vault", ["config.detail"])
     await waitFor(() =>
-      expect((screen.getByLabelText("Value") as HTMLInputElement).value).toBe(
-        "20s"
-      )
+      expect((valueField() as HTMLInputElement).value).toBe("20s")
     )
   })
 })
@@ -1605,7 +1603,7 @@ describe("ConfigDetailPage leaving with an unsaved value", () => {
   it("asks before the tab closes, and before a link, once the value differs", async () => {
     const link = renderWithLink(harness().client)
     await ready()
-    fireEvent.change(screen.getByLabelText("Value"), {
+    fireEvent.change(valueField(), {
       target: { value: "45s" },
     })
     expect(beforeUnload()).toBe(true)
@@ -1617,7 +1615,7 @@ describe("ConfigDetailPage leaving with an unsaved value", () => {
   it("asks for text that is not yet a value too: it is still unsaved", async () => {
     const link = renderWithLink(harness().client)
     await ready()
-    fireEvent.change(screen.getByLabelText("Value"), {
+    fireEvent.change(valueField(), {
       target: { value: "soon" },
     })
     expect(beforeUnload()).toBe(true)
@@ -1628,7 +1626,7 @@ describe("ConfigDetailPage leaving with an unsaved value", () => {
     vi.mocked(window.confirm).mockReturnValue(true)
     const link = renderWithLink(harness().client)
     await ready()
-    fireEvent.change(screen.getByLabelText("Value"), {
+    fireEvent.change(valueField(), {
       target: { value: "45s" },
     })
     expect(clickBlocked(link)).toBe(false)
@@ -1638,7 +1636,7 @@ describe("ConfigDetailPage leaving with an unsaved value", () => {
   it("stops asking when the text goes back to what is stored", async () => {
     const link = renderWithLink(harness().client)
     await ready()
-    const input = screen.getByLabelText("Value")
+    const input = valueField()
     fireEvent.change(input, { target: { value: "45s" } })
     fireEvent.change(input, { target: { value: "30s" } })
     expect(beforeUnload()).toBe(false)
@@ -1652,7 +1650,7 @@ describe("ConfigDetailPage leaving with an unsaved value", () => {
     )
     const link = renderWithLink(h.client)
     await ready()
-    fireEvent.change(screen.getByLabelText("Value"), {
+    fireEvent.change(valueField(), {
       target: { value: "45s" },
     })
     // Submitted rather than clicked: the sink above cancels every click, and

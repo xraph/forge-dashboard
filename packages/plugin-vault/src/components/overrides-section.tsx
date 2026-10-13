@@ -18,6 +18,7 @@ import {
   ResourceTable,
   type Column,
 } from "@forge-go/dashboard-kit/components/resource-table"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { WrongTypeBadge } from "../badges"
 import { isConfigType } from "../config-types"
@@ -96,63 +97,71 @@ export function OverridesSection({
   const count = `${overrides.length} tenant override${overrides.length === 1 ? "" : "s"}`
 
   return (
-    <section className="flex min-w-0 flex-col gap-2">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-sm font-medium">Overrides</h2>
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={type === undefined}
-          aria-describedby={type === undefined ? unsupportedId : undefined}
-          onClick={() => setOpen({ mode: "add" })}
-        >
-          Add override
-        </Button>
-      </div>
-      {type === undefined ? (
-        <p id={unsupportedId} className="text-sm text-muted-foreground">
-          {`This entry's type, ${entry.valueType}, is not one the vault validates, so overrides cannot be set here.`}
-        </p>
-      ) : null}
-      <ResourceTable
-        columns={columns}
-        rows={overrides}
-        rowKey={(o) => o.tenantId}
-        caption={count}
-        emptyMessage="No tenant overrides."
-        rowActions={(o) => (
-          <>
-            <Button
-              variant="ghost"
-              size="xs"
-              aria-label={`Change the override for ${o.tenantId}`}
-              disabled={type === undefined}
-              aria-describedby={type === undefined ? unsupportedId : undefined}
-              onClick={() => setOpen({ mode: "change", override: o })}
-            >
-              Change
-            </Button>
-            <IconButton
-              variant="outline"
-              onClick={() =>
-                revert.request(
-                  entry.key,
-                  o.tenantId,
-                  <>
-                    {`Tenant ${o.tenantId} goes back to the app default, `}
-                    <ConfigValue
-                      value={entry.value}
-                      valueType={entry.valueType}
-                    />
-                    {"."}
-                  </>
-                )
-              }
-              label={`Revert to app default for ${o.tenantId}`}
-            />
-          </>
-        )}
-      />
+    <>
+      <Section
+        title="Overrides"
+        actions={
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={type === undefined}
+            aria-describedby={type === undefined ? unsupportedId : undefined}
+            onClick={() => setOpen({ mode: "add" })}
+          >
+            Add override
+          </Button>
+        }
+      >
+        {type === undefined ? (
+          <p
+            id={unsupportedId}
+            className="border-b px-4 py-3 text-sm text-muted-foreground"
+          >
+            {`This entry's type, ${entry.valueType}, is not one the vault validates, so overrides cannot be set here.`}
+          </p>
+        ) : null}
+        <ResourceTable
+          columns={columns}
+          rows={overrides}
+          rowKey={(o) => o.tenantId}
+          caption={count}
+          emptyMessage="No tenant overrides."
+          rowActions={(o) => (
+            <>
+              <Button
+                variant="ghost"
+                size="xs"
+                aria-label={`Change the override for ${o.tenantId}`}
+                disabled={type === undefined}
+                aria-describedby={
+                  type === undefined ? unsupportedId : undefined
+                }
+                onClick={() => setOpen({ mode: "change", override: o })}
+              >
+                Change
+              </Button>
+              <IconButton
+                variant="outline"
+                onClick={() =>
+                  revert.request(
+                    entry.key,
+                    o.tenantId,
+                    <>
+                      {`Tenant ${o.tenantId} goes back to the app default, `}
+                      <ConfigValue
+                        value={entry.value}
+                        valueType={entry.valueType}
+                      />
+                      {"."}
+                    </>
+                  )
+                }
+                label={`Revert to app default for ${o.tenantId}`}
+              />
+            </>
+          )}
+        />
+      </Section>
 
       {open !== null && type !== undefined && (
         <OverrideDialog
@@ -163,7 +172,7 @@ export function OverridesSection({
         />
       )}
       {revert.dialog}
-    </section>
+    </>
   )
 }
 

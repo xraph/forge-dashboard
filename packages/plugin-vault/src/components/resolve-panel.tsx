@@ -6,6 +6,7 @@ import { Button } from "@forge-go/dashboard-kit/components/button"
 import { Input } from "@forge-go/dashboard-kit/components/input"
 import { Label } from "@forge-go/dashboard-kit/components/label"
 import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { WrongTypeBadge } from "../badges"
 import { ConfigValue } from "./config-value"
 
@@ -73,54 +74,55 @@ export function ResolvePanel({
   }
 
   return (
-    <section className="flex min-w-0 flex-col gap-2">
-      <h2 className="text-sm font-medium">Resolve</h2>
-      <form
-        aria-label="Resolve"
-        onSubmit={submit}
-        className="flex flex-wrap items-end gap-x-3 gap-y-2"
-      >
-        <div className="flex min-w-0 flex-col gap-1">
-          <Label
-            htmlFor="resolve-tenant"
-            className="text-xs text-muted-foreground"
-          >
-            Resolve for tenant
-          </Label>
-          <Input
-            id="resolve-tenant"
-            className="w-56 font-mono"
-            autoComplete="off"
-            spellCheck={false}
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-          />
-        </div>
-        <div className="flex items-center gap-2">
-          <Button type="submit" disabled={result.loading}>
-            Resolve
-          </Button>
-          <IconButton
-            type="button"
-            variant="outline"
-            disabled={asked === null && text === ""}
-            onClick={clear}
-            label="Clear"
-          />
-        </div>
-      </form>
-      {asked === null ? null : (
-        <QueryBoundary title="Resolve" query={result} skeletonRows={1}>
-          {(data) => (
-            <Answer
-              data={data}
-              tenantId={data.tenantId ?? asked.tenantId}
-              valueType={valueType}
+    <Section title="Resolve" inset>
+      <div className="flex min-w-0 flex-col gap-2">
+        <form
+          aria-label="Resolve"
+          onSubmit={submit}
+          className="flex flex-wrap items-end gap-x-3 gap-y-2"
+        >
+          <div className="flex min-w-0 flex-col gap-1">
+            <Label
+              htmlFor="resolve-tenant"
+              className="text-xs text-muted-foreground"
+            >
+              Resolve for tenant
+            </Label>
+            <Input
+              id="resolve-tenant"
+              className="w-56 font-mono"
+              autoComplete="off"
+              spellCheck={false}
+              value={text}
+              onChange={(e) => setText(e.target.value)}
             />
-          )}
-        </QueryBoundary>
-      )}
-    </section>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button type="submit" disabled={result.loading}>
+              Resolve
+            </Button>
+            <IconButton
+              type="button"
+              variant="outline"
+              disabled={asked === null && text === ""}
+              onClick={clear}
+              label="Clear"
+            />
+          </div>
+        </form>
+        {asked === null ? null : (
+          <QueryBoundary title="Resolve" query={result} skeletonRows={1}>
+            {(data) => (
+              <Answer
+                data={data}
+                tenantId={data.tenantId ?? asked.tenantId}
+                valueType={valueType}
+              />
+            )}
+          </QueryBoundary>
+        )}
+      </div>
+    </Section>
   )
 }
 

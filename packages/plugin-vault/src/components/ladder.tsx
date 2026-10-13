@@ -1,4 +1,5 @@
 import type { ReactNode } from "react"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { cn } from "@forge-go/dashboard-kit/lib/utils"
 
 /*
@@ -82,33 +83,39 @@ export function Rung({
       ) : null}
       <div
         data-slot="rung-body"
-        className={cn(
-          "relative flex min-w-0 flex-col gap-2",
-          muted && "opacity-60"
-        )}
+        className={cn("relative min-w-0", muted && "opacity-60")}
       >
+        {/* Outside the Section, which clips: the number sits on the rail. */}
         <span
           aria-hidden="true"
-          className="absolute top-0 -left-[37px] flex size-6 items-center justify-center rounded-full border bg-background font-mono text-xs font-medium tabular-nums"
+          className="absolute top-2.5 -left-[37px] flex size-6 items-center justify-center rounded-full border bg-background font-mono text-xs font-medium tabular-nums"
         >
           {number}
         </span>
-        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
-          <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-0.5">
-            <h2 className="text-sm font-medium">{title}</h2>
-            {mark}
-            {note ? (
-              <span className="text-sm text-muted-foreground">{note}</span>
-            ) : null}
-          </div>
-          {actions ? (
-            <div className="flex items-center gap-2">{actions}</div>
+        <Section
+          title={title}
+          description={note}
+          actions={
+            mark || actions ? (
+              <>
+                {mark}
+                {actions}
+              </>
+            ) : undefined
+          }
+          inset
+        >
+          {annotation || children ? (
+            <div className="flex min-w-0 flex-col gap-2">
+              {annotation ? (
+                <div className="text-sm text-muted-foreground">
+                  {annotation}
+                </div>
+              ) : null}
+              {children}
+            </div>
           ) : null}
-        </div>
-        {annotation ? (
-          <div className="text-sm text-muted-foreground">{annotation}</div>
-        ) : null}
-        {children}
+        </Section>
       </div>
     </li>
   )

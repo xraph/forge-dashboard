@@ -1,4 +1,6 @@
+import type { ReactNode } from "react"
 import { EmptyState } from "@forge-go/dashboard-kit/components/empty-state"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import type { AuditEntry } from "../flag-types"
 
@@ -16,19 +18,21 @@ import type { AuditEntry } from "../flag-types"
 export function RecentActivity({
   entries,
   showKey = false,
+  actions,
 }: {
   entries: AuditEntry[]
   showKey?: boolean
+  /** Beside the title: the overview links to the whole audit log from here. */
+  actions?: ReactNode
 }) {
   return (
-    <section className="flex min-w-0 flex-col gap-2">
-      <h2 className="text-sm font-medium">Recent activity</h2>
+    <Section title="Recent activity" actions={actions}>
       {entries.length === 0 ? (
         <EmptyState title="No recorded activity yet." />
       ) : (
-        <ul className="flex min-w-0 flex-col gap-1 text-sm">
+        <ul className="flex min-w-0 flex-col divide-y text-sm">
           {entries.map((e) => (
-            <li key={e.id} className="flex min-w-0 flex-col">
+            <li key={e.id} className="flex min-w-0 flex-col px-4 py-2">
               <div className="flex flex-wrap items-baseline justify-between gap-x-3">
                 <span className="flex flex-wrap items-baseline gap-x-2">
                   <span className="font-mono text-xs">{e.action}</span>
@@ -60,6 +64,6 @@ export function RecentActivity({
           ))}
         </ul>
       )}
-    </section>
+    </Section>
   )
 }

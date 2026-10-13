@@ -670,8 +670,9 @@ describe("FlagDetailPage ladder", () => {
   it("offers Edit rules in rung 3's actions, and no other rung offers rule editing", async () => {
     renderDetail(harness(detail({ rules: RULES })).client)
     await ready()
-    const header = rungBody("rules").firstElementChild!
-      .nextElementSibling as HTMLElement
+    const header = rungBody("rules").querySelector(
+      '[data-slot="section-header"]'
+    ) as HTMLElement
     expect(
       within(header).getByRole("button", { name: "Edit rules" })
     ).toBeTruthy()

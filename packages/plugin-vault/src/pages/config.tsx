@@ -11,6 +11,7 @@ import {
   ResourceTable,
   type Column,
 } from "@forge-go/dashboard-kit/components/resource-table"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import {
   ConfigTypeBadge,
@@ -117,47 +118,52 @@ export const ConfigPage: ComponentType<PluginPageProps> = () => {
         actions={<NewConfigLink />}
       />
 
-      {/* Outside the boundary, so typing never takes the control away. */}
-      <div className="flex max-w-sm min-w-0 flex-col gap-1.5">
-        <Label
-          htmlFor="config-prefix-filter"
-          className="text-xs text-muted-foreground"
-        >
-          Key starts with
-        </Label>
-        <Input
-          id="config-prefix-filter"
-          className="font-mono"
-          autoComplete="off"
-          spellCheck={false}
-          value={text}
-          onChange={(e) => typeFilter(e.target.value)}
-        />
-      </div>
-
-      <QueryBoundary title="Config" query={list} skeletonRows={5}>
-        {(data) => {
-          const rows = data.entries ?? []
-          // The server's total, never the page length.
-          const caption = `${data.total} ${data.total === 1 ? "entry" : "entries"}`
-          return (
-            <ResourceTable<ConfigEntrySummary>
-              columns={columns}
-              rows={rows}
-              rowKey={(e) => e.id}
-              caption={caption}
-              emptyMessage={
-                prefix === ""
-                  ? "No config yet."
-                  : `No keys start with ${prefix}.`
-              }
-              emptyAction={<NewConfigLink />}
-              pagination={{ page, pageSize: PAGE_SIZE, total: data.total }}
-              onPageChange={setPage}
+      {/* The filter sits outside the boundary, so typing never takes the control away. */}
+      <Section
+        aria-label="Config entry list"
+        actions={
+          <div className="flex min-w-0 items-center gap-1.5">
+            <Label
+              htmlFor="config-prefix-filter"
+              className="shrink-0 text-xs whitespace-nowrap text-muted-foreground"
+            >
+              Key starts with
+            </Label>
+            <Input
+              id="config-prefix-filter"
+              className="w-56 font-mono"
+              autoComplete="off"
+              spellCheck={false}
+              value={text}
+              onChange={(e) => typeFilter(e.target.value)}
             />
-          )
-        }}
-      </QueryBoundary>
+          </div>
+        }
+      >
+        <QueryBoundary title="Config" query={list} skeletonRows={5}>
+          {(data) => {
+            const rows = data.entries ?? []
+            // The server's total, never the page length.
+            const caption = `${data.total} ${data.total === 1 ? "entry" : "entries"}`
+            return (
+              <ResourceTable<ConfigEntrySummary>
+                columns={columns}
+                rows={rows}
+                rowKey={(e) => e.id}
+                caption={caption}
+                emptyMessage={
+                  prefix === ""
+                    ? "No config yet."
+                    : `No keys start with ${prefix}.`
+                }
+                emptyAction={<NewConfigLink />}
+                pagination={{ page, pageSize: PAGE_SIZE, total: data.total }}
+                onPageChange={setPage}
+              />
+            )
+          }}
+        </QueryBoundary>
+      </Section>
     </section>
   )
 }

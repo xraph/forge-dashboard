@@ -14,6 +14,7 @@ import {
   ResourceTable,
   type Column,
 } from "@forge-go/dashboard-kit/components/resource-table"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { EncryptionBadge } from "../badges"
 import { secretPath } from "../keys"
@@ -151,70 +152,75 @@ export const SecretsPage: ComponentType<PluginPageProps> = () => {
         actions={<NewSecretLink />}
       />
 
-      {/* Outside the boundary, so choosing a filter never takes the control away. */}
-      <div className="flex items-center gap-1.5">
-        <Label
-          htmlFor="secret-expiry-filter"
-          className="text-xs text-muted-foreground"
-        >
-          Expiry
-        </Label>
-        <NativeSelect
-          id="secret-expiry-filter"
-          value={expiry}
-          onChange={(e) => {
-            const next = e.target.value
-            const value = isExpiryFilter(next) ? next : ""
-            setExpiry(value)
-            writeExpiry(value)
-            // Page three of "all" is not page three of "expired".
-            setPage(1)
+      {/* The filter sits outside the boundary, so choosing one never takes the control away. */}
+      <Section
+        aria-label="Secret list"
+        actions={
+          <div className="flex items-center gap-1.5">
+            <Label
+              htmlFor="secret-expiry-filter"
+              className="shrink-0 text-xs whitespace-nowrap text-muted-foreground"
+            >
+              Expiry
+            </Label>
+            <NativeSelect
+              id="secret-expiry-filter"
+              value={expiry}
+              onChange={(e) => {
+                const next = e.target.value
+                const value = isExpiryFilter(next) ? next : ""
+                setExpiry(value)
+                writeExpiry(value)
+                // Page three of "all" is not page three of "expired".
+                setPage(1)
+              }}
+            >
+              {EXPIRY_FILTERS.map((f) => (
+                <NativeSelectOption key={f.value} value={f.value}>
+                  {f.label}
+                </NativeSelectOption>
+              ))}
+            </NativeSelect>
+          </div>
+        }
+      >
+        <QueryBoundary title="Secrets" query={list} skeletonRows={5}>
+          {(data) => {
+            const rows = data.secrets ?? []
+            // The server's total, never the page length: a page of 25 out of
+            // 31 must not read "25 secrets".
+            const caption = `${data.total} ${data.total === 1 ? "secret" : "secrets"}`
+            // Only rows on this page count. Nothing is claimed about rows that
+            // are not shown, and nothing here says anything is encrypted.
+            const anyUnencrypted = rows.some((s) => s.encryptionAlg === "")
+            return (
+              <>
+                {anyUnencrypted && (
+                  <p className="border-b px-4 py-3 text-sm text-muted-foreground">
+                    Secrets marked Not encrypted were stored while this vault
+                    had no encryption key. Adding a key later does not encrypt
+                    them; replace their values to re-store them encrypted.
+                  </p>
+                )}
+                <ResourceTable<SecretSummary>
+                  columns={columns}
+                  rows={rows}
+                  rowKey={(s) => s.id}
+                  caption={caption}
+                  emptyMessage={
+                    expiry === ""
+                      ? "No secrets yet."
+                      : "No secrets match this expiry filter."
+                  }
+                  emptyAction={expiry === "" ? <NewSecretLink /> : undefined}
+                  pagination={{ page, pageSize: PAGE_SIZE, total: data.total }}
+                  onPageChange={setPage}
+                />
+              </>
+            )
           }}
-        >
-          {EXPIRY_FILTERS.map((f) => (
-            <NativeSelectOption key={f.value} value={f.value}>
-              {f.label}
-            </NativeSelectOption>
-          ))}
-        </NativeSelect>
-      </div>
-
-      <QueryBoundary title="Secrets" query={list} skeletonRows={5}>
-        {(data) => {
-          const rows = data.secrets ?? []
-          // The server's total, never the page length: a page of 25 out of
-          // 31 must not read "25 secrets".
-          const caption = `${data.total} ${data.total === 1 ? "secret" : "secrets"}`
-          // Only rows on this page count. Nothing is claimed about rows that
-          // are not shown, and nothing here says anything is encrypted.
-          const anyUnencrypted = rows.some((s) => s.encryptionAlg === "")
-          return (
-            <>
-              {anyUnencrypted && (
-                <p className="text-sm text-muted-foreground">
-                  Secrets marked Not encrypted were stored while this vault had
-                  no encryption key. Adding a key later does not encrypt them;
-                  replace their values to re-store them encrypted.
-                </p>
-              )}
-              <ResourceTable<SecretSummary>
-                columns={columns}
-                rows={rows}
-                rowKey={(s) => s.id}
-                caption={caption}
-                emptyMessage={
-                  expiry === ""
-                    ? "No secrets yet."
-                    : "No secrets match this expiry filter."
-                }
-                emptyAction={expiry === "" ? <NewSecretLink /> : undefined}
-                pagination={{ page, pageSize: PAGE_SIZE, total: data.total }}
-                onPageChange={setPage}
-              />
-            </>
-          )
-        }}
-      </QueryBoundary>
+        </QueryBoundary>
+      </Section>
     </section>
   )
 }

@@ -192,7 +192,7 @@ const userInput = () => screen.getByLabelText("User id") as HTMLInputElement
 /** The badges a rung itself carries, not the ones on its rows. */
 function rungMarks(id: string): string[] {
   const header = rung(id).querySelector(
-    '[data-slot="rung-body"] > div'
+    '[data-slot="section-header"]'
   ) as HTMLElement
   return ["Decided here", "Not reached"].filter((t) =>
     within(header).queryByText(t)

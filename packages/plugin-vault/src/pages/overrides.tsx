@@ -13,6 +13,7 @@ import {
   ResourceTable,
   type Column,
 } from "@forge-go/dashboard-kit/components/resource-table"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { WrongTypeBadge } from "../badges"
 import { ConfigValue } from "../components/config-value"
@@ -145,89 +146,93 @@ export const OverridesPage: ComponentType<PluginPageProps> = () => {
         description="The values tenants get in place of an entry's app default."
       />
 
-      <div className="flex flex-wrap items-end gap-x-8 gap-y-3">
-        <ChoiceForm
-          id="overrides-tenant"
-          label="Tenant id"
-          button="Show overrides for a tenant"
-          text={tenantText}
-          onText={setTenantText}
-          active={choice?.kind === "tenant"}
-          onChoose={() => choose("tenant", tenantText)}
-        />
-        <ChoiceForm
-          id="overrides-key"
-          label="Config key"
-          button="Show overrides for a key"
-          text={keyText}
-          onText={setKeyText}
-          active={choice?.kind === "key"}
-          onChoose={() => choose("key", keyText)}
-        />
-        {choice === null ? null : (
-          <IconButton
-            type="button"
-            variant="outline"
-            onClick={clear}
-            label="Clear"
+      <Section aria-label="Override lookup" inset>
+        <div className="flex flex-wrap items-end gap-x-8 gap-y-3">
+          <ChoiceForm
+            id="overrides-tenant"
+            label="Tenant id"
+            button="Show overrides for a tenant"
+            text={tenantText}
+            onText={setTenantText}
+            active={choice?.kind === "tenant"}
+            onChoose={() => choose("tenant", tenantText)}
           />
-        )}
-      </div>
+          <ChoiceForm
+            id="overrides-key"
+            label="Config key"
+            button="Show overrides for a key"
+            text={keyText}
+            onText={setKeyText}
+            active={choice?.kind === "key"}
+            onChoose={() => choose("key", keyText)}
+          />
+          {choice === null ? null : (
+            <IconButton
+              type="button"
+              variant="outline"
+              onClick={clear}
+              label="Clear"
+            />
+          )}
+        </div>
+      </Section>
 
-      {choice === null ? (
-        <p className="text-sm text-muted-foreground">
-          Pick a tenant or a key to see its overrides. The store can only list
-          them one way at a time.
-        </p>
-      ) : (
-        <QueryBoundary title="Overrides" query={list} skeletonRows={4}>
-          {(data) => {
-            const rows = data.overrides ?? []
-            // The server's total, never the page length.
-            const caption = `${data.total} override${data.total === 1 ? "" : "s"}`
-            return (
-              <ResourceTable<OverrideSummary>
-                columns={columns}
-                rows={rows}
-                rowKey={(o) => `${o.tenantId}\u0000${o.key}`}
-                caption={caption}
-                emptyMessage={
-                  choice.kind === "tenant"
-                    ? `No overrides for tenant ${choice.value}.`
-                    : `No overrides for key ${choice.value}.`
-                }
-                rowActions={(o) => (
-                  <IconButton
-                    variant="outline"
-                    onClick={() =>
-                      o.keyExists
-                        ? revert.request(
-                            o.key,
-                            o.tenantId,
-                            `Tenant ${o.tenantId} goes back to the app default for ${o.key}.`
-                          )
-                        : // The key is gone, so there is no app default to go back to.
-                          revert.request(
-                            o.key,
-                            o.tenantId,
-                            `Tenant ${o.tenantId}'s override of ${o.key} is removed. That key no longer exists, so apps reading it fall back to their own default.`,
-                            true
-                          )
-                    }
-                    label={
-                      o.keyExists
-                        ? `Revert to app default for tenant ${o.tenantId} of ${o.key}`
-                        : `Remove leftover override for tenant ${o.tenantId} of ${o.key}`
-                    }
-                  />
-                )}
-                pagination={{ page, pageSize: PAGE_SIZE, total: data.total }}
-                onPageChange={setPage}
-              />
-            )
-          }}
-        </QueryBoundary>
-      )}
+      <Section aria-label="Override list">
+        {choice === null ? (
+          <p className="px-4 py-3 text-sm text-muted-foreground">
+            Pick a tenant or a key to see its overrides. The store can only list
+            them one way at a time.
+          </p>
+        ) : (
+          <QueryBoundary title="Overrides" query={list} skeletonRows={4}>
+            {(data) => {
+              const rows = data.overrides ?? []
+              // The server's total, never the page length.
+              const caption = `${data.total} override${data.total === 1 ? "" : "s"}`
+              return (
+                <ResourceTable<OverrideSummary>
+                  columns={columns}
+                  rows={rows}
+                  rowKey={(o) => `${o.tenantId}\u0000${o.key}`}
+                  caption={caption}
+                  emptyMessage={
+                    choice.kind === "tenant"
+                      ? `No overrides for tenant ${choice.value}.`
+                      : `No overrides for key ${choice.value}.`
+                  }
+                  rowActions={(o) => (
+                    <IconButton
+                      variant="outline"
+                      onClick={() =>
+                        o.keyExists
+                          ? revert.request(
+                              o.key,
+                              o.tenantId,
+                              `Tenant ${o.tenantId} goes back to the app default for ${o.key}.`
+                            )
+                          : // The key is gone, so there is no app default to go back to.
+                            revert.request(
+                              o.key,
+                              o.tenantId,
+                              `Tenant ${o.tenantId}'s override of ${o.key} is removed. That key no longer exists, so apps reading it fall back to their own default.`,
+                              true
+                            )
+                      }
+                      label={
+                        o.keyExists
+                          ? `Revert to app default for tenant ${o.tenantId} of ${o.key}`
+                          : `Remove leftover override for tenant ${o.tenantId} of ${o.key}`
+                      }
+                    />
+                  )}
+                  pagination={{ page, pageSize: PAGE_SIZE, total: data.total }}
+                  onPageChange={setPage}
+                />
+              )
+            }}
+          </QueryBoundary>
+        )}
+      </Section>
       {revert.dialog}
     </section>
   )

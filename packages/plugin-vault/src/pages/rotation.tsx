@@ -8,6 +8,7 @@ import {
   ResourceTable,
   type Column,
 } from "@forge-go/dashboard-kit/components/resource-table"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { PolicyStatusBadge, RotatorBadge } from "../badges"
 import { formatInterval } from "../interval"
@@ -96,24 +97,26 @@ export const RotationPage: ComponentType<PluginPageProps> = () => {
         description="Due policies are checked once a minute in each vault process. A policy only rotates a secret whose application registered a rotator."
       />
 
-      <QueryBoundary title="Rotation policies" query={list} skeletonRows={5}>
-        {(data) => {
-          const rows = data.policies ?? []
-          // The server's total, never the page length.
-          const caption = `${data.total} ${data.total === 1 ? "policy" : "policies"}`
-          return (
-            <ResourceTable<RotationPolicy>
-              columns={columns}
-              rows={rows}
-              rowKey={(p) => p.id}
-              caption={caption}
-              emptyMessage="No rotation policies. Set one up from a secret's page."
-              pagination={{ page, pageSize: PAGE_SIZE, total: data.total }}
-              onPageChange={setPage}
-            />
-          )
-        }}
-      </QueryBoundary>
+      <Section aria-label="Rotation policy list">
+        <QueryBoundary title="Rotation policies" query={list} skeletonRows={5}>
+          {(data) => {
+            const rows = data.policies ?? []
+            // The server's total, never the page length.
+            const caption = `${data.total} ${data.total === 1 ? "policy" : "policies"}`
+            return (
+              <ResourceTable<RotationPolicy>
+                columns={columns}
+                rows={rows}
+                rowKey={(p) => p.id}
+                caption={caption}
+                emptyMessage="No rotation policies. Set one up from a secret's page."
+                pagination={{ page, pageSize: PAGE_SIZE, total: data.total }}
+                onPageChange={setPage}
+              />
+            )
+          }}
+        </QueryBoundary>
+      </Section>
     </section>
   )
 }

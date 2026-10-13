@@ -11,6 +11,7 @@ import { Input } from "@forge-go/dashboard-kit/components/input"
 import { Label } from "@forge-go/dashboard-kit/components/label"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { CommandAlert } from "@forge-go/dashboard-kit/components/query-boundary"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { toRFC3339 } from "../datetime"
 import { secretPath } from "../keys"
 import type { SecretSummary } from "./secrets"
@@ -123,57 +124,66 @@ export const SecretCreatePage: ComponentType<PluginPageProps> = () => {
         onSubmit={(e) => void submit(e)}
         className="flex max-w-lg min-w-0 flex-col gap-4"
       >
-        <div className="flex min-w-0 flex-col gap-1.5">
-          <Label htmlFor="secret-key">Key</Label>
-          <Input
-            id="secret-key"
-            className="font-mono"
-            autoComplete="off"
-            spellCheck={false}
-            value={key}
-            onChange={(e) => setKey(e.target.value)}
-          />
-        </div>
-        <div className="flex min-w-0 flex-col gap-1.5">
-          <Label htmlFor="secret-value">Value</Label>
-          {/*
-            "new-password" rather than "off": browsers ignore "off" on
-            password fields and offer to fill or save them anyway, but they
-            honour "new-password" by not offering a saved credential here.
-            spellCheck is off so the value is never sent to a spelling service.
-          */}
-          <Input
-            id="secret-value"
-            ref={valueRef}
-            type="password"
-            autoComplete="new-password"
-            spellCheck={false}
-            onChange={(e) => setHasValue(e.target.value !== "")}
-          />
-        </div>
-        <div className="flex min-w-0 flex-col gap-1.5">
-          <Label htmlFor="secret-expires">Expires (optional)</Label>
-          <Input
-            id="secret-expires"
-            type="datetime-local"
-            value={expires}
-            onChange={(e) => setExpires(e.target.value)}
-            aria-invalid={expiryInPast || undefined}
-          />
-          {expiryInPast ? (
-            <p role="alert" className="text-sm text-destructive">
-              The expiry is in the past. Pick a time that has not happened yet.
-            </p>
-          ) : null}
-        </div>
-        <div className="flex gap-2">
-          <Button type="submit" disabled={!canSubmit}>
-            {create.loading ? "Creating…" : "Create secret"}
-          </Button>
-          <PluginLink to="/secrets" className="self-center text-sm underline">
-            Cancel
-          </PluginLink>
-        </div>
+        <Section aria-label="Secret details" inset>
+          <div className="flex min-w-0 flex-col gap-4">
+            <div className="flex min-w-0 flex-col gap-1.5">
+              <Label htmlFor="secret-key">Key</Label>
+              <Input
+                id="secret-key"
+                className="font-mono"
+                autoComplete="off"
+                spellCheck={false}
+                value={key}
+                onChange={(e) => setKey(e.target.value)}
+              />
+            </div>
+            <div className="flex min-w-0 flex-col gap-1.5">
+              <Label htmlFor="secret-value">Value</Label>
+              {/*
+                "new-password" rather than "off": browsers ignore "off" on
+                password fields and offer to fill or save them anyway, but
+                they honour "new-password" by not offering a saved credential
+                here. spellCheck is off so the value is never sent to a
+                spelling service.
+              */}
+              <Input
+                id="secret-value"
+                ref={valueRef}
+                type="password"
+                autoComplete="new-password"
+                spellCheck={false}
+                onChange={(e) => setHasValue(e.target.value !== "")}
+              />
+            </div>
+            <div className="flex min-w-0 flex-col gap-1.5">
+              <Label htmlFor="secret-expires">Expires (optional)</Label>
+              <Input
+                id="secret-expires"
+                type="datetime-local"
+                value={expires}
+                onChange={(e) => setExpires(e.target.value)}
+                aria-invalid={expiryInPast || undefined}
+              />
+              {expiryInPast ? (
+                <p role="alert" className="text-sm text-destructive">
+                  The expiry is in the past. Pick a time that has not happened
+                  yet.
+                </p>
+              ) : null}
+            </div>
+            <div className="flex gap-2">
+              <Button type="submit" disabled={!canSubmit}>
+                {create.loading ? "Creating…" : "Create secret"}
+              </Button>
+              <PluginLink
+                to="/secrets"
+                className="self-center text-sm underline"
+              >
+                Cancel
+              </PluginLink>
+            </div>
+          </div>
+        </Section>
       </form>
     </div>
   )

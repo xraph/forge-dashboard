@@ -16,6 +16,7 @@ import {
 } from "@forge-go/dashboard-kit/components/native-select"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { CommandAlert } from "@forge-go/dashboard-kit/components/query-boundary"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { ValueInput } from "../components/value-input"
 import { FLAG_TYPES, isFlagType } from "../flag-types"
 import type { FlagType } from "../flag-types"
@@ -118,88 +119,92 @@ export const FlagCreatePage: ComponentType<PluginPageProps> = () => {
         onSubmit={(e) => void submit(e)}
         className="flex max-w-lg min-w-0 flex-col gap-4"
       >
-        <div className="flex min-w-0 flex-col gap-1.5">
-          <Label htmlFor="flag-key">Key</Label>
-          <Input
-            id="flag-key"
-            className="font-mono"
-            autoComplete="off"
-            spellCheck={false}
-            value={key}
-            onChange={(e) => setKey(e.target.value)}
-          />
-        </div>
-        <div className="flex min-w-0 flex-col gap-1.5">
-          <Label htmlFor="flag-type">Type</Label>
-          <NativeSelect
-            id="flag-type"
-            value={type}
-            onChange={(e) => {
-              const next = e.target.value
-              if (!isFlagType(next)) return
-              setType(next)
-              // A default of one type is not a default of another.
-              setDefaultValue(undefined)
-            }}
-          >
-            {FLAG_TYPES.map((t) => (
-              <NativeSelectOption key={t} value={t}>
-                {t}
-              </NativeSelectOption>
-            ))}
-          </NativeSelect>
-        </div>
-        <div className="flex min-w-0 flex-col gap-1.5">
-          <Label id="flag-default-label" htmlFor="flag-default">
-            Default
-          </Label>
-          <ValueInput
-            id="flag-default"
-            aria-labelledby="flag-default-label"
-            type={type}
-            value={defaultValue}
-            onChange={setDefaultValue}
-          />
-          <p className="text-xs text-muted-foreground">
-            What the flag returns when nothing else decides it.
-          </p>
-        </div>
-        <div className="flex min-w-0 flex-col gap-1.5">
-          <Label htmlFor="flag-description">Description</Label>
-          <Input
-            id="flag-description"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-          />
-        </div>
-        <div className="flex min-w-0 flex-col gap-1.5">
-          <Label htmlFor="flag-tags">Tags</Label>
-          <Input
-            id="flag-tags"
-            className="font-mono"
-            autoComplete="off"
-            spellCheck={false}
-            value={tags}
-            onChange={(e) => setTags(e.target.value)}
-          />
-          <p className="text-xs text-muted-foreground">Comma separated.</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Checkbox
-            id="flag-enabled"
-            checked={enabled}
-            onCheckedChange={(checked) => setEnabled(checked === true)}
-          />
-          <Label htmlFor="flag-enabled">Enabled</Label>
-        </div>
-        <div className="flex gap-2">
-          <Button type="submit" disabled={!canSubmit}>
-            {create.loading ? "Creating…" : "Create flag"}
-          </Button>
-          <PluginLink to="/flags" className="self-center text-sm underline">
-            Cancel
-          </PluginLink>
-        </div>
+        <Section aria-label="Flag details" inset>
+          <div className="flex min-w-0 flex-col gap-4">
+            <div className="flex min-w-0 flex-col gap-1.5">
+              <Label htmlFor="flag-key">Key</Label>
+              <Input
+                id="flag-key"
+                className="font-mono"
+                autoComplete="off"
+                spellCheck={false}
+                value={key}
+                onChange={(e) => setKey(e.target.value)}
+              />
+            </div>
+            <div className="flex min-w-0 flex-col gap-1.5">
+              <Label htmlFor="flag-type">Type</Label>
+              <NativeSelect
+                id="flag-type"
+                value={type}
+                onChange={(e) => {
+                  const next = e.target.value
+                  if (!isFlagType(next)) return
+                  setType(next)
+                  // A default of one type is not a default of another.
+                  setDefaultValue(undefined)
+                }}
+              >
+                {FLAG_TYPES.map((t) => (
+                  <NativeSelectOption key={t} value={t}>
+                    {t}
+                  </NativeSelectOption>
+                ))}
+              </NativeSelect>
+            </div>
+            <div className="flex min-w-0 flex-col gap-1.5">
+              <Label id="flag-default-label" htmlFor="flag-default">
+                Default
+              </Label>
+              <ValueInput
+                id="flag-default"
+                aria-labelledby="flag-default-label"
+                type={type}
+                value={defaultValue}
+                onChange={setDefaultValue}
+              />
+              <p className="text-xs text-muted-foreground">
+                What the flag returns when nothing else decides it.
+              </p>
+            </div>
+            <div className="flex min-w-0 flex-col gap-1.5">
+              <Label htmlFor="flag-description">Description</Label>
+              <Input
+                id="flag-description"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+              />
+            </div>
+            <div className="flex min-w-0 flex-col gap-1.5">
+              <Label htmlFor="flag-tags">Tags</Label>
+              <Input
+                id="flag-tags"
+                className="font-mono"
+                autoComplete="off"
+                spellCheck={false}
+                value={tags}
+                onChange={(e) => setTags(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">Comma separated.</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="flag-enabled"
+                checked={enabled}
+                onCheckedChange={(checked) => setEnabled(checked === true)}
+              />
+              <Label htmlFor="flag-enabled">Enabled</Label>
+            </div>
+            <div className="flex gap-2">
+              <Button type="submit" disabled={!canSubmit}>
+                {create.loading ? "Creating…" : "Create flag"}
+              </Button>
+              <PluginLink to="/flags" className="self-center text-sm underline">
+                Cancel
+              </PluginLink>
+            </div>
+          </div>
+        </Section>
       </form>
     </div>
   )
