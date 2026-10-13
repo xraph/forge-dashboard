@@ -7,6 +7,7 @@ import {
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
 import { Section } from "@forge-go/dashboard-kit/components/section"
+import { StatGrid } from "@forge-go/dashboard-kit/components/stat-grid"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { PencilIcon } from "@forge-go/dashboard-kit/icons"
@@ -21,7 +22,6 @@ import {
   Empty,
   Facts,
   limit,
-  Metrics,
   Notice,
   Refresh,
   UsageOff,
@@ -99,7 +99,8 @@ export function TenantDetailPage({ params }: PluginPageProps) {
         {(data) => (
           <>
             {!data.usageEnabled && <UsageOff />}
-            <Metrics
+            <StatGrid
+              aria-label="Tenant counters"
               items={[
                 {
                   label: "Month spend",

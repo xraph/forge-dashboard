@@ -1,4 +1,4 @@
-import { Fragment, type ReactElement } from "react"
+import { Fragment, type ReactElement, type ReactNode } from "react"
 import { cn } from "@forge-go/dashboard-kit/lib/utils"
 import {
   Card,
@@ -9,8 +9,12 @@ import {
 
 export interface StatItem {
   label: string
-  /** Formatted by the caller. This block does no unit or date formatting. */
-  value: string | number
+  /**
+   * Formatted by the caller. This block does no unit or date formatting. A
+   * node is allowed, such as a money component that carries its own exact
+   * text; a long unbroken value scrolls inside its cell.
+   */
+  value: ReactNode
   hint?: string
   /**
    * Emphasis from the kit's tone tokens. In `StatGrid` it tints the cell and
@@ -84,7 +88,7 @@ function StatCell({ label, value, hint, tone = "default" }: StatItem) {
       <span
         data-slot="stat-value"
         className={cn(
-          "text-2xl font-medium tracking-tight tabular-nums",
+          "max-w-full min-w-0 overflow-x-auto text-2xl font-medium tracking-tight tabular-nums",
           TONE_VALUE[tone]
         )}
       >

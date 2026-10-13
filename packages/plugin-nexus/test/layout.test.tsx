@@ -32,6 +32,7 @@ describe("Nexus pages follow the shared layout", () => {
     await screen.findByText("Keys required")
     await screen.findByRole("table")
     expect(layoutViolations(container)).toEqual([])
+    expect(screen.getByRole("group", { name: "Nexus counters" })).toBeTruthy()
     expect(
       screen.getByRole("region", { name: /Request outcomes/ })
     ).toBeTruthy()
@@ -107,6 +108,7 @@ describe("Nexus pages follow the shared layout", () => {
     await screen.findByText("85% of monthly budget")
     await screen.findByRole("table")
     expect(layoutViolations(container)).toEqual([])
+    expect(screen.getByRole("group", { name: "Tenant counters" })).toBeTruthy()
     for (const name of ["Request limits", "Configuration", "API keys"])
       expect(screen.getByRole("region", { name })).toBeTruthy()
   })
@@ -153,6 +155,7 @@ describe("Nexus pages follow the shared layout", () => {
     await screen.findByText("Spend by provider")
     await screen.findAllByRole("table")
     expect(layoutViolations(container)).toEqual([])
+    expect(screen.getByRole("group", { name: "Usage counters" })).toBeTruthy()
     expect(screen.getByRole("region", { name: "Spend by model" })).toBeTruthy()
   })
 

@@ -2,10 +2,10 @@ import { PluginLink, useQuery } from "@forge-go/dashboard-plugin"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
 import { Section } from "@forge-go/dashboard-kit/components/section"
+import { StatGrid } from "@forge-go/dashboard-kit/components/stat-grid"
 import { Money } from "../components/money"
 import {
   count,
-  Metrics,
   Notice,
   OutcomeTable,
   PostureMeta,
@@ -48,7 +48,8 @@ export function OverviewPage() {
                 through since startup.
               </Notice>
             )}
-            <Metrics
+            <StatGrid
+              aria-label="Nexus counters"
               items={[
                 {
                   label: "Month spend",

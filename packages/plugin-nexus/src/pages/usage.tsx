@@ -6,11 +6,11 @@ import { NativeSelect } from "@forge-go/dashboard-kit/components/native-select"
 import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
 import { ResourceTable } from "@forge-go/dashboard-kit/components/resource-table"
 import { Section } from "@forge-go/dashboard-kit/components/section"
+import { StatGrid } from "@forge-go/dashboard-kit/components/stat-grid"
 import { Money } from "../components/money"
 import {
   count,
   Empty,
-  Metrics,
   Notice,
   OutcomeTable,
   rate,
@@ -103,7 +103,8 @@ function UsageData({
   if (!data.usageEnabled) return <UsageOff />
   return (
     <>
-      <Metrics
+      <StatGrid
+        aria-label="Usage counters"
         items={[
           {
             label: "Spend",

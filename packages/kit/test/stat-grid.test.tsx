@@ -23,6 +23,22 @@ describe("StatGrid", () => {
     expect(value("Rooms").textContent).toBe("3")
   })
 
+  it("renders a node value inside the value span, which scrolls when it overflows", () => {
+    render(
+      <StatGrid
+        items={[
+          {
+            label: "Spend",
+            value: <span data-testid="money">$1.000000001</span>,
+          },
+        ]}
+      />
+    )
+    expect(value("Spend").querySelector("[data-testid=money]")).toBeTruthy()
+    expect(value("Spend").className).toContain("overflow-x-auto")
+    expect(value("Spend").className).toContain("min-w-0")
+  })
+
   it("draws nothing for an empty list, not a framed sliver", () => {
     const { container } = render(<StatGrid items={[]} />)
     expect(container.querySelector("[data-slot=stat-grid]")).toBeNull()
