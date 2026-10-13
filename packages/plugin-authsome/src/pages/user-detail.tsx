@@ -339,10 +339,11 @@ function UserDetailBody({ userId }: { userId: string }) {
                     per-user panels. The heading is conditional because
                     PluginSlot renders nothing at all when nobody contributes,
                     and a bare heading over nothing is worse than no heading.
-                    It is an h3, not an h2: contributions are not all kit
-                    sections yet, so an h2 here would sit outside every
-                    section, and a Section around the slot would nest the
-                    ones that are.
+                    It is an h3, not an h2: consent and subscription render
+                    their own titled Sections, but other contributors may
+                    not yet, so an h2 here could sit outside every section,
+                    and a Section around the slot would nest the ones that
+                    are.
                   */}
                   {contributed > 0 && (
                     <h3 className="text-sm font-medium">

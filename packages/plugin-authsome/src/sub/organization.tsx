@@ -987,6 +987,9 @@ function OrgDetailBody({ orgId }: { orgId: string }) {
               title={org.name}
               meta={
                 <>
+                  <span className="text-[11px] font-medium tracking-[0.12em] text-muted-foreground uppercase">
+                    Organization
+                  </span>
                   {org.logo && (
                     <img
                       src={org.logo}

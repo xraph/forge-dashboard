@@ -1153,10 +1153,21 @@ describe("sub-plugin pages follow the shared layout", () => {
     await h1()
     await screen.findByRole("link", { name: "Welcome" })
     expectLayout(container, ["Template list"])
+    // The captions name the tables for screen readers only.
+    const templatesCaption = screen.getByText("Notification templates")
+    expect(templatesCaption.tagName).toBe("CAPTION")
+    expect(
+      templatesCaption.closest('[data-slot="resource-table"]')?.className
+    ).toContain("[&_caption]:sr-only")
 
     fireEvent.click(screen.getByRole("tab", { name: /Event mappings/ }))
     await screen.findByText("auth.signup")
     expectLayout(container, ["Event mapping list"])
+    const mappingsCaption = screen.getByText("Notification event mappings")
+    expect(mappingsCaption.tagName).toBe("CAPTION")
+    expect(
+      mappingsCaption.closest('[data-slot="resource-table"]')?.className
+    ).toContain("[&_caption]:sr-only")
   })
 
   it("New notification template follows the shared layout", async () => {

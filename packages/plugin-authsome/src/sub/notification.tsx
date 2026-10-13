@@ -244,6 +244,7 @@ export function NotificationsPage() {
                 )
                 return templates.length ? (
                   <ResourceTable
+                    className="[&_caption]:sr-only"
                     columns={columns}
                     rows={templates}
                     rowKey={(item) => item.id}
@@ -282,6 +283,7 @@ export function NotificationsPage() {
               {(data) =>
                 data.mappings?.length ? (
                   <ResourceTable<Mapping>
+                    className="[&_caption]:sr-only"
                     columns={[
                       {
                         id: "action",
