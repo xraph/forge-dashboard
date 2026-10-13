@@ -128,16 +128,16 @@ function renderOverview(data: Overview = overview()) {
   return renderPage(OverviewPage, stubClient({ overview: data }))
 }
 
-/** The stat card whose label is `label`. */
+/** The stat cell whose label is `label`. */
 function stat(label: string): HTMLElement {
-  const card = screen.getByText(label).closest<HTMLElement>("[data-slot=card]")
+  const card = screen.getByText(label).closest<HTMLElement>("[data-slot=stat]")
   if (!card) throw new Error(`no stat card for ${label}`)
   return card
 }
 
-/** The stat's value, the card title. */
+/** The stat's value. */
 function statValue(label: string): string {
-  const title = stat(label).querySelector("[data-slot=card-title]")
+  const title = stat(label).querySelector("[data-slot=stat-value]")
   return title?.textContent ?? ""
 }
 
@@ -262,7 +262,7 @@ describe("OverviewPage", () => {
     }
 
     function title(label: string): HTMLElement {
-      return stat(label).querySelector<HTMLElement>("[data-slot=card-title]")!
+      return stat(label).querySelector<HTMLElement>("[data-slot=stat-value]")!
     }
 
     it("gives the expiring card the danger tone when a key expires within 7 days", async () => {
@@ -270,7 +270,7 @@ describe("OverviewPage", () => {
       await screen.findByText("Expiring within 7 days")
       expect(toneOf("Expiring within 7 days")).toBe("danger")
       expect(stat("Expiring within 7 days").className).toContain(
-        "ring-destructive/50"
+        "before:bg-destructive"
       )
       expect(title("Expiring within 7 days").className).toContain(
         "text-destructive"

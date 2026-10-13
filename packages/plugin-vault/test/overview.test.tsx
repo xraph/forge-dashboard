@@ -342,7 +342,7 @@ describe("OverviewPage", () => {
     ]) {
       const card = screen
         .getByText(label)
-        .closest("[data-slot=card]") as HTMLElement
+        .closest("[data-slot=stat]") as HTMLElement
       expect(card.textContent).toContain("0")
     }
     expect(screen.getByText("0 enabled")).toBeTruthy()
@@ -352,7 +352,7 @@ describe("OverviewPage", () => {
     show()
     await screen.findByText(NOTHING)
     const value = (label: string) =>
-      (screen.getByText(label).closest("[data-slot=card]") as HTMLElement)
+      (screen.getByText(label).closest("[data-slot=stat]") as HTMLElement)
         .textContent
     expect(value("Secrets")).toContain("12")
     expect(value("Flags")).toContain("5")

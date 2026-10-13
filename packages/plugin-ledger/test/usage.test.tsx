@@ -127,7 +127,7 @@ describe("LedgerUsagePage", () => {
     // The chart's table also holds 450 (today's two events), so read the card by its label.
     const card = (
       await screen.findByText("api_calls this month, acme")
-    ).closest("[data-slot=card]")!
+    ).closest("[data-slot=stat]")!
     expect(within(card as HTMLElement).getByText("450")).toBeTruthy()
     expect(queries.find((q) => q.intent === "usage.aggregate")?.params).toEqual(
       { tenant_id: "acme", feature_keys: ["api_calls"], period: "monthly" }
@@ -184,7 +184,7 @@ describe("LedgerUsagePage", () => {
     await settled(await openMonthTotal(SETTINGS))
     expect(screen.getByText("Since the start of the month")).toBeTruthy()
     expect(
-      screen.queryByText(/UTC/, { selector: "[data-slot=card] *" })
+      screen.queryByText(/UTC/, { selector: "[data-slot=stat] *" })
     ).toBeNull()
   })
 
