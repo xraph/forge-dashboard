@@ -5,6 +5,7 @@ import type { PluginPageProps } from "@forge-go/dashboard-plugin"
 import { DescriptionList } from "@forge-go/dashboard-kit/components/detail-layout"
 import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { CurrentBadge } from "../badges"
 import { SetCurrentDialog } from "../components/set-current-dialog"
@@ -43,71 +44,64 @@ function PromptVersionBody({ versionId }: { versionId: string }) {
       <SettledBoundary title="Prompt version" query={detail} skeletonRows={5}>
         {(v) => (
           <div className="flex min-w-0 flex-col gap-4">
-            <div className="flex min-w-0 flex-col gap-2">
-              <PageHeader
-                title={`Version ${v.version}`}
-                actions={
-                  v.isCurrent ? undefined : (
-                    <IconButton
-                      variant="outline"
-                      onClick={() => {
-                        setTarget(v)
-                        setMaking(true)
-                      }}
-                      label="Make current"
-                    />
-                  )
-                }
-              />
-              {v.isCurrent && (
-                <p className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <CurrentBadge /> Runs started now use this prompt.
-                </p>
-              )}
-            </div>
-            <DescriptionList
-              items={[
-                {
-                  term: "Suite",
-                  value: (
-                    <PluginLink to={suitePath(v.suiteId)}>
-                      {suite.data?.name ?? "Back to the suite"}
-                    </PluginLink>
-                  ),
-                },
-                {
-                  term: "Changelog",
-                  value: v.changelog || <NoneCell label="changelog" />,
-                },
-                { term: "Runs", value: String(v.runCount) },
-                {
-                  term: "Latest pass rate",
-                  value:
-                    v.latestPassRate === undefined ? (
-                      <NoneCell label="completed run" />
-                    ) : (
-                      formatScore(v.latestPassRate)
-                    ),
-                },
-                {
-                  term: "Created",
-                  value: (
-                    <Timestamp value={v.createdAt} label="creation time" />
-                  ),
-                },
-              ]}
+            <PageHeader
+              title={`Version ${v.version}`}
+              description={
+                v.isCurrent ? "Runs started now use this prompt." : undefined
+              }
+              meta={v.isCurrent ? <CurrentBadge /> : undefined}
+              actions={
+                v.isCurrent ? undefined : (
+                  <IconButton
+                    variant="outline"
+                    onClick={() => {
+                      setTarget(v)
+                      setMaking(true)
+                    }}
+                    label="Make current"
+                  />
+                )
+              }
             />
-            <section
-              aria-labelledby="sentinel-version-prompt"
-              className="flex min-w-0 flex-col gap-2"
-            >
-              <h2 id="sentinel-version-prompt" className="text-sm font-medium">
-                Prompt
-              </h2>
+            <Section title="Details" inset>
+              <DescriptionList
+                items={[
+                  {
+                    term: "Suite",
+                    value: (
+                      <PluginLink to={suitePath(v.suiteId)}>
+                        {suite.data?.name ?? "Back to the suite"}
+                      </PluginLink>
+                    ),
+                  },
+                  {
+                    term: "Changelog",
+                    value: v.changelog || <NoneCell label="changelog" />,
+                  },
+                  { term: "Runs", value: String(v.runCount) },
+                  {
+                    term: "Latest pass rate",
+                    value:
+                      v.latestPassRate === undefined ? (
+                        <NoneCell label="completed run" />
+                      ) : (
+                        formatScore(v.latestPassRate)
+                      ),
+                  },
+                  {
+                    term: "Created",
+                    value: (
+                      <Timestamp value={v.createdAt} label="creation time" />
+                    ),
+                  },
+                ]}
+              />
+            </Section>
+            <Section title="Prompt" inset>
               <pre className="max-h-[32rem] overflow-auto rounded-md border p-3 font-mono text-xs break-words whitespace-pre-wrap">
                 {v.systemPrompt}
               </pre>
-            </section>
+            </Section>
             <Changes version={v} />
           </div>
         )}
@@ -135,13 +129,7 @@ function Changes({ version }: { version: PromptVersionDetail }) {
   }
   const label = `Version ${previous.version} against version ${version.version}`
   return (
-    <section
-      aria-labelledby="sentinel-version-changes"
-      className="flex min-w-0 flex-col gap-2"
-    >
-      <h2 id="sentinel-version-changes" className="text-sm font-medium">
-        {`Changes from version ${previous.version}`}
-      </h2>
+    <Section title={`Changes from version ${previous.version}`} inset>
       {previous.systemPrompt === version.systemPrompt ? (
         <p className="text-sm text-muted-foreground">
           {`The prompt is the same as version ${previous.version}'s.`}
@@ -161,6 +149,6 @@ function Changes({ version }: { version: PromptVersionDetail }) {
           />
         </Suspense>
       )}
-    </section>
+    </Section>
   )
 }

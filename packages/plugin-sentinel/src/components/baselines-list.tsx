@@ -1,4 +1,5 @@
 import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { useState } from "react"
 import { useQuery } from "@forge-go/dashboard-plugin"
 import { plural } from "../format"
@@ -21,26 +22,28 @@ export function BaselinesList({ suiteId }: { suiteId?: string }) {
   const [target, setTarget] = useState<Baseline | null>(null)
   return (
     <>
-      <SettledBoundary title="Baselines" query={baselines} skeletonRows={4}>
-        {(data) => (
-          <BaselinesTable
-            baselines={data.items}
-            showSuite={suiteId === undefined}
-            caption={`${plural(data.items.length, "baseline", "baselines")}, newest first`}
-            emptyMessage="No baselines yet. Save one from a completed run's page, and later runs are compared with it."
-            actions={(b) => (
-              <IconButton
-                variant="ghost"
-                onClick={() => {
-                  setTarget(b)
-                  setDeleting(true)
-                }}
-                label={`Delete ${b.name}`}
-              />
-            )}
-          />
-        )}
-      </SettledBoundary>
+      <Section aria-label="Baseline list">
+        <SettledBoundary title="Baselines" query={baselines} skeletonRows={4}>
+          {(data) => (
+            <BaselinesTable
+              baselines={data.items}
+              showSuite={suiteId === undefined}
+              caption={`${plural(data.items.length, "baseline", "baselines")}, newest first`}
+              emptyMessage="No baselines yet. Save one from a completed run's page, and later runs are compared with it."
+              actions={(b) => (
+                <IconButton
+                  variant="ghost"
+                  onClick={() => {
+                    setTarget(b)
+                    setDeleting(true)
+                  }}
+                  label={`Delete ${b.name}`}
+                />
+              )}
+            />
+          )}
+        </SettledBoundary>
+      </Section>
       {target && (
         <DeleteBaselineDialog
           open={deleting}

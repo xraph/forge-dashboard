@@ -9,6 +9,7 @@ import {
   ResourceTable,
   type Column,
 } from "@forge-go/dashboard-kit/components/resource-table"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { LlmBadge, NeedsConfigBadge } from "../badges"
 import { formatThreshold, plural } from "../format"
 import type { ScorerInfo, SentinelConfig, TargetInfo } from "../types"
@@ -85,47 +86,37 @@ export const SetupPage: ComponentType<PluginPageProps> = () => {
         {(data) => (
           <div className="flex min-w-0 flex-col gap-4">
             {data.targets.length === 0 && <NoTargetNotice />}
-            <section
-              aria-labelledby="sentinel-setup-config"
-              className="flex min-w-0 flex-col gap-2"
-            >
-              <h2 id="sentinel-setup-config" className="text-sm font-medium">
-                Engine configuration
-              </h2>
-              <DescriptionList
-                items={[
-                  {
-                    term: "Default model",
-                    value: (
-                      <span className="font-mono text-xs">
-                        {data.defaultModel}
-                      </span>
-                    ),
-                  },
-                  { term: "Temperature", value: String(data.temperature) },
-                  {
-                    term: "Pass threshold",
-                    value: formatThreshold(data.passThreshold),
-                  },
-                  {
-                    term: "Regression threshold",
-                    value: formatThreshold(data.regressionThreshold),
-                  },
-                  { term: "Concurrency", value: String(data.concurrency) },
-                ]}
-              />
-              <p className="text-xs text-muted-foreground">
-                A run records these when it starts, so changing them later does
-                not change how a finished run was scored.
-              </p>
-            </section>
-            <section
-              aria-labelledby="sentinel-setup-targets"
-              className="flex min-w-0 flex-col gap-2"
-            >
-              <h2 id="sentinel-setup-targets" className="text-sm font-medium">
-                Targets
-              </h2>
+            <Section title="Engine configuration" inset>
+              <div className="flex min-w-0 flex-col gap-2">
+                <DescriptionList
+                  items={[
+                    {
+                      term: "Default model",
+                      value: (
+                        <span className="font-mono text-xs">
+                          {data.defaultModel}
+                        </span>
+                      ),
+                    },
+                    { term: "Temperature", value: String(data.temperature) },
+                    {
+                      term: "Pass threshold",
+                      value: formatThreshold(data.passThreshold),
+                    },
+                    {
+                      term: "Regression threshold",
+                      value: formatThreshold(data.regressionThreshold),
+                    },
+                    { term: "Concurrency", value: String(data.concurrency) },
+                  ]}
+                />
+                <p className="text-xs text-muted-foreground">
+                  A run records these when it starts, so changing them later
+                  does not change how a finished run was scored.
+                </p>
+              </div>
+            </Section>
+            <Section title="Targets">
               <ResourceTable<TargetInfo>
                 columns={targetColumns}
                 rows={data.targets}
@@ -133,14 +124,8 @@ export const SetupPage: ComponentType<PluginPageProps> = () => {
                 caption={plural(data.targets.length, "target", "targets")}
                 emptyMessage="No targets registered."
               />
-            </section>
-            <section
-              aria-labelledby="sentinel-setup-scorers"
-              className="flex min-w-0 flex-col gap-2"
-            >
-              <h2 id="sentinel-setup-scorers" className="text-sm font-medium">
-                Scorers
-              </h2>
+            </Section>
+            <Section title="Scorers">
               <ResourceTable<ScorerInfo>
                 columns={scorerColumns}
                 rows={data.scorers}
@@ -148,11 +133,11 @@ export const SetupPage: ComponentType<PluginPageProps> = () => {
                 caption={plural(data.scorers.length, "scorer", "scorers")}
                 emptyMessage="No scorers registered."
               />
-              <p className="text-xs text-muted-foreground">
+              <p className="border-t px-4 py-3 text-xs text-muted-foreground">
                 A scorer that needs config can only be attached to a case, with
                 its settings. A run's own scorers are built without any.
               </p>
-            </section>
+            </Section>
           </div>
         )}
       </QueryBoundary>

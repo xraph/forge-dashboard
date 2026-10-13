@@ -3,6 +3,7 @@ import {
   ResourceTable,
   type Column,
 } from "@forge-go/dashboard-kit/components/resource-table"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { DeltaBars, ScaleBars, type DeltaRow } from "../charts/bars"
 import { ChartFrame } from "../charts/chart-frame"
 import {
@@ -122,8 +123,7 @@ function CaseChanges({
   if (!results.data || !baseline.data) {
     const error = results.error ?? baseline.error
     return (
-      <section className="flex min-w-0 flex-col gap-2">
-        <h2 className="text-sm font-medium">Change from baseline</h2>
+      <Section title="Change from baseline" inset>
         {error ? (
           <p
             role="alert"
@@ -134,7 +134,7 @@ function CaseChanges({
             Reading the scores.
           </p>
         )}
-      </section>
+      </Section>
     )
   }
   const was = new Map(baseline.data.results.map((r) => [r.caseId, r.score]))
@@ -210,14 +210,13 @@ function DimensionScores({ run }: { run: Run }) {
   const partial = run.state !== "completed"
   if (rows.length === 0) {
     return (
-      <section className="flex min-w-0 flex-col gap-2">
-        <h2 className="text-sm font-medium">Dimension scores</h2>
+      <Section title="Dimension scores" inset>
         <p className="text-sm text-muted-foreground">
           {run.state === "running"
             ? "No dimension has been measured yet."
             : "This run measured no dimensions."}
         </p>
-      </section>
+      </Section>
     )
   }
   return (

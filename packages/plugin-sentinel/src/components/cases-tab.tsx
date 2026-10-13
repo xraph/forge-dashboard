@@ -6,6 +6,7 @@ import {
   ResourceTable,
   type Column,
 } from "@forge-go/dashboard-kit/components/resource-table"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { TagList } from "@forge-go/dashboard-kit/components/tag-list"
 import { RedTeamBadge, ScenarioBadge } from "../badges"
 import { casePath, plural } from "../format"
@@ -81,30 +82,36 @@ export function CasesTab({ suiteId }: { suiteId: string }) {
   const [imported, setImported] = useState<number | null>(null)
   const add = <Button onClick={() => setAdding(true)}>Add case</Button>
   return (
-    <div className="flex min-w-0 flex-col gap-3">
-      <div className="flex flex-wrap items-center gap-2">
-        {add}
-        <Button variant="outline" onClick={() => setImporting(true)}>
-          Import cases
-        </Button>
-        {imported !== null && (
-          <p role="status" className="text-sm text-muted-foreground">
-            {`Imported ${plural(imported, "case", "cases")}.`}
-          </p>
-        )}
-      </div>
-      <SettledBoundary title="Cases" query={list} skeletonRows={4}>
-        {(data) => (
-          <ResourceTable<TestCase>
-            columns={columns(suiteId)}
-            rows={data.items}
-            rowKey={(c) => c.id}
-            caption={plural(data.items.length, "case", "cases")}
-            emptyMessage="No cases yet."
-            emptyAction={add}
-          />
-        )}
-      </SettledBoundary>
+    <>
+      <Section
+        aria-label="Case list"
+        actions={
+          <>
+            {add}
+            <Button variant="outline" onClick={() => setImporting(true)}>
+              Import cases
+            </Button>
+            {imported !== null && (
+              <p role="status" className="text-sm text-muted-foreground">
+                {`Imported ${plural(imported, "case", "cases")}.`}
+              </p>
+            )}
+          </>
+        }
+      >
+        <SettledBoundary title="Cases" query={list} skeletonRows={4}>
+          {(data) => (
+            <ResourceTable<TestCase>
+              columns={columns(suiteId)}
+              rows={data.items}
+              rowKey={(c) => c.id}
+              caption={plural(data.items.length, "case", "cases")}
+              emptyMessage="No cases yet."
+              emptyAction={add}
+            />
+          )}
+        </SettledBoundary>
+      </Section>
       <CaseFormDialog
         open={adding}
         onOpenChange={setAdding}
@@ -119,6 +126,6 @@ export function CasesTab({ suiteId }: { suiteId: string }) {
         suiteId={suiteId}
         onImported={setImported}
       />
-    </div>
+    </>
   )
 }

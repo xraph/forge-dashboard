@@ -12,6 +12,7 @@ import { ConfirmDialog } from "@forge-go/dashboard-kit/components/confirm-dialog
 import { DescriptionList } from "@forge-go/dashboard-kit/components/detail-layout"
 import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import {
   Tabs,
   TabsContent,
@@ -169,61 +170,63 @@ function SuiteDetailBody({ suiteId, tab }: { suiteId: string; tab: SuiteTab }) {
 
 function SuiteFacts({ suite }: { suite: Suite }) {
   return (
-    <DescriptionList
-      items={[
-        {
-          term: "Model",
-          value: suite.model ? (
-            <span className="font-mono text-xs">{suite.model}</span>
-          ) : (
-            <span className="text-muted-foreground">Engine default</span>
-          ),
-        },
-        { term: "Temperature", value: temperatureLabel(suite.temperature) },
-        {
-          term: "Persona",
-          value: suite.personaRef ? (
-            <span className="font-mono text-xs">{suite.personaRef}</span>
-          ) : (
-            <NoneCell label="persona" />
-          ),
-        },
-        {
-          term: "Prompt",
-          value: suite.currentPromptVersion ? (
-            <PluginLink
-              to={versionPath(suite.id, suite.currentPromptVersion.id)}
-            >
-              {`Version ${suite.currentPromptVersion.version}`}
-            </PluginLink>
-          ) : (
-            "The suite's own prompt"
-          ),
-        },
-        {
-          term: "Current baseline",
-          value: suite.currentBaseline ? (
-            <>
-              <PluginLink to={baselinePath(suite.currentBaseline.id)}>
-                {suite.currentBaseline.name}
+    <Section title="Details" inset>
+      <DescriptionList
+        items={[
+          {
+            term: "Model",
+            value: suite.model ? (
+              <span className="font-mono text-xs">{suite.model}</span>
+            ) : (
+              <span className="text-muted-foreground">Engine default</span>
+            ),
+          },
+          { term: "Temperature", value: temperatureLabel(suite.temperature) },
+          {
+            term: "Persona",
+            value: suite.personaRef ? (
+              <span className="font-mono text-xs">{suite.personaRef}</span>
+            ) : (
+              <NoneCell label="persona" />
+            ),
+          },
+          {
+            term: "Prompt",
+            value: suite.currentPromptVersion ? (
+              <PluginLink
+                to={versionPath(suite.id, suite.currentPromptVersion.id)}
+              >
+                {`Version ${suite.currentPromptVersion.version}`}
               </PluginLink>
-              {`, pass rate ${formatScore(suite.currentBaseline.passRate)}`}
-            </>
-          ) : (
-            <NoneCell label="current baseline" />
-          ),
-        },
-        { term: "Cases", value: plural(suite.caseCount, "case", "cases") },
-        {
-          term: "Created",
-          value: <Timestamp value={suite.createdAt} label="creation time" />,
-        },
-        {
-          term: "Updated",
-          value: <Timestamp value={suite.updatedAt} label="update" />,
-        },
-      ]}
-    />
+            ) : (
+              "The suite's own prompt"
+            ),
+          },
+          {
+            term: "Current baseline",
+            value: suite.currentBaseline ? (
+              <>
+                <PluginLink to={baselinePath(suite.currentBaseline.id)}>
+                  {suite.currentBaseline.name}
+                </PluginLink>
+                {`, pass rate ${formatScore(suite.currentBaseline.passRate)}`}
+              </>
+            ) : (
+              <NoneCell label="current baseline" />
+            ),
+          },
+          { term: "Cases", value: plural(suite.caseCount, "case", "cases") },
+          {
+            term: "Created",
+            value: <Timestamp value={suite.createdAt} label="creation time" />,
+          },
+          {
+            term: "Updated",
+            value: <Timestamp value={suite.updatedAt} label="update" />,
+          },
+        ]}
+      />
+    </Section>
   )
 }
 

@@ -6,6 +6,7 @@ import {
   ResourceTable,
   type Column,
 } from "@forge-go/dashboard-kit/components/resource-table"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { StatGrid } from "@forge-go/dashboard-kit/components/stat-grid"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { TriangleAlertIcon } from "@forge-go/dashboard-kit/icons"
@@ -98,34 +99,16 @@ export const OverviewPage: ComponentType<PluginPageProps> = () => {
               ]}
             />
             {o.activeRuns.length > 0 && (
-              <section
-                aria-labelledby="sentinel-overview-active"
-                className="flex min-w-0 flex-col gap-2"
-              >
-                <h2
-                  id="sentinel-overview-active"
-                  className="text-sm font-medium"
-                >
-                  Running now
-                </h2>
+              <Section title="Running now">
                 <RunsTable
                   runs={o.activeRuns}
                   showSuite
                   caption={`${plural(o.activeRuns.length, "run", "runs")} in flight`}
                   emptyMessage="No run is in flight."
                 />
-              </section>
+              </Section>
             )}
-            <section
-              aria-labelledby="sentinel-overview-regressions"
-              className="flex min-w-0 flex-col gap-2"
-            >
-              <h2
-                id="sentinel-overview-regressions"
-                className="text-sm font-medium"
-              >
-                Recent regressions
-              </h2>
+            <Section title="Recent regressions">
               <ResourceTable<RegressionSummary>
                 columns={regressionColumns}
                 rows={o.recentRegressions}
@@ -133,29 +116,22 @@ export const OverviewPage: ComponentType<PluginPageProps> = () => {
                 caption={`${plural(o.recentRegressions.length, "regressed run", "regressed runs")} among the twenty newest completed`}
                 emptyMessage="None of the twenty newest completed runs fell past its suite's threshold. Suites without a baseline are not compared."
               />
-            </section>
-            <section
-              aria-labelledby="sentinel-overview-recent"
-              className="flex min-w-0 flex-col gap-2"
-            >
-              <div className="flex items-baseline justify-between gap-3">
-                <h2
-                  id="sentinel-overview-recent"
-                  className="text-sm font-medium"
-                >
-                  Recent runs
-                </h2>
+            </Section>
+            <Section
+              title="Recent runs"
+              actions={
                 <PluginLink to="/runs" className="text-sm">
                   Every run
                 </PluginLink>
-              </div>
+              }
+            >
               <RunsTable
                 runs={o.recentRuns}
                 showSuite
                 caption={`${plural(o.recentRuns.length, "run", "runs")}, newest first`}
                 emptyMessage="No runs yet. Start one from a suite's Runs tab."
               />
-            </section>
+            </Section>
           </div>
         )}
       </SettledBoundary>

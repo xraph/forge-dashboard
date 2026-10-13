@@ -11,6 +11,7 @@ import {
   ResourceTable,
   type Column,
 } from "@forge-go/dashboard-kit/components/resource-table"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { RedTeamBadge, ResultStatusBadge } from "../badges"
 import { PlainText, RevealText } from "../components/plain-text"
 import { SettledBoundary } from "../components/settled-boundary"
@@ -183,26 +184,24 @@ function ResultDetailBody({
       <SettledBoundary title="Result" query={result} skeletonRows={6}>
         {(r) => (
           <div className="flex min-w-0 flex-col gap-4">
-            <div className="flex min-w-0 flex-col gap-2">
-              <PageHeader title={r.caseName} />
-              <div className="flex flex-wrap items-center gap-2">
-                <ResultStatusBadge status={r.status} />
-                {r.redTeam && (
-                  <RedTeamBadge attackType={r.redTeam.attackType} />
-                )}
-              </div>
-            </div>
-            <DescriptionList
-              items={facts(r, runId, detail.data?.run, testCase.data)}
+            <PageHeader
+              title={r.caseName}
+              meta={
+                <>
+                  <ResultStatusBadge status={r.status} />
+                  {r.redTeam && (
+                    <RedTeamBadge attackType={r.redTeam.attackType} />
+                  )}
+                </>
+              }
             />
+            <Section title="Details" inset>
+              <DescriptionList
+                items={facts(r, runId, detail.data?.run, testCase.data)}
+              />
+            </Section>
             {r.error && (
-              <section
-                aria-labelledby="sentinel-result-error"
-                className="flex min-w-0 flex-col gap-2"
-              >
-                <h2 id="sentinel-result-error" className="text-sm font-medium">
-                  Why it could not be judged
-                </h2>
+              <Section title="Why it could not be judged" inset>
                 {r.redTeam ? (
                   <RevealText
                     value={r.error}
@@ -213,15 +212,9 @@ function ResultDetailBody({
                 ) : (
                   <PlainText value={r.error} label="Error" />
                 )}
-              </section>
+              </Section>
             )}
-            <section
-              aria-labelledby="sentinel-result-input"
-              className="flex min-w-0 flex-col gap-2"
-            >
-              <h2 id="sentinel-result-input" className="text-sm font-medium">
-                Input
-              </h2>
+            <Section title="Input" inset>
               {testCase.data ? (
                 <PlainText value={testCase.data.input} label="Input" />
               ) : testCase.error?.code === "NOT_FOUND" ? (
@@ -238,14 +231,8 @@ function ResultDetailBody({
                   Loading the input.
                 </p>
               )}
-            </section>
-            <section
-              aria-labelledby="sentinel-result-output"
-              className="flex min-w-0 flex-col gap-2"
-            >
-              <h2 id="sentinel-result-output" className="text-sm font-medium">
-                Output
-              </h2>
+            </Section>
+            <Section title="Output" inset>
               {r.output === "" ? (
                 <NoneCell label="output" />
               ) : r.redTeam ? (
@@ -258,17 +245,11 @@ function ResultDetailBody({
               ) : (
                 <PlainText value={r.output} label="Output" />
               )}
-            </section>
-            <section
-              aria-labelledby="sentinel-result-scorers"
-              className="flex min-w-0 flex-col gap-2"
-            >
-              <h2 id="sentinel-result-scorers" className="text-sm font-medium">
-                How it was scored
-              </h2>
+            </Section>
+            <Section title="How it was scored">
               {r.redTeam &&
                 r.scorerResults.some((sr) => sr.reason || sr.details) && (
-                  <div className="flex flex-wrap items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2 border-b px-4 py-3">
                     <p className="text-sm text-muted-foreground">
                       {showReasons
                         ? "Showing the scorers' reasons."
@@ -292,8 +273,10 @@ function ResultDetailBody({
                 caption={plural(r.scorerResults.length, "scorer", "scorers")}
                 emptyMessage="No scorer judged this case."
               />
-              <DimensionList scores={r.dimensionScores} />
-            </section>
+              <div className="border-t px-4 py-3">
+                <DimensionList scores={r.dimensionScores} />
+              </div>
+            </Section>
             {r.runTrace && (
               <Trace trace={r.runTrace} attackType={r.redTeam?.attackType} />
             )}
@@ -365,46 +348,45 @@ function Trace({
   attackType?: string
 }) {
   return (
-    <section
-      aria-labelledby="sentinel-result-trace"
-      className="flex min-w-0 flex-col gap-3"
-    >
-      <h2 id="sentinel-result-trace" className="text-sm font-medium">
-        Trace
-      </h2>
-      {trace.steps.length === 0 && (
-        <p className="text-sm text-muted-foreground">No steps recorded.</p>
-      )}
-      {trace.steps.map((step: TraceStep) => (
-        <div key={step.index} className="flex min-w-0 flex-col gap-1">
-          <p className="text-sm">
-            {`Step ${step.index + 1}, `}
-            <span className="font-mono text-xs">{step.type}</span>
-            {`, ${formatCount(step.tokensUsed)} tokens`}
-          </p>
-          {attackType ? (
-            <RevealText
-              value={step.output}
-              length={[...step.output].length}
-              attackType={attackType}
-              label={`Step ${step.index + 1} output`}
-            />
-          ) : (
-            <PlainText
-              value={step.output}
-              label={`Step ${step.index + 1} output`}
-            />
-          )}
-        </div>
-      ))}
-      {attackType && trace.toolCalls.length > 0 ? (
-        <HiddenToolCalls count={trace.toolCalls.length} attackType={attackType}>
+    <Section title="Trace" inset>
+      <div className="flex min-w-0 flex-col gap-3">
+        {trace.steps.length === 0 && (
+          <p className="text-sm text-muted-foreground">No steps recorded.</p>
+        )}
+        {trace.steps.map((step: TraceStep) => (
+          <div key={step.index} className="flex min-w-0 flex-col gap-1">
+            <p className="text-sm">
+              {`Step ${step.index + 1}, `}
+              <span className="font-mono text-xs">{step.type}</span>
+              {`, ${formatCount(step.tokensUsed)} tokens`}
+            </p>
+            {attackType ? (
+              <RevealText
+                value={step.output}
+                length={[...step.output].length}
+                attackType={attackType}
+                label={`Step ${step.index + 1} output`}
+              />
+            ) : (
+              <PlainText
+                value={step.output}
+                label={`Step ${step.index + 1} output`}
+              />
+            )}
+          </div>
+        ))}
+        {attackType && trace.toolCalls.length > 0 ? (
+          <HiddenToolCalls
+            count={trace.toolCalls.length}
+            attackType={attackType}
+          >
+            <ToolCalls calls={trace.toolCalls} />
+          </HiddenToolCalls>
+        ) : (
           <ToolCalls calls={trace.toolCalls} />
-        </HiddenToolCalls>
-      ) : (
-        <ToolCalls calls={trace.toolCalls} />
-      )}
-    </section>
+        )}
+      </div>
+    </Section>
   )
 }
 

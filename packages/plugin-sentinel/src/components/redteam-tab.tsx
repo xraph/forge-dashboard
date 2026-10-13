@@ -5,6 +5,7 @@ import {
   ResourceTable,
   type Column,
 } from "@forge-go/dashboard-kit/components/resource-table"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { TagList } from "@forge-go/dashboard-kit/components/tag-list"
 import { attackLabel, casePath, plural, runPath, shortRunId } from "../format"
 import type { CasesList, GenerateResult, RunsList, TestCase } from "../types"
@@ -102,20 +103,22 @@ export function RedTeamTab({ suiteId }: { suiteId: string }) {
           }
         />
       )}
-      <SettledBoundary title="Red-team cases" query={cases} skeletonRows={4}>
-        {(data) => {
-          const red = data.items.filter((c) => c.redTeam)
-          return (
-            <ResourceTable<TestCase>
-              columns={columns(suiteId)}
-              rows={red}
-              rowKey={(c) => c.id}
-              caption={plural(red.length, "red-team case", "red-team cases")}
-              emptyMessage="No red-team cases yet. Generate some to see how the target holds up."
-            />
-          )
-        }}
-      </SettledBoundary>
+      <Section aria-label="Red-team case list">
+        <SettledBoundary title="Red-team cases" query={cases} skeletonRows={4}>
+          {(data) => {
+            const red = data.items.filter((c) => c.redTeam)
+            return (
+              <ResourceTable<TestCase>
+                columns={columns(suiteId)}
+                rows={red}
+                rowKey={(c) => c.id}
+                caption={plural(red.length, "red-team case", "red-team cases")}
+                emptyMessage="No red-team cases yet. Generate some to see how the target holds up."
+              />
+            )
+          }}
+        </SettledBoundary>
+      </Section>
       <GenerateDialog
         open={generating}
         onOpenChange={setGenerating}

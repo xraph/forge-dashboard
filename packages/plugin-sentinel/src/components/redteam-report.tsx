@@ -5,6 +5,7 @@ import {
   ResourceTable,
   type Column,
 } from "@forge-go/dashboard-kit/components/resource-table"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { ScaleBars } from "../charts/bars"
 import { ChartFrame } from "../charts/chart-frame"
 import { attackLabel, plural } from "../format"
@@ -96,13 +97,12 @@ export function RedTeamReportSection({
   }, [running, refetch])
   if (report.error && report.data === undefined) {
     return (
-      <section className="flex min-w-0 flex-col gap-2">
-        <h2 className="text-sm font-medium">{title}</h2>
+      <Section title={title} inset>
         <p
           role="alert"
           className="text-sm text-destructive"
         >{`The red-team report could not be read. ${report.error.message}`}</p>
-      </section>
+      </Section>
     )
   }
   const data = report.data
@@ -116,14 +116,15 @@ export function RedTeamReportSection({
   )
   if (data.total === 0) {
     return (
-      <section className="flex min-w-0 flex-col gap-2">
+      <div className="flex min-w-0 flex-col gap-2">
         {intro}
         {stale}
-        <h2 className="text-sm font-medium">{title}</h2>
-        <p className="text-sm text-muted-foreground">
-          No red-team case has a result in this run yet.
-        </p>
-      </section>
+        <Section title={title} inset>
+          <p className="text-sm text-muted-foreground">
+            No red-team case has a result in this run yet.
+          </p>
+        </Section>
+      </div>
     )
   }
   const judgedBy =

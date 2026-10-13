@@ -6,6 +6,7 @@ import {
   ResourceTable,
   type Column,
 } from "@forge-go/dashboard-kit/components/resource-table"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { RedTeamBadge, ResultStatusBadge, ScorerVerdicts } from "../badges"
 import {
   fellPast,
@@ -205,71 +206,67 @@ export function ResultsSection({
           ? { state: "failed" }
           : { state: "loading" }
   return (
-    <section
-      aria-labelledby="sentinel-run-results"
-      className="flex min-w-0 flex-col gap-3"
+    <Section
+      title="Results"
+      actions={
+        counts && (
+          <div
+            role="group"
+            aria-label="Show results by status"
+            className="flex flex-wrap gap-2"
+          >
+            <Button
+              variant={status === "" ? "default" : "outline"}
+              size="sm"
+              aria-pressed={status === ""}
+              onClick={() => onStatusChange("")}
+            >
+              {`All ${counts.pass + counts.fail + counts.error}`}
+            </Button>
+            {CHIPS.map((c) => (
+              <Button
+                key={c.status}
+                variant={status === c.status ? "default" : "outline"}
+                size="sm"
+                aria-pressed={status === c.status}
+                onClick={() =>
+                  onStatusChange(status === c.status ? "" : c.status)
+                }
+              >
+                {`${c.label} ${counts[c.status]}`}
+              </Button>
+            ))}
+          </div>
+        )
+      }
     >
-      <h2 id="sentinel-run-results" className="text-sm font-medium">
-        Results
-      </h2>
       {baseline.error && (
-        <p role="alert" className="text-sm text-destructive">
+        <p role="alert" className="border-b px-4 py-3 text-sm text-destructive">
           {`The baseline's saved scores could not be read, so there is no change to show. ${baseline.error.message}`}
         </p>
-      )}
-      {counts && (
-        <div
-          role="group"
-          aria-label="Show results by status"
-          className="flex flex-wrap gap-2"
-        >
-          <Button
-            variant={status === "" ? "default" : "outline"}
-            size="sm"
-            aria-pressed={status === ""}
-            onClick={() => onStatusChange("")}
-          >
-            {`All ${counts.pass + counts.fail + counts.error}`}
-          </Button>
-          {CHIPS.map((c) => (
-            <Button
-              key={c.status}
-              variant={status === c.status ? "default" : "outline"}
-              size="sm"
-              aria-pressed={status === c.status}
-              onClick={() =>
-                onStatusChange(status === c.status ? "" : c.status)
-              }
-            >
-              {`${c.label} ${counts[c.status]}`}
-            </Button>
-          ))}
-        </div>
       )}
       <SettledBoundary title="Results" query={results} skeletonRows={5}>
         {(data) => {
           const total = data.counts.pass + data.counts.fail + data.counts.error
           return (
-            <div className="flex min-w-0 flex-col gap-3">
-              <ResourceTable<ResultRow>
-                columns={columns(runId, scores, threshold)}
-                rows={data.items}
-                rowKey={(r) => r.id}
-                caption={
-                  status === ""
-                    ? plural(total, "result", "results")
-                    : `${data.items.length} of ${plural(total, "result", "results")}`
-                }
-                emptyMessage={
-                  status === ""
-                    ? "No case has been scored yet."
-                    : "No results with this status."
-                }
-              />
-            </div>
+            <ResourceTable<ResultRow>
+              columns={columns(runId, scores, threshold)}
+              rows={data.items}
+              rowKey={(r) => r.id}
+              caption={
+                status === ""
+                  ? plural(total, "result", "results")
+                  : `${data.items.length} of ${plural(total, "result", "results")}`
+              }
+              emptyMessage={
+                status === ""
+                  ? "No case has been scored yet."
+                  : "No results with this status."
+              }
+            />
           )
         }}
       </SettledBoundary>
-    </section>
+    </Section>
   )
 }

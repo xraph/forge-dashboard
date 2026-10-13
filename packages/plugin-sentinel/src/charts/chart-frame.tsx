@@ -1,11 +1,13 @@
 import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
-import { useId, useState } from "react"
+import { Section } from "@forge-go/dashboard-kit/components/section"
+import { useState } from "react"
 import type { ReactNode } from "react"
 
 /**
  * A chart with its table beside it. Every chart here has a table view, so no
  * value is only readable by hovering or by seeing colour; the toggle swaps one
- * for the other in place. The choice is this chart's and is not stored.
+ * for the other in place. The choice is this chart's and is not stored. The
+ * chart is padded into its panel; the table runs edge to edge.
  */
 export function ChartFrame({
   title,
@@ -20,19 +22,13 @@ export function ChartFrame({
   /** The chart. */
   children: ReactNode
 }) {
-  const id = useId()
   const [asTable, setAsTable] = useState(false)
   return (
-    <section aria-labelledby={id} className="flex min-w-0 flex-col gap-2">
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <div className="flex min-w-0 flex-col gap-0.5">
-          <h2 id={id} className="text-sm font-medium">
-            {title}
-          </h2>
-          {description && (
-            <p className="text-sm text-muted-foreground">{description}</p>
-          )}
-        </div>
+    <Section
+      title={title}
+      description={description}
+      inset={!asTable}
+      actions={
         <IconButton
           variant="ghost"
           onClick={() => setAsTable((on) => !on)}
@@ -42,9 +38,10 @@ export function ChartFrame({
               : `Show ${title.toLowerCase()} as a table`
           }
         />
-      </div>
+      }
+    >
       {asTable ? table : children}
-    </section>
+    </Section>
   )
 }
 

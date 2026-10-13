@@ -3,6 +3,7 @@ import { useId, useState } from "react"
 import type { ReactNode } from "react"
 import { usePoll, useQuery } from "@forge-go/dashboard-plugin"
 import { Label } from "@forge-go/dashboard-kit/components/label"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import {
   NativeSelect,
   NativeSelectOption,
@@ -61,52 +62,56 @@ export function RunsList({
 
   const filtered = state !== "" || (suiteId === undefined && chosenSuite !== "")
   return (
-    <div className="flex min-w-0 flex-col gap-3">
-      <div className="flex flex-wrap items-end gap-3">
-        {suiteId === undefined && (
+    <Section
+      aria-label="Run list"
+      actions={
+        <div className="flex flex-wrap items-end gap-3">
+          {suiteId === undefined && (
+            <div className="flex min-w-0 flex-col gap-1">
+              <Label htmlFor={`${base}-suite`}>Suite</Label>
+              <NativeSelect
+                id={`${base}-suite`}
+                value={chosenSuite}
+                onChange={(e) => {
+                  setChosenSuite(e.target.value)
+                  setOffset(0)
+                }}
+              >
+                <NativeSelectOption value="">Every suite</NativeSelectOption>
+                {(suites.data?.items ?? []).map((s) => (
+                  <NativeSelectOption key={s.id} value={s.id}>
+                    {s.name}
+                  </NativeSelectOption>
+                ))}
+              </NativeSelect>
+            </div>
+          )}
           <div className="flex min-w-0 flex-col gap-1">
-            <Label htmlFor={`${base}-suite`}>Suite</Label>
+            <Label htmlFor={`${base}-state`}>State</Label>
             <NativeSelect
-              id={`${base}-suite`}
-              value={chosenSuite}
+              id={`${base}-state`}
+              value={state}
               onChange={(e) => {
-                setChosenSuite(e.target.value)
+                setState(e.target.value as "" | RunState)
                 setOffset(0)
               }}
             >
-              <NativeSelectOption value="">Every suite</NativeSelectOption>
-              {(suites.data?.items ?? []).map((s) => (
-                <NativeSelectOption key={s.id} value={s.id}>
-                  {s.name}
+              {STATES.map((s) => (
+                <NativeSelectOption key={s.value} value={s.value}>
+                  {s.label}
                 </NativeSelectOption>
               ))}
             </NativeSelect>
           </div>
-        )}
-        <div className="flex min-w-0 flex-col gap-1">
-          <Label htmlFor={`${base}-state`}>State</Label>
-          <NativeSelect
-            id={`${base}-state`}
-            value={state}
-            onChange={(e) => {
-              setState(e.target.value as "" | RunState)
-              setOffset(0)
-            }}
-          >
-            {STATES.map((s) => (
-              <NativeSelectOption key={s.value} value={s.value}>
-                {s.label}
-              </NativeSelectOption>
-            ))}
-          </NativeSelect>
         </div>
-      </div>
+      }
+    >
       <SettledBoundary title="Runs" query={runs} skeletonRows={5}>
         {(data) => {
           const first = data.items.length === 0 ? 0 : offset + 1
           const last = offset + data.items.length
           return (
-            <div className="flex min-w-0 flex-col gap-2">
+            <div className="flex min-w-0 flex-col">
               <RunsTable
                 runs={data.items}
                 showSuite={suiteId === undefined}
@@ -127,7 +132,7 @@ export function RunsList({
                 emptyAction={filtered || offset > 0 ? undefined : emptyAction}
               />
               {(offset > 0 || data.hasMore) && (
-                <nav aria-label="Pages of runs" className="flex gap-2">
+                <nav aria-label="Pagination" className="flex gap-2">
                   <IconButton
                     variant="outline"
                     disabled={offset === 0}
@@ -146,6 +151,6 @@ export function RunsList({
           )
         }}
       </SettledBoundary>
-    </div>
+    </Section>
   )
 }

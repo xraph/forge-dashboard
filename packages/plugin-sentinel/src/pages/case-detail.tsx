@@ -16,6 +16,7 @@ import {
   ResourceTable,
   type Column,
 } from "@forge-go/dashboard-kit/components/resource-table"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { TagList } from "@forge-go/dashboard-kit/components/tag-list"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { RedTeamBadge, ScenarioBadge } from "../badges"
@@ -96,92 +97,76 @@ function CaseDetailBody({ caseId }: { caseId: string }) {
       <SettledBoundary title="Case" query={testCase} skeletonRows={5}>
         {(c) => (
           <div className="flex min-w-0 flex-col gap-4">
-            <div className="flex min-w-0 flex-col gap-2">
-              <PageHeader
-                title={c.name}
-                actions={
-                  <>
-                    <IconButton
-                      variant="outline"
-                      onClick={() => {
-                        setTarget(c)
-                        setEditing(true)
-                      }}
-                      label="Edit"
-                    />
-                    <IconButton
-                      variant="outline"
-                      onClick={() => {
-                        setTarget(c)
-                        setDeleting(true)
-                      }}
-                      label="Delete"
-                    />
-                  </>
-                }
-              />
-              <div className="flex flex-wrap items-center gap-2">
-                <ScenarioBadge type={c.scenarioType} />
-                {c.redTeam && (
-                  <RedTeamBadge attackType={c.redTeam.attackType} />
-                )}
-              </div>
-            </div>
-            <DescriptionList
-              items={[
-                {
-                  term: "Suite",
-                  value: (
-                    <PluginLink to={suitePath(c.suiteId)}>
-                      {suite.data?.name ?? "Back to the suite"}
-                    </PluginLink>
-                  ),
-                },
-                {
-                  term: "Tags",
-                  value: <TagList values={c.tags} label="tags" />,
-                },
-                {
-                  term: "Created",
-                  value: (
-                    <Timestamp value={c.createdAt} label="creation time" />
-                  ),
-                },
-                {
-                  term: "Updated",
-                  value: <Timestamp value={c.updatedAt} label="update" />,
-                },
-              ]}
+            <PageHeader
+              title={c.name}
+              meta={
+                <>
+                  <ScenarioBadge type={c.scenarioType} />
+                  {c.redTeam && (
+                    <RedTeamBadge attackType={c.redTeam.attackType} />
+                  )}
+                </>
+              }
+              actions={
+                <>
+                  <IconButton
+                    variant="outline"
+                    onClick={() => {
+                      setTarget(c)
+                      setEditing(true)
+                    }}
+                    label="Edit"
+                  />
+                  <IconButton
+                    variant="outline"
+                    onClick={() => {
+                      setTarget(c)
+                      setDeleting(true)
+                    }}
+                    label="Delete"
+                  />
+                </>
+              }
             />
-            <section
-              aria-labelledby="sentinel-case-input"
-              className="flex min-w-0 flex-col gap-2"
-            >
-              <h2 id="sentinel-case-input" className="text-sm font-medium">
-                Input
-              </h2>
+            <Section title="Details" inset>
+              <DescriptionList
+                items={[
+                  {
+                    term: "Suite",
+                    value: (
+                      <PluginLink to={suitePath(c.suiteId)}>
+                        {suite.data?.name ?? "Back to the suite"}
+                      </PluginLink>
+                    ),
+                  },
+                  {
+                    term: "Tags",
+                    value: <TagList values={c.tags} label="tags" />,
+                  },
+                  {
+                    term: "Created",
+                    value: (
+                      <Timestamp value={c.createdAt} label="creation time" />
+                    ),
+                  },
+                  {
+                    term: "Updated",
+                    value: <Timestamp value={c.updatedAt} label="update" />,
+                  },
+                ]}
+              />
+            </Section>
+            <Section title="Input" inset>
               <PlainText value={c.input} label="Input" />
-            </section>
-            <section
-              aria-labelledby="sentinel-case-expected"
-              className="flex min-w-0 flex-col gap-2"
-            >
-              <h2 id="sentinel-case-expected" className="text-sm font-medium">
-                Expected output
-              </h2>
+            </Section>
+            <Section title="Expected output" inset>
               {c.expected ? (
                 <PlainText value={c.expected} label="Expected output" />
               ) : (
                 <NoneCell label="expected output" />
               )}
-            </section>
-            <section
-              aria-labelledby="sentinel-case-scorers"
-              className="flex min-w-0 flex-col gap-2"
-            >
-              <h2 id="sentinel-case-scorers" className="text-sm font-medium">
-                Its own scorers
-              </h2>
+            </Section>
+            <Section title="Its own scorers">
               <ResourceTable<ScorerConfig>
                 columns={scorerColumns}
                 rows={c.scorers}
@@ -190,39 +175,27 @@ function CaseDetailBody({ caseId }: { caseId: string }) {
                 emptyMessage="No scorers of its own. The run's scorers judge it."
               />
               {c.scorers.some((s) => s.redacted) && (
-                <p className="text-xs text-muted-foreground">
+                <p className="border-t px-4 py-3 text-xs text-muted-foreground">
                   A withheld substring is the system prompt this case checks
                   for, so the server never sends it.
                 </p>
               )}
-            </section>
+            </Section>
             {Object.keys(c.context).length > 0 && (
-              <section
-                aria-labelledby="sentinel-case-context"
-                className="flex min-w-0 flex-col gap-2"
-              >
-                <h2 id="sentinel-case-context" className="text-sm font-medium">
-                  Context
-                </h2>
+              <Section title="Context" inset>
                 <PlainText
                   value={JSON.stringify(c.context, null, 2)}
                   label="Context"
                 />
-              </section>
+              </Section>
             )}
             {Object.keys(c.metadata).length > 0 && (
-              <section
-                aria-labelledby="sentinel-case-metadata"
-                className="flex min-w-0 flex-col gap-2"
-              >
-                <h2 id="sentinel-case-metadata" className="text-sm font-medium">
-                  Metadata
-                </h2>
+              <Section title="Metadata" inset>
                 <PlainText
                   value={JSON.stringify(c.metadata, null, 2)}
                   label="Metadata"
                 />
-              </section>
+              </Section>
             )}
           </div>
         )}

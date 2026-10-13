@@ -7,6 +7,7 @@ import {
   ResourceTable,
   type Column,
 } from "@forge-go/dashboard-kit/components/resource-table"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { CurrentBadge } from "../badges"
 import { formatScore, plural, versionPath } from "../format"
@@ -86,43 +87,44 @@ export function PromptsTab({ suiteId }: { suiteId: string }) {
   )
 
   return (
-    <div className="flex min-w-0 flex-col gap-3">
-      <div className="flex flex-wrap items-center gap-2">{create}</div>
-      <SettledBoundary
-        title="Prompt versions"
-        query={versions}
-        skeletonRows={3}
-      >
-        {(data) => (
-          <div className="flex min-w-0 flex-col gap-1.5">
-            <ResourceTable<PromptVersion>
-              columns={columns}
-              rows={data.items}
-              rowKey={(v) => v.id}
-              caption={plural(data.items.length, "version", "versions")}
-              emptyMessage="No prompt versions yet. Runs use the suite's own prompt."
-              emptyAction={create}
-              rowActions={(v) =>
-                v.isCurrent ? null : (
-                  <IconButton
-                    variant="outline"
-                    onClick={() => {
-                      setTarget(v)
-                      setMaking(true)
-                    }}
-                    label={`Make version ${v.version} current`}
-                  />
-                )
-              }
-            />
-            {data.items.length > 0 && !current && (
-              <p className="text-xs text-muted-foreground">
-                No version is current, so runs use the suite's own prompt.
-              </p>
-            )}
-          </div>
-        )}
-      </SettledBoundary>
+    <>
+      <Section aria-label="Prompt version list" actions={create}>
+        <SettledBoundary
+          title="Prompt versions"
+          query={versions}
+          skeletonRows={3}
+        >
+          {(data) => (
+            <div className="flex min-w-0 flex-col">
+              <ResourceTable<PromptVersion>
+                columns={columns}
+                rows={data.items}
+                rowKey={(v) => v.id}
+                caption={plural(data.items.length, "version", "versions")}
+                emptyMessage="No prompt versions yet. Runs use the suite's own prompt."
+                emptyAction={create}
+                rowActions={(v) =>
+                  v.isCurrent ? null : (
+                    <IconButton
+                      variant="outline"
+                      onClick={() => {
+                        setTarget(v)
+                        setMaking(true)
+                      }}
+                      label={`Make version ${v.version} current`}
+                    />
+                  )
+                }
+              />
+              {data.items.length > 0 && !current && (
+                <p className="border-t px-4 py-3 text-xs text-muted-foreground">
+                  No version is current, so runs use the suite's own prompt.
+                </p>
+              )}
+            </div>
+          )}
+        </SettledBoundary>
+      </Section>
       <PromptVersionDialog
         open={creating}
         onOpenChange={setCreating}
@@ -136,6 +138,6 @@ export function PromptsTab({ suiteId }: { suiteId: string }) {
           version={target}
         />
       )}
-    </div>
+    </>
   )
 }

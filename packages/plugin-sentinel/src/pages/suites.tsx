@@ -9,6 +9,7 @@ import {
   ResourceTable,
   type Column,
 } from "@forge-go/dashboard-kit/components/resource-table"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { SettledBoundary } from "../components/settled-boundary"
 import { SuiteFormDialog } from "../components/suite-form-dialog"
@@ -78,18 +79,20 @@ export const SuitesPage: ComponentType<PluginPageProps> = () => {
         description="A suite is a set of test cases, run against a target and scored."
         actions={create}
       />
-      <SettledBoundary title="Suites" query={list} skeletonRows={5}>
-        {(data) => (
-          <ResourceTable<Suite>
-            columns={columns}
-            rows={data.items}
-            rowKey={(s) => s.id}
-            caption={plural(data.items.length, "suite", "suites")}
-            emptyMessage="No suites yet."
-            emptyAction={create}
-          />
-        )}
-      </SettledBoundary>
+      <Section aria-label="Suite list">
+        <SettledBoundary title="Suites" query={list} skeletonRows={5}>
+          {(data) => (
+            <ResourceTable<Suite>
+              columns={columns}
+              rows={data.items}
+              rowKey={(s) => s.id}
+              caption={plural(data.items.length, "suite", "suites")}
+              emptyMessage="No suites yet."
+              emptyAction={create}
+            />
+          )}
+        </SettledBoundary>
+      </Section>
       <SuiteFormDialog
         open={creating}
         onOpenChange={setCreating}

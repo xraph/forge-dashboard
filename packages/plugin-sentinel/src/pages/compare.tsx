@@ -9,6 +9,7 @@ import {
   ResourceTable,
   type Column,
 } from "@forge-go/dashboard-kit/components/resource-table"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { RedTeamBadge, ResultStatusBadge, RunStateBadge } from "../badges"
 import { DumbbellKey, Dumbbells, type DumbbellRow } from "../charts/dumbbells"
@@ -124,42 +125,29 @@ function CompareBody({ runId, otherId }: { runId: string; otherId: string }) {
           const pair = c.cases.find((p) => p.caseId === open)
           return (
             <div className="flex min-w-0 flex-col gap-4">
-              <dl className="grid min-w-0 grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
-                <RunLine which="A" run={c.a} />
-                <RunLine which="B" run={c.b} />
-              </dl>
-              <section
-                aria-labelledby="sentinel-compare-scores"
-                className="flex min-w-0 flex-col gap-2"
-              >
-                <h2
-                  id="sentinel-compare-scores"
-                  className="text-sm font-medium"
-                >
-                  Scores, A to B
-                </h2>
-                <DumbbellKey a={shortRunId(c.a.id)} b={shortRunId(c.b.id)} />
-                <Dumbbells rows={rows} label="Scores, A to B" />
-                <OnlyIn label="Only A measured" dims={c.dimensionsOnlyIn.a} />
-                <OnlyIn label="Only B measured" dims={c.dimensionsOnlyIn.b} />
-                <p className="text-sm text-muted-foreground">
-                  {latency &&
-                    `Average latency ${formatLatency(latency.a)} to ${formatLatency(latency.b)} (${latency.delta > 0 ? "+" : latency.delta < 0 ? "−" : ""}${formatLatency(Math.abs(latency.delta))}). `}
-                  {cost &&
-                    `Cost reported ${formatCost(cost.a)} to ${formatCost(cost.b)} (${cost.delta < 0 ? "−" : "+"}${formatCost(Math.abs(cost.delta))}); LLM judge calls are not metered.`}
-                </p>
-              </section>
-              <section
-                aria-labelledby="sentinel-compare-cases"
-                className="flex min-w-0 flex-col gap-3"
-              >
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <h2
-                    id="sentinel-compare-cases"
-                    className="text-sm font-medium"
-                  >
-                    Cases
-                  </h2>
+              <Section title="Runs" inset>
+                <dl className="grid min-w-0 grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
+                  <RunLine which="A" run={c.a} />
+                  <RunLine which="B" run={c.b} />
+                </dl>
+              </Section>
+              <Section title="Scores, A to B" inset>
+                <div className="flex min-w-0 flex-col gap-2">
+                  <DumbbellKey a={shortRunId(c.a.id)} b={shortRunId(c.b.id)} />
+                  <Dumbbells rows={rows} label="Scores, A to B" />
+                  <OnlyIn label="Only A measured" dims={c.dimensionsOnlyIn.a} />
+                  <OnlyIn label="Only B measured" dims={c.dimensionsOnlyIn.b} />
+                  <p className="text-sm text-muted-foreground">
+                    {latency &&
+                      `Average latency ${formatLatency(latency.a)} to ${formatLatency(latency.b)} (${latency.delta > 0 ? "+" : latency.delta < 0 ? "−" : ""}${formatLatency(Math.abs(latency.delta))}). `}
+                    {cost &&
+                      `Cost reported ${formatCost(cost.a)} to ${formatCost(cost.b)} (${cost.delta < 0 ? "−" : "+"}${formatCost(Math.abs(cost.delta))}); LLM judge calls are not metered.`}
+                  </p>
+                </div>
+              </Section>
+              <Section
+                title="Cases"
+                actions={
                   <Button
                     variant="outline"
                     size="sm"
@@ -168,7 +156,8 @@ function CompareBody({ runId, otherId }: { runId: string; otherId: string }) {
                   >
                     Changed only
                   </Button>
-                </div>
+                }
+              >
                 <ResourceTable<CasePair>
                   columns={caseColumns}
                   rows={shown}
@@ -197,7 +186,7 @@ function CompareBody({ runId, otherId }: { runId: string; otherId: string }) {
                 {pair && (
                   <section
                     aria-label={`Outputs of ${pair.caseName}`}
-                    className="flex min-w-0 flex-col gap-2 rounded-lg border p-4"
+                    className="flex min-w-0 flex-col gap-2 border-t p-4"
                   >
                     <div className="flex items-center justify-between gap-2">
                       <h3
@@ -223,7 +212,7 @@ function CompareBody({ runId, otherId }: { runId: string; otherId: string }) {
                     />
                   </section>
                 )}
-              </section>
+              </Section>
             </div>
           )
         }}

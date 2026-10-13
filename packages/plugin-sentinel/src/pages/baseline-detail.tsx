@@ -9,6 +9,7 @@ import {
   ResourceTable,
   type Column,
 } from "@forge-go/dashboard-kit/components/resource-table"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { CurrentBadge, ResultStatusBadge } from "../badges"
 import { DeleteBaselineDialog } from "../components/delete-baseline-dialog"
@@ -64,49 +65,42 @@ function BaselineDetailBody({ baselineId }: { baselineId: string }) {
                 />
               }
             />
-            <DescriptionList
-              items={[
-                {
-                  term: "Suite",
-                  value: (
-                    <PluginLink to={suitePath(b.suiteId)}>
-                      {b.suiteName}
-                    </PluginLink>
-                  ),
-                },
-                {
-                  term: "From run",
-                  value: (
-                    <PluginLink to={runPath(b.runId)}>
-                      <span className="font-mono text-xs">
-                        {shortRunId(b.runId)}
-                      </span>
-                    </PluginLink>
-                  ),
-                },
-                {
-                  term: "Current",
-                  value: b.isCurrent ? <CurrentBadge /> : "No",
-                },
-                { term: "Pass rate", value: formatScore(b.passRate) },
-                { term: "Avg score", value: formatScore(b.avgScore) },
-                {
-                  term: "Saved",
-                  value: <Timestamp value={b.createdAt} label="save time" />,
-                },
-              ]}
-            />
+            <Section title="Details" inset>
+              <DescriptionList
+                items={[
+                  {
+                    term: "Suite",
+                    value: (
+                      <PluginLink to={suitePath(b.suiteId)}>
+                        {b.suiteName}
+                      </PluginLink>
+                    ),
+                  },
+                  {
+                    term: "From run",
+                    value: (
+                      <PluginLink to={runPath(b.runId)}>
+                        <span className="font-mono text-xs">
+                          {shortRunId(b.runId)}
+                        </span>
+                      </PluginLink>
+                    ),
+                  },
+                  {
+                    term: "Current",
+                    value: b.isCurrent ? <CurrentBadge /> : "No",
+                  },
+                  { term: "Pass rate", value: formatScore(b.passRate) },
+                  { term: "Avg score", value: formatScore(b.avgScore) },
+                  {
+                    term: "Saved",
+                    value: <Timestamp value={b.createdAt} label="save time" />,
+                  },
+                ]}
+              />
+            </Section>
             <BaselineDimensions scores={b.dimensionScores} />
-            <section
-              aria-labelledby="sentinel-baseline-results"
-              className="flex min-w-0 flex-col gap-2"
-            >
-              <h2
-                id="sentinel-baseline-results"
-                className="text-sm font-medium"
-              >
-                Saved results
-              </h2>
+            <Section title="Saved results">
               <ResourceTable<BaselineResult>
                 columns={resultColumns(b.suiteId)}
                 rows={b.results}
@@ -114,7 +108,7 @@ function BaselineDetailBody({ baselineId }: { baselineId: string }) {
                 caption={`${plural(b.results.length, "result", "results")}, errors included`}
                 emptyMessage="This baseline saved no results."
               />
-            </section>
+            </Section>
           </div>
         )}
       </SettledBoundary>
@@ -167,19 +161,13 @@ function BaselineDimensions({ scores }: { scores: Record<string, number> }) {
     )
   }
   return (
-    <section
-      aria-labelledby="sentinel-baseline-dimensions"
-      className="flex min-w-0 flex-col gap-2"
-    >
-      <h2 id="sentinel-baseline-dimensions" className="text-sm font-medium">
-        Dimension scores
-      </h2>
+    <Section title="Dimension scores" inset>
       <DescriptionList
         items={entries.map(([dim, v]) => ({
           term: dim,
           value: formatScore(v),
         }))}
       />
-    </section>
+    </Section>
   )
 }

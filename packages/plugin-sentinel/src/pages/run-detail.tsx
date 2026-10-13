@@ -97,35 +97,33 @@ function RunDetailBody({ runId }: { runId: string }) {
             ) : null
           return (
             <div className="flex min-w-0 flex-col gap-4">
-              <div className="flex min-w-0 flex-col gap-2">
-                <PageHeader
-                  title={`Run ${shortRunId(run.id)}`}
-                  actions={
-                    <>
+              <PageHeader
+                title={`Run ${shortRunId(run.id)}`}
+                meta={<RunMeta run={run} />}
+                actions={
+                  <>
+                    <IconButton
+                      variant="outline"
+                      onClick={() => {
+                        setTarget(run)
+                        setComparing(true)
+                      }}
+                      label="Compare with…"
+                    />
+                    {answer.state !== "noBaseline" && saveButton}
+                    {run.state === "running" && (
                       <IconButton
                         variant="outline"
                         onClick={() => {
                           setTarget(run)
-                          setComparing(true)
+                          setCancelling(true)
                         }}
-                        label="Compare with…"
+                        label="Cancel run"
                       />
-                      {answer.state !== "noBaseline" && saveButton}
-                      {run.state === "running" && (
-                        <IconButton
-                          variant="outline"
-                          onClick={() => {
-                            setTarget(run)
-                            setCancelling(true)
-                          }}
-                          label="Cancel run"
-                        />
-                      )}
-                    </>
-                  }
-                />
-                <RunMeta run={run} />
-              </div>
+                    )}
+                  </>
+                }
+              />
               <VerdictBand
                 run={run}
                 regression={answer}
