@@ -55,8 +55,8 @@ describe("LedgerOverviewPage", () => {
     renderPage(LedgerOverviewPage, stubClient(answers()))
     await screen.findByText("inv_r1")
     const card = screen
-      .getByText("Past-due invoices", { selector: "[data-slot='card'] *" })
-      .closest("[data-slot='card']") as HTMLElement
+      .getByText("Past-due invoices", { selector: "[data-slot='stat'] *" })
+      .closest("[data-slot='stat']") as HTMLElement
     expect(within(card).getByText("3")).toBeTruthy()
     expect(within(card).getByText("Not counted as pending")).toBeTruthy()
   })
@@ -71,11 +71,11 @@ describe("LedgerOverviewPage", () => {
     await screen.findByText("inv_r1")
     expect(
       screen.queryByText("Past-due invoices", {
-        selector: "[data-slot='card'] *",
+        selector: "[data-slot='stat'] *",
       })
     ).toBeNull()
     expect(
-      screen.getByText("Pending invoices", { selector: "[data-slot='card'] *" })
+      screen.getByText("Pending invoices", { selector: "[data-slot='stat'] *" })
     ).toBeTruthy()
   })
 
@@ -103,12 +103,12 @@ describe("LedgerOverviewPage", () => {
     await screen.findByText("inv_r1")
     const live = screen
       .getByText("Live subscriptions")
-      .closest("[data-slot='card']") as HTMLElement
+      .closest("[data-slot='stat']") as HTMLElement
     expect(within(live).getByText("4")).toBeTruthy()
     expect(within(live).getByText("1 trialing")).toBeTruthy()
     const pastDue = screen
       .getByText("Subscriptions past due")
-      .closest("[data-slot='card']") as HTMLElement
+      .closest("[data-slot='stat']") as HTMLElement
     expect(within(pastDue).getByText("1")).toBeTruthy()
   })
 

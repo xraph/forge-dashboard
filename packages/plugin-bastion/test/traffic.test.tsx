@@ -45,7 +45,7 @@ function stats(over: Partial<TrafficStats> = {}): TrafficStats {
 }
 
 function card(label: string): HTMLElement {
-  return screen.getByText(label).closest("[data-slot='card']") as HTMLElement
+  return screen.getByText(label).closest("[data-slot='stat']") as HTMLElement
 }
 
 describe("BastionTrafficPage", () => {
@@ -99,7 +99,7 @@ describe("BastionTrafficPage", () => {
       await within(
         await screen
           .findByText("Cache")
-          .then((el) => el.closest("[data-slot='card']") as HTMLElement)
+          .then((el) => el.closest("[data-slot='stat']") as HTMLElement)
       ).findByText("3 hits, 7 misses")
     ).toBeTruthy()
   })

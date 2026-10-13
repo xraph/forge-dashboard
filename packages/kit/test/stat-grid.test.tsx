@@ -82,7 +82,7 @@ describe("StatGrid", () => {
     }
   )
 
-  // Review Focus 3: five across only when the rows come out even.
+  // Five across only when the rows come out even.
   it.each([5, 10, 15])("uses five columns for %i items", (n) => {
     render(
       <StatGrid
@@ -109,7 +109,7 @@ describe("StatGrid", () => {
   })
 })
 
-// Review Focus 4: dispatch places standalone Stat cards inside links.
+// The standalone Stat stays a card: dispatch places it inside links.
 describe("Stat", () => {
   it("stays a card on its own", () => {
     render(<Stat label="failed" value={2} tone="danger" />)

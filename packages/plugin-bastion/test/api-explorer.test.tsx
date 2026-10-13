@@ -56,7 +56,7 @@ describe("BastionApiExplorerPage", () => {
     expect(screen.getByText("2 services")).toBeTruthy()
     expect(
       within(
-        screen.getByText("1 of 2").closest("[data-slot='card']") as HTMLElement
+        screen.getByText("1 of 2").closest("[data-slot='stat']") as HTMLElement
       ).getByText("Healthy")
     ).toBeTruthy()
   })

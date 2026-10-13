@@ -40,7 +40,7 @@ function stats(over: Partial<OverviewStats> = {}): OverviewStats {
 }
 
 function stat(label: string): HTMLElement {
-  return screen.getByText(label).closest("[data-slot='card']") as HTMLElement
+  return screen.getByText(label).closest("[data-slot='stat']") as HTMLElement
 }
 
 describe("BastionOverviewPage", () => {

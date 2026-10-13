@@ -130,9 +130,9 @@ function renderOverview(data: Overview = overview()) {
 
 /** The stat cell whose label is `label`. */
 function stat(label: string): HTMLElement {
-  const card = screen.getByText(label).closest<HTMLElement>("[data-slot=stat]")
-  if (!card) throw new Error(`no stat card for ${label}`)
-  return card
+  const cell = screen.getByText(label).closest<HTMLElement>("[data-slot=stat]")
+  if (!cell) throw new Error(`no stat cell for ${label}`)
+  return cell
 }
 
 /** The stat's value. */
@@ -233,10 +233,10 @@ describe("OverviewPage", () => {
     it("reads Not recorded when the tenant has never recorded usage, never 0", async () => {
       renderOverview(overview({ requestsLast24h: null }))
       await screen.findByText("Requests in the last 24h")
-      const card = stat("Requests in the last 24h")
+      const cell = stat("Requests in the last 24h")
       expect(statValue("Requests in the last 24h")).toBe("Not recorded")
       expect(
-        within(card).getByText(
+        within(cell).getByText(
           "Usage appears once your application calls RecordUsage."
         )
       ).toBeTruthy()
