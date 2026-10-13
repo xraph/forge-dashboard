@@ -11,14 +11,8 @@ import {
   SheetDescription,
 } from "@forge-go/dashboard-kit/components/sheet"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
-import {
-  Page,
-  Panel,
-  Properties,
-  Records,
-  Status,
-  formatDuration,
-} from "./components"
+import { Section } from "@forge-go/dashboard-kit/components/section"
+import { Page, Properties, Records, Status, formatDuration } from "./components"
 import type { Health, Service, ServiceDetail } from "./types"
 
 function ServiceInspection({ name }: { name: string }) {
@@ -39,7 +33,7 @@ function ServiceInspection({ name }: { name: string }) {
             }}
           />
           {data.health && (
-            <Panel title="Health check">
+            <Section title="Health check" inset>
               <Properties
                 values={{
                   Status: data.health.status,
@@ -48,10 +42,10 @@ function ServiceInspection({ name }: { name: string }) {
                   Critical: data.health.critical,
                 }}
               />
-            </Panel>
+            </Section>
           )}
-          <Panel title="Dependencies">
-            <div className="flex flex-wrap gap-2 p-4">
+          <Section title="Dependencies" inset>
+            <div className="flex flex-wrap gap-2">
               {data.dependencies?.length ? (
                 data.dependencies.map((name) => (
                   <code className="rounded border px-2 py-1 text-xs" key={name}>
@@ -64,8 +58,8 @@ function ServiceInspection({ name }: { name: string }) {
                 </p>
               )}
             </div>
-          </Panel>
-          <Panel title="Metrics">
+          </Section>
+          <Section title="Metrics" inset>
             <Properties
               values={
                 data.metrics && Object.keys(data.metrics).length
@@ -73,7 +67,7 @@ function ServiceInspection({ name }: { name: string }) {
                   : { Metrics: "No metrics reported" }
               }
             />
-          </Panel>
+          </Section>
         </div>
       )}
     </QueryBoundary>
@@ -84,10 +78,10 @@ export function ServicesTable({ compact = false }: { compact?: boolean }) {
   const [selected, setSelected] = useState<string | null>(null)
   return (
     <>
-      <Panel
+      <Section
         title="Services"
         description="Registered application services"
-        action={
+        actions={
           compact ? (
             <Button
               variant="ghost"
@@ -156,7 +150,7 @@ export function ServicesTable({ compact = false }: { compact?: boolean }) {
             />
           )}
         </QueryBoundary>
-      </Panel>
+      </Section>
       <Sheet
         open={selected !== null}
         onOpenChange={(open) => {
@@ -215,7 +209,7 @@ export function ServicesPage() {
                 },
               ]}
             />
-            <Panel
+            <Section
               title="Health checks"
               description="Latest results, reported independently of the service registry"
             >
@@ -247,7 +241,7 @@ export function ServicesPage() {
                   },
                 ]}
               />
-            </Panel>
+            </Section>
           </>
         )}
       </QueryBoundary>

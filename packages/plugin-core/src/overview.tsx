@@ -9,10 +9,34 @@ import { Button } from "@forge-go/dashboard-kit/components/button"
 import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
 import { StatGrid } from "@forge-go/dashboard-kit/components/stat-grid"
 import { Progress } from "@forge-go/dashboard-kit/components/progress"
-import { Page, Panel, Properties, Status, formatDuration } from "./components"
+import { Section } from "@forge-go/dashboard-kit/components/section"
+import { Page, Properties, Status, formatDuration } from "./components"
 import { ServicesTable } from "./services"
 import { AuditTable } from "./observability"
 import type { Overview } from "./types"
+
+function ApplicationHealth({ data }: { data: Overview }) {
+  return (
+    <>
+      <ActivityIcon className="size-4 text-muted-foreground" />
+      <span>Application health</span>
+      <Status value={data.overallHealth} />
+      <Button
+        variant="link"
+        size="sm"
+        nativeButton={false}
+        role="link"
+        render={
+          <PluginLink to="/services">
+            {data.healthyServices} of {data.totalServices} services healthy
+          </PluginLink>
+        }
+      >
+        {data.healthyServices} of {data.totalServices} services healthy
+      </Button>
+    </>
+  )
+}
 
 export function OverviewPage() {
   const client = usePluginClient()
@@ -21,6 +45,7 @@ export function OverviewPage() {
     <Page
       title="Overview"
       description="The health and performance of your application, at a glance."
+      meta={query.data ? <ApplicationHealth data={query.data} /> : undefined}
       refresh={() =>
         queryStore.invalidate(client.extension, [
           "overview",
@@ -34,27 +59,6 @@ export function OverviewPage() {
       <QueryBoundary title="Overview" query={query}>
         {(data) => (
           <>
-            <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border bg-muted/40 px-4 py-3 text-sm">
-              <div className="flex items-center gap-3">
-                <ActivityIcon className="size-4 text-muted-foreground" />
-                <span>Application health</span>
-                <Status value={data.overallHealth} />
-              </div>
-              <Button
-                variant="link"
-                size="sm"
-                nativeButton={false}
-                role="link"
-                render={
-                  <PluginLink to="/services">
-                    {data.healthyServices} of {data.totalServices} services
-                    healthy
-                  </PluginLink>
-                }
-              >
-                {data.healthyServices} of {data.totalServices} services healthy
-              </Button>
-            </div>
             <StatGrid
               items={[
                 {
@@ -81,11 +85,12 @@ export function OverviewPage() {
             />
             <div className="grid min-w-0 gap-4 @3xl/main:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
               <ServicesTable compact />
-              <Panel
+              <Section
                 title="System health"
                 description="Current application snapshot"
+                inset
               >
-                <div className="space-y-4 p-4">
+                <div className="space-y-4 pb-4">
                   <div className="font-sans text-2xl font-medium tracking-tight">
                     {data.totalServices > 0
                       ? `${Math.round((data.healthyServices / data.totalServices) * 100)}%`
@@ -110,7 +115,7 @@ export function OverviewPage() {
                     Uptime: formatDuration(data.uptimeSeconds),
                   }}
                 />
-              </Panel>
+              </Section>
             </div>
           </>
         )}

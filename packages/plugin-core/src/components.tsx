@@ -10,13 +10,6 @@ import { Badge } from "@forge-go/dashboard-kit/components/badge"
 import { Input } from "@forge-go/dashboard-kit/components/input"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardContent,
-} from "@forge-go/dashboard-kit/components/card"
-import {
   Table,
   TableHeader,
   TableHead,
@@ -64,6 +57,7 @@ export function Status({ value }: { value?: string }) {
 export function Page({
   title,
   description,
+  meta,
   refresh,
   busy,
   data,
@@ -71,6 +65,7 @@ export function Page({
 }: {
   title: string
   description: string
+  meta?: ReactNode
   refresh?: () => void
   busy?: boolean
   data?: unknown
@@ -91,6 +86,7 @@ export function Page({
       <PageHeader
         title={title}
         description={description}
+        meta={meta}
         actions={
           <>
             {data !== undefined && (
@@ -110,30 +106,6 @@ export function Page({
       />
       {children}
     </div>
-  )
-}
-export function Panel({
-  title,
-  description,
-  action,
-  children,
-}: {
-  title: string
-  description?: string
-  action?: ReactNode
-  children: ReactNode
-}) {
-  return (
-    <Card className="min-w-0 gap-0 overflow-hidden py-0">
-      <CardHeader className="flex flex-row items-center justify-between gap-4 border-b px-4 py-3">
-        <div className="space-y-1">
-          <CardTitle>{title}</CardTitle>
-          {description && <CardDescription>{description}</CardDescription>}
-        </div>
-        {action}
-      </CardHeader>
-      <CardContent className="p-0">{children}</CardContent>
-    </Card>
   )
 }
 export interface Column<T> {
@@ -257,7 +229,7 @@ export function Properties({ values }: { values: Record<string, unknown> }) {
       {Object.entries(values).map(([label, value]) => (
         <div
           key={label}
-          className="grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(0,2fr)] gap-4 px-4 py-3 text-sm"
+          className="grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(0,2fr)] gap-4 py-3 text-sm first:pt-0 last:pb-0"
         >
           <dt className="text-muted-foreground">{label}</dt>
           <dd className="font-mono text-xs break-words">{valueText(value)}</dd>

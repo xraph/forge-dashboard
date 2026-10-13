@@ -3,7 +3,8 @@ import { RouteIcon } from "@forge-go/dashboard-kit/icons"
 import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
 import { EmptyState } from "@forge-go/dashboard-kit/components/empty-state"
 import { Badge } from "@forge-go/dashboard-kit/components/badge"
-import { Page, Panel, Properties, Records } from "./components"
+import { Section } from "@forge-go/dashboard-kit/components/section"
+import { Page, Properties, Records } from "./components"
 import type { Extension, Overview } from "./types"
 
 export function ExtensionsPage() {
@@ -18,7 +19,7 @@ export function ExtensionsPage() {
     >
       <QueryBoundary title="Extensions" query={query}>
         {(data) => (
-          <Panel
+          <Section
             title="Installed extensions"
             description="Use the application switcher to open an available extension dashboard."
           >
@@ -61,7 +62,7 @@ export function ExtensionsPage() {
                 },
               ]}
             />
-          </Panel>
+          </Section>
         )}
       </QueryBoundary>
     </Page>
@@ -78,19 +79,20 @@ export function ConfigurationPage() {
     >
       <QueryBoundary title="Configuration" query={query}>
         {(data) => (
-          <Panel
+          <Section
             title="Application"
             description="Read-only deployment values"
-            action={<Badge variant="outline">Read only</Badge>}
+            actions={<Badge variant="outline">Read only</Badge>}
+            inset
           >
             <Properties
               values={{ Version: data.version, Environment: data.environment }}
             />
-            <div className="border-t px-4 py-3 text-sm text-muted-foreground">
+            <p className="mt-3 border-t pt-3 text-sm text-muted-foreground">
               Configuration changes are managed in your application deployment.
               This server contract does not expose a configuration editor.
-            </div>
-          </Panel>
+            </p>
+          </Section>
         )}
       </QueryBoundary>
     </Page>

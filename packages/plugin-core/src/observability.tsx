@@ -17,14 +17,8 @@ import {
   SheetTitle,
   SheetDescription,
 } from "@forge-go/dashboard-kit/components/sheet"
-import {
-  Page,
-  Panel,
-  Properties,
-  Records,
-  Status,
-  valueText,
-} from "./components"
+import { Section } from "@forge-go/dashboard-kit/components/section"
+import { Page, Properties, Records, Status, valueText } from "./components"
 import type { AuditRecord, MetricsReport, Trace, TraceDetail } from "./types"
 
 type TraceSpan = NonNullable<TraceDetail["spans"]>[number]
@@ -121,7 +115,7 @@ export function MetricsPage() {
                 },
               ]}
             />
-            <Panel
+            <Section
               title="Instrument distribution"
               description="Current inventory by metric type"
             >
@@ -152,8 +146,8 @@ export function MetricsPage() {
                   </p>
                 )}
               </div>
-            </Panel>
-            <Panel title="Metric values" description="Latest reported values">
+            </Section>
+            <Section title="Metric values" description="Latest reported values">
               <Records
                 noun="metrics"
                 rows={data.topMetrics ?? []}
@@ -172,8 +166,8 @@ export function MetricsPage() {
                   },
                 ]}
               />
-            </Panel>
-            <Panel title="Collectors">
+            </Section>
+            <Section title="Collectors">
               <Records
                 noun="collectors"
                 rows={data.collectors ?? []}
@@ -200,7 +194,7 @@ export function MetricsPage() {
                   },
                 ]}
               />
-            </Panel>
+            </Section>
           </>
         )}
       </QueryBoundary>
@@ -225,7 +219,7 @@ function TraceInspection({ id }: { id: string }) {
                 Spans: data.spans?.length ?? 0,
               }}
             />
-            <Panel
+            <Section
               title="Span waterfall"
               description="Timing relative to the complete trace"
             >
@@ -270,9 +264,9 @@ function TraceInspection({ id }: { id: string }) {
                   </button>
                 ))}
               </div>
-            </Panel>
+            </Section>
             {selectedSpan && (
-              <Panel title={selectedSpan.name} description="Span details">
+              <Section title={selectedSpan.name} description="Span details">
                 <Tabs
                   defaultValue="request"
                   key={selectedSpan.span_id}
@@ -309,7 +303,9 @@ function TraceInspection({ id }: { id: string }) {
                   </TabsContent>
                   <TabsContent value="attributes">
                     {Object.keys(selectedSpan.attributes ?? {}).length ? (
-                      <Properties values={selectedSpan.attributes ?? {}} />
+                      <div className="p-4">
+                        <Properties values={selectedSpan.attributes ?? {}} />
+                      </div>
                     ) : (
                       <p className="p-4 text-xs text-muted-foreground">
                         No attributes recorded for this span.
@@ -317,7 +313,7 @@ function TraceInspection({ id }: { id: string }) {
                     )}
                   </TabsContent>
                 </Tabs>
-              </Panel>
+              </Section>
             )}
           </div>
         )
@@ -364,7 +360,7 @@ export function TracesPage() {
                 },
               ]}
             />
-            <Panel
+            <Section
               title="Recent traces"
               description="Search the loaded traces by operation, ID, protocol, or status"
             >
@@ -414,7 +410,7 @@ export function TracesPage() {
                   },
                 ]}
               />
-            </Panel>
+            </Section>
           </>
         )}
       </QueryBoundary>
@@ -447,14 +443,14 @@ export function AuditTable({ compact = false }: { compact?: boolean }) {
   const [selected, setSelected] = useState<AuditRecord | null>(null)
   return (
     <>
-      <Panel
+      <Section
         title={compact ? "Recent activity" : "Audit activity"}
         description={
           compact
             ? "Recent dashboard operations"
             : "The latest 200 audit records. Search filters these loaded records."
         }
-        action={
+        actions={
           compact ? (
             <Button
               variant="ghost"
@@ -536,7 +532,7 @@ export function AuditTable({ compact = false }: { compact?: boolean }) {
             />
           )}
         </QueryBoundary>
-      </Panel>
+      </Section>
       <Sheet
         open={selected !== null}
         onOpenChange={(open) => {
@@ -551,18 +547,20 @@ export function AuditTable({ compact = false }: { compact?: boolean }) {
             </SheetDescription>
           </SheetHeader>
           {selected && (
-            <Properties
-              values={{
-                Time: selected.time,
-                Intent: selected.intent,
-                Contributor: selected.contributor,
-                User: selected.user,
-                Subject: selected.subject,
-                Result: selected.result,
-                "Latency (ms)": selected.latencyMs,
-                "Correlation ID": selected.correlationID,
-              }}
-            />
+            <div className="px-4">
+              <Properties
+                values={{
+                  Time: selected.time,
+                  Intent: selected.intent,
+                  Contributor: selected.contributor,
+                  User: selected.user,
+                  Subject: selected.subject,
+                  Result: selected.result,
+                  "Latency (ms)": selected.latencyMs,
+                  "Correlation ID": selected.correlationID,
+                }}
+              />
+            </div>
           )}
         </SheetContent>
       </Sheet>
