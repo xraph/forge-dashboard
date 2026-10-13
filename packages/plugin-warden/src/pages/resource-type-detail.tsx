@@ -822,7 +822,7 @@ function EditForm({
   const orphans = diagnostics.filter((d) => !submittedNames.has(d.permission))
 
   return (
-    <Section title="Edit resource type" inset>
+    <Section aria-label="Edit resource type" inset>
       <div className="flex min-w-0 flex-col gap-4">
         <p className="text-sm text-muted-foreground">
           The name and namespace cannot change, because tuples name a type by

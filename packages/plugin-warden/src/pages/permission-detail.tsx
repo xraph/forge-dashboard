@@ -281,7 +281,7 @@ function DescriptionForm({
   }
 
   return (
-    <Section title="Edit description" inset>
+    <Section aria-label="Edit description" inset>
       <div className="flex min-w-0 flex-col gap-4">
         <p className="text-sm text-muted-foreground">
           Only the description can change. Resource and action decide what this

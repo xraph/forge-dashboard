@@ -585,7 +585,7 @@ function EditForm({ role, onDone }: { role: RoleDetail; onDone: () => void }) {
   }
 
   return (
-    <Section title="Edit role" inset>
+    <Section aria-label="Edit role" inset>
       <div className="flex min-w-0 flex-col gap-4">
         <p className="text-sm text-muted-foreground">
           The slug and namespace cannot change. Only what you change is saved.
