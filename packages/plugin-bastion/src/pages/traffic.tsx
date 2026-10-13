@@ -8,6 +8,7 @@ import {
   ResourceTable,
   type Column,
 } from "@forge-go/dashboard-kit/components/resource-table"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { StatGrid } from "@forge-go/dashboard-kit/components/stat-grid"
 import { formatCount, formatMs, formatPercent } from "../format"
 import { routePath } from "../keys"
@@ -110,13 +111,15 @@ export const BastionTrafficPage: ComponentType<PluginPageProps> = () => {
         {(s) => (
           <>
             <StatGrid items={items(s)} />
-            <ResourceTable<RouteTraffic>
-              columns={columns}
-              rows={s.routes}
-              rowKey={(r) => r.routeId}
-              caption={`${s.total} ${s.total === 1 ? "route" : "routes"}`}
-              emptyMessage="No route has served traffic yet."
-            />
+            <Section aria-label="Route traffic">
+              <ResourceTable<RouteTraffic>
+                columns={columns}
+                rows={s.routes}
+                rowKey={(r) => r.routeId}
+                caption={`${s.total} ${s.total === 1 ? "route" : "routes"}`}
+                emptyMessage="No route has served traffic yet."
+              />
+            </Section>
           </>
         )}
       </QueryBoundary>

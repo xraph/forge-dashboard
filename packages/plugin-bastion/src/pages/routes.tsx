@@ -10,6 +10,7 @@ import {
   ResourceTable,
   type Column,
 } from "@forge-go/dashboard-kit/components/resource-table"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { TagList } from "@forge-go/dashboard-kit/components/tag-list"
 import { EnabledBadge, ProtocolBadge, SourceBadge } from "../badges"
 import { RefreshDiscovery } from "../components/refresh-discovery"
@@ -110,40 +111,46 @@ export const BastionRoutesPage: ComponentType<PluginPageProps> = () => {
           </div>
         }
       />
-      <FilterBar
-        filters={[
-          {
-            id: "source",
-            label: "Source",
-            value: source,
-            options: SOURCE_OPTIONS,
-            onChange: setSource,
-          },
-          {
-            id: "protocol",
-            label: "Protocol",
-            value: protocol,
-            options: PROTOCOL_OPTIONS,
-            onChange: setProtocol,
-          },
-        ]}
-      />
-      <QueryBoundary title="Routes" query={list} skeletonRows={5}>
-        {(data) => (
-          <ResourceTable<RouteSummary>
-            columns={routeColumns}
-            rows={data.routes}
-            rowKey={(r) => r.id}
-            caption={`${data.total} ${data.total === 1 ? "route" : "routes"}`}
-            emptyMessage={
-              filtered
-                ? "No routes match these filters."
-                : "No routes. Create one, or let discovery find your services."
-            }
-            emptyAction={filtered ? undefined : <NewRouteLink />}
+      <Section
+        aria-label="Route list"
+        actions={
+          <FilterBar
+            filters={[
+              {
+                id: "source",
+                label: "Source",
+                value: source,
+                options: SOURCE_OPTIONS,
+                onChange: setSource,
+              },
+              {
+                id: "protocol",
+                label: "Protocol",
+                value: protocol,
+                options: PROTOCOL_OPTIONS,
+                onChange: setProtocol,
+              },
+            ]}
           />
-        )}
-      </QueryBoundary>
+        }
+      >
+        <QueryBoundary title="Routes" query={list} skeletonRows={5}>
+          {(data) => (
+            <ResourceTable<RouteSummary>
+              columns={routeColumns}
+              rows={data.routes}
+              rowKey={(r) => r.id}
+              caption={`${data.total} ${data.total === 1 ? "route" : "routes"}`}
+              emptyMessage={
+                filtered
+                  ? "No routes match these filters."
+                  : "No routes. Create one, or let discovery find your services."
+              }
+              emptyAction={filtered ? undefined : <NewRouteLink />}
+            />
+          )}
+        </QueryBoundary>
+      </Section>
     </section>
   )
 }

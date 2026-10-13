@@ -9,6 +9,7 @@ import {
   ResourceTable,
   type Column,
 } from "@forge-go/dashboard-kit/components/resource-table"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { CircuitBadge, HealthBadge } from "../badges"
 import { formatCount, formatMs } from "../format"
 import { routePath } from "../keys"
@@ -77,17 +78,19 @@ export const BastionUpstreamsPage: ComponentType<PluginPageProps> = () => {
         title="Upstreams"
         description="Each upstream once, however many routes use it. An upstream is healthy only when every route's entry for it is."
       />
-      <QueryBoundary title="Upstreams" query={list} skeletonRows={5}>
-        {(data) => (
-          <ResourceTable<Upstream>
-            columns={columns}
-            rows={data.upstreams}
-            rowKey={(u) => u.url}
-            caption={`${data.total} ${data.total === 1 ? "upstream" : "upstreams"}`}
-            emptyMessage="No upstreams. Add a route to give the gateway somewhere to send traffic."
-          />
-        )}
-      </QueryBoundary>
+      <Section aria-label="Upstream list">
+        <QueryBoundary title="Upstreams" query={list} skeletonRows={5}>
+          {(data) => (
+            <ResourceTable<Upstream>
+              columns={columns}
+              rows={data.upstreams}
+              rowKey={(u) => u.url}
+              caption={`${data.total} ${data.total === 1 ? "upstream" : "upstreams"}`}
+              emptyMessage="No upstreams. Add a route to give the gateway somewhere to send traffic."
+            />
+          )}
+        </QueryBoundary>
+      </Section>
     </section>
   )
 }

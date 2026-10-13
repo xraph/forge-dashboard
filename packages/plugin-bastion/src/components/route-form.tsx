@@ -12,6 +12,7 @@ import {
   NativeSelectOption,
 } from "@forge-go/dashboard-kit/components/native-select"
 import { CommandAlert } from "@forge-go/dashboard-kit/components/query-boundary"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { routePath } from "../keys"
 import type { RouteDetail, RouteFields, RouteProtocol } from "../types"
 
@@ -327,294 +328,297 @@ export function RouteForm({
         </p>
       ) : null}
 
-      <fieldset className="flex min-w-0 flex-col gap-3">
-        <legend className="text-sm font-medium">Match</legend>
-        <div className="flex min-w-0 flex-col gap-1.5">
-          <Label htmlFor="route-path">Path</Label>
-          <Input
-            id="route-path"
-            className="font-mono"
-            value={v.path}
-            aria-invalid={field === "path" || undefined}
-            onChange={(e) => set("path", e.target.value)}
-            spellCheck={false}
-            autoComplete="off"
-          />
-          <p className="text-xs text-muted-foreground">
-            Bastion serves this under the gateway's base path. End it with /* to
-            match everything below it.
-          </p>
-          <FieldError show={field === "path"} error={error} />
-        </div>
-        <div
-          className="flex min-w-0 flex-col gap-1.5"
-          role="group"
-          aria-labelledby="route-methods-label"
-        >
-          <span id="route-methods-label" className="text-sm font-medium">
-            Methods
-          </span>
-          <div className="flex flex-wrap gap-3">
-            {[...METHODS, ...extraMethods].map((m) => (
-              <CheckField
-                key={m}
-                id={`method-${m}`}
-                label={m}
-                className="font-mono text-xs"
-                checked={v.methods.includes(m)}
-                onChange={(on) =>
-                  set(
-                    "methods",
-                    on ? [...v.methods, m] : v.methods.filter((x) => x !== m)
-                  )
-                }
-              />
-            ))}
+      <Section title="Match" inset>
+        <div className="flex min-w-0 flex-col gap-3">
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <Label htmlFor="route-path">Path</Label>
+            <Input
+              id="route-path"
+              className="font-mono"
+              value={v.path}
+              aria-invalid={field === "path" || undefined}
+              onChange={(e) => set("path", e.target.value)}
+              spellCheck={false}
+              autoComplete="off"
+            />
+            <p className="text-xs text-muted-foreground">
+              Bastion serves this under the gateway's base path. End it with /*
+              to match everything below it.
+            </p>
+            <FieldError show={field === "path"} error={error} />
           </div>
-          <p className="text-xs text-muted-foreground">
-            None ticked matches every method.
-          </p>
-          <FieldError show={field === "methods"} error={error} />
-        </div>
-        <div className="flex min-w-0 flex-col gap-1.5">
-          <Label htmlFor="route-protocol">Protocol</Label>
-          <NativeSelect
-            id="route-protocol"
-            value={v.protocol}
-            onChange={(e) => set("protocol", e.target.value as RouteProtocol)}
+          <div
+            className="flex min-w-0 flex-col gap-1.5"
+            role="group"
+            aria-labelledby="route-methods-label"
           >
-            {PROTOCOLS.map((p) => (
-              <NativeSelectOption key={p} value={p}>
-                {p}
-              </NativeSelectOption>
-            ))}
-          </NativeSelect>
-          <FieldError show={field === "protocol"} error={error} />
-        </div>
-        <div className="flex min-w-0 flex-col gap-1.5">
-          <Label htmlFor="route-priority">Priority</Label>
-          <Input
-            id="route-priority"
-            type="number"
-            className="w-32 font-mono"
-            value={v.priority}
-            onChange={(e) => set("priority", e.target.value)}
-          />
-          <p className="text-xs text-muted-foreground">
-            Higher wins among routes that match. Bastion adds 100 to every
-            manual route so it sorts above discovered ones.
-          </p>
-        </div>
-      </fieldset>
-
-      <fieldset
-        className="flex min-w-0 flex-col gap-3"
-        aria-invalid={field === "targets" || undefined}
-      >
-        <legend className="text-sm font-medium">Upstreams</legend>
-        {v.targets.map((t, i) => (
-          <div key={i} className="flex flex-wrap items-end gap-2">
-            <div className="flex min-w-0 grow flex-col gap-1.5">
-              <Label
-                htmlFor={`target-url-${i}`}
-              >{`Upstream ${i + 1} URL`}</Label>
-              <Input
-                id={`target-url-${i}`}
-                className="font-mono"
-                value={t.url}
-                spellCheck={false}
-                autoComplete="off"
-                onChange={(e) => setTarget(i, { url: e.target.value })}
-              />
+            <span id="route-methods-label" className="text-sm font-medium">
+              Methods
+            </span>
+            <div className="flex flex-wrap gap-3">
+              {[...METHODS, ...extraMethods].map((m) => (
+                <CheckField
+                  key={m}
+                  id={`method-${m}`}
+                  label={m}
+                  className="font-mono text-xs"
+                  checked={v.methods.includes(m)}
+                  onChange={(on) =>
+                    set(
+                      "methods",
+                      on ? [...v.methods, m] : v.methods.filter((x) => x !== m)
+                    )
+                  }
+                />
+              ))}
             </div>
-            <div className="flex w-24 min-w-0 flex-col gap-1.5">
-              <Label
-                htmlFor={`target-weight-${i}`}
-              >{`Upstream ${i + 1} weight`}</Label>
-              <Input
-                id={`target-weight-${i}`}
-                type="number"
-                value={t.weight}
-                onChange={(e) => setTarget(i, { weight: e.target.value })}
-              />
-            </div>
-            <div className="flex w-40 min-w-0 flex-col gap-1.5">
-              <Label
-                htmlFor={`target-tags-${i}`}
-              >{`Upstream ${i + 1} tags`}</Label>
-              <Input
-                id={`target-tags-${i}`}
-                value={t.tags}
-                onChange={(e) => setTarget(i, { tags: e.target.value })}
-              />
-            </div>
-            {v.targets.length > 1 ? (
-              <IconButton
-                type="button"
-                variant="outline"
-                onClick={() =>
-                  set(
-                    "targets",
-                    v.targets.filter((_, j) => j !== i)
-                  )
-                }
-                label={`Remove upstream ${i + 1}`}
-              />
-            ) : null}
+            <p className="text-xs text-muted-foreground">
+              None ticked matches every method.
+            </p>
+            <FieldError show={field === "methods"} error={error} />
           </div>
-        ))}
-        <div>
-          <IconButton
-            type="button"
-            variant="outline"
-            onClick={() =>
-              set("targets", [...v.targets, { url: "", weight: "", tags: "" }])
-            }
-            label="Add upstream"
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <Label htmlFor="route-protocol">Protocol</Label>
+            <NativeSelect
+              id="route-protocol"
+              value={v.protocol}
+              onChange={(e) => set("protocol", e.target.value as RouteProtocol)}
+            >
+              {PROTOCOLS.map((p) => (
+                <NativeSelectOption key={p} value={p}>
+                  {p}
+                </NativeSelectOption>
+              ))}
+            </NativeSelect>
+            <FieldError show={field === "protocol"} error={error} />
+          </div>
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <Label htmlFor="route-priority">Priority</Label>
+            <Input
+              id="route-priority"
+              type="number"
+              className="w-32 font-mono"
+              value={v.priority}
+              onChange={(e) => set("priority", e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">
+              Higher wins among routes that match. Bastion adds 100 to every
+              manual route so it sorts above discovered ones.
+            </p>
+          </div>
+          <CheckField
+            id="route-enabled"
+            label="Enabled"
+            checked={v.enabled}
+            onChange={(on) => set("enabled", on)}
           />
         </div>
-        <FieldError show={field === "targets"} error={error} />
-      </fieldset>
+      </Section>
 
-      <fieldset className="flex min-w-0 flex-col gap-3">
-        <legend className="text-sm font-medium">Rewriting</legend>
-        <CheckField
-          id="route-strip"
-          label="Strip the matched prefix"
-          checked={v.stripPrefix}
-          onChange={(on) => set("stripPrefix", on)}
-        />
-        <div className="flex min-w-0 flex-col gap-1.5">
-          <Label htmlFor="route-add-prefix">Add prefix</Label>
-          <Input
-            id="route-add-prefix"
-            className="font-mono"
-            value={v.addPrefix}
-            onChange={(e) => set("addPrefix", e.target.value)}
-          />
-        </div>
-        <div className="flex min-w-0 flex-col gap-1.5">
-          <Label htmlFor="route-rewrite">Rewrite path</Label>
-          <Input
-            id="route-rewrite"
-            className="font-mono"
-            value={v.rewritePath}
-            onChange={(e) => set("rewritePath", e.target.value)}
-          />
-        </div>
-      </fieldset>
-
-      <fieldset className="flex min-w-0 flex-col gap-3">
-        <legend className="text-sm font-medium">Rate limit</legend>
-        <CheckField
-          id="rl-on"
-          label="Limit this route"
-          checked={v.rateLimit.on}
-          onChange={(on) => set("rateLimit", { ...v.rateLimit, on })}
-        />
-        {v.rateLimit.on ? (
-          <div className="flex flex-wrap gap-3">
-            <div className="flex w-40 min-w-0 flex-col gap-1.5">
-              <Label htmlFor="rl-rps">Requests per second</Label>
-              <Input
-                id="rl-rps"
-                type="number"
-                value={v.rateLimit.requestsPerSec}
-                onChange={(e) =>
-                  set("rateLimit", {
-                    ...v.rateLimit,
-                    requestsPerSec: e.target.value,
-                  })
-                }
-              />
+      <Section title="Upstreams" inset>
+        <div className="flex min-w-0 flex-col gap-3">
+          {v.targets.map((t, i) => (
+            <div key={i} className="flex flex-wrap items-end gap-2">
+              <div className="flex min-w-0 grow flex-col gap-1.5">
+                <Label
+                  htmlFor={`target-url-${i}`}
+                >{`Upstream ${i + 1} URL`}</Label>
+                <Input
+                  id={`target-url-${i}`}
+                  className="font-mono"
+                  value={t.url}
+                  spellCheck={false}
+                  autoComplete="off"
+                  onChange={(e) => setTarget(i, { url: e.target.value })}
+                />
+              </div>
+              <div className="flex w-24 min-w-0 flex-col gap-1.5">
+                <Label
+                  htmlFor={`target-weight-${i}`}
+                >{`Upstream ${i + 1} weight`}</Label>
+                <Input
+                  id={`target-weight-${i}`}
+                  type="number"
+                  value={t.weight}
+                  onChange={(e) => setTarget(i, { weight: e.target.value })}
+                />
+              </div>
+              <div className="flex w-40 min-w-0 flex-col gap-1.5">
+                <Label
+                  htmlFor={`target-tags-${i}`}
+                >{`Upstream ${i + 1} tags`}</Label>
+                <Input
+                  id={`target-tags-${i}`}
+                  value={t.tags}
+                  onChange={(e) => setTarget(i, { tags: e.target.value })}
+                />
+              </div>
+              {v.targets.length > 1 ? (
+                <IconButton
+                  type="button"
+                  variant="outline"
+                  onClick={() =>
+                    set(
+                      "targets",
+                      v.targets.filter((_, j) => j !== i)
+                    )
+                  }
+                  label={`Remove upstream ${i + 1}`}
+                />
+              ) : null}
             </div>
-            <div className="flex w-32 min-w-0 flex-col gap-1.5">
-              <Label htmlFor="rl-burst">Burst</Label>
-              <Input
-                id="rl-burst"
-                type="number"
-                value={v.rateLimit.burst}
-                onChange={(e) =>
-                  set("rateLimit", { ...v.rateLimit, burst: e.target.value })
-                }
-              />
-            </div>
-            <CheckField
-              id="rl-per-client"
-              label="Per client"
-              className="self-end"
-              checked={v.rateLimit.perClient}
-              onChange={(on) =>
-                set("rateLimit", { ...v.rateLimit, perClient: on })
+          ))}
+          <div>
+            <IconButton
+              type="button"
+              variant="outline"
+              onClick={() =>
+                set("targets", [
+                  ...v.targets,
+                  { url: "", weight: "", tags: "" },
+                ])
               }
+              label="Add upstream"
             />
           </div>
-        ) : null}
-        <FieldError show={field === "rateLimit"} error={error} />
-      </fieldset>
+          <FieldError show={field === "targets"} error={error} />
+        </div>
+      </Section>
 
-      <fieldset className="flex min-w-0 flex-col gap-3">
-        <legend className="text-sm font-medium">Authentication</legend>
-        <CheckField
-          id="auth-on"
-          label="Set authentication for this route"
-          checked={v.auth.on}
-          onChange={(on) => set("auth", { ...v.auth, on })}
-        />
-        {v.auth.on ? (
-          <div className="flex min-w-0 flex-col gap-3">
-            <div className="flex min-w-0 flex-col gap-1.5">
-              <Label htmlFor="auth-providers">Providers</Label>
-              <Input
-                id="auth-providers"
-                value={v.auth.providers}
-                onChange={(e) =>
-                  set("auth", { ...v.auth, providers: e.target.value })
+      <Section title="Rewriting" inset>
+        <div className="flex min-w-0 flex-col gap-3">
+          <CheckField
+            id="route-strip"
+            label="Strip the matched prefix"
+            checked={v.stripPrefix}
+            onChange={(on) => set("stripPrefix", on)}
+          />
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <Label htmlFor="route-add-prefix">Add prefix</Label>
+            <Input
+              id="route-add-prefix"
+              className="font-mono"
+              value={v.addPrefix}
+              onChange={(e) => set("addPrefix", e.target.value)}
+            />
+          </div>
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <Label htmlFor="route-rewrite">Rewrite path</Label>
+            <Input
+              id="route-rewrite"
+              className="font-mono"
+              value={v.rewritePath}
+              onChange={(e) => set("rewritePath", e.target.value)}
+            />
+          </div>
+        </div>
+      </Section>
+
+      <Section title="Rate limit" inset>
+        <div className="flex min-w-0 flex-col gap-3">
+          <CheckField
+            id="rl-on"
+            label="Limit this route"
+            checked={v.rateLimit.on}
+            onChange={(on) => set("rateLimit", { ...v.rateLimit, on })}
+          />
+          {v.rateLimit.on ? (
+            <div className="flex flex-wrap gap-3">
+              <div className="flex w-40 min-w-0 flex-col gap-1.5">
+                <Label htmlFor="rl-rps">Requests per second</Label>
+                <Input
+                  id="rl-rps"
+                  type="number"
+                  value={v.rateLimit.requestsPerSec}
+                  onChange={(e) =>
+                    set("rateLimit", {
+                      ...v.rateLimit,
+                      requestsPerSec: e.target.value,
+                    })
+                  }
+                />
+              </div>
+              <div className="flex w-32 min-w-0 flex-col gap-1.5">
+                <Label htmlFor="rl-burst">Burst</Label>
+                <Input
+                  id="rl-burst"
+                  type="number"
+                  value={v.rateLimit.burst}
+                  onChange={(e) =>
+                    set("rateLimit", { ...v.rateLimit, burst: e.target.value })
+                  }
+                />
+              </div>
+              <CheckField
+                id="rl-per-client"
+                label="Per client"
+                className="self-end"
+                checked={v.rateLimit.perClient}
+                onChange={(on) =>
+                  set("rateLimit", { ...v.rateLimit, perClient: on })
                 }
               />
             </div>
-            <div className="flex min-w-0 flex-col gap-1.5">
-              <Label htmlFor="auth-scopes">Scopes</Label>
-              <Input
-                id="auth-scopes"
-                value={v.auth.scopes}
-                onChange={(e) =>
-                  set("auth", { ...v.auth, scopes: e.target.value })
-                }
+          ) : null}
+          <FieldError show={field === "rateLimit"} error={error} />
+        </div>
+      </Section>
+
+      <Section title="Authentication" inset>
+        <div className="flex min-w-0 flex-col gap-3">
+          <CheckField
+            id="auth-on"
+            label="Set authentication for this route"
+            checked={v.auth.on}
+            onChange={(on) => set("auth", { ...v.auth, on })}
+          />
+          {v.auth.on ? (
+            <div className="flex min-w-0 flex-col gap-3">
+              <div className="flex min-w-0 flex-col gap-1.5">
+                <Label htmlFor="auth-providers">Providers</Label>
+                <Input
+                  id="auth-providers"
+                  value={v.auth.providers}
+                  onChange={(e) =>
+                    set("auth", { ...v.auth, providers: e.target.value })
+                  }
+                />
+              </div>
+              <div className="flex min-w-0 flex-col gap-1.5">
+                <Label htmlFor="auth-scopes">Scopes</Label>
+                <Input
+                  id="auth-scopes"
+                  value={v.auth.scopes}
+                  onChange={(e) =>
+                    set("auth", { ...v.auth, scopes: e.target.value })
+                  }
+                />
+              </div>
+              <CheckField
+                id="auth-skip"
+                label="Skip gateway authentication"
+                checked={v.auth.skipAuth}
+                onChange={(on) => set("auth", { ...v.auth, skipAuth: on })}
+              />
+              <CheckField
+                id="auth-forward"
+                label="Forward identity headers"
+                checked={v.auth.forwardAuth}
+                onChange={(on) => set("auth", { ...v.auth, forwardAuth: on })}
               />
             </div>
-            <CheckField
-              id="auth-skip"
-              label="Skip gateway authentication"
-              checked={v.auth.skipAuth}
-              onChange={(on) => set("auth", { ...v.auth, skipAuth: on })}
-            />
-            <CheckField
-              id="auth-forward"
-              label="Forward identity headers"
-              checked={v.auth.forwardAuth}
-              onChange={(on) => set("auth", { ...v.auth, forwardAuth: on })}
-            />
+          ) : null}
+          <FieldError show={field === "auth"} error={error} />
+          <div className="flex gap-2">
+            <Button type="submit" disabled={pending}>
+              {pending ? pendingLabel : submitLabel}
+            </Button>
+            <PluginLink to={cancelTo} className="self-center text-sm underline">
+              Cancel
+            </PluginLink>
           </div>
-        ) : null}
-        <FieldError show={field === "auth"} error={error} />
-      </fieldset>
-
-      <CheckField
-        id="route-enabled"
-        label="Enabled"
-        checked={v.enabled}
-        onChange={(on) => set("enabled", on)}
-      />
-
-      <div className="flex gap-2">
-        <Button type="submit" disabled={pending}>
-          {pending ? pendingLabel : submitLabel}
-        </Button>
-        <PluginLink to={cancelTo} className="self-center text-sm underline">
-          Cancel
-        </PluginLink>
-      </div>
+        </div>
+      </Section>
     </form>
   )
 }

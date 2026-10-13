@@ -5,46 +5,9 @@ import { DescriptionList } from "@forge-go/dashboard-kit/components/detail-layou
 import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { EnabledBadge } from "../badges"
-import type { ConfigDetail, ConfigSection } from "../types"
-
-function Section({ s }: { s: ConfigSection }) {
-  const headingId = `config-${s.id}`
-  return (
-    <section
-      aria-labelledby={headingId}
-      className="flex min-w-0 flex-col gap-2 rounded-lg border p-4"
-    >
-      <h2
-        id={headingId}
-        className="flex items-center gap-2 text-sm font-medium"
-      >
-        {s.title}
-        {s.enabled === null ? null : <EnabledBadge enabled={s.enabled} />}
-      </h2>
-      {s.note ? (
-        <p role="note" className="text-sm text-muted-foreground">
-          {s.note}
-        </p>
-      ) : null}
-      {s.settings.length === 0 ? (
-        <NoneCell label="settings" />
-      ) : (
-        <DescriptionList
-          items={s.settings.map((x) => ({
-            term: x.key,
-            value:
-              x.value === "" ? (
-                <NoneCell label="value" />
-              ) : (
-                <span className="font-mono text-xs">{x.value}</span>
-              ),
-          }))}
-        />
-      )}
-    </section>
-  )
-}
+import type { ConfigDetail } from "../types"
 
 export const BastionConfigPage: ComponentType<PluginPageProps> = () => {
   const query = useQuery<ConfigDetail>("config.detail")
@@ -59,7 +22,39 @@ export const BastionConfigPage: ComponentType<PluginPageProps> = () => {
         {(c) => (
           <div className="grid min-w-0 gap-4 md:grid-cols-2">
             {c.sections.map((s) => (
-              <Section key={s.id} s={s} />
+              <Section
+                key={s.id}
+                title={s.title}
+                actions={
+                  s.enabled === null ? undefined : (
+                    <EnabledBadge enabled={s.enabled} />
+                  )
+                }
+                inset
+              >
+                <div className="flex min-w-0 flex-col gap-2">
+                  {s.note ? (
+                    <p role="note" className="text-sm text-muted-foreground">
+                      {s.note}
+                    </p>
+                  ) : null}
+                  {s.settings.length === 0 ? (
+                    <NoneCell label="settings" />
+                  ) : (
+                    <DescriptionList
+                      items={s.settings.map((x) => ({
+                        term: x.key,
+                        value:
+                          x.value === "" ? (
+                            <NoneCell label="value" />
+                          ) : (
+                            <span className="font-mono text-xs">{x.value}</span>
+                          ),
+                      }))}
+                    />
+                  )}
+                </div>
+              </Section>
             ))}
           </div>
         )}

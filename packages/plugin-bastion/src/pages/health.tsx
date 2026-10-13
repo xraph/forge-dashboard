@@ -9,6 +9,7 @@ import {
   ResourceTable,
   type Column,
 } from "@forge-go/dashboard-kit/components/resource-table"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { CircuitBadge, EnabledBadge, HealthBadge } from "../badges"
 import { formatCount } from "../format"
 import { routePath } from "../keys"
@@ -74,23 +75,14 @@ function HealthChecks({ config }: { config: ConfigDetail }) {
     )
   }
   return (
-    <section
-      aria-labelledby="checks-heading"
-      className="flex min-w-0 flex-col gap-2"
-    >
-      <h2
-        id="checks-heading"
-        className="flex items-center gap-2 text-sm font-medium"
-      >
-        Health checks <EnabledBadge enabled />
-      </h2>
+    <Section title="Health checks" actions={<EnabledBadge enabled />} inset>
       <DescriptionList
         items={section.settings.map((s) => ({
           term: s.key,
           value: <span className="font-mono text-xs">{s.value}</span>,
         }))}
       />
-    </section>
+    </Section>
   )
 }
 
@@ -122,13 +114,15 @@ export const BastionHealthPage: ComponentType<PluginPageProps> = () => {
           const unhealthy = rows.filter((u) => !u.healthy).length
           const caption = `${data.total} ${data.total === 1 ? "upstream" : "upstreams"}${unhealthy > 0 ? ` (${unhealthy} unhealthy)` : ""}`
           return (
-            <ResourceTable<Upstream>
-              columns={columns}
-              rows={rows}
-              rowKey={(u) => u.url}
-              caption={caption}
-              emptyMessage="No upstreams. Add a route to give the gateway somewhere to send traffic."
-            />
+            <Section aria-label="Upstream health">
+              <ResourceTable<Upstream>
+                columns={columns}
+                rows={rows}
+                rowKey={(u) => u.url}
+                caption={caption}
+                emptyMessage="No upstreams. Add a route to give the gateway somewhere to send traffic."
+              />
+            </Section>
           )
         }}
       </QueryBoundary>

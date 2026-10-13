@@ -117,7 +117,7 @@ describe("BastionRouteCreatePage", () => {
     })
     fireEvent.click(screen.getByRole("button", { name: "Create route" }))
 
-    const upstreams = (await screen.findByRole("group", {
+    const upstreams = (await screen.findByRole("region", {
       name: "Upstreams",
     })) as HTMLElement
     expect(within(upstreams).getByRole("alert").textContent).toMatch(

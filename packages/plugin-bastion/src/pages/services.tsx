@@ -8,6 +8,7 @@ import {
   ResourceTable,
   type Column,
 } from "@forge-go/dashboard-kit/components/resource-table"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { TagList } from "@forge-go/dashboard-kit/components/tag-list"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { HealthBadge } from "../badges"
@@ -68,21 +69,23 @@ export const BastionServicesPage: ComponentType<PluginPageProps> = () => {
         description="Services discovery found, and how many routes it built for each."
         actions={<RefreshDiscovery />}
       />
-      <QueryBoundary title="Services" query={list} skeletonRows={4}>
-        {(data) => (
-          <ResourceTable<ServiceView>
-            columns={columns}
-            rows={data.services}
-            rowKey={(s) => s.name}
-            caption={`${data.total} ${data.total === 1 ? "service" : "services"}`}
-            emptyMessage={
-              data.discoveryEnabled
-                ? "Discovery found no services. Services appear here once they register over FARP or are found by a scan."
-                : "Discovery is switched off in the gateway config, so no services are found."
-            }
-          />
-        )}
-      </QueryBoundary>
+      <Section aria-label="Service list">
+        <QueryBoundary title="Services" query={list} skeletonRows={4}>
+          {(data) => (
+            <ResourceTable<ServiceView>
+              columns={columns}
+              rows={data.services}
+              rowKey={(s) => s.name}
+              caption={`${data.total} ${data.total === 1 ? "service" : "services"}`}
+              emptyMessage={
+                data.discoveryEnabled
+                  ? "Discovery found no services. Services appear here once they register over FARP or are found by a scan."
+                  : "Discovery is switched off in the gateway config, so no services are found."
+              }
+            />
+          )}
+        </QueryBoundary>
+      </Section>
     </section>
   )
 }

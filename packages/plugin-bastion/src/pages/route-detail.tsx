@@ -21,6 +21,7 @@ import {
   ResourceTable,
   type Column,
 } from "@forge-go/dashboard-kit/components/resource-table"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { TagList } from "@forge-go/dashboard-kit/components/tag-list"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import {
@@ -312,71 +313,72 @@ function RouteDetailBody({ id }: { id: string }) {
                   change, so it cannot be edited here.
                 </p>
               )}
-              <DescriptionList
-                items={[
-                  {
-                    term: "Route ID",
-                    value: <span className="font-mono text-xs">{d.id}</span>,
-                  },
-                  {
-                    term: "Source",
-                    value: (
-                      <span className="flex items-center gap-2">
-                        <SourceBadge source={d.source} />
-                        {d.config && (
-                          <span className="text-sm text-muted-foreground">
-                            from the config file
-                          </span>
-                        )}
-                      </span>
-                    ),
-                  },
-                  { term: "Service", value: mono(d.serviceName, "service") },
-                  {
-                    term: "Protocol",
-                    value: <ProtocolBadge protocol={d.protocol} />,
-                  },
-                  { term: "Methods", value: <Methods methods={d.methods} /> },
-                  {
-                    term: "Priority",
-                    value: (
-                      <span className="font-mono text-xs">
-                        {d.input
-                          ? `${d.priority} (entered as ${d.input.priority})`
-                          : d.priority}
-                      </span>
-                    ),
-                  },
-                  {
-                    term: "Status",
-                    value: <EnabledBadge enabled={d.enabled} />,
-                  },
-                  { term: "Strip prefix", value: d.stripPrefix ? "Yes" : "No" },
-                  {
-                    term: "Add prefix",
-                    value: mono(d.addPrefix, "added prefix"),
-                  },
-                  {
-                    term: "Rewrite path",
-                    value: mono(d.rewritePath, "rewrite"),
-                  },
-                  {
-                    term: "Metadata",
-                    value: <TagList values={d.metadataKeys} label="metadata" />,
-                  },
-                  {
-                    term: "Updated",
-                    value: <Timestamp value={d.updatedAt} label="update" />,
-                  },
-                ]}
-              />
-              <section
-                aria-labelledby="targets-heading"
-                className="flex min-w-0 flex-col gap-2"
-              >
-                <h2 id="targets-heading" className="text-sm font-medium">
-                  Targets
-                </h2>
+              <Section title="Details" inset>
+                <DescriptionList
+                  items={[
+                    {
+                      term: "Route ID",
+                      value: <span className="font-mono text-xs">{d.id}</span>,
+                    },
+                    {
+                      term: "Source",
+                      value: (
+                        <span className="flex items-center gap-2">
+                          <SourceBadge source={d.source} />
+                          {d.config && (
+                            <span className="text-sm text-muted-foreground">
+                              from the config file
+                            </span>
+                          )}
+                        </span>
+                      ),
+                    },
+                    { term: "Service", value: mono(d.serviceName, "service") },
+                    {
+                      term: "Protocol",
+                      value: <ProtocolBadge protocol={d.protocol} />,
+                    },
+                    { term: "Methods", value: <Methods methods={d.methods} /> },
+                    {
+                      term: "Priority",
+                      value: (
+                        <span className="font-mono text-xs">
+                          {d.input
+                            ? `${d.priority} (entered as ${d.input.priority})`
+                            : d.priority}
+                        </span>
+                      ),
+                    },
+                    {
+                      term: "Status",
+                      value: <EnabledBadge enabled={d.enabled} />,
+                    },
+                    {
+                      term: "Strip prefix",
+                      value: d.stripPrefix ? "Yes" : "No",
+                    },
+                    {
+                      term: "Add prefix",
+                      value: mono(d.addPrefix, "added prefix"),
+                    },
+                    {
+                      term: "Rewrite path",
+                      value: mono(d.rewritePath, "rewrite"),
+                    },
+                    {
+                      term: "Metadata",
+                      value: (
+                        <TagList values={d.metadataKeys} label="metadata" />
+                      ),
+                    },
+                    {
+                      term: "Updated",
+                      value: <Timestamp value={d.updatedAt} label="update" />,
+                    },
+                  ]}
+                />
+              </Section>
+              <Section title="Targets">
                 <ResourceTable<TargetView>
                   columns={targetColumns}
                   rows={d.targets}
@@ -384,14 +386,8 @@ function RouteDetailBody({ id }: { id: string }) {
                   caption={`${d.targets.length} ${d.targets.length === 1 ? "target" : "targets"}`}
                   emptyMessage="This route has no upstream, so every request to it fails."
                 />
-              </section>
-              <section
-                aria-labelledby="headers-heading"
-                className="flex min-w-0 flex-col gap-2"
-              >
-                <h2 id="headers-heading" className="text-sm font-medium">
-                  Headers
-                </h2>
+              </Section>
+              <Section title="Headers">
                 <ResourceTable<HeaderRow>
                   columns={headerColumns}
                   rows={headers}
@@ -399,18 +395,12 @@ function RouteDetailBody({ id }: { id: string }) {
                   caption={`${headers.length} ${headers.length === 1 ? "header" : "headers"}`}
                   emptyMessage="No header changes."
                 />
-              </section>
-              <section
-                aria-labelledby="overrides-heading"
-                className="flex min-w-0 flex-col gap-2"
-              >
-                <h2 id="overrides-heading" className="text-sm font-medium">
-                  Overrides
-                </h2>
+              </Section>
+              <Section title="Overrides" inset>
                 {overrides.length === 0 ? (
                   <NoneCell label="overrides" />
                 ) : (
-                  <>
+                  <div className="flex min-w-0 flex-col gap-2">
                     <DescriptionList
                       items={overrides.map((k) => ({
                         term: k,
@@ -432,9 +422,9 @@ function RouteDetailBody({ id }: { id: string }) {
                         apply them today.
                       </p>
                     )}
-                  </>
+                  </div>
                 )}
-              </section>
+              </Section>
             </>
           )
         }}

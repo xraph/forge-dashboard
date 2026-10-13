@@ -13,6 +13,7 @@ import {
   ResourceTable,
   type Column,
 } from "@forge-go/dashboard-kit/components/resource-table"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { StatGrid } from "@forge-go/dashboard-kit/components/stat-grid"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { HealthBadge } from "../badges"
@@ -146,13 +147,15 @@ export const BastionApiExplorerPage: ComponentType<PluginPageProps> = () => {
                   in a moment.
                 </p>
               ) : null}
-              <ResourceTable<SpecView>
-                columns={columns}
-                rows={s.services}
-                rowKey={(x) => x.serviceName}
-                caption={`${s.total} ${s.total === 1 ? "service" : "services"}`}
-                emptyMessage="No service publishes an OpenAPI document yet."
-              />
+              <Section aria-label="Service specs">
+                <ResourceTable<SpecView>
+                  columns={columns}
+                  rows={s.services}
+                  rowKey={(x) => x.serviceName}
+                  caption={`${s.total} ${s.total === 1 ? "service" : "services"}`}
+                  emptyMessage="No service publishes an OpenAPI document yet."
+                />
+              </Section>
             </>
           )
         }}

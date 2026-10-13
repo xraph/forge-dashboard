@@ -19,6 +19,7 @@ import {
   ResourceTable,
   type Column,
 } from "@forge-go/dashboard-kit/components/resource-table"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { CircuitBadge } from "../badges"
 import { routePath } from "../keys"
@@ -133,13 +134,15 @@ export const BastionCircuitsPage: ComponentType<PluginPageProps> = () => {
                 {notice}
               </p>
             ) : null}
-            <ResourceTable<CircuitView>
-              columns={columns}
-              rows={c.circuits}
-              rowKey={(x) => x.targetId}
-              caption={`${c.total} ${c.total === 1 ? "target" : "targets"}`}
-              emptyMessage="No targets. Add a route to give the gateway somewhere to send traffic."
-            />
+            <Section aria-label="Circuit list">
+              <ResourceTable<CircuitView>
+                columns={columns}
+                rows={c.circuits}
+                rowKey={(x) => x.targetId}
+                caption={`${c.total} ${c.total === 1 ? "target" : "targets"}`}
+                emptyMessage="No targets. Add a route to give the gateway somewhere to send traffic."
+              />
+            </Section>
           </>
         )}
       </QueryBoundary>

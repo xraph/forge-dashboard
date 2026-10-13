@@ -7,6 +7,7 @@ import {
   ResourceTable,
   type Column,
 } from "@forge-go/dashboard-kit/components/resource-table"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { StatGrid } from "@forge-go/dashboard-kit/components/stat-grid"
 import { formatCount, formatMs, formatPercent, formatUptime } from "../format"
 import { routePath } from "../keys"
@@ -114,13 +115,7 @@ export const BastionOverviewPage: ComponentType<PluginPageProps> = () => {
         {(s) => (
           <>
             <StatGrid items={items(s)} />
-            <section
-              aria-labelledby="busiest-heading"
-              className="flex min-w-0 flex-col gap-2"
-            >
-              <h2 id="busiest-heading" className="text-sm font-medium">
-                Busiest routes
-              </h2>
+            <Section title="Busiest routes">
               <ResourceTable<TopRoute>
                 columns={topColumns}
                 rows={s.topRoutes}
@@ -128,7 +123,7 @@ export const BastionOverviewPage: ComponentType<PluginPageProps> = () => {
                 caption={`${s.topRoutes.length} ${s.topRoutes.length === 1 ? "route" : "routes"}`}
                 emptyMessage="No route has served traffic yet."
               />
-            </section>
+            </Section>
           </>
         )}
       </QueryBoundary>
