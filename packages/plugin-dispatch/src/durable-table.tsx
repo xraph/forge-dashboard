@@ -115,6 +115,7 @@ export function DurablePageRead<T extends { asOf: string }>({
       <Read title={title} query={query} intervalMs={intervalMs} flush={flush}>
         {children}
       </Read>
+      {/* The control is a button, not the pager nav the kit rules, so it gets its own foot strip. */}
       {flush && restart ? (
         <div className="border-t px-4 py-2">{restart}</div>
       ) : (

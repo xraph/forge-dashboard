@@ -54,6 +54,27 @@ it("Overview follows the shared layout", async () => {
   await screen.findByRole("heading", { name: "Operations" })
   expect(layoutViolations(container)).toEqual([])
 })
+it("Overview counters link to their job and workflow states", async () => {
+  renderWithClient(
+    <OverviewPage />,
+    clientFor({ "overview.summary": () => overview })
+  )
+  await screen.findByRole("heading", { name: "Operations" })
+  const href = (name: string) =>
+    screen
+      .getAllByRole("link")
+      .find((link) => link.textContent === name)
+      ?.getAttribute("href")
+  expect(href("failed1")).toBe("/jobs?states=failed")
+  expect(href("pending4")).toBe("/jobs?states=pending")
+  expect(href("running2")).toBe("/jobs?states=running")
+  expect(href("completed18")).toBe("/jobs?states=completed")
+  expect(href("completed8")).toBe("/workflows?state=completed")
+  const failed = screen
+    .getAllByRole("link", { name: /^failed/ })
+    .map((link) => link.getAttribute("href"))
+  expect(failed).toEqual(["/jobs?states=failed", "/workflows?state=failed"])
+})
 it("Engine follows the shared layout", async () => {
   const { container } = renderWithClient(
     <EnginePage />,

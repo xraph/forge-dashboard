@@ -108,7 +108,7 @@ function QueueJobs({ name }: { name: string }) {
     <Section title="Jobs in this queue">
       <Read title="Queue jobs" query={query} intervalMs={5_000} flush>
         {(data) => (
-          <>
+          <div className="flex min-w-0 flex-col">
             <Rows
               title="jobs"
               rows={data.items}
@@ -172,7 +172,7 @@ function QueueJobs({ name }: { name: string }) {
               paging={paging}
               loading={query.loading}
             />
-          </>
+          </div>
         )}
       </Read>
     </Section>
