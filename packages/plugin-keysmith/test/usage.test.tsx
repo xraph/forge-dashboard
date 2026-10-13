@@ -327,13 +327,12 @@ function cellOf(
 /** The range summary as [term, value] pairs, in order. */
 function summaryOf(): [string, string][] {
   const summary = screen.getByLabelText("Range summary")
-  const terms = within(summary)
-    .getAllByRole("term")
-    .map((t) => t.textContent ?? "")
-  const values = within(summary)
-    .getAllByRole("definition")
-    .map((d) => d.textContent ?? "")
-  return terms.map((t, i) => [t, values[i] ?? ""])
+  return Array.from(summary.querySelectorAll("[data-slot=stat]")).map(
+    (cell) => [
+      cell.firstElementChild?.textContent ?? "",
+      cell.querySelector("[data-slot=stat-value]")?.textContent ?? "",
+    ]
+  )
 }
 
 function recordsTable(): HTMLElement {

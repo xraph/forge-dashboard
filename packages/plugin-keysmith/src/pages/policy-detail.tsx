@@ -23,6 +23,7 @@ import {
   ResourceTable,
   type Column,
 } from "@forge-go/dashboard-kit/components/resource-table"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { TagList } from "@forge-go/dashboard-kit/components/tag-list"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { KeyStateBadge } from "../badges"
@@ -208,15 +209,6 @@ function isNoSuchPolicy(
   return false
 }
 
-function Section({ title, children }: { title: string; children: ReactNode }) {
-  return (
-    <section className="flex min-w-0 flex-col gap-2">
-      <h2 className="text-sm font-medium">{title}</h2>
-      {children}
-    </section>
-  )
-}
-
 function Line({ children }: { children: ReactNode }) {
   return <p className="text-sm text-muted-foreground">{children}</p>
 }
@@ -268,12 +260,18 @@ function PolicyDetailView({
       <DetailLayout
         main={
           <>
-            <Section title={GROUP_HEADING.keysmith}>
-              <Line>{KEYSMITH_GROUP_LINE}</Line>
+            <Section
+              title={GROUP_HEADING.keysmith}
+              description={KEYSMITH_GROUP_LINE}
+              inset
+            >
               <DescriptionList items={keysmithItems(policy)} />
             </Section>
-            <Section title={GROUP_HEADING.rateLimiter}>
-              <Line>{rateLimiterLine(data.rateLimiterConfigured)}</Line>
+            <Section
+              title={GROUP_HEADING.rateLimiter}
+              description={rateLimiterLine(data.rateLimiterConfigured)}
+              inset
+            >
               <DescriptionList
                 items={[
                   {
@@ -285,16 +283,17 @@ function PolicyDetailView({
                 ]}
               />
             </Section>
-            <Section title={GROUP_HEADING.application}>
-              <Line>
-                <ApplicationGroupLine />
-              </Line>
+            <Section
+              title={GROUP_HEADING.application}
+              description={<ApplicationGroupLine />}
+              inset
+            >
               <DescriptionList items={storedItems(policy)} />
             </Section>
           </>
         }
         aside={
-          <Section title="Details">
+          <Section title="Details" inset>
             <DescriptionList
               items={[
                 {
@@ -319,8 +318,10 @@ function PolicyDetailView({
         }
       />
 
-      <Section title="Keys using this policy">
-        <Line>{keysLine(data.keysUsing, data.keysBlockingDelete)}</Line>
+      <Section
+        title="Keys using this policy"
+        description={keysLine(data.keysUsing, data.keysBlockingDelete)}
+      >
         <QueryBoundary
           title="Keys"
           query={keys}

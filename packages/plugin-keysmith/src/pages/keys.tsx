@@ -11,6 +11,7 @@ import {
   ResourceTable,
   type Column,
 } from "@forge-go/dashboard-kit/components/resource-table"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { TagList } from "@forge-go/dashboard-kit/components/tag-list"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { KeyStateBadge } from "../badges"
@@ -182,72 +183,74 @@ export const KeysPage: ComponentType<PluginPageProps> = () => {
         actions={<Button onClick={() => setCreating(true)}>Create key</Button>}
       />
 
-      <div className="flex min-w-0 flex-col gap-1.5">
-        <FilterBar
-          filters={[
-            {
-              id: "environment",
-              label: "Environment",
-              value: environment,
-              options: [ALL, ...ENVIRONMENTS],
-              onChange: changeEnvironment,
-            },
-            {
-              id: "state",
-              label: "State",
-              value: state,
-              options: [ALL, ...STATES],
-              onChange: changeState,
-            },
-            {
-              id: "policy",
-              label: "Policy",
-              value: policyId,
-              options: policyOptions,
-              onChange: changePolicy,
-            },
-          ]}
-        />
-        <p className="text-xs text-muted-foreground">
-          State filters match the recorded state. A key past its expiry is
-          marked expired the next time it is used.
-        </p>
-      </div>
-
-      <QueryBoundary
-        title="API keys"
-        query={list}
-        skeletonRows={5}
-        keepPreviousData
+      <Section
+        aria-label="Key list"
+        description="State filters match the recorded state. A key past its expiry is marked expired the next time it is used."
+        actions={
+          <FilterBar
+            filters={[
+              {
+                id: "environment",
+                label: "Environment",
+                value: environment,
+                options: [ALL, ...ENVIRONMENTS],
+                onChange: changeEnvironment,
+              },
+              {
+                id: "state",
+                label: "State",
+                value: state,
+                options: [ALL, ...STATES],
+                onChange: changeState,
+              },
+              {
+                id: "policy",
+                label: "Policy",
+                value: policyId,
+                options: policyOptions,
+                onChange: changePolicy,
+              },
+            ]}
+          />
+        }
       >
-        {(data) => {
-          const rows = data.keys ?? []
-          // The server's total, never the page length.
-          const caption = `${data.total} ${data.total === 1 ? "key" : "keys"}`
-          return (
-            <ResourceTable<KeySummary>
-              columns={columns}
-              rows={rows}
-              rowKey={(k) => k.id}
-              caption={caption}
-              emptyMessage={
-                // Three kinds of empty: none yet, none matching, and (above)
-                // a page past the end. Say which one this is.
-                filtered ? "No keys match these filters." : "No API keys yet."
-              }
-              // Only for "none yet". A filter that matches nothing is not the
-              // moment to offer a key.
-              emptyAction={
-                filtered ? undefined : (
-                  <Button onClick={() => setCreating(true)}>Create key</Button>
-                )
-              }
-              pagination={{ page, pageSize: PAGE_SIZE, total: data.total }}
-              onPageChange={setPage}
-            />
-          )
-        }}
-      </QueryBoundary>
+        <QueryBoundary
+          title="API keys"
+          query={list}
+          skeletonRows={5}
+          keepPreviousData
+        >
+          {(data) => {
+            const rows = data.keys ?? []
+            // The server's total, never the page length.
+            const caption = `${data.total} ${data.total === 1 ? "key" : "keys"}`
+            return (
+              <ResourceTable<KeySummary>
+                columns={columns}
+                rows={rows}
+                rowKey={(k) => k.id}
+                caption={caption}
+                emptyMessage={
+                  // Three kinds of empty: none yet, none matching, and (above)
+                  // a page past the end. Say which one this is.
+                  filtered ? "No keys match these filters." : "No API keys yet."
+                }
+                // Only for "none yet". A filter that matches nothing is not the
+                // moment to offer a key.
+                emptyAction={
+                  filtered ? undefined : (
+                    <Button onClick={() => setCreating(true)}>
+                      Create key
+                    </Button>
+                  )
+                }
+                pagination={{ page, pageSize: PAGE_SIZE, total: data.total }}
+                onPageChange={setPage}
+              />
+            )
+          }}
+        </QueryBoundary>
+      </Section>
 
       {/* Outside the boundary, keepPreviousData or not: it shows a raw key,
           and nothing holding one sits under a boundary. */}

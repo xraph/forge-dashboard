@@ -9,6 +9,7 @@ import {
   ResourceTable,
   type Column,
 } from "@forge-go/dashboard-kit/components/resource-table"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { TagList } from "@forge-go/dashboard-kit/components/tag-list"
 import { cn } from "@forge-go/dashboard-kit/lib/utils"
 import {
@@ -23,34 +24,34 @@ import type { EnforcementRow, Settings, TenantSource } from "../types"
 
 const TENANT_CONFIG_KEY = "extensions.keysmith.dashboard.tenant_id"
 
-/** A heading and what sits under it, as a labelled region. */
-function Section({
+/**
+ * A nested group under a section's heading, as a labelled region. An h3, so it
+ * is not a page section of its own.
+ */
+function Subsection({
   id,
   title,
-  level = 2,
   mono = false,
   children,
 }: {
   id: string
   title: string
-  level?: 2 | 3
   /** The title is an identifier, such as a group this page does not know. */
   mono?: boolean
   children: ReactNode
 }) {
   const headingId = `keysmith-settings-${id}`
-  const Heading = level === 2 ? "h2" : "h3"
   return (
     <section
       aria-labelledby={headingId}
       className="flex min-w-0 flex-col gap-2"
     >
-      <Heading
+      <h3
         id={headingId}
         className={cn("text-sm font-medium", mono && "font-mono text-xs")}
       >
         {title}
-      </Heading>
+      </h3>
       {children}
     </section>
   )
@@ -157,27 +158,21 @@ function Enforcement({ data }: { data: Settings }) {
   )
 
   return (
-    <Section id="enforcement" title="Policy enforcement">
-      <Line>
-        {`This deployment enforces ${data.enforcedFields} of ${rows.length} policy fields.`}
-      </Line>
+    <Section title="Policy enforcement" inset>
       <div className="flex min-w-0 flex-col gap-4">
+        <Line>
+          {`This deployment enforces ${data.enforcedFields} of ${rows.length} policy fields.`}
+        </Line>
         {ENFORCEMENT_GROUPS.map((g) => (
-          <Section key={g.id} id={`group-${g.id}`} title={g.heading} level={3}>
+          <Subsection key={g.id} id={`group-${g.id}`} title={g.heading}>
             <Line>{groupLine(g.id, data.rateLimiterConfigured)}</Line>
             {table(rows.filter((r) => r.group === g.id))}
-          </Section>
+          </Subsection>
         ))}
         {unknown.map((group, i) => (
-          <Section
-            key={group}
-            id={`group-other-${i}`}
-            title={group}
-            level={3}
-            mono
-          >
+          <Subsection key={group} id={`group-other-${i}`} title={group} mono>
             {table(rows.filter((r) => r.group === group))}
-          </Section>
+          </Subsection>
         ))}
       </div>
     </Section>
@@ -189,51 +184,59 @@ function SettingsView({ data }: { data: Settings }) {
   return (
     <>
       <div className="grid min-w-0 gap-4 @3xl/main:grid-cols-2">
-        <Section id="store" title="Store">
-          <div>
-            {data.storeHealthy ? (
-              <Badge variant="outline">Healthy</Badge>
-            ) : (
-              <Badge variant="destructive">Not answering</Badge>
-            )}
+        <Section title="Store" inset>
+          <div className="flex min-w-0 flex-col gap-2">
+            <div>
+              {data.storeHealthy ? (
+                <Badge variant="outline">Healthy</Badge>
+              ) : (
+                <Badge variant="destructive">Not answering</Badge>
+              )}
+            </div>
+            <Line>{data.storeMessage}</Line>
           </div>
-          <Line>{data.storeMessage}</Line>
         </Section>
 
-        <Section id="rate-limiter" title="Rate limiter">
-          <div>
-            {data.rateLimiterConfigured ? (
-              <Badge variant="outline">Configured</Badge>
-            ) : (
-              <Badge variant="secondary">Not configured</Badge>
-            )}
+        <Section title="Rate limiter" inset>
+          <div className="flex min-w-0 flex-col gap-2">
+            <div>
+              {data.rateLimiterConfigured ? (
+                <Badge variant="outline">Configured</Badge>
+              ) : (
+                <Badge variant="secondary">Not configured</Badge>
+              )}
+            </div>
+            <Line>
+              {data.rateLimiterConfigured
+                ? "Keysmith enforces a policy's Rate limit and Window when a key is validated."
+                : "A policy's Rate limit and Window are stored, but not enforced here."}
+            </Line>
           </div>
-          <Line>
-            {data.rateLimiterConfigured
-              ? "Keysmith enforces a policy's Rate limit and Window when a key is validated."
-              : "A policy's Rate limit and Window are stored, but not enforced here."}
-          </Line>
         </Section>
 
-        <Section id="tenant" title="Tenant">
-          <span className="font-mono text-xs">{data.tenant}</span>
-          <Line>
-            <TenantSourceLine source={data.tenantSource} />
-          </Line>
+        <Section title="Tenant" inset>
+          <div className="flex min-w-0 flex-col gap-2">
+            <span className="font-mono text-xs">{data.tenant}</span>
+            <Line>
+              <TenantSourceLine source={data.tenantSource} />
+            </Line>
+          </div>
         </Section>
 
-        <Section id="default-grace" title="Default grace">
-          {/* Capped at hours: the editor and the policy page say "24 hours". */}
-          <span className="text-sm">
-            {formatDuration(data.defaultGraceSeconds, "hour")}
-          </span>
-          <Line>
-            What a rotation gets when neither it nor the key's policy names a
-            grace.
-          </Line>
+        <Section title="Default grace" inset>
+          <div className="flex min-w-0 flex-col gap-2">
+            {/* Capped at hours: the editor and the policy page say "24 hours". */}
+            <span className="text-sm">
+              {formatDuration(data.defaultGraceSeconds, "hour")}
+            </span>
+            <Line>
+              What a rotation gets when neither it nor the key's policy names a
+              grace.
+            </Line>
+          </div>
         </Section>
 
-        <Section id="plugins" title="Plugins">
+        <Section title="Plugins" inset>
           {plugins.length === 0 ? (
             <Line>No hook plugins registered.</Line>
           ) : (

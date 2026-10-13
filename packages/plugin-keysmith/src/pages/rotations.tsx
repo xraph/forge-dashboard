@@ -12,6 +12,7 @@ import {
   ResourceTable,
   type Column,
 } from "@forge-go/dashboard-kit/components/resource-table"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { RotationReasonBadge } from "../badges"
 import { KeyCell, WindowCell } from "../components/rotation-cells"
@@ -222,57 +223,63 @@ export const RotationsPage: ComponentType<PluginPageProps> = () => {
         description="Every rotation across keys, newest first."
       />
 
-      <FilterBar
-        filters={[
-          {
-            id: "reason",
-            label: "Reason",
-            value: reason,
-            options: [ALL, ...ROTATION_REASONS],
-            onChange: changeReason,
-          },
-        ]}
-      />
-
-      {keyId !== "" && (
-        <KeyFilterChip keyId={keyId} onClear={() => setKeyId("")} />
-      )}
-
-      <QueryBoundary
-        title="Rotations"
-        query={list}
-        skeletonRows={5}
-        keepPreviousData
+      <Section
+        aria-label="Rotation list"
+        actions={
+          <>
+            {keyId !== "" && (
+              <KeyFilterChip keyId={keyId} onClear={() => setKeyId("")} />
+            )}
+            <FilterBar
+              filters={[
+                {
+                  id: "reason",
+                  label: "Reason",
+                  value: reason,
+                  options: [ALL, ...ROTATION_REASONS],
+                  onChange: changeReason,
+                },
+              ]}
+            />
+          </>
+        }
       >
-        {(data) => {
-          const rows = data.items ?? []
-          return (
-            <div className="flex min-w-0 flex-col gap-3">
-              <ResourceTable<RotationItem>
-                columns={columns}
-                rows={rows}
-                rowKey={(r) => r.id}
-                caption={caption(offset, rows.length, data.hasMore)}
-                emptyMessage={emptyMessage()}
-                emptyAction={
-                  offset > 0 ? (
-                    <Button variant="outline" onClick={() => setOffset(0)}>
-                      Back to the first page
-                    </Button>
-                  ) : undefined
-                }
-              />
-              {rows.length > 0 && (
-                <Pager
-                  offset={offset}
-                  hasMore={data.hasMore}
-                  onOffsetChange={setOffset}
+        <QueryBoundary
+          title="Rotations"
+          query={list}
+          skeletonRows={5}
+          keepPreviousData
+        >
+          {(data) => {
+            const rows = data.items ?? []
+            return (
+              <>
+                <ResourceTable<RotationItem>
+                  columns={columns}
+                  rows={rows}
+                  rowKey={(r) => r.id}
+                  caption={caption(offset, rows.length, data.hasMore)}
+                  emptyMessage={emptyMessage()}
+                  emptyAction={
+                    offset > 0 ? (
+                      <Button variant="outline" onClick={() => setOffset(0)}>
+                        Back to the first page
+                      </Button>
+                    ) : undefined
+                  }
                 />
-              )}
-            </div>
-          )
-        }}
-      </QueryBoundary>
+                {rows.length > 0 && (
+                  <Pager
+                    offset={offset}
+                    hasMore={data.hasMore}
+                    onOffsetChange={setOffset}
+                  />
+                )}
+              </>
+            )
+          }}
+        </QueryBoundary>
+      </Section>
     </section>
   )
 }

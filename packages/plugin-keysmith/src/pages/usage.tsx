@@ -12,6 +12,9 @@ import {
   ResourceTable,
   type Column,
 } from "@forge-go/dashboard-kit/components/resource-table"
+import { Section } from "@forge-go/dashboard-kit/components/section"
+import { StatGrid } from "@forge-go/dashboard-kit/components/stat-grid"
+import type { StatItem } from "@forge-go/dashboard-kit/components/stat-grid"
 import { UsageChart } from "../components/usage-chart"
 import {
   bucketTitle,
@@ -161,47 +164,34 @@ const recordColumns: Column<UsageRecordItem>[] = [
 ]
 
 /**
- * The whole range in one line, from the same buckets the chart draws. Latency
+ * The whole range in one strip, from the same buckets the chart draws. Latency
  * is weighted by requests: a bucket of ten requests does not count the same
  * as one of a thousand.
  */
 function RangeSummary({ buckets }: { buckets: readonly UsageBucket[] }) {
   const s = summarizeUsage(buckets)
-  const items: [string, string][] = [
-    ["Requests", formatCount(s.requests)],
-    ["Error rate", formatErrorRate(s.errorRate)],
-    ["5xx", formatCount(s.serverErrors)],
-    [
-      "Avg latency",
-      s.avgLatencyMs === null
-        ? "no requests"
-        : formatLatency(Math.round(s.avgLatencyMs)),
-    ],
+  const items: StatItem[] = [
+    { label: "Requests", value: formatCount(s.requests) },
+    { label: "Error rate", value: formatErrorRate(s.errorRate) },
+    { label: "5xx", value: formatCount(s.serverErrors) },
+    {
+      label: "Avg latency",
+      value:
+        s.avgLatencyMs === null
+          ? "no requests"
+          : formatLatency(Math.round(s.avgLatencyMs)),
+    },
   ]
-  return (
-    <dl
-      aria-label="Range summary"
-      className="flex flex-wrap items-baseline gap-x-5 gap-y-1 text-sm"
-    >
-      {items.map(([term, value]) => (
-        <div key={term} className="flex items-baseline gap-1.5">
-          <dt className="text-muted-foreground">{term}</dt>
-          <dd className="tabular-nums">{value}</dd>
-        </div>
-      ))}
-    </dl>
-  )
+  return <StatGrid aria-label="Range summary" items={items} />
 }
 
-/** The chart, or the same buckets as a table, under a toggle that keeps one label. */
+/** The chart, or the same buckets as a table; the toggle sits in the section's header. */
 function SeriesView({
   data,
   view,
-  onToggle,
 }: {
   data: UsageSeries
   view: "chart" | "table"
-  onToggle: () => void
 }) {
   // Not recorded is not the same as quiet. Until the application calls
   // RecordUsage there is nothing to draw, and a flat chart of zeros would
@@ -218,40 +208,29 @@ function SeriesView({
   const quiet = buckets.every((b) => b.requests === 0)
   const n = buckets.length
   return (
-    <div className="flex min-w-0 flex-col gap-3">
-      <div className="flex items-center justify-between gap-2">
-        <h2 className="text-base font-medium">Requests by outcome</h2>
-        {/* A toggle keeps one label and says its state with aria-pressed.
-            The kit Button has no pressed style, so the class shows it, dark
-            mode included (outline's dark background is as specific). */}
-        <Button
-          variant="outline"
-          size="sm"
-          className="aria-pressed:bg-muted aria-pressed:text-foreground dark:aria-pressed:bg-muted"
-          aria-pressed={view === "table"}
-          onClick={onToggle}
-        >
-          Table
-        </Button>
-      </div>
+    <>
       <RangeSummary buckets={buckets} />
       {quiet && (
-        <p className="text-sm text-muted-foreground">
+        <p className="border-t px-4 py-3 text-sm text-muted-foreground">
           No requests in this range.
         </p>
       )}
       {view === "table" ? (
-        <ResourceTable<UsageBucket>
-          columns={bucketColumns(data.period)}
-          rows={buckets}
-          rowKey={(b) => b.start}
-          caption={`${n} ${data.period} ${n === 1 ? "bucket" : "buckets"}, UTC`}
-          emptyMessage="No buckets in this range."
-        />
+        <div className="border-t">
+          <ResourceTable<UsageBucket>
+            columns={bucketColumns(data.period)}
+            rows={buckets}
+            rowKey={(b) => b.start}
+            caption={`${n} ${data.period} ${n === 1 ? "bucket" : "buckets"}, UTC`}
+            emptyMessage="No buckets in this range."
+          />
+        </div>
       ) : (
-        <UsageChart buckets={buckets} period={data.period} />
+        <div className="border-t p-4">
+          <UsageChart buckets={buckets} period={data.period} />
+        </div>
       )}
-    </div>
+    </>
   )
 }
 
@@ -354,27 +333,38 @@ export const UsagePage: ComponentType<PluginPageProps> = () => {
         ]}
       />
 
-      <QueryBoundary title="Usage" query={series} skeletonRows={6}>
-        {(data) => (
-          <SeriesView
-            data={data}
-            view={view}
-            onToggle={() => setView((v) => (v === "table" ? "chart" : "table"))}
-          />
-        )}
-      </QueryBoundary>
+      <Section
+        title="Requests by outcome"
+        actions={
+          // Only once there is a chart to swap. A toggle keeps one label and
+          // says its state with aria-pressed. The kit Button has no pressed
+          // style, so the class shows it, dark mode included (outline's dark
+          // background is as specific).
+          series.data?.recorded === true ? (
+            <Button
+              variant="outline"
+              size="sm"
+              className="aria-pressed:bg-muted aria-pressed:text-foreground dark:aria-pressed:bg-muted"
+              aria-pressed={view === "table"}
+              onClick={() =>
+                setView((v) => (v === "table" ? "chart" : "table"))
+              }
+            >
+              Table
+            </Button>
+          ) : undefined
+        }
+      >
+        <QueryBoundary title="Usage" query={series} skeletonRows={6}>
+          {(data) => <SeriesView data={data} view={view} />}
+        </QueryBoundary>
+      </Section>
 
       {/* Only once the series says usage exists. While it loads, or when it
           failed, a tenant with no usage would otherwise flash "No requests
           recorded in this range." before the empty state above says why. */}
       {series.data?.recorded === true && (
-        <section
-          aria-labelledby="usage-records"
-          className="flex min-w-0 flex-col gap-3"
-        >
-          <h2 id="usage-records" className="text-base font-medium">
-            Requests
-          </h2>
+        <Section title="Requests">
           <QueryBoundary
             title="Usage records"
             query={records}
@@ -408,7 +398,7 @@ export const UsagePage: ComponentType<PluginPageProps> = () => {
               )
             }}
           </QueryBoundary>
-        </section>
+        </Section>
       )}
     </section>
   )

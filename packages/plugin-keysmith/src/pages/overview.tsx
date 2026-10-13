@@ -1,4 +1,4 @@
-import type { ComponentType, ReactNode } from "react"
+import type { ComponentType } from "react"
 import { PluginLink, useQuery } from "@forge-go/dashboard-plugin"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
@@ -7,6 +7,7 @@ import {
   ResourceTable,
   type Column,
 } from "@forge-go/dashboard-kit/components/resource-table"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { StatGrid } from "@forge-go/dashboard-kit/components/stat-grid"
 import type { StatItem } from "@forge-go/dashboard-kit/components/stat-grid"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
@@ -103,40 +104,16 @@ const rotationColumns: Column<RotationItem>[] = [
   },
 ]
 
-/** A heading with a "View all" link to the full list beside it. */
-function RecentSection({
-  id,
-  title,
-  to,
-  allLabel,
-  children,
-}: {
-  id: string
-  title: string
-  to: string
-  allLabel: string
-  children: ReactNode
-}) {
-  const headingId = `keysmith-overview-${id}`
+/** The "View all" link beside a section's title, to the full list. */
+function ViewAll({ to, label }: { to: string; label: string }) {
   return (
-    <section
-      aria-labelledby={headingId}
-      className="flex min-w-0 flex-col gap-2"
+    <PluginLink
+      to={to}
+      aria-label={label}
+      className="text-sm underline underline-offset-4"
     >
-      <div className="flex items-baseline justify-between gap-4">
-        <h2 id={headingId} className="text-sm font-medium">
-          {title}
-        </h2>
-        <PluginLink
-          to={to}
-          aria-label={allLabel}
-          className="text-sm underline underline-offset-4"
-        >
-          View all
-        </PluginLink>
-      </div>
-      {children}
-    </section>
+      View all
+    </PluginLink>
   )
 }
 
@@ -163,11 +140,9 @@ export const OverviewPage: ComponentType<PluginPageProps> = () => {
             <>
               <StatGrid items={stats(data)} />
 
-              <RecentSection
-                id="keys"
+              <Section
                 title="Recent keys"
-                to="/keys"
-                allLabel="View all keys"
+                actions={<ViewAll to="/keys" label="View all keys" />}
               >
                 <ResourceTable<KeySummary>
                   columns={keyColumns}
@@ -176,13 +151,11 @@ export const OverviewPage: ComponentType<PluginPageProps> = () => {
                   caption={newest(keys.length, "key")}
                   emptyMessage="No keys yet."
                 />
-              </RecentSection>
+              </Section>
 
-              <RecentSection
-                id="rotations"
+              <Section
                 title="Recent rotations"
-                to="/rotations"
-                allLabel="View all rotations"
+                actions={<ViewAll to="/rotations" label="View all rotations" />}
               >
                 <ResourceTable<RotationItem>
                   columns={rotationColumns}
@@ -191,7 +164,7 @@ export const OverviewPage: ComponentType<PluginPageProps> = () => {
                   caption={newest(rotations.length, "rotation")}
                   emptyMessage="No rotations yet."
                 />
-              </RecentSection>
+              </Section>
 
               <p className="text-sm">
                 <PluginLink

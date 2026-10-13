@@ -12,6 +12,7 @@ import {
   ResourceTable,
   type Column,
 } from "@forge-go/dashboard-kit/components/resource-table"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { CreateScopeDialog } from "../components/create-scope-dialog"
 import type { ScopesList, ScopeSummary } from "../types"
 
@@ -64,50 +65,57 @@ export const ScopesPage: ComponentType<PluginPageProps> = () => {
 
   return (
     <section className="flex min-w-0 flex-col gap-4">
-      <div className="flex min-w-0 flex-col gap-2">
-        <PageHeader title="Scopes" actions={create} />
-        <p className="text-sm text-muted-foreground">
-          Parents are stored for your application. Keysmith does not use them
-          when matching, so a key with{" "}
-          <span className="font-mono text-xs text-foreground">read</span> does
-          not also get{" "}
-          <span className="font-mono text-xs text-foreground">read:users</span>.
-        </p>
-      </div>
+      <PageHeader title="Scopes" actions={create} />
 
-      <QueryBoundary title="Scopes" query={list} skeletonRows={5}>
-        {(data) => {
-          const rows = data.scopes ?? []
-          return (
-            <div className="flex min-w-0 flex-col gap-1.5">
-              <ResourceTable<ScopeSummary>
-                columns={columns}
-                rows={rows}
-                rowKey={(s) => s.id}
-                caption={
-                  rows.length === 0
-                    ? undefined
-                    : `${rows.length} ${rows.length === 1 ? "scope" : "scopes"}`
-                }
-                emptyMessage="No scopes yet."
-                emptyAction={create}
-                rowActions={(s) => (
-                  <IconButton
-                    variant="outline"
-                    onClick={() => startDeleting(s)}
-                    label={`Delete ${s.name}`}
-                  />
+      <Section
+        aria-label="Scope list"
+        description={
+          <>
+            Parents are stored for your application. Keysmith does not use them
+            when matching, so a key with{" "}
+            <span className="font-mono text-xs text-foreground">read</span> does
+            not also get{" "}
+            <span className="font-mono text-xs text-foreground">
+              read:users
+            </span>
+            .
+          </>
+        }
+      >
+        <QueryBoundary title="Scopes" query={list} skeletonRows={5}>
+          {(data) => {
+            const rows = data.scopes ?? []
+            return (
+              <>
+                <ResourceTable<ScopeSummary>
+                  columns={columns}
+                  rows={rows}
+                  rowKey={(s) => s.id}
+                  caption={
+                    rows.length === 0
+                      ? undefined
+                      : `${rows.length} ${rows.length === 1 ? "scope" : "scopes"}`
+                  }
+                  emptyMessage="No scopes yet."
+                  emptyAction={create}
+                  rowActions={(s) => (
+                    <IconButton
+                      variant="outline"
+                      onClick={() => startDeleting(s)}
+                      label={`Delete ${s.name}`}
+                    />
+                  )}
+                />
+                {data.hasMore && (
+                  <p className="border-t px-4 py-3 text-sm text-muted-foreground">
+                    {`Showing the first ${LIST_LIMIT} scopes.`}
+                  </p>
                 )}
-              />
-              {data.hasMore && (
-                <p className="text-xs text-muted-foreground">
-                  {`Showing the first ${LIST_LIMIT} scopes.`}
-                </p>
-              )}
-            </div>
-          )
-        }}
-      </QueryBoundary>
+              </>
+            )
+          }}
+        </QueryBoundary>
+      </Section>
 
       <CreateScopeDialog open={creating} onOpenChange={setCreating} />
       {target && (

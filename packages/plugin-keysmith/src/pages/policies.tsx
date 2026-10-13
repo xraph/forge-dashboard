@@ -10,6 +10,7 @@ import {
   ResourceTable,
   type Column,
 } from "@forge-go/dashboard-kit/components/resource-table"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { TagList } from "@forge-go/dashboard-kit/components/tag-list"
 import { PolicyEditorDialog } from "../components/policy-editor-dialog"
 import { formatDuration, policyPath } from "../format"
@@ -81,28 +82,30 @@ export const PoliciesPage: ComponentType<PluginPageProps> = () => {
         }
       />
 
-      <QueryBoundary title="Policies" query={list} skeletonRows={5}>
-        {(data) => {
-          const rows = data.policies ?? []
-          const caption = `${rows.length} ${rows.length === 1 ? "policy" : "policies"}`
-          return (
-            <div className="flex min-w-0 flex-col gap-1.5">
-              <ResourceTable<PolicySummary>
-                columns={columns}
-                rows={rows}
-                rowKey={(p) => p.id}
-                caption={caption}
-                emptyMessage="No policies yet."
-              />
-              {data.hasMore && (
-                <p className="text-xs text-muted-foreground">
-                  {`Showing the first ${LIST_LIMIT} policies.`}
-                </p>
-              )}
-            </div>
-          )
-        }}
-      </QueryBoundary>
+      <Section aria-label="Policy list">
+        <QueryBoundary title="Policies" query={list} skeletonRows={5}>
+          {(data) => {
+            const rows = data.policies ?? []
+            const caption = `${rows.length} ${rows.length === 1 ? "policy" : "policies"}`
+            return (
+              <>
+                <ResourceTable<PolicySummary>
+                  columns={columns}
+                  rows={rows}
+                  rowKey={(p) => p.id}
+                  caption={caption}
+                  emptyMessage="No policies yet."
+                />
+                {data.hasMore && (
+                  <p className="border-t px-4 py-3 text-sm text-muted-foreground">
+                    {`Showing the first ${LIST_LIMIT} policies.`}
+                  </p>
+                )}
+              </>
+            )
+          }}
+        </QueryBoundary>
+      </Section>
 
       {/*
         Outside the boundary: it shows a skeleton on every refetch, and the
