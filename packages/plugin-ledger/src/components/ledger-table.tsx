@@ -87,7 +87,8 @@ export function LedgerTable<Row extends RowData>({
     <Table
       containerProps={{ tabIndex: 0, role: "region", "aria-label": caption }}
     >
-      <TableCaption>{caption}</TableCaption>
+      {/* Left and small like ResourceTable's compact caption, so a panel holding either reads the same. */}
+      <TableCaption className="mt-2 text-left text-xs">{caption}</TableCaption>
       <TableHeader>
         {table.getHeaderGroups().map((group) => (
           <TableRow key={group.id}>

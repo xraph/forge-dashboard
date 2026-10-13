@@ -10,6 +10,7 @@ import {
   NativeSelectOption,
 } from "@forge-go/dashboard-kit/components/native-select"
 import { CommandAlert } from "@forge-go/dashboard-kit/components/query-boundary"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { Textarea } from "@forge-go/dashboard-kit/components/textarea"
 import { ProblemsAlert } from "../components/problems-alert"
 import { PERIOD_LABEL, TYPE_LABEL } from "../lib/features"
@@ -362,377 +363,384 @@ export function PlanForm({
       <CommandAlert error={error} title={errorTitle} />
       <ProblemsAlert heading="Fix these before saving" problems={problems} />
 
-      <fieldset className="grid min-w-0 gap-4 sm:grid-cols-2">
-        <legend className="mb-2 text-base font-medium">Plan</legend>
-        <div className="flex min-w-0 flex-col gap-1.5">
-          <Label htmlFor="plan-name">Name</Label>
-          <Input
-            id="plan-name"
-            value={v.name}
-            onChange={(e) => set("name", e.target.value)}
-          />
+      <Section title="Plan" inset>
+        <div className="grid min-w-0 gap-4 sm:grid-cols-2">
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <Label htmlFor="plan-name">Name</Label>
+            <Input
+              id="plan-name"
+              value={v.name}
+              onChange={(e) => set("name", e.target.value)}
+            />
+          </div>
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <Label htmlFor="plan-slug">Slug</Label>
+            <Input
+              id="plan-slug"
+              className="font-mono"
+              autoComplete="off"
+              spellCheck={false}
+              value={v.slug}
+              onChange={(e) => set("slug", e.target.value)}
+            />
+          </div>
+          <div className="flex min-w-0 flex-col gap-1.5 sm:col-span-2">
+            <Label htmlFor="plan-description">Description</Label>
+            <Textarea
+              id="plan-description"
+              value={v.description}
+              onChange={(e) => set("description", e.target.value)}
+            />
+          </div>
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <Label htmlFor="plan-currency">Currency</Label>
+            <Input
+              id="plan-currency"
+              className="font-mono uppercase"
+              disabled={mode === "edit"}
+              value={v.currency}
+              onChange={(e) => set("currency", e.target.value)}
+            />
+            {mode === "edit" && (
+              <p className="text-xs text-muted-foreground">
+                A plan's currency cannot change once it exists.
+              </p>
+            )}
+          </div>
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <Label htmlFor="plan-trial">Trial days</Label>
+            <Input
+              id="plan-trial"
+              inputMode="numeric"
+              className="tabular-nums"
+              value={v.trial_days}
+              onChange={(e) => set("trial_days", e.target.value)}
+            />
+          </div>
         </div>
-        <div className="flex min-w-0 flex-col gap-1.5">
-          <Label htmlFor="plan-slug">Slug</Label>
-          <Input
-            id="plan-slug"
-            className="font-mono"
-            autoComplete="off"
-            spellCheck={false}
-            value={v.slug}
-            onChange={(e) => set("slug", e.target.value)}
-          />
+      </Section>
+
+      <Section title="Price" inset>
+        <div className="grid min-w-0 gap-4 sm:grid-cols-2">
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <Label htmlFor="plan-base">Base price</Label>
+            <Input
+              id="plan-base"
+              inputMode="decimal"
+              className="text-right tabular-nums"
+              value={v.base}
+              onChange={(e) => set("base", e.target.value)}
+            />
+          </div>
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <Label htmlFor="plan-period">Billed</Label>
+            <NativeSelect
+              id="plan-period"
+              value={v.billing_period}
+              onChange={(e) =>
+                set("billing_period", e.target.value as "monthly" | "yearly")
+              }
+            >
+              <NativeSelectOption value="monthly">Monthly</NativeSelectOption>
+              <NativeSelectOption value="yearly">Yearly</NativeSelectOption>
+            </NativeSelect>
+          </div>
         </div>
-        <div className="flex min-w-0 flex-col gap-1.5 sm:col-span-2">
-          <Label htmlFor="plan-description">Description</Label>
-          <Textarea
-            id="plan-description"
-            value={v.description}
-            onChange={(e) => set("description", e.target.value)}
-          />
-        </div>
-        <div className="flex min-w-0 flex-col gap-1.5">
-          <Label htmlFor="plan-currency">Currency</Label>
-          <Input
-            id="plan-currency"
-            className="font-mono uppercase"
-            disabled={mode === "edit"}
-            value={v.currency}
-            onChange={(e) => set("currency", e.target.value)}
-          />
-          {mode === "edit" && (
-            <p className="text-xs text-muted-foreground">
-              A plan's currency cannot change once it exists.
+      </Section>
+
+      <Section title="Features" inset>
+        <div className="flex min-w-0 flex-col gap-3">
+          {v.features.length === 0 && (
+            <p className="text-sm text-muted-foreground">
+              No features yet. A plan with none grants nothing beyond its base
+              price.
             </p>
           )}
-        </div>
-        <div className="flex min-w-0 flex-col gap-1.5">
-          <Label htmlFor="plan-trial">Trial days</Label>
-          <Input
-            id="plan-trial"
-            inputMode="numeric"
-            className="tabular-nums"
-            value={v.trial_days}
-            onChange={(e) => set("trial_days", e.target.value)}
-          />
-        </div>
-      </fieldset>
-
-      <fieldset className="grid min-w-0 gap-4 sm:grid-cols-2">
-        <legend className="mb-2 text-base font-medium">Price</legend>
-        <div className="flex min-w-0 flex-col gap-1.5">
-          <Label htmlFor="plan-base">Base price</Label>
-          <Input
-            id="plan-base"
-            inputMode="decimal"
-            className="text-right tabular-nums"
-            value={v.base}
-            onChange={(e) => set("base", e.target.value)}
-          />
-        </div>
-        <div className="flex min-w-0 flex-col gap-1.5">
-          <Label htmlFor="plan-period">Billed</Label>
-          <NativeSelect
-            id="plan-period"
-            value={v.billing_period}
-            onChange={(e) =>
-              set("billing_period", e.target.value as "monthly" | "yearly")
-            }
-          >
-            <NativeSelectOption value="monthly">Monthly</NativeSelectOption>
-            <NativeSelectOption value="yearly">Yearly</NativeSelectOption>
-          </NativeSelect>
-        </div>
-      </fieldset>
-
-      <fieldset className="flex min-w-0 flex-col gap-3">
-        <legend className="mb-2 text-base font-medium">Features</legend>
-        {v.features.length === 0 && (
-          <p className="text-sm text-muted-foreground">
-            No features yet. A plan with none grants nothing beyond its base
-            price.
-          </p>
-        )}
-        {v.features.map((f, i) => {
-          const n = i + 1
-          return (
-            <div
-              key={i}
-              className="grid min-w-0 items-end gap-2 rounded-md border p-3 sm:grid-cols-[1fr_1fr_8rem_8rem_8rem_auto]"
-            >
-              <div className="flex min-w-0 flex-col gap-1.5">
-                <Label htmlFor={`feature-${n}-key`}>Feature {n} key</Label>
-                <Input
-                  id={`feature-${n}-key`}
-                  className="font-mono"
-                  value={f.key}
-                  onChange={(e) => setFeature(i, { key: e.target.value })}
-                />
-              </div>
-              <div className="flex min-w-0 flex-col gap-1.5">
-                <Label htmlFor={`feature-${n}-name`}>Feature {n} name</Label>
-                <Input
-                  id={`feature-${n}-name`}
-                  value={f.name}
-                  onChange={(e) => setFeature(i, { name: e.target.value })}
-                />
-              </div>
-              <div className="flex min-w-0 flex-col gap-1.5">
-                <Label htmlFor={`feature-${n}-type`}>Feature {n} type</Label>
-                <NativeSelect
-                  id={`feature-${n}-type`}
-                  value={f.type}
-                  onChange={(e) => {
-                    const type = e.target.value as FeatureType
-                    // A fresh row's limit is 0 and an unlimited one is -1, and both read as "off" for a boolean feature.
-                    const startOn =
-                      type === "boolean" &&
-                      (f.unlimited ||
-                        f.limit.trim() === "" ||
-                        f.limit.trim() === "0")
-                    setFeature(
-                      i,
-                      startOn
-                        ? { type, limit: "1", unlimited: false }
-                        : { type }
-                    )
-                  }}
-                >
-                  {FEATURE_TYPES.map((t) => (
-                    <NativeSelectOption key={t.value} value={t.value}>
-                      {t.label}
-                    </NativeSelectOption>
-                  ))}
-                </NativeSelect>
-              </div>
-              <div className="flex min-w-0 flex-col gap-1.5">
-                <Label htmlFor={`feature-${n}-limit`}>Feature {n} limit</Label>
-                <Input
-                  id={`feature-${n}-limit`}
-                  inputMode="numeric"
-                  className="text-right tabular-nums"
-                  disabled={f.unlimited && f.type !== "boolean"}
-                  value={f.unlimited && f.type !== "boolean" ? "" : f.limit}
-                  onChange={(e) => setFeature(i, { limit: e.target.value })}
-                />
-                {f.type === "boolean" && (
-                  <p className="text-xs text-muted-foreground">
-                    1 means on, 0 means off
-                  </p>
-                )}
-                {f.type !== "boolean" && (
+          {v.features.map((f, i) => {
+            const n = i + 1
+            return (
+              <div
+                key={i}
+                className="grid min-w-0 items-end gap-2 rounded-md border p-3 sm:grid-cols-[1fr_1fr_8rem_8rem_8rem_auto]"
+              >
+                <div className="flex min-w-0 flex-col gap-1.5">
+                  <Label htmlFor={`feature-${n}-key`}>Feature {n} key</Label>
+                  <Input
+                    id={`feature-${n}-key`}
+                    className="font-mono"
+                    value={f.key}
+                    onChange={(e) => setFeature(i, { key: e.target.value })}
+                  />
+                </div>
+                <div className="flex min-w-0 flex-col gap-1.5">
+                  <Label htmlFor={`feature-${n}-name`}>Feature {n} name</Label>
+                  <Input
+                    id={`feature-${n}-name`}
+                    value={f.name}
+                    onChange={(e) => setFeature(i, { name: e.target.value })}
+                  />
+                </div>
+                <div className="flex min-w-0 flex-col gap-1.5">
+                  <Label htmlFor={`feature-${n}-type`}>Feature {n} type</Label>
+                  <NativeSelect
+                    id={`feature-${n}-type`}
+                    value={f.type}
+                    onChange={(e) => {
+                      const type = e.target.value as FeatureType
+                      // A fresh row's limit is 0 and an unlimited one is -1, and both read as "off" for a boolean feature.
+                      const startOn =
+                        type === "boolean" &&
+                        (f.unlimited ||
+                          f.limit.trim() === "" ||
+                          f.limit.trim() === "0")
+                      setFeature(
+                        i,
+                        startOn
+                          ? { type, limit: "1", unlimited: false }
+                          : { type }
+                      )
+                    }}
+                  >
+                    {FEATURE_TYPES.map((t) => (
+                      <NativeSelectOption key={t.value} value={t.value}>
+                        {t.label}
+                      </NativeSelectOption>
+                    ))}
+                  </NativeSelect>
+                </div>
+                <div className="flex min-w-0 flex-col gap-1.5">
+                  <Label htmlFor={`feature-${n}-limit`}>
+                    Feature {n} limit
+                  </Label>
+                  <Input
+                    id={`feature-${n}-limit`}
+                    inputMode="numeric"
+                    className="text-right tabular-nums"
+                    disabled={f.unlimited && f.type !== "boolean"}
+                    value={f.unlimited && f.type !== "boolean" ? "" : f.limit}
+                    onChange={(e) => setFeature(i, { limit: e.target.value })}
+                  />
+                  {f.type === "boolean" && (
+                    <p className="text-xs text-muted-foreground">
+                      1 means on, 0 means off
+                    </p>
+                  )}
+                  {f.type !== "boolean" && (
+                    <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <input
+                        type="checkbox"
+                        aria-label={`Feature ${n}: unlimited`}
+                        checked={f.unlimited}
+                        onChange={(e) =>
+                          setFeature(i, { unlimited: e.target.checked })
+                        }
+                      />
+                      Unlimited
+                    </label>
+                  )}
+                </div>
+                <div className="flex min-w-0 flex-col gap-1.5">
+                  <Label htmlFor={`feature-${n}-period`}>
+                    Feature {n} resets
+                  </Label>
+                  <NativeSelect
+                    id={`feature-${n}-period`}
+                    value={f.period}
+                    onChange={(e) =>
+                      setFeature(i, { period: e.target.value as Period })
+                    }
+                  >
+                    {PERIODS.map((p) => (
+                      <NativeSelectOption key={p.value} value={p.value}>
+                        {p.label}
+                      </NativeSelectOption>
+                    ))}
+                  </NativeSelect>
                   <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
                     <input
                       type="checkbox"
-                      aria-label={`Feature ${n}: unlimited`}
-                      checked={f.unlimited}
+                      aria-label={`Feature ${n}: soft limit`}
+                      checked={f.soft_limit}
                       onChange={(e) =>
-                        setFeature(i, { unlimited: e.target.checked })
+                        setFeature(i, { soft_limit: e.target.checked })
                       }
                     />
-                    Unlimited
+                    Soft limit
                   </label>
-                )}
-              </div>
-              <div className="flex min-w-0 flex-col gap-1.5">
-                <Label htmlFor={`feature-${n}-period`}>
-                  Feature {n} resets
-                </Label>
-                <NativeSelect
-                  id={`feature-${n}-period`}
-                  value={f.period}
-                  onChange={(e) =>
-                    setFeature(i, { period: e.target.value as Period })
+                </div>
+                <IconButton
+                  type="button"
+                  variant="ghost"
+                  onClick={() =>
+                    set(
+                      "features",
+                      v.features.filter((_, j) => j !== i)
+                    )
                   }
-                >
-                  {PERIODS.map((p) => (
-                    <NativeSelectOption key={p.value} value={p.value}>
-                      {p.label}
-                    </NativeSelectOption>
-                  ))}
-                </NativeSelect>
-                <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <input
-                    type="checkbox"
-                    aria-label={`Feature ${n}: soft limit`}
-                    checked={f.soft_limit}
-                    onChange={(e) =>
-                      setFeature(i, { soft_limit: e.target.checked })
-                    }
-                  />
-                  Soft limit
-                </label>
+                  label={`Remove feature ${n}`}
+                />
               </div>
-              <IconButton
-                type="button"
-                variant="ghost"
-                onClick={() =>
-                  set(
-                    "features",
-                    v.features.filter((_, j) => j !== i)
-                  )
-                }
-                label={`Remove feature ${n}`}
-              />
-            </div>
-          )
-        })}
-        <div>
-          <IconButton
-            type="button"
-            variant="outline"
-            onClick={() =>
-              set("features", [
-                ...v.features,
-                {
-                  key: "",
-                  name: "",
-                  type: "metered",
-                  limit: "0",
-                  unlimited: false,
-                  period: "monthly",
-                  soft_limit: false,
-                },
-              ])
-            }
-            label="Add feature"
-          />
+            )
+          })}
+          <div>
+            <IconButton
+              type="button"
+              variant="outline"
+              onClick={() =>
+                set("features", [
+                  ...v.features,
+                  {
+                    key: "",
+                    name: "",
+                    type: "metered",
+                    limit: "0",
+                    unlimited: false,
+                    period: "monthly",
+                    soft_limit: false,
+                  },
+                ])
+              }
+              label="Add feature"
+            />
+          </div>
         </div>
-      </fieldset>
+      </Section>
 
-      <fieldset className="flex min-w-0 flex-col gap-3">
-        <legend className="mb-2 text-base font-medium">Usage pricing</legend>
-        <p className="text-sm text-muted-foreground">
-          Tiers price a feature's usage beyond the base price. A tier with no
-          upper bound catches everything above the one before it.
-        </p>
-        {v.tiers.map((t, i) => {
-          const n = i + 1
-          return (
-            <div
-              key={i}
-              className="grid min-w-0 items-end gap-2 rounded-md border p-3 sm:grid-cols-[1fr_8rem_8rem_8rem_8rem_auto]"
-            >
-              <div className="flex min-w-0 flex-col gap-1.5">
-                <Label htmlFor={`tier-${n}-feature`}>Tier {n} feature</Label>
-                <NativeSelect
-                  id={`tier-${n}-feature`}
-                  value={t.feature_key}
-                  onChange={(e) => setTier(i, { feature_key: e.target.value })}
-                >
-                  <NativeSelectOption value="">
-                    Choose a feature
-                  </NativeSelectOption>
-                  {featureKeys.map((k) => (
-                    <NativeSelectOption key={k} value={k}>
-                      {k}
+      <Section title="Usage pricing" inset>
+        <div className="flex min-w-0 flex-col gap-3">
+          <p className="text-sm text-muted-foreground">
+            Tiers price a feature's usage beyond the base price. A tier with no
+            upper bound catches everything above the one before it.
+          </p>
+          {v.tiers.map((t, i) => {
+            const n = i + 1
+            return (
+              <div
+                key={i}
+                className="grid min-w-0 items-end gap-2 rounded-md border p-3 sm:grid-cols-[1fr_8rem_8rem_8rem_8rem_auto]"
+              >
+                <div className="flex min-w-0 flex-col gap-1.5">
+                  <Label htmlFor={`tier-${n}-feature`}>Tier {n} feature</Label>
+                  <NativeSelect
+                    id={`tier-${n}-feature`}
+                    value={t.feature_key}
+                    onChange={(e) =>
+                      setTier(i, { feature_key: e.target.value })
+                    }
+                  >
+                    <NativeSelectOption value="">
+                      Choose a feature
                     </NativeSelectOption>
-                  ))}
-                </NativeSelect>
-              </div>
-              <div className="flex min-w-0 flex-col gap-1.5">
-                <Label htmlFor={`tier-${n}-type`}>Tier {n} type</Label>
-                <NativeSelect
-                  id={`tier-${n}-type`}
-                  value={t.type}
-                  onChange={(e) =>
-                    setTier(i, { type: e.target.value as TierType })
+                    {featureKeys.map((k) => (
+                      <NativeSelectOption key={k} value={k}>
+                        {k}
+                      </NativeSelectOption>
+                    ))}
+                  </NativeSelect>
+                </div>
+                <div className="flex min-w-0 flex-col gap-1.5">
+                  <Label htmlFor={`tier-${n}-type`}>Tier {n} type</Label>
+                  <NativeSelect
+                    id={`tier-${n}-type`}
+                    value={t.type}
+                    onChange={(e) =>
+                      setTier(i, { type: e.target.value as TierType })
+                    }
+                  >
+                    {TIER_TYPES.map((x) => (
+                      <NativeSelectOption key={x.value} value={x.value}>
+                        {x.label}
+                      </NativeSelectOption>
+                    ))}
+                  </NativeSelect>
+                </div>
+                <div className="flex min-w-0 flex-col gap-1.5">
+                  <Label htmlFor={`tier-${n}-upto`}>Tier {n} up to</Label>
+                  <Input
+                    id={`tier-${n}-upto`}
+                    inputMode="numeric"
+                    className="text-right tabular-nums"
+                    disabled={t.unbounded}
+                    value={t.unbounded ? "" : t.up_to}
+                    onChange={(e) => setTier(i, { up_to: e.target.value })}
+                  />
+                  <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <input
+                      type="checkbox"
+                      aria-label={`Tier ${n}: no limit`}
+                      checked={t.unbounded}
+                      onChange={(e) =>
+                        setTier(i, { unbounded: e.target.checked })
+                      }
+                    />
+                    No limit
+                  </label>
+                </div>
+                <div className="flex min-w-0 flex-col gap-1.5">
+                  <Label htmlFor={`tier-${n}-unit`}>Tier {n} unit price</Label>
+                  <Input
+                    id={`tier-${n}-unit`}
+                    inputMode="decimal"
+                    className="text-right tabular-nums"
+                    value={t.unit}
+                    onChange={(e) => setTier(i, { unit: e.target.value })}
+                  />
+                </div>
+                <div className="flex min-w-0 flex-col gap-1.5">
+                  <Label htmlFor={`tier-${n}-flat`}>Tier {n} flat fee</Label>
+                  <Input
+                    id={`tier-${n}-flat`}
+                    inputMode="decimal"
+                    className="text-right tabular-nums"
+                    value={t.flat}
+                    onChange={(e) => setTier(i, { flat: e.target.value })}
+                  />
+                </div>
+                <IconButton
+                  type="button"
+                  variant="ghost"
+                  onClick={() =>
+                    set(
+                      "tiers",
+                      v.tiers.filter((_, j) => j !== i)
+                    )
                   }
-                >
-                  {TIER_TYPES.map((x) => (
-                    <NativeSelectOption key={x.value} value={x.value}>
-                      {x.label}
-                    </NativeSelectOption>
-                  ))}
-                </NativeSelect>
-              </div>
-              <div className="flex min-w-0 flex-col gap-1.5">
-                <Label htmlFor={`tier-${n}-upto`}>Tier {n} up to</Label>
-                <Input
-                  id={`tier-${n}-upto`}
-                  inputMode="numeric"
-                  className="text-right tabular-nums"
-                  disabled={t.unbounded}
-                  value={t.unbounded ? "" : t.up_to}
-                  onChange={(e) => setTier(i, { up_to: e.target.value })}
-                />
-                <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <input
-                    type="checkbox"
-                    aria-label={`Tier ${n}: no limit`}
-                    checked={t.unbounded}
-                    onChange={(e) =>
-                      setTier(i, { unbounded: e.target.checked })
-                    }
-                  />
-                  No limit
-                </label>
-              </div>
-              <div className="flex min-w-0 flex-col gap-1.5">
-                <Label htmlFor={`tier-${n}-unit`}>Tier {n} unit price</Label>
-                <Input
-                  id={`tier-${n}-unit`}
-                  inputMode="decimal"
-                  className="text-right tabular-nums"
-                  value={t.unit}
-                  onChange={(e) => setTier(i, { unit: e.target.value })}
+                  label={`Remove tier ${n}`}
                 />
               </div>
-              <div className="flex min-w-0 flex-col gap-1.5">
-                <Label htmlFor={`tier-${n}-flat`}>Tier {n} flat fee</Label>
-                <Input
-                  id={`tier-${n}-flat`}
-                  inputMode="decimal"
-                  className="text-right tabular-nums"
-                  value={t.flat}
-                  onChange={(e) => setTier(i, { flat: e.target.value })}
-                />
-              </div>
-              <IconButton
-                type="button"
-                variant="ghost"
-                onClick={() =>
-                  set(
-                    "tiers",
-                    v.tiers.filter((_, j) => j !== i)
-                  )
-                }
-                label={`Remove tier ${n}`}
-              />
-            </div>
-          )
-        })}
-        <div>
-          <IconButton
-            type="button"
-            variant="outline"
-            disabled={featureKeys.length === 0}
-            onClick={() =>
-              set("tiers", [
-                ...v.tiers,
-                {
-                  feature_key: featureKeys[0] ?? "",
-                  type: "graduated",
-                  up_to: "",
-                  unbounded: true,
-                  unit: "0",
-                  flat: "0",
-                },
-              ])
-            }
-            label="Add tier"
-          />
+            )
+          })}
+          <div>
+            <IconButton
+              type="button"
+              variant="outline"
+              disabled={featureKeys.length === 0}
+              onClick={() =>
+                set("tiers", [
+                  ...v.tiers,
+                  {
+                    feature_key: featureKeys[0] ?? "",
+                    type: "graduated",
+                    up_to: "",
+                    unbounded: true,
+                    unit: "0",
+                    flat: "0",
+                  },
+                ])
+              }
+              label="Add tier"
+            />
+          </div>
+          <div className="flex gap-2 pt-1">
+            <Button type="submit" disabled={pending}>
+              {pending ? pendingLabel : submitLabel}
+            </Button>
+            <PluginLink to={cancelTo} className="self-center text-sm underline">
+              Cancel
+            </PluginLink>
+          </div>
         </div>
-      </fieldset>
-
-      <div className="flex gap-2">
-        <Button type="submit" disabled={pending}>
-          {pending ? pendingLabel : submitLabel}
-        </Button>
-        <PluginLink to={cancelTo} className="self-center text-sm underline">
-          Cancel
-        </PluginLink>
-      </div>
+      </Section>
     </form>
   )
 }

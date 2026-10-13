@@ -4,6 +4,7 @@ import { FilterBar } from "@forge-go/dashboard-kit/components/filter-bar"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
 import { ResourceTable } from "@forge-go/dashboard-kit/components/resource-table"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { INVOICE_STATUS_OPTIONS } from "../badges"
 import { invoiceColumns } from "../components/invoice-columns"
 import { ImportFromProviderAction } from "../components/import-from-provider"
@@ -51,61 +52,70 @@ export function LedgerInvoicesPage() {
           />
         }
       />
-      <FilterBar
-        search={{
-          value: tenant,
-          onChange: (next) => {
-            setTenant(next)
-            setPage(1)
-          },
-          placeholder: "Exact tenant ID",
-          label: "Tenant ID",
-        }}
-        filters={[
-          {
-            id: "status",
-            label: "Status",
-            value: status,
-            options: [{ label: "All", value: "" }, ...INVOICE_STATUS_OPTIONS],
-            onChange: (next) => {
-              setStatus(next)
-              setPage(1)
-            },
-          },
-        ]}
-      />
-      <QueryBoundary title="Invoices" query={list} skeletonRows={5}>
-        {(data) => {
-          const rows = data.items ?? []
-          return (
-            <div className="flex min-w-0 flex-col gap-3">
-              <ResourceTable<Invoice>
-                columns={columns}
-                rows={rows}
-                rowKey={(i) => i.id}
-                caption={pageCaption({
-                  page,
-                  shown: rows.length,
-                  hasMore: data.has_more,
-                  singular: "invoice",
-                  plural: "invoices",
-                })}
-                emptyMessage={emptyMessage}
-                emptyAction={
-                  page > 1 ? (
-                    <BackToFirstPage onClick={() => setPage(1)} />
-                  ) : undefined
-                }
-              />
-              <OffsetPager
-                page={page}
-                hasMore={data.has_more}
-                onPageChange={setPage}
-              />
-            </div>
-          )
-        }}
-      </QueryBoundary>
+      <Section
+        aria-label="Invoice list"
+        actions={
+          <FilterBar
+            search={{
+              value: tenant,
+              onChange: (next) => {
+                setTenant(next)
+                setPage(1)
+              },
+              placeholder: "Exact tenant ID",
+              label: "Tenant ID",
+            }}
+            filters={[
+              {
+                id: "status",
+                label: "Status",
+                value: status,
+                options: [
+                  { label: "All", value: "" },
+                  ...INVOICE_STATUS_OPTIONS,
+                ],
+                onChange: (next) => {
+                  setStatus(next)
+                  setPage(1)
+                },
+              },
+            ]}
+          />
+        }
+      >
+        <QueryBoundary title="Invoices" query={list} skeletonRows={5}>
+          {(data) => {
+            const rows = data.items ?? []
+            return (
+              <>
+                <ResourceTable<Invoice>
+                  columns={columns}
+                  rows={rows}
+                  rowKey={(i) => i.id}
+                  caption={pageCaption({
+                    page,
+                    shown: rows.length,
+                    hasMore: data.has_more,
+                    singular: "invoice",
+                    plural: "invoices",
+                  })}
+                  emptyMessage={emptyMessage}
+                  emptyAction={
+                    page > 1 ? (
+                      <BackToFirstPage onClick={() => setPage(1)} />
+                    ) : undefined
+                  }
+                />
+                <OffsetPager
+                  page={page}
+                  hasMore={data.has_more}
+                  onPageChange={setPage}
+                />
+              </>
+            )
+          }}
+        </QueryBoundary>
+      </Section>
     </section>
   )
 }

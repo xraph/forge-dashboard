@@ -14,6 +14,7 @@ import {
 import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { PlanStatusBadge } from "../badges"
 import { ConfirmAction } from "../components/confirm-action"
@@ -230,8 +231,7 @@ function PlanDetailView({ plan }: { plan: Plan }) {
       <DetailLayout
         main={
           <>
-            <section className="flex min-w-0 flex-col gap-2">
-              <h2 className="text-base font-medium">Features</h2>
+            <Section title="Features">
               <LedgerTable<PlanFeature>
                 columns={featureColumns}
                 rows={features}
@@ -239,97 +239,101 @@ function PlanDetailView({ plan }: { plan: Plan }) {
                 caption={`${features.length} ${features.length === 1 ? "feature" : "features"}`}
                 emptyMessage="This plan grants no features beyond its base price."
               />
-            </section>
-            <section className="flex min-w-0 flex-col gap-4">
-              <h2 className="text-base font-medium">Usage pricing</h2>
+            </Section>
+            <Section title="Usage pricing">
               {groups.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
+                <p className="px-4 py-3 text-sm text-muted-foreground">
                   No usage pricing: this plan charges its base price only.
                 </p>
               ) : (
-                groups.map((g) => (
-                  <div key={g.key} className="flex min-w-0 flex-col gap-2">
-                    <h3 className="text-sm font-medium">
-                      {g.name}{" "}
-                      <span className="font-mono text-xs text-muted-foreground">
-                        {g.key}
-                      </span>
-                    </h3>
-                    <LedgerTable<TierRow>
-                      columns={tierColumns}
-                      rows={g.tiers}
-                      rowKey={(t) => `${t.feature_key}-${g.tiers.indexOf(t)}`}
-                      caption={`${g.tiers.length} ${g.tiers.length === 1 ? "tier" : "tiers"} for ${g.key}`}
-                      emptyMessage="No tiers."
-                    />
-                  </div>
-                ))
+                <div className="flex min-w-0 flex-col divide-y">
+                  {groups.map((g) => (
+                    <div
+                      key={g.key}
+                      className="flex min-w-0 flex-col gap-2 pt-3"
+                    >
+                      <h3 className="px-4 text-sm font-medium">
+                        {g.name}{" "}
+                        <span className="font-mono text-xs text-muted-foreground">
+                          {g.key}
+                        </span>
+                      </h3>
+                      <LedgerTable<TierRow>
+                        columns={tierColumns}
+                        rows={g.tiers}
+                        rowKey={(t) => `${t.feature_key}-${g.tiers.indexOf(t)}`}
+                        caption={`${g.tiers.length} ${g.tiers.length === 1 ? "tier" : "tiers"} for ${g.key}`}
+                        emptyMessage="No tiers."
+                      />
+                    </div>
+                  ))}
+                </div>
               )}
-            </section>
+            </Section>
           </>
         }
         aside={
           <>
-            <section
-              className="flex min-w-0 flex-col gap-3"
-              aria-label="Pricing"
-            >
-              <h2 className="text-sm font-medium">Price</h2>
-              {plan.pricing ? (
-                <p className="flex items-baseline gap-2">
-                  <MoneyText
-                    value={plan.pricing.base_amount}
-                    className="text-2xl font-medium"
-                  />
-                  <span className="text-sm text-muted-foreground">
-                    {period}
-                  </span>
-                </p>
-              ) : (
-                <NoneCell label="price" />
-              )}
-              <DescriptionList
-                items={[
-                  {
-                    term: "Status",
-                    value: <PlanStatusBadge status={plan.status} />,
-                  },
-                  {
-                    term: "Slug",
-                    value: (
-                      <span className="font-mono text-xs">{plan.slug}</span>
-                    ),
-                  },
-                  {
-                    term: "Currency",
-                    value: (
-                      <span className="font-mono text-xs">
-                        {plan.currency.toUpperCase()}
-                      </span>
-                    ),
-                  },
-                  {
-                    term: "Trial",
-                    value:
-                      plan.trial_days > 0 ? (
-                        `${plan.trial_days} days`
-                      ) : (
-                        <NoneCell label="trial" />
+            <Section title="Price" inset>
+              <div className="flex min-w-0 flex-col gap-3">
+                {plan.pricing ? (
+                  <p className="flex items-baseline gap-2">
+                    <MoneyText
+                      value={plan.pricing.base_amount}
+                      className="text-2xl font-medium"
+                    />
+                    <span className="text-sm text-muted-foreground">
+                      {period}
+                    </span>
+                  </p>
+                ) : (
+                  <NoneCell label="price" />
+                )}
+                <DescriptionList
+                  items={[
+                    {
+                      term: "Status",
+                      value: <PlanStatusBadge status={plan.status} />,
+                    },
+                    {
+                      term: "Slug",
+                      value: (
+                        <span className="font-mono text-xs">{plan.slug}</span>
                       ),
-                  },
-                  {
-                    term: "Created",
-                    value: (
-                      <Timestamp value={plan.created_at} label="creation" />
-                    ),
-                  },
-                  {
-                    term: "Updated",
-                    value: <Timestamp value={plan.updated_at} label="update" />,
-                  },
-                ]}
-              />
-            </section>
+                    },
+                    {
+                      term: "Currency",
+                      value: (
+                        <span className="font-mono text-xs">
+                          {plan.currency.toUpperCase()}
+                        </span>
+                      ),
+                    },
+                    {
+                      term: "Trial",
+                      value:
+                        plan.trial_days > 0 ? (
+                          `${plan.trial_days} days`
+                        ) : (
+                          <NoneCell label="trial" />
+                        ),
+                    },
+                    {
+                      term: "Created",
+                      value: (
+                        <Timestamp value={plan.created_at} label="creation" />
+                      ),
+                    },
+                    {
+                      term: "Updated",
+                      value: (
+                        <Timestamp value={plan.updated_at} label="update" />
+                      ),
+                    },
+                  ]}
+                />
+              </div>
+            </Section>
             <SyncPanel
               intent="plans.syncToProvider"
               id={plan.id}

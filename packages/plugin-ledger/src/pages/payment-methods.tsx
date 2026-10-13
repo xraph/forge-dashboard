@@ -7,6 +7,7 @@ import { Input } from "@forge-go/dashboard-kit/components/input"
 import { Label } from "@forge-go/dashboard-kit/components/label"
 import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
 import {
   ResourceTable,
@@ -120,24 +121,30 @@ export function LedgerPaymentMethodsPage() {
         title="Payment methods"
         description="The cards and accounts a payment provider holds for a tenant."
       />
-      <form onSubmit={submit} className="flex items-end gap-2">
-        <div className="flex min-w-0 flex-col gap-1.5">
-          <Label htmlFor="pm-tenant">Tenant ID</Label>
-          <Input
-            id="pm-tenant"
-            className="w-64 font-mono"
-            autoComplete="off"
-            spellCheck={false}
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-          />
-        </div>
-        <Button type="submit" disabled={draft.trim() === ""}>
-          Look up
-        </Button>
-      </form>
+      <Section aria-label="Tenant lookup" inset>
+        <form onSubmit={submit} className="flex items-end gap-2">
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <Label htmlFor="pm-tenant">Tenant ID</Label>
+            <Input
+              id="pm-tenant"
+              className="w-64 font-mono"
+              autoComplete="off"
+              spellCheck={false}
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+            />
+          </div>
+          <Button type="submit" disabled={draft.trim() === ""}>
+            Look up
+          </Button>
+        </form>
+      </Section>
       <div aria-live="polite">
-        {tenant !== "" && <Methods key={tenant} tenant={tenant} />}
+        {tenant !== "" && (
+          <Section aria-label="Payment method list">
+            <Methods key={tenant} tenant={tenant} />
+          </Section>
+        )}
       </div>
     </section>
   )

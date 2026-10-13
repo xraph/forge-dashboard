@@ -9,6 +9,7 @@ import {
   ResourceTable,
   type Column,
 } from "@forge-go/dashboard-kit/components/resource-table"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import {
   FEATURE_STATUS_OPTIONS,
   FeatureStatusBadge,
@@ -102,67 +103,76 @@ export function LedgerFeaturesPage() {
           </>
         }
       />
-      <FilterBar
-        filters={[
-          {
-            id: "catalog",
-            label: "Catalog",
-            value: catalog,
-            options: [
-              { label: "This app", value: "app" },
-              { label: "Shared", value: "shared" },
-            ],
-            onChange: (next) => {
-              setCatalog(next as "app" | "shared")
-              setPage(1)
-            },
-          },
-          {
-            id: "status",
-            label: "Status",
-            value: status,
-            options: [{ label: "All", value: "" }, ...FEATURE_STATUS_OPTIONS],
-            onChange: (next) => {
-              setStatus(next)
-              setPage(1)
-            },
-          },
-        ]}
-      />
-      <QueryBoundary title="Features" query={list} skeletonRows={5}>
-        {(data) => {
-          const rows = data.items ?? []
-          return (
-            <div className="flex min-w-0 flex-col gap-3">
-              <ResourceTable<CatalogFeature>
-                columns={columns}
-                rows={rows}
-                rowKey={(f) => f.id}
-                caption={pageCaption({
-                  page,
-                  shown: rows.length,
-                  hasMore: data.has_more,
-                  singular: "feature",
-                  plural: "features",
-                })}
-                emptyMessage={listEmptyMessage("features", page, filtered)}
-                emptyAction={
-                  page > 1 ? (
-                    <BackToFirstPage onClick={() => setPage(1)} />
-                  ) : filtered === undefined ? (
-                    <NewFeatureLink />
-                  ) : undefined
-                }
-              />
-              <OffsetPager
-                page={page}
-                hasMore={data.has_more}
-                onPageChange={setPage}
-              />
-            </div>
-          )
-        }}
-      </QueryBoundary>
+      <Section
+        aria-label="Feature list"
+        actions={
+          <FilterBar
+            filters={[
+              {
+                id: "catalog",
+                label: "Catalog",
+                value: catalog,
+                options: [
+                  { label: "This app", value: "app" },
+                  { label: "Shared", value: "shared" },
+                ],
+                onChange: (next) => {
+                  setCatalog(next as "app" | "shared")
+                  setPage(1)
+                },
+              },
+              {
+                id: "status",
+                label: "Status",
+                value: status,
+                options: [
+                  { label: "All", value: "" },
+                  ...FEATURE_STATUS_OPTIONS,
+                ],
+                onChange: (next) => {
+                  setStatus(next)
+                  setPage(1)
+                },
+              },
+            ]}
+          />
+        }
+      >
+        <QueryBoundary title="Features" query={list} skeletonRows={5}>
+          {(data) => {
+            const rows = data.items ?? []
+            return (
+              <>
+                <ResourceTable<CatalogFeature>
+                  columns={columns}
+                  rows={rows}
+                  rowKey={(f) => f.id}
+                  caption={pageCaption({
+                    page,
+                    shown: rows.length,
+                    hasMore: data.has_more,
+                    singular: "feature",
+                    plural: "features",
+                  })}
+                  emptyMessage={listEmptyMessage("features", page, filtered)}
+                  emptyAction={
+                    page > 1 ? (
+                      <BackToFirstPage onClick={() => setPage(1)} />
+                    ) : filtered === undefined ? (
+                      <NewFeatureLink />
+                    ) : undefined
+                  }
+                />
+                <OffsetPager
+                  page={page}
+                  hasMore={data.has_more}
+                  onPageChange={setPage}
+                />
+              </>
+            )
+          }}
+        </QueryBoundary>
+      </Section>
     </section>
   )
 }

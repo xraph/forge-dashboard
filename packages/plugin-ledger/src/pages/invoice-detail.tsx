@@ -21,6 +21,7 @@ import {
   CommandAlert,
   QueryBoundary,
 } from "@forge-go/dashboard-kit/components/query-boundary"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { cn } from "@forge-go/dashboard-kit/lib/utils"
 import { InvoiceStatusBadge } from "../badges"
@@ -230,29 +231,28 @@ function Receipt({ invoice }: { invoice: Invoice }) {
   const discounted = invoice.discount_amount.amount > 0
   const clamped = invoice.subtotal.amount - invoice.discount_amount.amount < 0
   return (
-    <section
-      aria-label="Totals"
-      className="flex max-w-sm min-w-0 flex-col gap-2"
-    >
-      <dl className="grid min-w-0 grid-cols-[1fr_auto] gap-x-8 text-sm">
-        {row("Subtotal", <MoneyText value={invoice.subtotal} />)}
-        {row(
-          "Discount",
-          <span className="tabular-nums">
-            {discounted ? "−" : ""}
-            {formatMoney(invoice.discount_amount)}
-          </span>
+    <Section title="Totals" inset>
+      <div className="flex max-w-sm min-w-0 flex-col gap-2">
+        <dl className="grid min-w-0 grid-cols-[1fr_auto] gap-x-8 text-sm">
+          {row("Subtotal", <MoneyText value={invoice.subtotal} />)}
+          {row(
+            "Discount",
+            <span className="tabular-nums">
+              {discounted ? "−" : ""}
+              {formatMoney(invoice.discount_amount)}
+            </span>
+          )}
+          {row("Tax", <MoneyText value={invoice.tax_amount} />)}
+          {row("Total", <MoneyText value={invoice.total} />, true)}
+        </dl>
+        {clamped && (
+          <p className="text-xs text-muted-foreground">
+            The discount is more than the subtotal, so the amount before tax
+            cannot go below zero and the total is tax alone.
+          </p>
         )}
-        {row("Tax", <MoneyText value={invoice.tax_amount} />)}
-        {row("Total", <MoneyText value={invoice.total} />, true)}
-      </dl>
-      {clamped && (
-        <p className="text-xs text-muted-foreground">
-          The discount is more than the subtotal, so the amount before tax
-          cannot go below zero and the total is tax alone.
-        </p>
-      )}
-    </section>
+      </div>
+    </Section>
   )
 }
 
@@ -416,8 +416,7 @@ function InvoiceDetailView({ detail }: { detail: InvoiceDetail }) {
           <>
             <Receipt invoice={invoice} />
             {lineGroups(lines).map((g) => (
-              <section key={g.key} className="flex min-w-0 flex-col gap-2">
-                <h2 className="text-sm font-medium">{g.label}</h2>
+              <Section key={g.key} title={g.label}>
                 <LedgerTable<LineItem>
                   columns={lineColumns}
                   rows={g.rows}
@@ -425,144 +424,149 @@ function InvoiceDetailView({ detail }: { detail: InvoiceDetail }) {
                   caption={`${g.rows.length} ${g.noun} ${g.rows.length === 1 ? "line" : "lines"}`}
                   emptyMessage="No lines."
                 />
-              </section>
+              </Section>
             ))}
             {lines.length === 0 && (
-              <p className="text-sm text-muted-foreground">
-                This invoice has no line items.
-              </p>
+              <Section title="Line items" inset>
+                <p className="text-sm text-muted-foreground">
+                  This invoice has no line items.
+                </p>
+              </Section>
             )}
           </>
         }
         aside={
           <>
-            <section
-              className="flex min-w-0 flex-col gap-3"
-              aria-label="Status"
-            >
-              <h2 className="text-sm font-medium">Status</h2>
-              <InvoiceProgress status={invoice.status} />
-              {transitions.length > 0 && (
-                <div className="flex gap-2">
-                  {transitions.includes("finalize") && (
-                    <Button onClick={() => openDialog("finalize")}>
-                      Finalize
-                    </Button>
-                  )}
-                  {transitions.includes("markPaid") && (
-                    <Button onClick={() => openDialog("markPaid")}>
-                      Mark paid
-                    </Button>
-                  )}
-                  {transitions.includes("void") && (
-                    <Button
-                      variant="outline"
-                      onClick={() => openDialog("void")}
-                    >
-                      Void
-                    </Button>
-                  )}
-                </div>
-              )}
-            </section>
-            <DescriptionList
-              items={[
-                {
-                  term: "Status",
-                  value: <InvoiceStatusBadge status={invoice.status} />,
-                },
-                {
-                  term: "Subscription",
-                  value: (
-                    <PluginLink
-                      to={subscriptionPath(subscription.id)}
-                      className="font-mono text-xs"
-                    >
-                      {subscription.id}
-                    </PluginLink>
-                  ),
-                },
-                {
-                  term: "Tenant",
-                  value: (
-                    <span className="font-mono text-xs">
-                      {invoice.tenant_id}
-                    </span>
-                  ),
-                },
-                {
-                  term: "Period",
-                  value: formatPeriod(invoice.period_start, invoice.period_end),
-                },
-                {
-                  term: "Due",
-                  value: (
-                    <Timestamp value={invoice.due_date} label="due date" />
-                  ),
-                },
-                {
-                  term: "Paid",
-                  value: <Timestamp value={invoice.paid_at} label="payment" />,
-                },
-                {
-                  term: "Payment reference",
-                  value: invoice.payment_ref ? (
-                    <span className="font-mono text-xs">
-                      {invoice.payment_ref}
-                    </span>
-                  ) : (
-                    <NoneCell label="payment reference" />
-                  ),
-                },
-                ...(invoice.status === "voided"
-                  ? [
-                      {
-                        term: "Voided",
-                        value: (
-                          <Timestamp
-                            value={invoice.voided_at}
-                            label="void time"
-                          />
-                        ),
-                      },
-                      {
-                        term: "Reason",
-                        value: invoice.void_reason || (
-                          <NoneCell label="reason" />
-                        ),
-                      },
-                    ]
-                  : []),
-              ]}
-            />
-            <section
-              className="flex min-w-0 flex-col gap-2"
-              aria-label="Export"
-            >
-              <h2 className="text-sm font-medium">Export</h2>
-              {formats.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  No invoice formatter is registered.
-                </p>
-              ) : (
-                <div className="flex flex-wrap gap-2">
-                  {formats.map((f) => (
-                    <IconButton
-                      key={f}
-                      variant="outline"
-                      disabled={exporting !== null}
-                      onClick={() => void exportAs(f)}
-                      label={
-                        exporting === f
-                          ? "Preparing…"
-                          : `Download ${f.toUpperCase()}`
-                      }
-                    />
-                  ))}
-                </div>
-              )}
-              <CommandAlert error={exportError} title="Could not export" />
-            </section>
+            <Section title="Status" inset>
+              <div className="flex min-w-0 flex-col gap-3">
+                <InvoiceProgress status={invoice.status} />
+                {transitions.length > 0 && (
+                  <div className="flex gap-2">
+                    {transitions.includes("finalize") && (
+                      <Button onClick={() => openDialog("finalize")}>
+                        Finalize
+                      </Button>
+                    )}
+                    {transitions.includes("markPaid") && (
+                      <Button onClick={() => openDialog("markPaid")}>
+                        Mark paid
+                      </Button>
+                    )}
+                    {transitions.includes("void") && (
+                      <Button
+                        variant="outline"
+                        onClick={() => openDialog("void")}
+                      >
+                        Void
+                      </Button>
+                    )}
+                  </div>
+                )}
+              </div>
+            </Section>
+            <Section title="Details" inset>
+              <DescriptionList
+                items={[
+                  {
+                    term: "Status",
+                    value: <InvoiceStatusBadge status={invoice.status} />,
+                  },
+                  {
+                    term: "Subscription",
+                    value: (
+                      <PluginLink
+                        to={subscriptionPath(subscription.id)}
+                        className="font-mono text-xs"
+                      >
+                        {subscription.id}
+                      </PluginLink>
+                    ),
+                  },
+                  {
+                    term: "Tenant",
+                    value: (
+                      <span className="font-mono text-xs">
+                        {invoice.tenant_id}
+                      </span>
+                    ),
+                  },
+                  {
+                    term: "Period",
+                    value: formatPeriod(
+                      invoice.period_start,
+                      invoice.period_end
+                    ),
+                  },
+                  {
+                    term: "Due",
+                    value: (
+                      <Timestamp value={invoice.due_date} label="due date" />
+                    ),
+                  },
+                  {
+                    term: "Paid",
+                    value: (
+                      <Timestamp value={invoice.paid_at} label="payment" />
+                    ),
+                  },
+                  {
+                    term: "Payment reference",
+                    value: invoice.payment_ref ? (
+                      <span className="font-mono text-xs">
+                        {invoice.payment_ref}
+                      </span>
+                    ) : (
+                      <NoneCell label="payment reference" />
+                    ),
+                  },
+                  ...(invoice.status === "voided"
+                    ? [
+                        {
+                          term: "Voided",
+                          value: (
+                            <Timestamp
+                              value={invoice.voided_at}
+                              label="void time"
+                            />
+                          ),
+                        },
+                        {
+                          term: "Reason",
+                          value: invoice.void_reason || (
+                            <NoneCell label="reason" />
+                          ),
+                        },
+                      ]
+                    : []),
+                ]}
+              />
+            </Section>
+            <Section title="Export" inset>
+              <div className="flex min-w-0 flex-col gap-2">
+                {formats.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    No invoice formatter is registered.
+                  </p>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {formats.map((f) => (
+                      <IconButton
+                        key={f}
+                        variant="outline"
+                        disabled={exporting !== null}
+                        onClick={() => void exportAs(f)}
+                        label={
+                          exporting === f
+                            ? "Preparing…"
+                            : `Download ${f.toUpperCase()}`
+                        }
+                      />
+                    ))}
+                  </div>
+                )}
+                <CommandAlert error={exportError} title="Could not export" />
+              </div>
+            </Section>
             <SyncPanel
               intent="invoices.syncToProvider"
               id={invoice.id}

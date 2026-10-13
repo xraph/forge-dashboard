@@ -14,6 +14,7 @@ import {
 import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { FeatureStatusBadge, SharedBadge } from "../badges"
 import { ConfirmAction } from "../components/confirm-action"
@@ -109,53 +110,64 @@ function FeatureDetailView({ feature }: { feature: CatalogFeature }) {
       )}
       <DetailLayout
         main={
-          <DescriptionList
-            items={[
-              {
-                term: "Key",
-                value: <span className="font-mono text-xs">{feature.key}</span>,
-              },
-              { term: "Type", value: TYPE_LABEL[feature.type] ?? feature.type },
-              {
-                term: "Default limit",
-                value: (
-                  <span className="tabular-nums">
-                    {limitText(feature.type, feature.default_limit)}
-                  </span>
-                ),
-              },
-              {
-                term: "Resets",
-                value: periodLabel(feature.period) ?? (
-                  <NoneCell label="reset period" />
-                ),
-              },
-              {
-                term: "Over the limit",
-                value: feature.soft_limit
-                  ? "Soft: use past the limit is not blocked"
-                  : "Hard: use past the limit is refused",
-              },
-              {
-                term: "Status",
-                value: <FeatureStatusBadge status={feature.status} />,
-              },
-              {
-                term: "Description",
-                value: feature.description || <NoneCell label="description" />,
-              },
-              {
-                term: "Created",
-                value: (
-                  <Timestamp value={feature.created_at} label="creation" />
-                ),
-              },
-              {
-                term: "Updated",
-                value: <Timestamp value={feature.updated_at} label="update" />,
-              },
-            ]}
-          />
+          <Section title="Details" inset>
+            <DescriptionList
+              items={[
+                {
+                  term: "Key",
+                  value: (
+                    <span className="font-mono text-xs">{feature.key}</span>
+                  ),
+                },
+                {
+                  term: "Type",
+                  value: TYPE_LABEL[feature.type] ?? feature.type,
+                },
+                {
+                  term: "Default limit",
+                  value: (
+                    <span className="tabular-nums">
+                      {limitText(feature.type, feature.default_limit)}
+                    </span>
+                  ),
+                },
+                {
+                  term: "Resets",
+                  value: periodLabel(feature.period) ?? (
+                    <NoneCell label="reset period" />
+                  ),
+                },
+                {
+                  term: "Over the limit",
+                  value: feature.soft_limit
+                    ? "Soft: use past the limit is not blocked"
+                    : "Hard: use past the limit is refused",
+                },
+                {
+                  term: "Status",
+                  value: <FeatureStatusBadge status={feature.status} />,
+                },
+                {
+                  term: "Description",
+                  value: feature.description || (
+                    <NoneCell label="description" />
+                  ),
+                },
+                {
+                  term: "Created",
+                  value: (
+                    <Timestamp value={feature.created_at} label="creation" />
+                  ),
+                },
+                {
+                  term: "Updated",
+                  value: (
+                    <Timestamp value={feature.updated_at} label="update" />
+                  ),
+                },
+              ]}
+            />
+          </Section>
         }
         aside={
           <SyncPanel

@@ -8,6 +8,7 @@ import {
   ResourceTable,
   type Column,
 } from "@forge-go/dashboard-kit/components/resource-table"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { SUBSCRIPTION_STATUS_OPTIONS, SubscriptionStatusBadge } from "../badges"
 import { ImportFromProviderAction } from "../components/import-from-provider"
@@ -120,66 +121,72 @@ export function LedgerSubscriptionsPage() {
           </>
         }
       />
-      <FilterBar
-        search={{
-          value: tenant,
-          onChange: (next) => {
-            setTenant(next)
-            setPage(1)
-          },
-          placeholder: "Exact tenant ID",
-          label: "Tenant ID",
-        }}
-        filters={[
-          {
-            id: "status",
-            label: "Status",
-            value: status,
-            options: [
-              { label: "All", value: "" },
-              ...SUBSCRIPTION_STATUS_OPTIONS,
-            ],
-            onChange: (next) => {
-              setStatus(next)
-              setPage(1)
-            },
-          },
-        ]}
-      />
-      <QueryBoundary title="Subscriptions" query={list} skeletonRows={5}>
-        {(data) => {
-          const rows = data.items ?? []
-          return (
-            <div className="flex min-w-0 flex-col gap-3">
-              <ResourceTable<Subscription>
-                columns={columns}
-                rows={rows}
-                rowKey={(s) => s.id}
-                caption={pageCaption({
-                  page,
-                  shown: rows.length,
-                  hasMore: data.has_more,
-                  singular: "subscription",
-                  plural: "subscriptions",
-                })}
-                emptyMessage={emptyMessage}
-                emptyAction={
-                  page > 1 ? (
-                    <BackToFirstPage onClick={() => setPage(1)} />
-                  ) : !status && !tenantId ? (
-                    <NewSubscriptionLink />
-                  ) : undefined
-                }
-              />
-              <OffsetPager
-                page={page}
-                hasMore={data.has_more}
-                onPageChange={setPage}
-              />
-            </div>
-          )
-        }}
-      </QueryBoundary>
+      <Section
+        aria-label="Subscription list"
+        actions={
+          <FilterBar
+            search={{
+              value: tenant,
+              onChange: (next) => {
+                setTenant(next)
+                setPage(1)
+              },
+              placeholder: "Exact tenant ID",
+              label: "Tenant ID",
+            }}
+            filters={[
+              {
+                id: "status",
+                label: "Status",
+                value: status,
+                options: [
+                  { label: "All", value: "" },
+                  ...SUBSCRIPTION_STATUS_OPTIONS,
+                ],
+                onChange: (next) => {
+                  setStatus(next)
+                  setPage(1)
+                },
+              },
+            ]}
+          />
+        }
+      >
+        <QueryBoundary title="Subscriptions" query={list} skeletonRows={5}>
+          {(data) => {
+            const rows = data.items ?? []
+            return (
+              <>
+                <ResourceTable<Subscription>
+                  columns={columns}
+                  rows={rows}
+                  rowKey={(s) => s.id}
+                  caption={pageCaption({
+                    page,
+                    shown: rows.length,
+                    hasMore: data.has_more,
+                    singular: "subscription",
+                    plural: "subscriptions",
+                  })}
+                  emptyMessage={emptyMessage}
+                  emptyAction={
+                    page > 1 ? (
+                      <BackToFirstPage onClick={() => setPage(1)} />
+                    ) : !status && !tenantId ? (
+                      <NewSubscriptionLink />
+                    ) : undefined
+                  }
+                />
+                <OffsetPager
+                  page={page}
+                  hasMore={data.has_more}
+                  onPageChange={setPage}
+                />
+              </>
+            )
+          }}
+        </QueryBoundary>
+      </Section>
     </section>
   )
 }

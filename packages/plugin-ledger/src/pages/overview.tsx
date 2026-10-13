@@ -2,6 +2,7 @@ import { useQuery } from "@forge-go/dashboard-plugin"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
 import { ResourceTable } from "@forge-go/dashboard-kit/components/resource-table"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { StatGrid } from "@forge-go/dashboard-kit/components/stat-grid"
 import { invoiceColumns } from "../components/invoice-columns"
 import type { Invoice, OverviewStats, Page } from "../types"
@@ -86,8 +87,7 @@ export function LedgerOverviewPage() {
         }}
       </QueryBoundary>
 
-      <section className="flex min-w-0 flex-col gap-2">
-        <h2 className="text-base font-medium">Pending invoices</h2>
+      <Section title="Pending invoices">
         <QueryBoundary
           title="Pending invoices"
           query={pending}
@@ -103,10 +103,9 @@ export function LedgerOverviewPage() {
             />
           )}
         </QueryBoundary>
-      </section>
+      </Section>
 
-      <section className="flex min-w-0 flex-col gap-2">
-        <h2 className="text-base font-medium">Past-due invoices</h2>
+      <Section title="Past-due invoices">
         <QueryBoundary
           title="Past-due invoices"
           query={pastDue}
@@ -115,7 +114,7 @@ export function LedgerOverviewPage() {
           {(data) => {
             const rows = data.items ?? []
             return (
-              <div className="flex min-w-0 flex-col gap-2">
+              <>
                 <ResourceTable<Invoice>
                   columns={invoiceColumns({ withStatus: false })}
                   rows={rows}
@@ -124,19 +123,18 @@ export function LedgerOverviewPage() {
                   emptyMessage="No invoices are past due."
                 />
                 {data.has_more && (
-                  <p className="text-sm text-muted-foreground">
+                  <p className="border-t px-4 py-3 text-sm text-muted-foreground">
                     Showing the newest {RECENT}. Filter the Invoices list by
                     Past due to see the rest.
                   </p>
                 )}
-              </div>
+              </>
             )
           }}
         </QueryBoundary>
-      </section>
+      </Section>
 
-      <section className="flex min-w-0 flex-col gap-2">
-        <h2 className="text-base font-medium">Recent invoices</h2>
+      <Section title="Recent invoices">
         <QueryBoundary title="Recent invoices" query={recent} skeletonRows={5}>
           {(rows) => (
             <ResourceTable<Invoice>
@@ -148,7 +146,7 @@ export function LedgerOverviewPage() {
             />
           )}
         </QueryBoundary>
-      </section>
+      </Section>
     </section>
   )
 }

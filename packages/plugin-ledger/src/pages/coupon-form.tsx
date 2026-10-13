@@ -9,6 +9,7 @@ import {
   NativeSelectOption,
 } from "@forge-go/dashboard-kit/components/native-select"
 import { CommandAlert } from "@forge-go/dashboard-kit/components/query-boundary"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { ProblemsAlert } from "../components/problems-alert"
 import { describeDiscount } from "../lib/coupons"
 import { toLocalInput, toRFC3339 } from "../lib/datetime"
@@ -243,161 +244,168 @@ export function CouponForm({
     <form onSubmit={submit} className="flex max-w-2xl min-w-0 flex-col gap-4">
       <CommandAlert error={error} title={errorTitle} />
       <ProblemsAlert problems={problems} />
-      {mode === "create" ? (
-        <>
+      <Section aria-label="Coupon details" inset>
+        <div className="flex min-w-0 flex-col gap-4">
+          {mode === "create" ? (
+            <>
+              <div className="flex min-w-0 flex-col gap-1.5">
+                <Label htmlFor="coupon-code">Code</Label>
+                <Input
+                  id="coupon-code"
+                  aria-describedby="coupon-code-help"
+                  className="font-mono"
+                  autoComplete="off"
+                  spellCheck={false}
+                  value={v.code}
+                  onChange={(e) => set("code", e.target.value)}
+                />
+                <p
+                  id="coupon-code-help"
+                  className="text-xs text-muted-foreground"
+                >
+                  Unique within this app. Codes are matched exactly, so Launch
+                  and LAUNCH are two coupons.
+                </p>
+              </div>
+              <div className="grid min-w-0 gap-4 sm:grid-cols-3">
+                <div className="flex min-w-0 flex-col gap-1.5">
+                  <Label htmlFor="coupon-type">Type</Label>
+                  <NativeSelect
+                    id="coupon-type"
+                    value={v.type}
+                    onChange={(e) => changeType(e.target.value as CouponType)}
+                  >
+                    <NativeSelectOption value="percentage">
+                      Percentage off
+                    </NativeSelectOption>
+                    <NativeSelectOption value="amount">
+                      Amount off
+                    </NativeSelectOption>
+                  </NativeSelect>
+                </div>
+                {v.type === "percentage" ? (
+                  <div className="flex min-w-0 flex-col gap-1.5">
+                    <Label htmlFor="coupon-percentage">Percentage</Label>
+                    <Input
+                      id="coupon-percentage"
+                      inputMode="numeric"
+                      className="text-right tabular-nums"
+                      value={v.percentage}
+                      onChange={(e) => set("percentage", e.target.value)}
+                    />
+                  </div>
+                ) : (
+                  <div className="flex min-w-0 flex-col gap-1.5">
+                    <Label htmlFor="coupon-amount">Amount</Label>
+                    <Input
+                      id="coupon-amount"
+                      inputMode="decimal"
+                      className="text-right tabular-nums"
+                      value={v.amount}
+                      onChange={(e) => set("amount", e.target.value)}
+                    />
+                  </div>
+                )}
+                <div className="flex min-w-0 flex-col gap-1.5">
+                  <Label htmlFor="coupon-currency">Currency</Label>
+                  <Input
+                    id="coupon-currency"
+                    aria-describedby="coupon-currency-help"
+                    className="font-mono uppercase"
+                    placeholder={
+                      v.type === "percentage" ? "Any currency" : undefined
+                    }
+                    value={v.currency}
+                    onChange={(e) => {
+                      currencyTyped.current = true
+                      set("currency", e.target.value)
+                    }}
+                  />
+                </div>
+              </div>
+              <p
+                id="coupon-currency-help"
+                className="text-xs text-muted-foreground"
+              >
+                {v.type === "percentage"
+                  ? "Leave empty and the coupon applies to a plan in any currency, or enter one currency to limit it to plans billed in it."
+                  : "The coupon can only be applied to plans billed in this currency."}{" "}
+                The code, type, discount and currency cannot change after you
+                create the coupon.
+              </p>
+            </>
+          ) : (
+            original && (
+              <p className="text-sm">
+                <span className="font-mono text-xs">{original.code}</span> gives{" "}
+                {describeDiscount(original)} in{" "}
+                {original.currency === ""
+                  ? "any currency"
+                  : original.currency.toUpperCase()}
+                . The code, the discount and the currency cannot change once a
+                coupon exists, because applied coupons are priced from them on
+                every future invoice.
+              </p>
+            )
+          )}
           <div className="flex min-w-0 flex-col gap-1.5">
-            <Label htmlFor="coupon-code">Code</Label>
+            <Label htmlFor="coupon-name">Name</Label>
             <Input
-              id="coupon-code"
-              aria-describedby="coupon-code-help"
-              className="font-mono"
-              autoComplete="off"
-              spellCheck={false}
-              value={v.code}
-              onChange={(e) => set("code", e.target.value)}
+              id="coupon-name"
+              value={v.name}
+              onChange={(e) => set("name", e.target.value)}
             />
-            <p id="coupon-code-help" className="text-xs text-muted-foreground">
-              Unique within this app. Codes are matched exactly, so Launch and
-              LAUNCH are two coupons.
+          </div>
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <Label htmlFor="coupon-max">Max redemptions</Label>
+            <Input
+              id="coupon-max"
+              aria-describedby="coupon-max-help"
+              inputMode="numeric"
+              className="w-40 text-right tabular-nums"
+              value={v.max}
+              onChange={(e) => set("max", e.target.value)}
+            />
+            <p id="coupon-max-help" className="text-xs text-muted-foreground">
+              0 means no cap.
             </p>
           </div>
-          <div className="grid min-w-0 gap-4 sm:grid-cols-3">
+          <div className="grid min-w-0 gap-4 sm:grid-cols-2">
             <div className="flex min-w-0 flex-col gap-1.5">
-              <Label htmlFor="coupon-type">Type</Label>
-              <NativeSelect
-                id="coupon-type"
-                value={v.type}
-                onChange={(e) => changeType(e.target.value as CouponType)}
-              >
-                <NativeSelectOption value="percentage">
-                  Percentage off
-                </NativeSelectOption>
-                <NativeSelectOption value="amount">
-                  Amount off
-                </NativeSelectOption>
-              </NativeSelect>
-            </div>
-            {v.type === "percentage" ? (
-              <div className="flex min-w-0 flex-col gap-1.5">
-                <Label htmlFor="coupon-percentage">Percentage</Label>
-                <Input
-                  id="coupon-percentage"
-                  inputMode="numeric"
-                  className="text-right tabular-nums"
-                  value={v.percentage}
-                  onChange={(e) => set("percentage", e.target.value)}
-                />
-              </div>
-            ) : (
-              <div className="flex min-w-0 flex-col gap-1.5">
-                <Label htmlFor="coupon-amount">Amount</Label>
-                <Input
-                  id="coupon-amount"
-                  inputMode="decimal"
-                  className="text-right tabular-nums"
-                  value={v.amount}
-                  onChange={(e) => set("amount", e.target.value)}
-                />
-              </div>
-            )}
-            <div className="flex min-w-0 flex-col gap-1.5">
-              <Label htmlFor="coupon-currency">Currency</Label>
+              <Label htmlFor="coupon-from">Valid from</Label>
               <Input
-                id="coupon-currency"
-                aria-describedby="coupon-currency-help"
-                className="font-mono uppercase"
-                placeholder={
-                  v.type === "percentage" ? "Any currency" : undefined
-                }
-                value={v.currency}
-                onChange={(e) => {
-                  currencyTyped.current = true
-                  set("currency", e.target.value)
-                }}
+                id="coupon-from"
+                aria-describedby="coupon-window-help"
+                type="datetime-local"
+                value={v.valid_from}
+                onChange={(e) => set("valid_from", e.target.value)}
+              />
+            </div>
+            <div className="flex min-w-0 flex-col gap-1.5">
+              <Label htmlFor="coupon-until">Valid until</Label>
+              <Input
+                id="coupon-until"
+                aria-describedby="coupon-window-help"
+                type="datetime-local"
+                value={v.valid_until}
+                onChange={(e) => set("valid_until", e.target.value)}
               />
             </div>
           </div>
-          <p
-            id="coupon-currency-help"
-            className="text-xs text-muted-foreground"
-          >
-            {v.type === "percentage"
-              ? "Leave empty and the coupon applies to a plan in any currency, or enter one currency to limit it to plans billed in it."
-              : "The coupon can only be applied to plans billed in this currency."}{" "}
-            The code, type, discount and currency cannot change after you create
-            the coupon.
+          <p id="coupon-window-help" className="text-xs text-muted-foreground">
+            Times are in your own time zone. Leave a bound empty for no limit on
+            that side.
           </p>
-        </>
-      ) : (
-        original && (
-          <p className="text-sm">
-            <span className="font-mono text-xs">{original.code}</span> gives{" "}
-            {describeDiscount(original)} in{" "}
-            {original.currency === ""
-              ? "any currency"
-              : original.currency.toUpperCase()}
-            . The code, the discount and the currency cannot change once a
-            coupon exists, because applied coupons are priced from them on every
-            future invoice.
-          </p>
-        )
-      )}
-      <div className="flex min-w-0 flex-col gap-1.5">
-        <Label htmlFor="coupon-name">Name</Label>
-        <Input
-          id="coupon-name"
-          value={v.name}
-          onChange={(e) => set("name", e.target.value)}
-        />
-      </div>
-      <div className="flex min-w-0 flex-col gap-1.5">
-        <Label htmlFor="coupon-max">Max redemptions</Label>
-        <Input
-          id="coupon-max"
-          aria-describedby="coupon-max-help"
-          inputMode="numeric"
-          className="w-40 text-right tabular-nums"
-          value={v.max}
-          onChange={(e) => set("max", e.target.value)}
-        />
-        <p id="coupon-max-help" className="text-xs text-muted-foreground">
-          0 means no cap.
-        </p>
-      </div>
-      <div className="grid min-w-0 gap-4 sm:grid-cols-2">
-        <div className="flex min-w-0 flex-col gap-1.5">
-          <Label htmlFor="coupon-from">Valid from</Label>
-          <Input
-            id="coupon-from"
-            aria-describedby="coupon-window-help"
-            type="datetime-local"
-            value={v.valid_from}
-            onChange={(e) => set("valid_from", e.target.value)}
-          />
+          <div className="flex gap-2">
+            <Button type="submit" disabled={pending}>
+              {pending ? pendingLabel : submitLabel}
+            </Button>
+            <PluginLink to={cancelTo} className="self-center text-sm underline">
+              Cancel
+            </PluginLink>
+          </div>
         </div>
-        <div className="flex min-w-0 flex-col gap-1.5">
-          <Label htmlFor="coupon-until">Valid until</Label>
-          <Input
-            id="coupon-until"
-            aria-describedby="coupon-window-help"
-            type="datetime-local"
-            value={v.valid_until}
-            onChange={(e) => set("valid_until", e.target.value)}
-          />
-        </div>
-      </div>
-      <p id="coupon-window-help" className="text-xs text-muted-foreground">
-        Times are in your own time zone. Leave a bound empty for no limit on
-        that side.
-      </p>
-      <div className="flex gap-2">
-        <Button type="submit" disabled={pending}>
-          {pending ? pendingLabel : submitLabel}
-        </Button>
-        <PluginLink to={cancelTo} className="self-center text-sm underline">
-          Cancel
-        </PluginLink>
-      </div>
+      </Section>
     </form>
   )
 }

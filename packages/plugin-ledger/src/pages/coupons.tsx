@@ -9,6 +9,7 @@ import {
   ResourceTable,
   type Column,
 } from "@forge-go/dashboard-kit/components/resource-table"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { CouponStateBadge } from "../badges"
 import { BackToFirstPage, OffsetPager } from "../components/offset-pager"
 import {
@@ -82,61 +83,67 @@ export function LedgerCouponsPage() {
         description="Discounts a subscription can carry into its invoices."
         actions={<NewCouponLink />}
       />
-      <FilterBar
-        filters={[
-          {
-            id: "show",
-            label: "Show",
-            value: show,
-            options: [
-              { label: "All coupons", value: "all" },
-              { label: "Within validity window", value: "active" },
-            ],
-            onChange: (next) => {
-              setShow(next as "all" | "active")
-              setPage(1)
-            },
-          },
-        ]}
-      />
-      <QueryBoundary title="Coupons" query={list} skeletonRows={5}>
-        {(data) => {
-          const rows = data.items ?? []
-          return (
-            <div className="flex min-w-0 flex-col gap-3">
-              <ResourceTable<Coupon>
-                columns={columns}
-                rows={rows}
-                rowKey={(c) => c.id}
-                caption={pageCaption({
-                  page,
-                  shown: rows.length,
-                  hasMore: data.has_more,
-                  singular: "coupon",
-                  plural: "coupons",
-                })}
-                emptyMessage={
-                  page === 1 && show === "active"
-                    ? "No coupons are within their validity window."
-                    : listEmptyMessage("coupons", page, undefined)
-                }
-                emptyAction={
-                  page > 1 ? (
-                    <BackToFirstPage onClick={() => setPage(1)} />
-                  ) : show === "all" ? (
-                    <NewCouponLink />
-                  ) : undefined
-                }
-              />
-              <OffsetPager
-                page={page}
-                hasMore={data.has_more}
-                onPageChange={setPage}
-              />
-            </div>
-          )
-        }}
-      </QueryBoundary>
+      <Section
+        aria-label="Coupon list"
+        actions={
+          <FilterBar
+            filters={[
+              {
+                id: "show",
+                label: "Show",
+                value: show,
+                options: [
+                  { label: "All coupons", value: "all" },
+                  { label: "Within validity window", value: "active" },
+                ],
+                onChange: (next) => {
+                  setShow(next as "all" | "active")
+                  setPage(1)
+                },
+              },
+            ]}
+          />
+        }
+      >
+        <QueryBoundary title="Coupons" query={list} skeletonRows={5}>
+          {(data) => {
+            const rows = data.items ?? []
+            return (
+              <>
+                <ResourceTable<Coupon>
+                  columns={columns}
+                  rows={rows}
+                  rowKey={(c) => c.id}
+                  caption={pageCaption({
+                    page,
+                    shown: rows.length,
+                    hasMore: data.has_more,
+                    singular: "coupon",
+                    plural: "coupons",
+                  })}
+                  emptyMessage={
+                    page === 1 && show === "active"
+                      ? "No coupons are within their validity window."
+                      : listEmptyMessage("coupons", page, undefined)
+                  }
+                  emptyAction={
+                    page > 1 ? (
+                      <BackToFirstPage onClick={() => setPage(1)} />
+                    ) : show === "all" ? (
+                      <NewCouponLink />
+                    ) : undefined
+                  }
+                />
+                <OffsetPager
+                  page={page}
+                  hasMore={data.has_more}
+                  onPageChange={setPage}
+                />
+              </>
+            )
+          }}
+        </QueryBoundary>
+      </Section>
     </section>
   )
 }

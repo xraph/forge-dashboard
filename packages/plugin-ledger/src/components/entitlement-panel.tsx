@@ -2,6 +2,7 @@ import { useId } from "react"
 import { useQuery } from "@forge-go/dashboard-plugin"
 import { Progress } from "@forge-go/dashboard-kit/components/progress"
 import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { TriangleAlertIcon } from "@forge-go/dashboard-kit/icons"
 import { cn } from "@forge-go/dashboard-kit/lib/utils"
 import type { FeatureUsage, SubscriptionUsage } from "../types"
@@ -143,20 +144,16 @@ export function EntitlementPanel({
     id: subscriptionId,
   })
   return (
-    <section
-      aria-label="Usage against limits"
-      className="flex min-w-0 flex-col gap-3"
-    >
-      <h2 className="text-base font-medium">Usage against limits</h2>
+    <Section title="Usage against limits">
       <QueryBoundary title="Usage" query={usage} skeletonRows={3}>
         {(data) => {
           const features = data.features ?? []
           return features.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
+            <p className="px-4 py-3 text-sm text-muted-foreground">
               This plan grants no features, so there is nothing to measure.
             </p>
           ) : (
-            <ul className="flex min-w-0 flex-col divide-y rounded-md border">
+            <ul className="flex min-w-0 flex-col divide-y">
               {features.map((f) => (
                 <EntitlementRow key={f.key} feature={f} />
               ))}
@@ -164,6 +161,6 @@ export function EntitlementPanel({
           )
         }}
       </QueryBoundary>
-    </section>
+    </Section>
   )
 }

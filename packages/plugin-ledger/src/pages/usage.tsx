@@ -19,6 +19,7 @@ import {
   ResourceTable,
   type Column,
 } from "@forge-go/dashboard-kit/components/resource-table"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { StatGrid } from "@forge-go/dashboard-kit/components/stat-grid"
 import { OffsetPager } from "../components/offset-pager"
 import {
@@ -298,53 +299,55 @@ export function LedgerUsagePage() {
         description="Metered events as they were ingested, newest first."
       />
 
-      <div className="flex min-w-0 flex-col gap-2">
-        <div className="flex flex-wrap items-end gap-3">
-          <div className="flex min-w-0 flex-col gap-1.5">
-            <Label htmlFor="usage-tenant">Tenant ID</Label>
-            <Input
-              id="usage-tenant"
-              className="h-8 w-48 font-mono"
-              autoComplete="off"
-              spellCheck={false}
-              aria-describedby={helpId}
-              value={tenant}
-              onChange={(e) => narrow(setTenant)(e.target.value)}
-            />
+      <Section title="Filters" inset>
+        <div className="flex min-w-0 flex-col gap-2">
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="flex min-w-0 flex-col gap-1.5">
+              <Label htmlFor="usage-tenant">Tenant ID</Label>
+              <Input
+                id="usage-tenant"
+                className="h-8 w-48 font-mono"
+                autoComplete="off"
+                spellCheck={false}
+                aria-describedby={helpId}
+                value={tenant}
+                onChange={(e) => narrow(setTenant)(e.target.value)}
+              />
+            </div>
+            <div className="flex min-w-0 flex-col gap-1.5">
+              <Label htmlFor="usage-feature">Feature key</Label>
+              <Input
+                id="usage-feature"
+                className="h-8 w-48 font-mono"
+                autoComplete="off"
+                spellCheck={false}
+                aria-describedby={helpId}
+                value={feature}
+                onChange={(e) => narrow(setFeature)(e.target.value)}
+              />
+            </div>
+            <div className="flex min-w-0 flex-col gap-1.5">
+              <Label htmlFor="usage-window">Window</Label>
+              <NativeSelect
+                id="usage-window"
+                value={String(days)}
+                onChange={(e) => {
+                  setDays(Number(e.target.value))
+                  setAnchor(Date.now())
+                  setPage(1)
+                }}
+              >
+                <NativeSelectOption value="7">Last 7 days</NativeSelectOption>
+                <NativeSelectOption value="30">Last 30 days</NativeSelectOption>
+              </NativeSelect>
+            </div>
           </div>
-          <div className="flex min-w-0 flex-col gap-1.5">
-            <Label htmlFor="usage-feature">Feature key</Label>
-            <Input
-              id="usage-feature"
-              className="h-8 w-48 font-mono"
-              autoComplete="off"
-              spellCheck={false}
-              aria-describedby={helpId}
-              value={feature}
-              onChange={(e) => narrow(setFeature)(e.target.value)}
-            />
-          </div>
-          <div className="flex min-w-0 flex-col gap-1.5">
-            <Label htmlFor="usage-window">Window</Label>
-            <NativeSelect
-              id="usage-window"
-              value={String(days)}
-              onChange={(e) => {
-                setDays(Number(e.target.value))
-                setAnchor(Date.now())
-                setPage(1)
-              }}
-            >
-              <NativeSelectOption value="7">Last 7 days</NativeSelectOption>
-              <NativeSelectOption value="30">Last 30 days</NativeSelectOption>
-            </NativeSelect>
-          </div>
+          <p id={helpId} className="text-sm text-muted-foreground">
+            Tenant and feature match exactly. Leave them blank to read every
+            tenant and feature.
+          </p>
         </div>
-        <p id={helpId} className="text-sm text-muted-foreground">
-          Tenant and feature match exactly. Leave them blank to read every
-          tenant and feature.
-        </p>
-      </div>
+      </Section>
 
       {tenantId && featureKey && (
         <MonthTotal tenant={tenantId} feature={featureKey} />
@@ -365,13 +368,12 @@ export function LedgerUsagePage() {
         </QueryBoundary>
       )}
 
-      <section className="flex min-w-0 flex-col gap-2">
-        <h2 className="text-base font-medium">Events</h2>
+      <Section title="Events">
         <QueryBoundary title="Usage events" query={log} skeletonRows={5}>
           {(data) => {
             const rows = data.items ?? []
             return (
-              <div className="flex min-w-0 flex-col gap-3">
+              <>
                 <ResourceTable<UsageEvent>
                   columns={columns}
                   rows={rows}
@@ -396,68 +398,67 @@ export function LedgerUsagePage() {
                   hasMore={data.has_more}
                   onPageChange={setPage}
                 />
-              </div>
+              </>
             )
           }}
         </QueryBoundary>
-      </section>
+      </Section>
 
-      <section
-        className="flex min-w-0 flex-col gap-3"
-        aria-label="Entitlement tools"
-      >
-        <h2 className="text-base font-medium">Entitlements</h2>
-        <p id={toolsHelpId} className="text-sm text-muted-foreground">
-          A check reads the store directly, skipping the cache enforcement uses.
-          Clearing drops cached answers for the tenant, or for one feature when
-          a key is named, so the next enforcement check reads fresh too.
-        </p>
-        <form
-          onSubmit={(e) => void clearCache(e)}
-          className="flex flex-wrap gap-2"
-        >
-          <Button
-            type="button"
-            aria-describedby={describedBy}
-            disabled={tenantId === "" || featureKey === ""}
-            onClick={() =>
-              checking
-                ? check.refetch()
-                : setChecking({ tenant: tenantId, feature: featureKey })
-            }
-          >
-            Check entitlement
-          </Button>
-          <Button
-            type="submit"
-            variant="outline"
-            aria-describedby={describedBy}
-            disabled={tenantId === "" || invalidate.loading}
-          >
-            Clear cached answers
-          </Button>
-        </form>
-        {hint && (
-          <p id={toolsHintId} className="text-sm text-muted-foreground">
-            {hint}
+      <Section title="Entitlements" inset>
+        <div className="flex min-w-0 flex-col gap-3">
+          <p id={toolsHelpId} className="text-sm text-muted-foreground">
+            A check reads the store directly, skipping the cache enforcement
+            uses. Clearing drops cached answers for the tenant, or for one
+            feature when a key is named, so the next enforcement check reads
+            fresh too.
           </p>
-        )}
-        <CommandAlert
-          error={invalidate.error}
-          title="Could not clear the cache"
-        />
-        {/*
+          <form
+            onSubmit={(e) => void clearCache(e)}
+            className="flex flex-wrap gap-2"
+          >
+            <Button
+              type="button"
+              aria-describedby={describedBy}
+              disabled={tenantId === "" || featureKey === ""}
+              onClick={() =>
+                checking
+                  ? check.refetch()
+                  : setChecking({ tenant: tenantId, feature: featureKey })
+              }
+            >
+              Check entitlement
+            </Button>
+            <Button
+              type="submit"
+              variant="outline"
+              aria-describedby={describedBy}
+              disabled={tenantId === "" || invalidate.loading}
+            >
+              Clear cached answers
+            </Button>
+          </form>
+          {hint && (
+            <p id={toolsHintId} className="text-sm text-muted-foreground">
+              {hint}
+            </p>
+          )}
+          <CommandAlert
+            error={invalidate.error}
+            title="Could not clear the cache"
+          />
+          {/*
           Both live regions stay mounted, empty, from the first render: a
           region inserted already holding its text is often not announced, one
           that was there first and then filled is.
         */}
-        <p role="status" aria-live="polite" className="text-sm">
-          {cleared ? `Cached answers for ${cleared} were cleared.` : null}
-        </p>
-        <div role="status" aria-live="polite" aria-label="Entitlement answer">
-          {checking && <EntitlementAnswer check={check} />}
+          <p role="status" aria-live="polite" className="text-sm">
+            {cleared ? `Cached answers for ${cleared} were cleared.` : null}
+          </p>
+          <div role="status" aria-live="polite" aria-label="Entitlement answer">
+            {checking && <EntitlementAnswer check={check} />}
+          </div>
         </div>
-      </section>
+      </Section>
     </section>
   )
 }

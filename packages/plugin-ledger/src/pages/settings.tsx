@@ -3,6 +3,7 @@ import { DescriptionList } from "@forge-go/dashboard-kit/components/detail-layou
 import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { TagList } from "@forge-go/dashboard-kit/components/tag-list"
 import type { SettingsDetail } from "../types"
 
@@ -22,7 +23,7 @@ export function LedgerSettingsPage() {
       />
       <QueryBoundary title="Settings" query={settings} skeletonRows={6}>
         {(s) => (
-          <div className="flex max-w-2xl min-w-0 flex-col gap-4">
+          <>
             {s.app_id === "" && (
               <p role="status" className="text-sm text-muted-foreground">
                 No app is configured and this request carried no app claim.
@@ -30,67 +31,69 @@ export function LedgerSettingsPage() {
                 set.
               </p>
             )}
-            <DescriptionList
-              items={[
-                {
-                  term: "App",
-                  value: s.app_id ? (
-                    <span className="font-mono text-xs">{s.app_id}</span>
-                  ) : (
-                    <NoneCell label="configured app" />
-                  ),
-                },
-                {
-                  term: "Requires an app claim",
-                  value: s.require_app_claim ? "Yes" : "No",
-                },
-                {
-                  term: "Meter batch size",
-                  value: (
-                    <span className="tabular-nums">{s.meter_batch_size}</span>
-                  ),
-                },
-                {
-                  term: "Meter flush interval",
-                  value: (
-                    <span className="font-mono text-xs">
-                      {s.meter_flush_interval}
-                    </span>
-                  ),
-                },
-                {
-                  term: "Entitlement cache",
-                  value: (
-                    <span className="font-mono text-xs">
-                      {s.entitlement_cache_ttl}
-                    </span>
-                  ),
-                },
-                {
-                  term: "Lifecycle clock",
-                  value: <LifecycleClock interval={s.lifecycle_interval} />,
-                },
-                {
-                  term: "Payment providers",
-                  value: (
-                    <TagList
-                      values={s.providers ?? []}
-                      label="payment providers"
-                    />
-                  ),
-                },
-                {
-                  term: "Invoice formats",
-                  value: (
-                    <TagList
-                      values={s.invoice_formats ?? []}
-                      label="invoice formats"
-                    />
-                  ),
-                },
-              ]}
-            />
-          </div>
+            <Section title="Configuration" inset>
+              <DescriptionList
+                items={[
+                  {
+                    term: "App",
+                    value: s.app_id ? (
+                      <span className="font-mono text-xs">{s.app_id}</span>
+                    ) : (
+                      <NoneCell label="configured app" />
+                    ),
+                  },
+                  {
+                    term: "Requires an app claim",
+                    value: s.require_app_claim ? "Yes" : "No",
+                  },
+                  {
+                    term: "Meter batch size",
+                    value: (
+                      <span className="tabular-nums">{s.meter_batch_size}</span>
+                    ),
+                  },
+                  {
+                    term: "Meter flush interval",
+                    value: (
+                      <span className="font-mono text-xs">
+                        {s.meter_flush_interval}
+                      </span>
+                    ),
+                  },
+                  {
+                    term: "Entitlement cache",
+                    value: (
+                      <span className="font-mono text-xs">
+                        {s.entitlement_cache_ttl}
+                      </span>
+                    ),
+                  },
+                  {
+                    term: "Lifecycle clock",
+                    value: <LifecycleClock interval={s.lifecycle_interval} />,
+                  },
+                  {
+                    term: "Payment providers",
+                    value: (
+                      <TagList
+                        values={s.providers ?? []}
+                        label="payment providers"
+                      />
+                    ),
+                  },
+                  {
+                    term: "Invoice formats",
+                    value: (
+                      <TagList
+                        values={s.invoice_formats ?? []}
+                        label="invoice formats"
+                      />
+                    ),
+                  },
+                ]}
+              />
+            </Section>
+          </>
         )}
       </QueryBoundary>
     </section>

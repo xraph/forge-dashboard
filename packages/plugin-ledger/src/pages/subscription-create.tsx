@@ -22,6 +22,7 @@ import {
   CommandAlert,
   QueryBoundary,
 } from "@forge-go/dashboard-kit/components/query-boundary"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { ProblemsAlert } from "../components/problems-alert"
 import { useInFlight } from "../lib/in-flight"
 import { formatMoney } from "../lib/money"
@@ -132,73 +133,77 @@ function SubscriptionForm({ plans }: { plans: Plan[] }) {
         title="Could not create the subscription"
       />
       <ProblemsAlert problems={problems} />
-      <div className="flex min-w-0 flex-col gap-1.5">
-        <Label htmlFor="sub-tenant">Tenant ID</Label>
-        <Input
-          id="sub-tenant"
-          className="font-mono"
-          autoComplete="off"
-          spellCheck={false}
-          value={tenant}
-          onChange={(e) => setTenant(e.target.value)}
-        />
-      </div>
-      <div className="flex min-w-0 flex-col gap-1.5">
-        <Label htmlFor="sub-plan">Plan</Label>
-        <NativeSelect
-          id="sub-plan"
-          aria-describedby={plan ? "sub-plan-help" : undefined}
-          value={planId}
-          onChange={(e) => setPlanId(e.target.value)}
-        >
-          <NativeSelectOption value="">Choose a plan</NativeSelectOption>
-          {plans.map((p) => (
-            <NativeSelectOption key={p.id} value={p.id}>
-              {p.name}
-            </NativeSelectOption>
+      <Section aria-label="Subscription details" inset>
+        <div className="flex min-w-0 flex-col gap-4">
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <Label htmlFor="sub-tenant">Tenant ID</Label>
+            <Input
+              id="sub-tenant"
+              className="font-mono"
+              autoComplete="off"
+              spellCheck={false}
+              value={tenant}
+              onChange={(e) => setTenant(e.target.value)}
+            />
+          </div>
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <Label htmlFor="sub-plan">Plan</Label>
+            <NativeSelect
+              id="sub-plan"
+              aria-describedby={plan ? "sub-plan-help" : undefined}
+              value={planId}
+              onChange={(e) => setPlanId(e.target.value)}
+            >
+              <NativeSelectOption value="">Choose a plan</NativeSelectOption>
+              {plans.map((p) => (
+                <NativeSelectOption key={p.id} value={p.id}>
+                  {p.name}
+                </NativeSelectOption>
+              ))}
+            </NativeSelect>
+            {plan && (
+              <p id="sub-plan-help" className="text-xs text-muted-foreground">
+                {priceText(plan)}
+                {plan.trial_days > 0
+                  ? `Starts with a ${plan.trial_days}-day trial.`
+                  : "Starts active, with no trial."}
+              </p>
+            )}
+          </div>
+          {seatFeatures.map((f) => (
+            <div key={f.key} className="flex min-w-0 flex-col gap-1.5">
+              <Label htmlFor={`sub-seats-${f.key}`}>{f.name}</Label>
+              <Input
+                id={`sub-seats-${f.key}`}
+                aria-describedby={`sub-seats-${f.key}-help`}
+                inputMode="numeric"
+                className="w-32 text-right tabular-nums"
+                value={seats[f.key] ?? ""}
+                onChange={(e) =>
+                  setSeats((prev) => ({ ...prev, [f.key]: e.target.value }))
+                }
+              />
+              <p
+                id={`sub-seats-${f.key}-help`}
+                className="text-xs text-muted-foreground"
+              >
+                Leave empty to start with none.
+              </p>
+            </div>
           ))}
-        </NativeSelect>
-        {plan && (
-          <p id="sub-plan-help" className="text-xs text-muted-foreground">
-            {priceText(plan)}
-            {plan.trial_days > 0
-              ? `Starts with a ${plan.trial_days}-day trial.`
-              : "Starts active, with no trial."}
-          </p>
-        )}
-      </div>
-      {seatFeatures.map((f) => (
-        <div key={f.key} className="flex min-w-0 flex-col gap-1.5">
-          <Label htmlFor={`sub-seats-${f.key}`}>{f.name}</Label>
-          <Input
-            id={`sub-seats-${f.key}`}
-            aria-describedby={`sub-seats-${f.key}-help`}
-            inputMode="numeric"
-            className="w-32 text-right tabular-nums"
-            value={seats[f.key] ?? ""}
-            onChange={(e) =>
-              setSeats((prev) => ({ ...prev, [f.key]: e.target.value }))
-            }
-          />
-          <p
-            id={`sub-seats-${f.key}-help`}
-            className="text-xs text-muted-foreground"
-          >
-            Leave empty to start with none.
-          </p>
+          <div className="flex gap-2">
+            <Button type="submit" disabled={!canSubmit}>
+              {create.loading ? "Creating…" : "Create subscription"}
+            </Button>
+            <PluginLink
+              to="/subscriptions"
+              className="self-center text-sm underline"
+            >
+              Cancel
+            </PluginLink>
+          </div>
         </div>
-      ))}
-      <div className="flex gap-2">
-        <Button type="submit" disabled={!canSubmit}>
-          {create.loading ? "Creating…" : "Create subscription"}
-        </Button>
-        <PluginLink
-          to="/subscriptions"
-          className="self-center text-sm underline"
-        >
-          Cancel
-        </PluginLink>
-      </div>
+      </Section>
     </form>
   )
 }

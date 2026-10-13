@@ -9,6 +9,7 @@ import {
   ResourceTable,
   type Column,
 } from "@forge-go/dashboard-kit/components/resource-table"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { PLAN_STATUS_OPTIONS, PlanStatusBadge } from "../badges"
 import { MoneyText } from "../components/money"
@@ -114,58 +115,64 @@ export function LedgerPlansPage() {
           </>
         }
       />
-      <FilterBar
-        filters={[
-          {
-            id: "status",
-            label: "Status",
-            value: status,
-            options: STATUS_OPTIONS,
-            onChange: (next) => {
-              setStatus(next as PlanStatus | "")
-              setPage(1)
-            },
-          },
-        ]}
-      />
-      <QueryBoundary title="Plans" query={list} skeletonRows={5}>
-        {(data) => {
-          const rows = data.items ?? []
-          return (
-            <div className="flex min-w-0 flex-col gap-3">
-              <ResourceTable<Plan>
-                columns={columns}
-                rows={rows}
-                rowKey={(p) => p.id}
-                caption={pageCaption({
-                  page,
-                  shown: rows.length,
-                  hasMore: data.has_more,
-                  singular: "plan",
-                  plural: "plans",
-                })}
-                emptyMessage={listEmptyMessage(
-                  "plans",
-                  page,
-                  status || undefined
-                )}
-                emptyAction={
-                  page > 1 ? (
-                    <BackToFirstPage onClick={() => setPage(1)} />
-                  ) : status ? undefined : (
-                    <NewPlanLink />
-                  )
-                }
-              />
-              <OffsetPager
-                page={page}
-                hasMore={data.has_more}
-                onPageChange={setPage}
-              />
-            </div>
-          )
-        }}
-      </QueryBoundary>
+      <Section
+        aria-label="Plan list"
+        actions={
+          <FilterBar
+            filters={[
+              {
+                id: "status",
+                label: "Status",
+                value: status,
+                options: STATUS_OPTIONS,
+                onChange: (next) => {
+                  setStatus(next as PlanStatus | "")
+                  setPage(1)
+                },
+              },
+            ]}
+          />
+        }
+      >
+        <QueryBoundary title="Plans" query={list} skeletonRows={5}>
+          {(data) => {
+            const rows = data.items ?? []
+            return (
+              <>
+                <ResourceTable<Plan>
+                  columns={columns}
+                  rows={rows}
+                  rowKey={(p) => p.id}
+                  caption={pageCaption({
+                    page,
+                    shown: rows.length,
+                    hasMore: data.has_more,
+                    singular: "plan",
+                    plural: "plans",
+                  })}
+                  emptyMessage={listEmptyMessage(
+                    "plans",
+                    page,
+                    status || undefined
+                  )}
+                  emptyAction={
+                    page > 1 ? (
+                      <BackToFirstPage onClick={() => setPage(1)} />
+                    ) : status ? undefined : (
+                      <NewPlanLink />
+                    )
+                  }
+                />
+                <OffsetPager
+                  page={page}
+                  hasMore={data.has_more}
+                  onPageChange={setPage}
+                />
+              </>
+            )
+          }}
+        </QueryBoundary>
+      </Section>
     </section>
   )
 }

@@ -24,6 +24,7 @@ import {
   QueryBoundary,
 } from "@forge-go/dashboard-kit/components/query-boundary"
 import { ResourceTable } from "@forge-go/dashboard-kit/components/resource-table"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { SubscriptionStatusBadge } from "../badges"
 import { ConfirmAction } from "../components/confirm-action"
@@ -291,73 +292,73 @@ function SubscriptionDetailView({ detail }: { detail: SubscriptionDetail }) {
         }
         aside={
           <>
-            <DescriptionList
-              items={[
-                {
-                  term: "Status",
-                  value: <SubscriptionStatusBadge status={sub.status} />,
-                },
-                {
-                  term: "Plan",
-                  value: (
-                    <PluginLink to={planPath(plan.id)}>{plan.name}</PluginLink>
-                  ),
-                },
-                {
-                  term: "Tenant",
-                  value: (
-                    <span className="font-mono text-xs">{sub.tenant_id}</span>
-                  ),
-                },
-                {
-                  term: "Current period",
-                  value: formatPeriod(
-                    sub.current_period_start,
-                    sub.current_period_end
-                  ),
-                },
-                {
-                  term: "Trial",
-                  value:
-                    sub.trial_start && sub.trial_end ? (
-                      formatPeriod(sub.trial_start, sub.trial_end)
-                    ) : (
-                      <NoneCell label="trial" />
+            <Section title="Details" inset>
+              <DescriptionList
+                items={[
+                  {
+                    term: "Status",
+                    value: <SubscriptionStatusBadge status={sub.status} />,
+                  },
+                  {
+                    term: "Plan",
+                    value: (
+                      <PluginLink to={planPath(plan.id)}>
+                        {plan.name}
+                      </PluginLink>
                     ),
-                },
-                ...(sub.paused_at
-                  ? [
-                      {
-                        term: "Paused since",
-                        value: (
-                          <Timestamp value={sub.paused_at} label="pause" />
-                        ),
-                      },
-                    ]
-                  : []),
-                cancelRow,
-                {
-                  term: "Seats",
-                  value:
-                    seatText.length > 0 ? (
-                      <span className="font-mono text-xs">
-                        {seatText.join(", ")}
-                      </span>
-                    ) : (
-                      <NoneCell label="seat counts" />
+                  },
+                  {
+                    term: "Tenant",
+                    value: (
+                      <span className="font-mono text-xs">{sub.tenant_id}</span>
                     ),
-                },
-                {
-                  term: "Started",
-                  value: <Timestamp value={sub.created_at} label="start" />,
-                },
-              ]}
-            />
-            <section
-              className="flex min-w-0 flex-col gap-2"
-              aria-label="Applied coupons"
-            >
-              <h2 className="text-sm font-medium">Coupons</h2>
+                  },
+                  {
+                    term: "Current period",
+                    value: formatPeriod(
+                      sub.current_period_start,
+                      sub.current_period_end
+                    ),
+                  },
+                  {
+                    term: "Trial",
+                    value:
+                      sub.trial_start && sub.trial_end ? (
+                        formatPeriod(sub.trial_start, sub.trial_end)
+                      ) : (
+                        <NoneCell label="trial" />
+                      ),
+                  },
+                  ...(sub.paused_at
+                    ? [
+                        {
+                          term: "Paused since",
+                          value: (
+                            <Timestamp value={sub.paused_at} label="pause" />
+                          ),
+                        },
+                      ]
+                    : []),
+                  cancelRow,
+                  {
+                    term: "Seats",
+                    value:
+                      seatText.length > 0 ? (
+                        <span className="font-mono text-xs">
+                          {seatText.join(", ")}
+                        </span>
+                      ) : (
+                        <NoneCell label="seat counts" />
+                      ),
+                  },
+                  {
+                    term: "Started",
+                    value: <Timestamp value={sub.created_at} label="start" />,
+                  },
+                ]}
+              />
+            </Section>
+            <Section title="Coupons" inset>
               {coupons.length === 0 ? (
                 <NoneCell label="applied coupons" />
               ) : (
@@ -380,7 +381,7 @@ function SubscriptionDetailView({ detail }: { detail: SubscriptionDetail }) {
                   ))}
                 </ul>
               )}
-            </section>
+            </Section>
             <SyncPanel
               intent="subscriptions.syncToProvider"
               id={sub.id}
@@ -608,8 +609,7 @@ function SubscriptionInvoices({
     offset: 0,
   })
   return (
-    <section className="flex min-w-0 flex-col gap-2">
-      <h2 className="text-base font-medium">Invoices</h2>
+    <Section title="Invoices">
       <QueryBoundary title="Invoices" query={list} skeletonRows={3}>
         {(data) => {
           const rows = (data.items ?? []).filter(
@@ -629,7 +629,7 @@ function SubscriptionInvoices({
                 }
               />
               {data.has_more && (
-                <p className="text-sm text-muted-foreground">
+                <p className="border-t px-4 py-3 text-sm text-muted-foreground">
                   This reads the tenant's {INVOICE_READ} most recent invoices.
                   Older ones are on the Invoices page, filtered by tenant.
                 </p>
@@ -638,6 +638,6 @@ function SubscriptionInvoices({
           )
         }}
       </QueryBoundary>
-    </section>
+    </Section>
   )
 }

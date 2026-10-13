@@ -11,6 +11,7 @@ import { DescriptionList } from "@forge-go/dashboard-kit/components/detail-layou
 import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { CouponStateBadge } from "../badges"
 import { ConfirmAction } from "../components/confirm-action"
@@ -84,45 +85,48 @@ function CouponDetailView({ coupon }: { coupon: Coupon }) {
           </>
         }
       />
-      <DescriptionList
-        className="max-w-2xl"
-        items={[
-          {
-            term: "State",
-            value: <CouponStateBadge state={couponState(coupon)} />,
-          },
-          { term: "Discount", value: describeDiscount(coupon) },
-          {
-            term: "Currency",
-            value:
-              coupon.currency === "" ? (
-                "Any currency"
-              ) : (
-                <span className="font-mono text-xs">
-                  {coupon.currency.toUpperCase()}
-                </span>
+      <Section title="Details" inset>
+        <DescriptionList
+          items={[
+            {
+              term: "State",
+              value: <CouponStateBadge state={couponState(coupon)} />,
+            },
+            { term: "Discount", value: describeDiscount(coupon) },
+            {
+              term: "Currency",
+              value:
+                coupon.currency === "" ? (
+                  "Any currency"
+                ) : (
+                  <span className="font-mono text-xs">
+                    {coupon.currency.toUpperCase()}
+                  </span>
+                ),
+            },
+            {
+              term: "Redemptions",
+              value: (
+                <span className="tabular-nums">{redemptionsText(coupon)}</span>
               ),
-          },
-          {
-            term: "Redemptions",
-            value: (
-              <span className="tabular-nums">{redemptionsText(coupon)}</span>
-            ),
-          },
-          {
-            term: "Valid",
-            value: validityText(coupon) ?? <NoneCell label="validity window" />,
-          },
-          {
-            term: "Created",
-            value: <Timestamp value={coupon.created_at} label="creation" />,
-          },
-          {
-            term: "Updated",
-            value: <Timestamp value={coupon.updated_at} label="update" />,
-          },
-        ]}
-      />
+            },
+            {
+              term: "Valid",
+              value: validityText(coupon) ?? (
+                <NoneCell label="validity window" />
+              ),
+            },
+            {
+              term: "Created",
+              value: <Timestamp value={coupon.created_at} label="creation" />,
+            },
+            {
+              term: "Updated",
+              value: <Timestamp value={coupon.updated_at} label="update" />,
+            },
+          ]}
+        />
+      </Section>
       <ConfirmAction
         open={deleting}
         onOpenChange={setDeleting}
