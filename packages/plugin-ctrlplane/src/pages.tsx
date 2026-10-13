@@ -6,6 +6,8 @@ import {
   useQuery,
 } from "@forge-go/dashboard-plugin"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
+import { Section } from "@forge-go/dashboard-kit/components/section"
+import { StatGrid } from "@forge-go/dashboard-kit/components/stat-grid"
 import { ResourceTable } from "@forge-go/dashboard-kit/components/resource-table"
 import {
   QueryBoundary,
@@ -64,9 +66,12 @@ export function DataTable({
     meta.complete === false ||
     (Number(meta.total) > items.length && !meta.next_cursor)
   return (
-    <div className="min-w-0 space-y-2">
+    <div className="flex min-w-0 flex-col">
       {incomplete && (
-        <p role="status" className="text-xs text-muted-foreground">
+        <p
+          role="status"
+          className="border-b px-4 py-2 text-xs text-muted-foreground"
+        >
           Showing a bounded result. Narrow the selection to inspect more
           records.
         </p>
@@ -160,16 +165,19 @@ export function ResourceList({
     limit: 50,
     cursor,
   })
+  const toolbar = resource.filters && (
+    <Toolbar
+      filters={resource.filters}
+      values={filters}
+      setValues={(next) => {
+        setFilters(next)
+        setCursor("")
+      }}
+    />
+  )
   return (
-    <div className="space-y-2">
-      {embedded ? (
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-sm font-medium">{resource.title}</h2>
-          <PluginLink to={`/${kind}/create`} className={linkClass}>
-            Create {resource.singular.toLowerCase()}
-          </PluginLink>
-        </div>
-      ) : (
+    <div className="flex min-w-0 flex-col gap-4">
+      {!embedded && (
         <PageHeader
           title={resource.title}
           actions={
@@ -188,84 +196,95 @@ export function ResourceList({
           }
         />
       )}
-      {resource.filters && (
-        <Toolbar
-          filters={resource.filters}
-          values={filters}
-          setValues={(next) => {
-            setFilters(next)
-            setCursor("")
-          }}
-        />
-      )}
-      <QueryBoundary title={resource.title} query={query}>
-        {(data) => (
-          <>
-            <DataTable
-              value={data}
-              columns={resource.columns}
-              title={resource.title}
-              kind={kind}
-              emptyAction={
-                Object.values(filters).some(Boolean) || cursor ? (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      setFilters({})
-                      setCursor("")
-                    }}
-                  >
-                    Reset selection
-                  </Button>
-                ) : resource.create ? (
-                  <PluginLink to={`/${kind}/create`} className={linkClass}>
-                    Create {resource.singular.toLowerCase()}
-                  </PluginLink>
-                ) : (
-                  <IconAction
-                    label="Refresh"
-                    icon={RefreshCw}
-                    onClick={query.refetch}
-                  />
-                )
-              }
-              actions={
-                kind === "workloads"
-                  ? (row) => (
-                      <CommandButton
-                        action={{
-                          ...resource.actions!.at(-1)!,
-                          redirect: "/workloads",
-                        }}
-                        target={{ id: row.id }}
-                        title={text(row.name)}
-                      />
-                    )
-                  : undefined
-              }
-            />
-            {record(data).next_cursor && (
-              <IconAction
-                label="Next page"
-                icon={ChevronRight}
-                onClick={() => setCursor(text(record(data).next_cursor))}
+      <Section
+        title={embedded ? resource.title : undefined}
+        aria-label={embedded ? undefined : `${resource.singular} list`}
+        actions={
+          embedded ? (
+            <>
+              <PluginLink to={`/${kind}/create`} className={linkClass}>
+                Create {resource.singular.toLowerCase()}
+              </PluginLink>
+              {toolbar}
+            </>
+          ) : (
+            toolbar
+          )
+        }
+      >
+        <QueryBoundary title={resource.title} query={query}>
+          {(data) => (
+            <>
+              <DataTable
+                value={data}
+                columns={resource.columns}
+                title={resource.title}
+                kind={kind}
+                emptyAction={
+                  Object.values(filters).some(Boolean) || cursor ? (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setFilters({})
+                        setCursor("")
+                      }}
+                    >
+                      Reset selection
+                    </Button>
+                  ) : resource.create ? (
+                    <PluginLink to={`/${kind}/create`} className={linkClass}>
+                      Create {resource.singular.toLowerCase()}
+                    </PluginLink>
+                  ) : (
+                    <IconAction
+                      label="Refresh"
+                      icon={RefreshCw}
+                      onClick={query.refetch}
+                    />
+                  )
+                }
+                actions={
+                  kind === "workloads"
+                    ? (row) => (
+                        <CommandButton
+                          action={{
+                            ...resource.actions!.at(-1)!,
+                            redirect: "/workloads",
+                          }}
+                          target={{ id: row.id }}
+                          title={text(row.name)}
+                        />
+                      )
+                    : undefined
+                }
               />
-            )}
-            {cursor && (
-              <IconAction
-                label="First page"
-                icon={ChevronsLeft}
-                onClick={() => setCursor("")}
-              />
-            )}
-          </>
-        )}
-      </QueryBoundary>
+              {(Boolean(record(data).next_cursor) || cursor) && (
+                <nav aria-label="Pagination" className="flex justify-end gap-2">
+                  {Boolean(record(data).next_cursor) && (
+                    <IconAction
+                      label="Next page"
+                      icon={ChevronRight}
+                      onClick={() => setCursor(text(record(data).next_cursor))}
+                    />
+                  )}
+                  {cursor && (
+                    <IconAction
+                      label="First page"
+                      icon={ChevronsLeft}
+                      onClick={() => setCursor("")}
+                    />
+                  )}
+                </nav>
+              )}
+            </>
+          )}
+        </QueryBoundary>
+      </Section>
     </div>
   )
 }
-interface Section {
+interface DetailSection {
   label: string
   intent: string
   columns?: string[]
@@ -276,39 +295,48 @@ interface Section {
 function SectionContent({
   section,
   params,
+  description,
+  actions,
 }: {
-  section: Section
+  section: DetailSection
   params: Row
+  /** A sentence about this section's data, shown in its header. */
+  description?: string
+  /** Controls for this section, placed ahead of its refresh button. */
+  actions?: React.ReactNode
 }) {
   const query = useQuery<unknown>(section.intent, {
     ...params,
     ...section.params,
   })
   return (
-    <div className="space-y-2">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-sm font-medium">{section.label}</h2>
-        <IconAction
-          label={`Refresh ${section.label.toLowerCase()}`}
-          icon={RefreshCw}
-          onClick={query.refetch}
-        />
-      </div>
+    <Section
+      title={section.label}
+      description={description}
+      inset={section.intent !== "system.stats" && !section.columns}
+      actions={
+        <>
+          {actions}
+          <IconAction
+            label={`Refresh ${section.label.toLowerCase()}`}
+            icon={RefreshCw}
+            onClick={query.refetch}
+          />
+        </>
+      }
+    >
       <QueryBoundary title={section.label} query={query}>
         {(data) =>
           section.intent === "system.stats" ? (
             <>
-              <dl className="flex flex-wrap items-center gap-x-6 gap-y-2 border-y py-2 text-xs">
-                {Object.entries(record(data)).map(([key, value]) => (
-                  <div key={key} className="flex items-baseline gap-2">
-                    <dt className="text-muted-foreground">{label(key)}</dt>
-                    <dd className="font-mono text-sm font-medium tabular-nums">
-                      {text(value)}
-                    </dd>
-                  </div>
-                ))}
-              </dl>
-              <p className="text-xs text-muted-foreground">
+              <StatGrid
+                aria-label="System totals"
+                items={Object.entries(record(data)).map(([key, value]) => ({
+                  label: label(key),
+                  value: text(value),
+                }))}
+              />
+              <p className="border-t px-4 py-3 text-xs text-muted-foreground">
                 Global instance and health totals unavailable.
               </p>
             </>
@@ -336,8 +364,13 @@ function SectionContent({
           )
         }
       </QueryBoundary>
-    </div>
+    </Section>
   )
+}
+function pickRow(kind: string, data: Row | Row[], id: string) {
+  return kind === "providers"
+    ? rows(data).find((row) => row.name === id)
+    : record(data)
 }
 export function ResourceDetail({ kind, params }: PageProps & { kind: string }) {
   const resource = resources[kind]
@@ -351,10 +384,15 @@ export function ResourceDetail({ kind, params }: PageProps & { kind: string }) {
   const [tab, setTab] = useState(
     params?.section ? label(params.section) : "Info"
   )
+  const loadedRow =
+    query.data === undefined ? undefined : pickRow(kind, query.data, id)
   return (
-    <div className="space-y-2">
+    <div className="flex min-w-0 flex-col gap-4">
       <PageHeader
-        title={resource.singular}
+        title={
+          (loadedRow && (text(loadedRow.name) || identity(loadedRow))) ||
+          resource.singular
+        }
         actions={
           <>
             <IconLink
@@ -367,15 +405,61 @@ export function ResourceDetail({ kind, params }: PageProps & { kind: string }) {
               icon={RefreshCw}
               onClick={query.refetch}
             />
+            {loadedRow && (
+              <>
+                {resource.edit && (
+                  <IconLink
+                    label={`Edit ${text(loadedRow.name) || resource.singular.toLowerCase()}`}
+                    to={`/${kind}/${encodeURIComponent(id)}/edit`}
+                    icon={Pencil}
+                  />
+                )}
+                {resource.actions?.map((action) => (
+                  <CommandButton
+                    key={action.intent}
+                    action={{
+                      ...action,
+                      redirect: action.intent.endsWith(".delete")
+                        ? `/${kind}`
+                        : undefined,
+                    }}
+                    target={target}
+                    title={text(loadedRow.name)}
+                    seed={loadedRow}
+                  />
+                ))}
+                {kind === "releases" && (
+                  <CommandButton
+                    action={{
+                      intent: "deployments.rollback",
+                      label: "Roll back",
+                      destructive: true,
+                    }}
+                    target={{
+                      instance_id: loadedRow.instance_id,
+                      release_id: loadedRow.id,
+                    }}
+                  />
+                )}
+                {kind === "instances" && (
+                  <CommandButton
+                    action={{
+                      intent: "deployments.create",
+                      label: "Deploy",
+                      fields: deployFields,
+                    }}
+                    target={{ instance_id: id }}
+                    seed={loadedRow}
+                  />
+                )}
+              </>
+            )}
           </>
         }
       />
       <QueryBoundary title={resource.singular} query={query}>
         {(data) => {
-          const row =
-            kind === "providers"
-              ? rows(data).find((row) => row.name === id)
-              : record(data)
+          const row = pickRow(kind, data, id)
           if (!row)
             return (
               <ZeroState
@@ -386,7 +470,7 @@ export function ResourceDetail({ kind, params }: PageProps & { kind: string }) {
                 }
               />
             )
-          const sections: Section[] = []
+          const sections: DetailSection[] = []
           const childParams: Row = {
             id,
             instance_id: kind === "instances" ? id : undefined,
@@ -618,64 +702,14 @@ export function ResourceDetail({ kind, params }: PageProps & { kind: string }) {
               kind: "instances",
             })
           const section = sections.find((s) => s.label === tab)
+          const parentWorkload = text(record(row.labels)["ctrlplane.workload"])
+          const releaseId = kind === "deployments" ? text(row.release_id) : ""
           return (
             <>
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <h2 className="text-base font-medium">
-                  {text(row.name) || identity(row)}
-                </h2>
-                <div className="flex flex-wrap gap-1">
-                  {resource.edit && (
-                    <IconLink
-                      label={`Edit ${text(row.name) || resource.singular.toLowerCase()}`}
-                      to={`/${kind}/${encodeURIComponent(id)}/edit`}
-                      icon={Pencil}
-                    />
-                  )}
-                  {resource.actions?.map((action) => (
-                    <CommandButton
-                      key={action.intent}
-                      action={{
-                        ...action,
-                        redirect: action.intent.endsWith(".delete")
-                          ? `/${kind}`
-                          : undefined,
-                      }}
-                      target={target}
-                      title={text(row.name)}
-                      seed={row}
-                    />
-                  ))}
-                  {kind === "releases" && (
-                    <CommandButton
-                      action={{
-                        intent: "deployments.rollback",
-                        label: "Roll back",
-                        destructive: true,
-                      }}
-                      target={{
-                        instance_id: row.instance_id,
-                        release_id: row.id,
-                      }}
-                    />
-                  )}
-                  {kind === "instances" && (
-                    <CommandButton
-                      action={{
-                        intent: "deployments.create",
-                        label: "Deploy",
-                        fields: deployFields,
-                      }}
-                      target={{ instance_id: id }}
-                      seed={row}
-                    />
-                  )}
-                </div>
-              </div>
               <div
                 role="tablist"
                 aria-label={`${resource.singular} sections`}
-                className="flex flex-wrap gap-1 border-b pb-2"
+                className="flex flex-wrap gap-1"
               >
                 {["Info", ...sections.map((s) => s.label)].map((name) => (
                   <Button
@@ -690,10 +724,32 @@ export function ResourceDetail({ kind, params }: PageProps & { kind: string }) {
                   </Button>
                 ))}
               </div>
-              <div role="tabpanel">
+              <div role="tabpanel" className="flex min-w-0 flex-col gap-4">
                 {!section ? (
-                  <div className="space-y-2">
-                    <Details row={row} fields={resource.fields} />
+                  <>
+                    <Section title="Details" inset>
+                      <Details row={row} fields={resource.fields} />
+                      {(parentWorkload || releaseId) && (
+                        <div className="mt-3 flex flex-wrap gap-4">
+                          {parentWorkload && (
+                            <PluginLink
+                              className={linkClass}
+                              to={`/workloads/${encodeURIComponent(parentWorkload)}`}
+                            >
+                              Parent workload
+                            </PluginLink>
+                          )}
+                          {releaseId && (
+                            <PluginLink
+                              className={linkClass}
+                              to={`/releases/${releaseId}`}
+                            >
+                              Inspect release
+                            </PluginLink>
+                          )}
+                        </div>
+                      )}
+                    </Section>
                     {Object.entries(row)
                       .filter(
                         ([key, value]) =>
@@ -701,105 +757,99 @@ export function ResourceDetail({ kind, params }: PageProps & { kind: string }) {
                           value !== null &&
                           !resource.fields.includes(key)
                       )
-                      .map(([key, value]) => (
-                        <details key={key} open={key === "services"}>
-                          <summary className="cursor-pointer text-sm font-medium">
-                            {label(key)}
-                          </summary>
-                          <div className="mt-2">
-                            {key === "services" ? (
-                              <DataTable
-                                value={value}
-                                columns={["name", "role", "image", "resources"]}
-                                actions={(service) => (
-                                  <details>
-                                    <summary className="cursor-pointer text-xs">
-                                      Configuration
-                                    </summary>
-                                    <JsonView
-                                      value={service}
-                                      title={`${text(service.name)} configuration`}
-                                    />
-                                  </details>
+                      .map(([key, value]) => {
+                        const tabular =
+                          key === "services" || key === "endpoints"
+                        return (
+                          <Section
+                            key={key}
+                            aria-label={label(key)}
+                            inset={!tabular}
+                          >
+                            <details open={key === "services"}>
+                              <summary
+                                className={`cursor-pointer text-sm font-medium ${tabular ? "px-4 py-3" : ""}`}
+                              >
+                                {label(key)}
+                              </summary>
+                              <div className={tabular ? "" : "mt-2"}>
+                                {key === "services" ? (
+                                  <DataTable
+                                    value={value}
+                                    columns={[
+                                      "name",
+                                      "role",
+                                      "image",
+                                      "resources",
+                                    ]}
+                                    actions={(service) => (
+                                      <details>
+                                        <summary className="cursor-pointer text-xs">
+                                          Configuration
+                                        </summary>
+                                        <JsonView
+                                          value={service}
+                                          title={`${text(service.name)} configuration`}
+                                        />
+                                      </details>
+                                    )}
+                                    title="Services"
+                                  />
+                                ) : key === "endpoints" ? (
+                                  <DataTable
+                                    value={value}
+                                    title="Endpoints"
+                                    columns={[
+                                      "service_name",
+                                      "url",
+                                      "port",
+                                      "protocol",
+                                      "public",
+                                    ]}
+                                  />
+                                ) : (
+                                  <JsonView value={value} title={label(key)} />
                                 )}
-                                title="Services"
-                              />
-                            ) : key === "endpoints" ? (
-                              <DataTable
-                                value={value}
-                                title="Endpoints"
-                                columns={[
-                                  "service_name",
-                                  "url",
-                                  "port",
-                                  "protocol",
-                                  "public",
-                                ]}
-                              />
-                            ) : (
-                              <JsonView value={value} title={label(key)} />
-                            )}
-                          </div>
-                        </details>
-                      ))}
-                    {text(record(row.labels)["ctrlplane.workload"]) && (
-                      <PluginLink
-                        className={linkClass}
-                        to={`/workloads/${encodeURIComponent(text(record(row.labels)["ctrlplane.workload"]))}`}
-                      >
-                        Parent workload
-                      </PluginLink>
-                    )}
-                    {kind === "deployments" && text(row.release_id) && (
-                      <PluginLink
-                        className={linkClass}
-                        to={`/releases/${text(row.release_id)}`}
-                      >
-                        Inspect release
-                      </PluginLink>
-                    )}
-                  </div>
+                              </div>
+                            </details>
+                          </Section>
+                        )
+                      })}
+                  </>
                 ) : (
-                  <div className="space-y-2">
-                    {kind === "instances" && tab === "Domains" && (
-                      <CommandButton
-                        action={{
-                          intent: "domains.create",
-                          label: "Add domain",
-                          fields: domainFields,
-                        }}
-                        target={{ instance_id: id }}
-                      />
-                    )}
-                    {kind === "instances" && tab === "Routes" && (
-                      <CommandButton
-                        action={{
-                          intent: "routes.create",
-                          label: "Add route",
-                          fields: routeFields,
-                        }}
-                        target={{ instance_id: id }}
-                      />
-                    )}
-                    {kind === "instances" && tab === "Secrets" && (
-                      <p className="text-xs text-muted-foreground">
-                        Secret values are managed by the configured vault. This
-                        view returns metadata only.
-                      </p>
-                    )}
-                    {kind === "instances" && tab === "Telemetry" && (
-                      <p className="text-xs text-muted-foreground">
-                        Only the resource snapshot is populated by the current
-                        telemetry service. Other aggregate fields are not
-                        measurements.
-                      </p>
-                    )}
-                    <SectionContent
-                      key={section.intent}
-                      section={section}
-                      params={childParams}
-                    />
-                  </div>
+                  <SectionContent
+                    key={section.intent}
+                    section={section}
+                    params={childParams}
+                    description={
+                      kind === "instances" && tab === "Secrets"
+                        ? "Secret values are managed by the configured vault. This view returns metadata only."
+                        : kind === "instances" && tab === "Telemetry"
+                          ? "Only the resource snapshot is populated by the current telemetry service. Other aggregate fields are not measurements."
+                          : undefined
+                    }
+                    actions={
+                      kind === "instances" && tab === "Domains" ? (
+                        <CommandButton
+                          action={{
+                            intent: "domains.create",
+                            label: "Add domain",
+                            fields: domainFields,
+                          }}
+                          target={{ instance_id: id }}
+                        />
+                      ) : kind === "instances" && tab === "Routes" ? (
+                        <CommandButton
+                          action={{
+                            intent: "routes.create",
+                            label: "Add route",
+                            fields: routeFields,
+                          }}
+                          target={{ instance_id: id }}
+                        />
+                      ) : undefined
+                    }
+                  />
                 )}
               </div>
             </>
@@ -819,7 +869,7 @@ export function ResourceEditor({ kind, params }: PageProps & { kind: string }) {
   )
   const fields = (edit ? resources[kind].edit : resources[kind].create) ?? []
   return (
-    <div className="space-y-2">
+    <div className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title={`${edit ? "Edit" : "Create"} ${resources[kind].singular.toLowerCase()}`}
         actions={
@@ -871,51 +921,57 @@ function EditorForm({
   }
   return (
     <form
-      className="max-w-4xl space-y-3"
+      className="max-w-4xl"
       onSubmit={(e) => {
         e.preventDefault()
         void save()
       }}
     >
-      <Fields fields={fields} values={values} setValues={setValues} />
-      {validation && (
-        <p role="alert" className="text-sm text-destructive">
-          {validation}
-        </p>
-      )}
-      <CommandAlert title="Save failed" error={command.error} />
-      <Button type="submit" disabled={command.loading}>
-        {command.loading ? "Saving…" : "Save"}
-      </Button>
+      <Section aria-label={`${resources[kind].singular} form`} inset>
+        <div className="flex min-w-0 flex-col gap-3">
+          <Fields fields={fields} values={values} setValues={setValues} />
+          {validation && (
+            <p role="alert" className="text-sm text-destructive">
+              {validation}
+            </p>
+          )}
+          <CommandAlert title="Save failed" error={command.error} />
+          <Button type="submit" disabled={command.loading}>
+            {command.loading ? "Saving…" : "Save"}
+          </Button>
+        </div>
+      </Section>
     </form>
   )
 }
 export function SelectionPage({ surface }: { surface: string }) {
   const query = useQuery<Listing>("instances.list", { limit: 50 })
   return (
-    <div className="space-y-2">
+    <div className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title={label(surface)}
         description="Choose an instance to inspect and manage its resources."
       />
-      <QueryBoundary title="Instances" query={query}>
-        {(data) => (
-          <DataTable
-            value={data}
-            columns={resources.instances.columns}
-            title="Instances"
-            kind="instances"
-            actions={(row) => (
-              <PluginLink
-                className={linkClass}
-                to={`/instances/${text(row.id)}/${surface === "network" ? "domains" : surface}`}
-              >
-                Open {surface}
-              </PluginLink>
-            )}
-          />
-        )}
-      </QueryBoundary>
+      <Section aria-label="Instance list">
+        <QueryBoundary title="Instances" query={query}>
+          {(data) => (
+            <DataTable
+              value={data}
+              columns={resources.instances.columns}
+              title="Instances"
+              kind="instances"
+              actions={(row) => (
+                <PluginLink
+                  className={linkClass}
+                  to={`/instances/${text(row.id)}/${surface === "network" ? "domains" : surface}`}
+                >
+                  Open {surface}
+                </PluginLink>
+              )}
+            />
+          )}
+        </QueryBoundary>
+      </Section>
     </div>
   )
 }
@@ -924,7 +980,7 @@ function WorkloadHealthRow({ row }: { row: Row }) {
   return (
     <QueryBoundary title={`Health for ${text(row.name)}`} query={query}>
       {(health) => (
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b py-1.5 text-xs">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2 text-xs">
           <PluginLink to={resourceLink("workloads", row)} className={linkClass}>
             {text(row.name)}
           </PluginLink>
@@ -945,17 +1001,18 @@ function WorkloadHealthRow({ row }: { row: Row }) {
 function WorkloadHealthSummary() {
   const query = useQuery<Listing>("workloads.list", { limit: 20 })
   return (
-    <QueryBoundary title="Workload health" query={query}>
-      {(data) => (
-        <div>
-          <h2 className="text-sm font-medium">Workload health</h2>
-          <p className="text-xs text-muted-foreground">
-            Up to 20 workloads. Missing checks remain unknown.
-          </p>
-          {rows(data).length ? (
-            rows(data).map((row) => (
-              <WorkloadHealthRow key={identity(row)} row={row} />
-            ))
+    <Section
+      title="Workload health"
+      description="Up to 20 workloads. Missing checks remain unknown."
+    >
+      <QueryBoundary title="Workload health" query={query}>
+        {(data) =>
+          rows(data).length ? (
+            <div className="divide-y">
+              {rows(data).map((row) => (
+                <WorkloadHealthRow key={identity(row)} row={row} />
+              ))}
+            </div>
           ) : (
             <ZeroState
               title="No workload health"
@@ -964,16 +1021,16 @@ function WorkloadHealthSummary() {
                 <PluginLink to="/workloads/create">Create workload</PluginLink>
               }
             />
-          )}
-        </div>
-      )}
-    </QueryBoundary>
+          )
+        }
+      </QueryBoundary>
+    </Section>
   )
 }
 export function HealthPage() {
   const query = useQuery<Row>("health.summary", { limit: 100 })
   return (
-    <div className="space-y-2">
+    <div className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Health"
         description="Unknown means no passing evidence is available. Counts cover the current bounded instance sample."
@@ -989,43 +1046,46 @@ export function HealthPage() {
       <QueryBoundary title="Health" query={query}>
         {(data) => (
           <>
-            <div className="flex flex-wrap gap-3 text-sm">
-              {Object.entries(record(data.counts)).map(([key, value]) => (
-                <span key={key}>
-                  <State value={key} /> {text(value)}
-                </span>
-              ))}
-            </div>
-            <DataTable
-              value={{
-                ...data,
-                items: rows(data).map((row) => ({
-                  ...record(row.instance),
-                  health_status: record(row.health).status,
-                  uptime_percent: record(row.health).uptime_percent,
-                  checks: Array.isArray(record(row.health).checks)
-                    ? (record(row.health).checks as unknown[]).length
-                    : undefined,
-                  last_checked: record(row.health).last_checked,
-                  error: row.error,
-                })),
-              }}
-              columns={[
-                "name",
-                "health_status",
-                "uptime_percent",
-                "checks",
-                "last_checked",
-                "error",
-                "provider_name",
-                "region",
-              ]}
-              title="Instances"
-              kind="instances"
+            <StatGrid
+              aria-label="Health counts"
+              items={Object.entries(record(data.counts)).map(
+                ([key, value]) => ({ label: label(key), value: text(value) })
+              )}
             />
-            <PluginLink to="/workloads" className={linkClass}>
-              Inspect workload health by replica
-            </PluginLink>
+            <Section title="Instances">
+              <DataTable
+                value={{
+                  ...data,
+                  items: rows(data).map((row) => ({
+                    ...record(row.instance),
+                    health_status: record(row.health).status,
+                    uptime_percent: record(row.health).uptime_percent,
+                    checks: Array.isArray(record(row.health).checks)
+                      ? (record(row.health).checks as unknown[]).length
+                      : undefined,
+                    last_checked: record(row.health).last_checked,
+                    error: row.error,
+                  })),
+                }}
+                columns={[
+                  "name",
+                  "health_status",
+                  "uptime_percent",
+                  "checks",
+                  "last_checked",
+                  "error",
+                  "provider_name",
+                  "region",
+                ]}
+                title="Instances"
+                kind="instances"
+              />
+              <div className="border-t px-4 py-3">
+                <PluginLink to="/workloads" className={linkClass}>
+                  Inspect workload health by replica
+                </PluginLink>
+              </div>
+            </Section>
           </>
         )}
       </QueryBoundary>
@@ -1046,7 +1106,7 @@ export function LogPage({ kind }: { kind: "audit" | "events" }) {
     limit: 100,
   })
   return (
-    <div className="space-y-2">
+    <div className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title={kind === "audit" ? "Audit log" : "Recent events"}
         description={
@@ -1062,64 +1122,79 @@ export function LogPage({ kind }: { kind: "audit" | "events" }) {
           />
         }
       />
-      <Toolbar
-        filters={
-          kind === "audit"
-            ? ["tenant_id", "actor_id", "resource", "action", "since", "until"]
-            : ["type"]
-        }
-        values={filters}
-        setValues={setFilters}
-      />
-      <QueryBoundary title={label(kind)} query={query}>
-        {(data) => (
-          <DataTable
-            value={data}
-            columns={
+      <Section
+        aria-label={kind === "audit" ? "Audit entries" : "Event log"}
+        actions={
+          <Toolbar
+            filters={
               kind === "audit"
                 ? [
-                    "created_at",
-                    "actor_id",
-                    "action",
-                    "resource",
-                    "resource_id",
-                    "ip_address",
-                    "details",
-                  ]
-                : [
-                    "timestamp",
-                    "type",
                     "tenant_id",
                     "actor_id",
-                    "instance_id",
-                    "payload",
+                    "resource",
+                    "action",
+                    "since",
+                    "until",
                   ]
+                : ["type"]
             }
-            title={kind === "audit" ? "Audit entries" : "Events"}
+            values={filters}
+            setValues={setFilters}
           />
-        )}
-      </QueryBoundary>
+        }
+      >
+        <QueryBoundary title={label(kind)} query={query}>
+          {(data) => (
+            <DataTable
+              value={data}
+              columns={
+                kind === "audit"
+                  ? [
+                      "created_at",
+                      "actor_id",
+                      "action",
+                      "resource",
+                      "resource_id",
+                      "ip_address",
+                      "details",
+                    ]
+                  : [
+                      "timestamp",
+                      "type",
+                      "tenant_id",
+                      "actor_id",
+                      "instance_id",
+                      "payload",
+                    ]
+              }
+              title={kind === "audit" ? "Audit entries" : "Events"}
+            />
+          )}
+        </QueryBoundary>
+      </Section>
     </div>
   )
 }
 export function ConfigPage() {
   const query = useQuery<Row>("config.detail")
   return (
-    <div className="space-y-2">
+    <div className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Settings"
         description="Read-only configuration. A configured flag does not establish live connectivity."
       />
-      <QueryBoundary title="Settings" query={query}>
-        {(data) => <Details row={data} fields={Object.keys(data)} />}
-      </QueryBoundary>
+      <Section title="Details" inset>
+        <QueryBoundary title="Settings" query={query}>
+          {(data) => <Details row={data} fields={Object.keys(data)} />}
+        </QueryBoundary>
+      </Section>
     </div>
   )
 }
 export function OverviewPage() {
   const session = useQuery<Row>("session.detail")
   return (
-    <div className="space-y-2">
+    <div className="flex min-w-0 flex-col gap-4">
       <PageHeader title="Ctrlplane" />
       <QueryBoundary title="Session" query={session}>
         {(data) => (
