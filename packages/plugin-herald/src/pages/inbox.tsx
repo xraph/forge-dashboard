@@ -161,7 +161,9 @@ export const InboxPage: ComponentType<PluginPageProps> = () => {
         aria-label="Notification list"
         actions={
           <div className="flex min-w-0 items-center gap-2">
-            <Label htmlFor="inbox-user">User ID</Label>
+            <Label htmlFor="inbox-user" className="shrink-0 whitespace-nowrap">
+              User ID
+            </Label>
             <Input
               id="inbox-user"
               className="font-mono text-xs"

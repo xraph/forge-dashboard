@@ -326,203 +326,220 @@ function SendForm({
   return (
     <div className="grid min-w-0 gap-4 @3xl/main:grid-cols-2">
       <form onSubmit={openConfirm} className="flex min-w-0 flex-col gap-4">
-        <div className="grid min-w-0 gap-3 sm:grid-cols-2">
-          <div className="flex min-w-0 flex-col gap-1.5">
-            <Label htmlFor="send-channel">Channel</Label>
-            <NativeSelect
-              id="send-channel"
-              value={channel}
-              onChange={(e) => pickChannel(e.target.value)}
-            >
-              <NativeSelectOption value="">Choose a channel</NativeSelectOption>
-              {engine.channels.map((c) => (
-                <NativeSelectOption key={c} value={c}>
-                  {c}
-                </NativeSelectOption>
-              ))}
-            </NativeSelect>
-          </div>
-          <div className="flex min-w-0 flex-col gap-1.5">
-            <Label htmlFor="send-provider">Provider</Label>
-            <NativeSelect
-              id="send-provider"
-              value={providerId}
-              disabled={channel === ""}
-              onChange={(e) => setProviderId(e.target.value)}
-            >
-              <NativeSelectOption value="">
-                Let Herald choose
-              </NativeSelectOption>
-              {(providers.data?.providers ?? []).map((p) => (
-                <NativeSelectOption key={p.id} value={p.id}>
-                  {p.name}
-                </NativeSelectOption>
-              ))}
-            </NativeSelect>
-          </div>
-        </div>
-
-        {channel !== "" && (
-          <div className="text-sm">
-            {who.error ? (
-              <p className="text-destructive">
-                Couldn't ask who would send: {who.error.code}:{" "}
-                {who.error.message}. Send is held until that answers.
-              </p>
-            ) : !who.data || settledUser !== user ? (
-              <p className="text-muted-foreground">Asking who would send…</p>
-            ) : (
-              <ResolvedProvider
-                answer={who.data}
-                channel={channel}
-                lead="Sends through"
-              />
-            )}
-          </div>
-        )}
-
-        <div className="flex min-w-0 flex-col gap-1.5">
-          <Label htmlFor="send-recipient">Recipient</Label>
-          <Input
-            id="send-recipient"
-            className="font-mono"
-            autoComplete="off"
-            spellCheck={false}
-            value={recipient}
-            onChange={(e) => setRecipient(e.target.value)}
-          />
-        </div>
-        <div className="flex min-w-0 flex-col gap-1.5">
-          <Label htmlFor="send-user">User ID (optional)</Label>
-          <Input
-            id="send-user"
-            className="font-mono"
-            autoComplete="off"
-            spellCheck={false}
-            value={userId}
-            onChange={(e) => setUserId(e.target.value)}
-          />
-          <p className="text-xs text-muted-foreground">
-            Set it to test the user's opt-outs and routing rule, and in-app
-            delivery.
-          </p>
-        </div>
-        <div className="flex min-w-0 flex-col gap-1.5">
-          <Label htmlFor="send-mode">Content</Label>
-          <NativeSelect
-            id="send-mode"
-            value={mode}
-            onChange={(e) => setMode(e.target.value as "template" | "raw")}
-          >
-            <NativeSelectOption value="template">A template</NativeSelectOption>
-            <NativeSelectOption value="raw">Write it here</NativeSelectOption>
-          </NativeSelect>
-        </div>
-
-        {mode === "template" ? (
-          <>
-            <div className="grid min-w-0 gap-3 sm:grid-cols-[2fr_1fr]">
+        <Section aria-label="Send test" inset>
+          <div className="flex min-w-0 flex-col gap-4">
+            <div className="grid min-w-0 gap-3 sm:grid-cols-2">
               <div className="flex min-w-0 flex-col gap-1.5">
-                <Label htmlFor="send-template">Template</Label>
+                <Label htmlFor="send-channel">Channel</Label>
                 <NativeSelect
-                  id="send-template"
-                  value={templateId}
-                  disabled={channel === ""}
-                  onChange={(e) => setTemplateChoice(e.target.value)}
+                  id="send-channel"
+                  value={channel}
+                  onChange={(e) => pickChannel(e.target.value)}
                 >
                   <NativeSelectOption value="">
-                    {channel === ""
-                      ? "Choose a channel first"
-                      : "Choose a template"}
+                    Choose a channel
                   </NativeSelectOption>
-                  {(templates.data?.templates ?? []).map((t) => (
-                    <NativeSelectOption key={t.id} value={t.id}>
-                      {`${t.name} (${t.slug})`}
+                  {engine.channels.map((c) => (
+                    <NativeSelectOption key={c} value={c}>
+                      {c}
                     </NativeSelectOption>
                   ))}
                 </NativeSelect>
               </div>
               <div className="flex min-w-0 flex-col gap-1.5">
-                <Label htmlFor="send-locale">Locale</Label>
-                <Input
-                  id="send-locale"
-                  className="font-mono"
-                  autoComplete="off"
-                  spellCheck={false}
-                  value={locale}
-                  onChange={(e) => setLocale(e.target.value)}
-                />
+                <Label htmlFor="send-provider">Provider</Label>
+                <NativeSelect
+                  id="send-provider"
+                  value={providerId}
+                  disabled={channel === ""}
+                  onChange={(e) => setProviderId(e.target.value)}
+                >
+                  <NativeSelectOption value="">
+                    Let Herald choose
+                  </NativeSelectOption>
+                  {(providers.data?.providers ?? []).map((p) => (
+                    <NativeSelectOption key={p.id} value={p.id}>
+                      {p.name}
+                    </NativeSelectOption>
+                  ))}
+                </NativeSelect>
               </div>
             </div>
-            {templateId !== "" &&
-              resolved.data &&
-              resolved.data.versionId === null && (
-                <p className="text-sm">
-                  No version answers {locale.trim() || "the fallback"}, so this
-                  send would fail. Add a fallback version, or pick a locale the
-                  template has.
-                </p>
-              )}
-            {template && template.variables.length > 0 && (
-              <fieldset className="flex min-w-0 flex-col gap-3">
-                <legend className="mb-1 text-sm font-medium">Variables</legend>
-                {template.variables.map((v) => (
-                  <div key={v.name} className="flex min-w-0 flex-col gap-1.5">
-                    <Label
-                      htmlFor={`var-${v.name}`}
-                      className="font-mono text-xs"
-                    >
-                      {v.name}
-                    </Label>
-                    <Input
-                      id={`var-${v.name}`}
-                      placeholder={v.default ?? ""}
-                      autoComplete="off"
-                      value={data[v.name] ?? ""}
-                      onChange={(e) =>
-                        setData((d) => ({ ...d, [v.name]: e.target.value }))
-                      }
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      {v.type}
-                      {v.required ? ", required" : ""}
-                      {v.default ? `, defaults to ${v.default}` : ""}
-                      {v.description ? `. ${v.description}` : ""}
-                    </p>
-                  </div>
-                ))}
-              </fieldset>
-            )}
-          </>
-        ) : (
-          <>
-            {channel !== "sms" && (
-              <div className="flex min-w-0 flex-col gap-1.5">
-                <Label htmlFor="send-subject">Subject</Label>
-                <Input
-                  id="send-subject"
-                  autoComplete="off"
-                  value={subject}
-                  onChange={(e) => setSubject(e.target.value)}
-                />
+
+            {channel !== "" && (
+              <div className="text-sm">
+                {who.error ? (
+                  <p className="text-destructive">
+                    Couldn't ask who would send: {who.error.code}:{" "}
+                    {who.error.message}. Send is held until that answers.
+                  </p>
+                ) : !who.data || settledUser !== user ? (
+                  <p className="text-muted-foreground">
+                    Asking who would send…
+                  </p>
+                ) : (
+                  <ResolvedProvider
+                    answer={who.data}
+                    channel={channel}
+                    lead="Sends through"
+                  />
+                )}
               </div>
             )}
+
             <div className="flex min-w-0 flex-col gap-1.5">
-              <Label htmlFor="send-body">Body</Label>
-              <Textarea
-                id="send-body"
-                value={body}
-                onChange={(e) => setBody(e.target.value)}
+              <Label htmlFor="send-recipient">Recipient</Label>
+              <Input
+                id="send-recipient"
+                className="font-mono"
+                autoComplete="off"
+                spellCheck={false}
+                value={recipient}
+                onChange={(e) => setRecipient(e.target.value)}
               />
             </div>
-          </>
-        )}
+            <div className="flex min-w-0 flex-col gap-1.5">
+              <Label htmlFor="send-user">User ID (optional)</Label>
+              <Input
+                id="send-user"
+                className="font-mono"
+                autoComplete="off"
+                spellCheck={false}
+                value={userId}
+                onChange={(e) => setUserId(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                Set it to test the user's opt-outs and routing rule, and in-app
+                delivery.
+              </p>
+            </div>
+            <div className="flex min-w-0 flex-col gap-1.5">
+              <Label htmlFor="send-mode">Content</Label>
+              <NativeSelect
+                id="send-mode"
+                value={mode}
+                onChange={(e) => setMode(e.target.value as "template" | "raw")}
+              >
+                <NativeSelectOption value="template">
+                  A template
+                </NativeSelectOption>
+                <NativeSelectOption value="raw">
+                  Write it here
+                </NativeSelectOption>
+              </NativeSelect>
+            </div>
 
-        <div>
-          <Button type="submit" disabled={!canSend}>
-            Send test
-          </Button>
-        </div>
+            {mode === "template" ? (
+              <>
+                <div className="grid min-w-0 gap-3 sm:grid-cols-[2fr_1fr]">
+                  <div className="flex min-w-0 flex-col gap-1.5">
+                    <Label htmlFor="send-template">Template</Label>
+                    <NativeSelect
+                      id="send-template"
+                      value={templateId}
+                      disabled={channel === ""}
+                      onChange={(e) => setTemplateChoice(e.target.value)}
+                    >
+                      <NativeSelectOption value="">
+                        {channel === ""
+                          ? "Choose a channel first"
+                          : "Choose a template"}
+                      </NativeSelectOption>
+                      {(templates.data?.templates ?? []).map((t) => (
+                        <NativeSelectOption key={t.id} value={t.id}>
+                          {`${t.name} (${t.slug})`}
+                        </NativeSelectOption>
+                      ))}
+                    </NativeSelect>
+                  </div>
+                  <div className="flex min-w-0 flex-col gap-1.5">
+                    <Label htmlFor="send-locale">Locale</Label>
+                    <Input
+                      id="send-locale"
+                      className="font-mono"
+                      autoComplete="off"
+                      spellCheck={false}
+                      value={locale}
+                      onChange={(e) => setLocale(e.target.value)}
+                    />
+                  </div>
+                </div>
+                {templateId !== "" &&
+                  resolved.data &&
+                  resolved.data.versionId === null && (
+                    <p className="text-sm">
+                      No version answers {locale.trim() || "the fallback"}, so
+                      this send would fail. Add a fallback version, or pick a
+                      locale the template has.
+                    </p>
+                  )}
+                {template && template.variables.length > 0 && (
+                  <fieldset className="flex min-w-0 flex-col gap-3">
+                    <legend className="mb-1 text-sm font-medium">
+                      Variables
+                    </legend>
+                    {template.variables.map((v) => (
+                      <div
+                        key={v.name}
+                        className="flex min-w-0 flex-col gap-1.5"
+                      >
+                        <Label
+                          htmlFor={`var-${v.name}`}
+                          className="font-mono text-xs"
+                        >
+                          {v.name}
+                        </Label>
+                        <Input
+                          id={`var-${v.name}`}
+                          placeholder={v.default ?? ""}
+                          autoComplete="off"
+                          value={data[v.name] ?? ""}
+                          onChange={(e) =>
+                            setData((d) => ({ ...d, [v.name]: e.target.value }))
+                          }
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          {v.type}
+                          {v.required ? ", required" : ""}
+                          {v.default ? `, defaults to ${v.default}` : ""}
+                          {v.description ? `. ${v.description}` : ""}
+                        </p>
+                      </div>
+                    ))}
+                  </fieldset>
+                )}
+              </>
+            ) : (
+              <>
+                {channel !== "sms" && (
+                  <div className="flex min-w-0 flex-col gap-1.5">
+                    <Label htmlFor="send-subject">Subject</Label>
+                    <Input
+                      id="send-subject"
+                      autoComplete="off"
+                      value={subject}
+                      onChange={(e) => setSubject(e.target.value)}
+                    />
+                  </div>
+                )}
+                <div className="flex min-w-0 flex-col gap-1.5">
+                  <Label htmlFor="send-body">Body</Label>
+                  <Textarea
+                    id="send-body"
+                    value={body}
+                    onChange={(e) => setBody(e.target.value)}
+                  />
+                </div>
+              </>
+            )}
+
+            <div>
+              <Button type="submit" disabled={!canSend}>
+                Send test
+              </Button>
+            </div>
+          </div>
+        </Section>
         {/* Mounted before the send, so the result is announced when it arrives. */}
         <div aria-live="polite" className="empty:sr-only">
           {send.data && <ResultCard r={send.data} sent={snapshot} />}

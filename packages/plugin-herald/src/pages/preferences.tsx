@@ -148,7 +148,9 @@ export const PreferencesPage: ComponentType<PluginPageProps> = () => {
         description="Opt-outs can't be undone here. A user with no record gets every notification, so reversing an opt-out has to come from the user, through your own application."
         actions={
           <div className="flex min-w-0 items-center gap-2">
-            <Label htmlFor="pref-user">User ID</Label>
+            <Label htmlFor="pref-user" className="shrink-0 whitespace-nowrap">
+              User ID
+            </Label>
             <Input
               id="pref-user"
               className="font-mono text-xs"
