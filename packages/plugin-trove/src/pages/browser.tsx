@@ -49,6 +49,14 @@ const BrowserPage: ComponentType<PluginPageProps> = ({ params }) => {
       <PageHeader
         title={bucket}
         description="Objects as the driver lists them, one prefix at a time."
+        meta={
+          store !== "" ? (
+            <>
+              <span className="text-muted-foreground">Store</span>
+              <span className="font-mono text-xs">{store}</span>
+            </>
+          ) : undefined
+        }
         actions={
           <UploadButton
             store={store}
@@ -63,12 +71,6 @@ const BrowserPage: ComponentType<PluginPageProps> = ({ params }) => {
         <p className="text-sm text-muted-foreground">
           CAS manages this bucket. Its objects are written through CAS, not
           uploaded here.
-        </p>
-      ) : null}
-      {store !== "" ? (
-        <p className="text-sm text-muted-foreground">
-          Store{" "}
-          <span className="font-mono text-xs text-foreground">{store}</span>
         </p>
       ) : null}
       <PathBar key={prefix} bucket={bucket} store={store} prefix={prefix} />

@@ -14,6 +14,7 @@ import {
   ResourceTable,
   type Column,
 } from "@forge-go/dashboard-kit/components/resource-table"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { TagList } from "@forge-go/dashboard-kit/components/tag-list"
 import { FlagStateBadge, HealthBadge } from "../badges"
 import { Bytes } from "../components/bytes"
@@ -113,6 +114,19 @@ function protectionCaption(n: number): string {
   return `${n} ${n === 1 ? "protection" : "protections"}`
 }
 
+function DriverMeta({ data }: { data: SystemStatus }) {
+  return (
+    <>
+      <span className="text-muted-foreground">Driver</span>
+      <span className="font-mono text-xs font-medium">{data.driver}</span>
+      <HealthBadge ok={data.health.ok} />
+      {data.health.error ? (
+        <span className="text-destructive">{data.health.error}</span>
+      ) : null}
+    </>
+  )
+}
+
 export const OverviewPage: ComponentType<PluginPageProps> = () => {
   const store = useActiveStore()
   const status = useQuery<SystemStatus>("system.status", withStore(store, {}))
@@ -122,23 +136,13 @@ export const OverviewPage: ComponentType<PluginPageProps> = () => {
       <PageHeader
         title="Overview"
         description="What this store's driver can do, and which protections are actually switched on."
+        meta={status.data ? <DriverMeta data={status.data} /> : undefined}
         actions={<StorePicker />}
       />
 
       <QueryBoundary title="Store status" query={status} skeletonRows={6}>
         {(data) => (
           <>
-            <div className="flex flex-wrap items-center gap-2 text-sm">
-              <span className="text-muted-foreground">Driver</span>
-              <span className="font-mono text-xs font-medium">
-                {data.driver}
-              </span>
-              <HealthBadge ok={data.health.ok} />
-              {data.health.error ? (
-                <span className="text-destructive">{data.health.error}</span>
-              ) : null}
-            </div>
-
             {data.routingNote ? (
               <Alert>
                 <AlertTitle>Some keys go to other backends</AlertTitle>
@@ -149,14 +153,10 @@ export const OverviewPage: ComponentType<PluginPageProps> = () => {
               </Alert>
             ) : null}
 
-            <section className="flex min-w-0 flex-col gap-2">
-              <h2 className="text-sm font-medium">Protection</h2>
-              <p className="text-sm text-muted-foreground">
-                Configured is what the config asks for. Applied means it runs
-                when objects are written, now. Neither says how earlier writes
-                were stored. Scanning has no config switch, so its Configured
-                follows what is registered.
-              </p>
+            <Section
+              title="Protection"
+              description="Configured is what the config asks for. Applied means it runs when objects are written, now. Neither says how earlier writes were stored. Scanning has no config switch, so its Configured follows what is registered."
+            >
               <ResourceTable<FlagStatus>
                 columns={flagColumns}
                 rows={data.flags}
@@ -164,20 +164,18 @@ export const OverviewPage: ComponentType<PluginPageProps> = () => {
                 caption={protectionCaption(data.flags.length)}
                 emptyMessage="This store reports no protections."
               />
-            </section>
+            </Section>
 
-            <section className="flex min-w-0 flex-col gap-2">
-              <h2 className="text-sm font-medium">What this driver can do</h2>
+            <Section title="What this driver can do" inset>
               <DescriptionList
                 items={CAPABILITIES.map((c) => ({
                   term: c.label,
                   value: data.capabilities[c.key] ? c.yes : c.no,
                 }))}
               />
-            </section>
+            </Section>
 
-            <section className="flex min-w-0 flex-col gap-2">
-              <h2 className="text-sm font-medium">Configuration</h2>
+            <Section title="Configuration" inset>
               <DescriptionList
                 items={[
                   {
@@ -217,7 +215,7 @@ export const OverviewPage: ComponentType<PluginPageProps> = () => {
                   },
                 ]}
               />
-            </section>
+            </Section>
           </>
         )}
       </QueryBoundary>

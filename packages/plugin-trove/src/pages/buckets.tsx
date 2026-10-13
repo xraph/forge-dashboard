@@ -21,6 +21,7 @@ import {
   ResourceTable,
   type Column,
 } from "@forge-go/dashboard-kit/components/resource-table"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { browserHref } from "../browser-location"
 import { SettledBoundary } from "../components/settled-boundary"
@@ -103,24 +104,26 @@ export const BucketsPage: ComponentType<PluginPageProps> = () => {
         }
       />
 
-      <SettledBoundary title="Buckets" query={list} skeletonRows={5}>
-        {(data) => (
-          <ResourceTable<BucketRow>
-            columns={columnsFor(data.createdAtMeaning, store)}
-            rows={data.buckets}
-            rowKey={(b) => b.name}
-            caption={bucketCaption(data.buckets.length)}
-            emptyMessage="No buckets in this store yet. Create one to start storing objects."
-            rowActions={(b) => (
-              <IconButton
-                variant="ghost"
-                onClick={() => openDelete(b.name)}
-                label={`Delete ${b.name}`}
-              />
-            )}
-          />
-        )}
-      </SettledBoundary>
+      <Section aria-label="Bucket list">
+        <SettledBoundary title="Buckets" query={list} skeletonRows={5}>
+          {(data) => (
+            <ResourceTable<BucketRow>
+              columns={columnsFor(data.createdAtMeaning, store)}
+              rows={data.buckets}
+              rowKey={(b) => b.name}
+              caption={bucketCaption(data.buckets.length)}
+              emptyMessage="No buckets in this store yet. Create one to start storing objects."
+              rowActions={(b) => (
+                <IconButton
+                  variant="ghost"
+                  onClick={() => openDelete(b.name)}
+                  label={`Delete ${b.name}`}
+                />
+              )}
+            />
+          )}
+        </SettledBoundary>
+      </Section>
 
       {creating ? (
         <CreateBucketDialog

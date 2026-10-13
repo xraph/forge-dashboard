@@ -17,6 +17,7 @@ import {
   ResourceTable,
   type Column,
 } from "@forge-go/dashboard-kit/components/resource-table"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { StorePicker } from "../components/store-picker"
 import { useActiveStore, withStore } from "../store"
 import type { MiddlewareList, MiddlewareRegistration } from "../types"
@@ -113,41 +114,43 @@ export const MiddlewarePage: ComponentType<PluginPageProps> = () => {
         actions={<StorePicker />}
       />
 
-      <form onSubmit={submit} className="flex flex-wrap items-end gap-3">
-        <div className="flex min-w-0 flex-col gap-1.5">
-          <Label htmlFor="mw-bucket">Bucket</Label>
-          <Input
-            id="mw-bucket"
-            className="font-mono"
-            autoComplete="off"
-            spellCheck={false}
-            value={bucket}
-            onChange={(e) => setBucket(e.target.value)}
-          />
-        </div>
-        <div className="flex min-w-0 flex-col gap-1.5">
-          <Label htmlFor="mw-key">Key</Label>
-          <Input
-            id="mw-key"
-            className="font-mono"
-            autoComplete="off"
-            spellCheck={false}
-            value={key}
-            onChange={(e) => setKey(e.target.value)}
-          />
-        </div>
-        <Button type="submit" disabled={!canTest}>
-          Test
-        </Button>
-        {tested ? (
-          <IconButton
-            type="button"
-            variant="outline"
-            onClick={() => setTested(null)}
-            label="Clear test"
-          />
-        ) : null}
-      </form>
+      <Section aria-label="Middleware test" inset>
+        <form onSubmit={submit} className="flex flex-wrap items-end gap-3">
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <Label htmlFor="mw-bucket">Bucket</Label>
+            <Input
+              id="mw-bucket"
+              className="font-mono"
+              autoComplete="off"
+              spellCheck={false}
+              value={bucket}
+              onChange={(e) => setBucket(e.target.value)}
+            />
+          </div>
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <Label htmlFor="mw-key">Key</Label>
+            <Input
+              id="mw-key"
+              className="font-mono"
+              autoComplete="off"
+              spellCheck={false}
+              value={key}
+              onChange={(e) => setKey(e.target.value)}
+            />
+          </div>
+          <Button type="submit" disabled={!canTest}>
+            Test
+          </Button>
+          {tested ? (
+            <IconButton
+              type="button"
+              variant="outline"
+              onClick={() => setTested(null)}
+              label="Clear test"
+            />
+          ) : null}
+        </form>
+      </Section>
 
       <QueryBoundary title="Middleware" query={list} skeletonRows={4}>
         {(data) => (
@@ -157,13 +160,18 @@ export const MiddlewarePage: ComponentType<PluginPageProps> = () => {
                 <AlertDescription>{w.message}</AlertDescription>
               </Alert>
             ))}
-            <ResourceTable<Row>
-              columns={columnsFor(tested !== null)}
-              rows={data.registrations.map((r, i) => ({ ...r, order: i + 1 }))}
-              rowKey={(r) => `${r.order}`}
-              caption={caption(data.registrations.length, tested)}
-              emptyMessage="No middleware is registered for this store. Objects are stored as they arrive."
-            />
+            <Section aria-label="Middleware list">
+              <ResourceTable<Row>
+                columns={columnsFor(tested !== null)}
+                rows={data.registrations.map((r, i) => ({
+                  ...r,
+                  order: i + 1,
+                }))}
+                rowKey={(r) => `${r.order}`}
+                caption={caption(data.registrations.length, tested)}
+                emptyMessage="No middleware is registered for this store. Objects are stored as they arrive."
+              />
+            </Section>
           </>
         )}
       </QueryBoundary>

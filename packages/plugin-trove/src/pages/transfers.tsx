@@ -7,6 +7,7 @@ import {
   ResourceTable,
   type Column,
 } from "@forge-go/dashboard-kit/components/resource-table"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { StreamStateBadge } from "../badges"
 import { Bytes } from "../components/bytes"
 import { SettledBoundary } from "../components/settled-boundary"
@@ -73,17 +74,19 @@ export const TransfersPage: ComponentType<PluginPageProps> = () => {
         actions={<StorePicker />}
       />
       {/* Polled, so the table must stay mounted while a tick refetches. */}
-      <SettledBoundary title="Transfers" query={list} skeletonRows={3}>
-        {(data) => (
-          <ResourceTable<StreamRow>
-            columns={columns}
-            rows={data.streams}
-            rowKey={(s) => s.id}
-            caption={caption(data.streams.length, data.max)}
-            emptyMessage="No streams open."
-          />
-        )}
-      </SettledBoundary>
+      <Section aria-label="Transfer list">
+        <SettledBoundary title="Transfers" query={list} skeletonRows={3}>
+          {(data) => (
+            <ResourceTable<StreamRow>
+              columns={columns}
+              rows={data.streams}
+              rowKey={(s) => s.id}
+              caption={caption(data.streams.length, data.max)}
+              emptyMessage="No streams open."
+            />
+          )}
+        </SettledBoundary>
+      </Section>
     </section>
   )
 }

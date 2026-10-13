@@ -14,6 +14,7 @@ import {
   ResourceTable,
   type Column,
 } from "@forge-go/dashboard-kit/components/resource-table"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { CasStateBadge } from "../badges"
 import { Bytes } from "../components/bytes"
@@ -55,48 +56,50 @@ export const CasPage: ComponentType<PluginPageProps> = () => {
 
 function CasCeiling({ status }: { status: CasStatus }) {
   return (
-    <section className="flex min-w-0 flex-col gap-2">
-      <DescriptionList
-        items={[
-          {
-            term: "Algorithm",
-            value: status.algorithm ? (
-              <span className="font-mono text-xs">{status.algorithm}</span>
-            ) : (
-              <NoneCell label="algorithm" />
-            ),
-          },
-          {
-            term: "Bucket",
-            value: status.bucket ? (
-              <span className="font-mono text-xs">{status.bucket}</span>
-            ) : (
-              <NoneCell label="bucket" />
-            ),
-          },
-          {
-            term: "Index",
-            value:
-              status.index === "memory"
-                ? "In memory"
-                : (status.index ?? <NoneCell label="index" />),
-          },
-        ]}
-      />
-      {status.resetsOnRestart ? (
-        <p className="text-sm text-muted-foreground">
-          The index lives in this process's memory. A restart forgets every
-          reference count and pin, and blobs already in the bucket then show as
-          not indexed.
-        </p>
-      ) : null}
-      {!status.releaseSupported ? (
-        <p className="text-sm text-muted-foreground">
-          Nothing in CAS lowers a reference count, so garbage collection never
-          finds anything to collect.
-        </p>
-      ) : null}
-    </section>
+    <Section title="Details" inset>
+      <div className="flex min-w-0 flex-col gap-2">
+        <DescriptionList
+          items={[
+            {
+              term: "Algorithm",
+              value: status.algorithm ? (
+                <span className="font-mono text-xs">{status.algorithm}</span>
+              ) : (
+                <NoneCell label="algorithm" />
+              ),
+            },
+            {
+              term: "Bucket",
+              value: status.bucket ? (
+                <span className="font-mono text-xs">{status.bucket}</span>
+              ) : (
+                <NoneCell label="bucket" />
+              ),
+            },
+            {
+              term: "Index",
+              value:
+                status.index === "memory"
+                  ? "In memory"
+                  : (status.index ?? <NoneCell label="index" />),
+            },
+          ]}
+        />
+        {status.resetsOnRestart ? (
+          <p className="text-sm text-muted-foreground">
+            The index lives in this process's memory. A restart forgets every
+            reference count and pin, and blobs already in the bucket then show
+            as not indexed.
+          </p>
+        ) : null}
+        {!status.releaseSupported ? (
+          <p className="text-sm text-muted-foreground">
+            Nothing in CAS lowers a reference count, so garbage collection never
+            finds anything to collect.
+          </p>
+        ) : null}
+      </div>
+    </Section>
   )
 }
 
@@ -176,13 +179,7 @@ function CasEntries({ store }: { store: string }) {
   }
 
   return (
-    <section className="flex min-w-0 flex-col gap-3">
-      <div className="flex items-center justify-between gap-2">
-        <h2 className="text-sm font-medium">Entries</h2>
-        <Button variant="outline" onClick={openGC}>
-          Run garbage collection
-        </Button>
-      </div>
+    <>
       {gcResult ? (
         <p className="text-sm">
           {`Found ${gcResult.scanned} ${gcResult.scanned === 1 ? "entry" : "entries"} with no references and no pin, deleted ${gcResult.deleted}, freed ${formatBytes(gcResult.freedBytes)}.`}
@@ -194,67 +191,76 @@ function CasEntries({ store }: { store: string }) {
       <CommandAlert error={pin.error} title="Could not pin" />
       <CommandAlert error={unpin.error} title="Could not unpin" />
 
-      <SettledBoundary title="CAS entries" query={list} skeletonRows={5}>
-        {(data) => (
-          <>
-            <ResourceTable<CasEntry>
-              columns={columns}
-              rows={data.entries}
-              rowKey={(e) => e.hash}
-              caption={entriesCaption(
-                data.entries.length,
-                data.nextCursor !== null,
-                cursors.length > 0
-              )}
-              emptyMessage={
-                data.nextCursor !== null
-                  ? "Nothing on this page, but the driver has more to list."
-                  : cursors.length > 0
-                    ? "No more entries."
-                    : "No CAS content stored yet."
-              }
-              rowActions={(e) =>
-                !e.indexed ? null : e.pinned ? (
-                  <IconButton
-                    variant="ghost"
-                    disabled={unpin.loading}
-                    onClick={() =>
-                      void unpin.execute(withStore(store, { hash: e.hash }))
-                    }
-                    label={`Unpin ${e.hash}`}
-                  />
-                ) : (
-                  <IconButton
-                    variant="ghost"
-                    disabled={pin.loading}
-                    onClick={() =>
-                      void pin.execute(withStore(store, { hash: e.hash }))
-                    }
-                    label={`Pin ${e.hash}`}
-                  />
-                )
-              }
-            />
-            <div className="flex gap-2">
-              <IconButton
-                variant="outline"
-                disabled={cursors.length === 0}
-                onClick={() => setCursors((c) => c.slice(0, -1))}
-                label="Previous page"
-              />
-              <IconButton
-                variant="outline"
-                disabled={data.nextCursor === null}
-                onClick={() =>
-                  data.nextCursor !== null &&
-                  setCursors((c) => [...c, data.nextCursor as string])
+      <Section
+        title="Entries"
+        actions={
+          <Button variant="outline" onClick={openGC}>
+            Run garbage collection
+          </Button>
+        }
+      >
+        <SettledBoundary title="CAS entries" query={list} skeletonRows={5}>
+          {(data) => (
+            <>
+              <ResourceTable<CasEntry>
+                columns={columns}
+                rows={data.entries}
+                rowKey={(e) => e.hash}
+                caption={entriesCaption(
+                  data.entries.length,
+                  data.nextCursor !== null,
+                  cursors.length > 0
+                )}
+                emptyMessage={
+                  data.nextCursor !== null
+                    ? "Nothing on this page, but the driver has more to list."
+                    : cursors.length > 0
+                      ? "No more entries."
+                      : "No CAS content stored yet."
                 }
-                label="Next page"
+                rowActions={(e) =>
+                  !e.indexed ? null : e.pinned ? (
+                    <IconButton
+                      variant="ghost"
+                      disabled={unpin.loading}
+                      onClick={() =>
+                        void unpin.execute(withStore(store, { hash: e.hash }))
+                      }
+                      label={`Unpin ${e.hash}`}
+                    />
+                  ) : (
+                    <IconButton
+                      variant="ghost"
+                      disabled={pin.loading}
+                      onClick={() =>
+                        void pin.execute(withStore(store, { hash: e.hash }))
+                      }
+                      label={`Pin ${e.hash}`}
+                    />
+                  )
+                }
               />
-            </div>
-          </>
-        )}
-      </SettledBoundary>
+              <nav aria-label="Pagination" className="flex gap-2">
+                <IconButton
+                  variant="outline"
+                  disabled={cursors.length === 0}
+                  onClick={() => setCursors((c) => c.slice(0, -1))}
+                  label="Previous page"
+                />
+                <IconButton
+                  variant="outline"
+                  disabled={data.nextCursor === null}
+                  onClick={() =>
+                    data.nextCursor !== null &&
+                    setCursors((c) => [...c, data.nextCursor as string])
+                  }
+                  label="Next page"
+                />
+              </nav>
+            </>
+          )}
+        </SettledBoundary>
+      </Section>
 
       <ConfirmDialog
         open={confirmingGC}
@@ -267,6 +273,6 @@ function CasEntries({ store }: { store: string }) {
       >
         <CommandAlert error={gc.error} title="Garbage collection failed" />
       </ConfirmDialog>
-    </section>
+    </>
   )
 }

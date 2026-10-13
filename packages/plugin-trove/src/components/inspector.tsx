@@ -7,6 +7,7 @@ import { DescriptionList } from "@forge-go/dashboard-kit/components/detail-layou
 import { EmptyState } from "@forge-go/dashboard-kit/components/empty-state"
 import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import { CommandAlert } from "@forge-go/dashboard-kit/components/query-boundary"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { TagList } from "@forge-go/dashboard-kit/components/tag-list"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { downloadObject } from "../content"
@@ -59,91 +60,97 @@ export function Inspector({
       skeletonRows={6}
     >
       {(data) => (
-        <section className="flex min-w-0 flex-col gap-4">
-          <h2 className="font-mono text-xs font-medium break-all">
-            {data.object.key}
-          </h2>
-          <InspectorActions
-            store={store}
-            bucket={bucket}
-            objectKey={data.object.key}
-          />
-          <DescriptionList
-            items={[
-              {
-                term: "Stored size",
-                value: <Bytes value={data.object.storedSize} />,
-              },
-              {
-                term: "ETag",
-                value: <Mono value={data.object.etag} label="ETag" />,
-              },
-              {
-                term: "Content type",
-                value: (
-                  <Mono value={data.object.contentType} label="content type" />
-                ),
-              },
-              {
-                term: "Storage class",
-                value: (
-                  <Mono
-                    value={data.object.storageClass}
-                    label="storage class"
-                  />
-                ),
-              },
-              {
-                term: "Version",
-                value: <Mono value={data.object.versionId} label="version" />,
-              },
-              {
-                term: "Last modified",
-                value: (
-                  <Timestamp
-                    value={data.object.lastModified ?? undefined}
-                    label="last modified"
-                  />
-                ),
-              },
-              {
-                term: "Metadata",
-                value:
-                  data.object.metadata &&
-                  Object.keys(data.object.metadata).length > 0 ? (
-                    <TagList
-                      label="metadata"
-                      values={Object.entries(data.object.metadata)
-                        .sort(([a], [b]) => (a < b ? -1 : 1))
-                        .map(([k, v]) => `${k}=${v}`)}
+        <Section
+          title={data.object.key}
+          className="[&_h2]:font-mono [&_h2]:text-xs [&_h2]:break-all"
+          inset
+        >
+          <div className="flex min-w-0 flex-col gap-4">
+            <InspectorActions
+              store={store}
+              bucket={bucket}
+              objectKey={data.object.key}
+            />
+            <DescriptionList
+              items={[
+                {
+                  term: "Stored size",
+                  value: <Bytes value={data.object.storedSize} />,
+                },
+                {
+                  term: "ETag",
+                  value: <Mono value={data.object.etag} label="ETag" />,
+                },
+                {
+                  term: "Content type",
+                  value: (
+                    <Mono
+                      value={data.object.contentType}
+                      label="content type"
                     />
-                  ) : (
-                    <NoneCell label="metadata" />
                   ),
-              },
-              {
-                term: "Applies now",
-                value:
-                  data.middleware.length > 0 ? (
-                    <TagList
-                      label="middleware"
-                      values={data.middleware.map((m) => m.name)}
+                },
+                {
+                  term: "Storage class",
+                  value: (
+                    <Mono
+                      value={data.object.storageClass}
+                      label="storage class"
                     />
-                  ) : (
-                    <span className="text-sm">
-                      No middleware matches this key in the current config.
-                    </span>
                   ),
-              },
-            ]}
-          />
-          <p className="text-xs text-muted-foreground">
-            Applies now is what matches this key in the current config. Stored
-            size is the bytes as stored. Trove records nothing about how this
-            object was written.
-          </p>
-          {children ? children(data) : null}
-        </section>
+                },
+                {
+                  term: "Version",
+                  value: <Mono value={data.object.versionId} label="version" />,
+                },
+                {
+                  term: "Last modified",
+                  value: (
+                    <Timestamp
+                      value={data.object.lastModified ?? undefined}
+                      label="last modified"
+                    />
+                  ),
+                },
+                {
+                  term: "Metadata",
+                  value:
+                    data.object.metadata &&
+                    Object.keys(data.object.metadata).length > 0 ? (
+                      <TagList
+                        label="metadata"
+                        values={Object.entries(data.object.metadata)
+                          .sort(([a], [b]) => (a < b ? -1 : 1))
+                          .map(([k, v]) => `${k}=${v}`)}
+                      />
+                    ) : (
+                      <NoneCell label="metadata" />
+                    ),
+                },
+                {
+                  term: "Applies now",
+                  value:
+                    data.middleware.length > 0 ? (
+                      <TagList
+                        label="middleware"
+                        values={data.middleware.map((m) => m.name)}
+                      />
+                    ) : (
+                      <span className="text-sm">
+                        No middleware matches this key in the current config.
+                      </span>
+                    ),
+                },
+              ]}
+            />
+            <p className="text-xs text-muted-foreground">
+              Applies now is what matches this key in the current config. Stored
+              size is the bytes as stored. Trove records nothing about how this
+              object was written.
+            </p>
+            {children ? children(data) : null}
+          </div>
+        </Section>
       )}
     </SettledBoundary>
   )
