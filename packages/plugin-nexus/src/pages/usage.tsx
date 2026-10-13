@@ -5,6 +5,7 @@ import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { NativeSelect } from "@forge-go/dashboard-kit/components/native-select"
 import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
 import { ResourceTable } from "@forge-go/dashboard-kit/components/resource-table"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { Money } from "../components/money"
 import {
   count,
@@ -14,7 +15,6 @@ import {
   OutcomeTable,
   rate,
   Refresh,
-  Section,
   UsageOff,
 } from "../components/read"
 import { TenantFilter, tenantParams } from "../components/tenant-filter"
@@ -141,7 +141,9 @@ function UsageData({
         <>
           <Section title="Spend and requests over time">
             {value.series.items.length ? (
-              <UsageCharts items={value.series.items} />
+              <div className="p-4">
+                <UsageCharts items={value.series.items} />
+              </div>
             ) : (
               <Empty
                 title="No usage buckets"
@@ -212,24 +214,26 @@ export default function UsagePage() {
     (!summary.error && !series.error && !ready)
   const error = summary.error ?? series.error
   return (
-    <div className="space-y-3">
+    <div className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Usage"
         description="Exact priced spend, unknown costs and request outcomes."
         actions={<Refresh onClick={refresh} />}
       />
-      <div className="flex flex-wrap items-center gap-2">
-        <TenantFilter value={tenantId} onChange={setTenantId} />
-        <NativeSelect
-          aria-label="Period"
-          value={period}
-          onChange={(e) => setPeriod(e.target.value as Period)}
-        >
-          <option value="day">Today (UTC)</option>
-          <option value="week">Last 7 days</option>
-          <option value="month">This month (UTC)</option>
-        </NativeSelect>
-      </div>
+      <Section title="Filters" inset>
+        <div className="flex flex-wrap items-center gap-2">
+          <TenantFilter value={tenantId} onChange={setTenantId} />
+          <NativeSelect
+            aria-label="Period"
+            value={period}
+            onChange={(e) => setPeriod(e.target.value as Period)}
+          >
+            <option value="day">Today (UTC)</option>
+            <option value="week">Last 7 days</option>
+            <option value="month">This month (UTC)</option>
+          </NativeSelect>
+        </div>
+      </Section>
       {error && (
         <QueryBoundary
           title="Usage"
@@ -241,7 +245,7 @@ export default function UsagePage() {
       {current ? (
         <div
           aria-busy={busy}
-          className={`space-y-3 ${busy ? "opacity-60" : ""}`}
+          className={`flex min-w-0 flex-col gap-4 ${busy ? "opacity-60" : ""}`}
         >
           {!ready && (
             <Notice>

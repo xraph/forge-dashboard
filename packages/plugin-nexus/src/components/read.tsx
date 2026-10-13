@@ -44,25 +44,6 @@ export function Empty({
     />
   )
 }
-export function Section({
-  title,
-  children,
-  action,
-}: {
-  title: string
-  children: ReactNode
-  action?: ReactNode
-}) {
-  return (
-    <section className="min-w-0 space-y-2">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-sm font-semibold">{title}</h2>
-        {action}
-      </div>
-      {children}
-    </section>
-  )
-}
 export function Facts({
   items,
 }: {
@@ -112,18 +93,20 @@ export function Notice({ children }: { children: ReactNode }) {
     </p>
   )
 }
-export function PostureStrip({ value }: { value: Posture }) {
+export function PostureMeta({ value }: { value: Posture }) {
   return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-md border px-3 py-2 text-xs">
+    <>
       <Badge variant={value.requireApiKey ? "outline" : "destructive"}>
         {value.requireApiKey ? "Keys required" : "Open HTTP access"}
       </Badge>
-      <span>{value.authenticationScope}</span>
-      <span>Limiter: {value.limiterKind}</span>
-      <span>Usage: {value.usageEnabled ? "collecting" : "off"}</span>
-      <span>{value.guardCount} guards</span>
-      <span>Cache: {value.cacheKind}</span>
-    </div>
+      <span className="text-xs">{value.authenticationScope}</span>
+      <span className="text-xs">Limiter: {value.limiterKind}</span>
+      <span className="text-xs">
+        Usage: {value.usageEnabled ? "collecting" : "off"}
+      </span>
+      <span className="text-xs">{value.guardCount} guards</span>
+      <span className="text-xs">Cache: {value.cacheKind}</span>
+    </>
   )
 }
 export function UsageOff() {

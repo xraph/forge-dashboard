@@ -1,15 +1,15 @@
 import { PluginLink, useQuery } from "@forge-go/dashboard-plugin"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { Money } from "../components/money"
 import {
   count,
   Metrics,
   Notice,
   OutcomeTable,
-  PostureStrip,
+  PostureMeta,
   Refresh,
-  Section,
   UsageOff,
 } from "../components/read"
 import type { Overview } from "../types"
@@ -17,16 +17,18 @@ import type { Overview } from "../types"
 export function OverviewPage() {
   const query = useQuery<Overview>("overview.get")
   return (
-    <div className="space-y-3">
+    <div className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Nexus"
         description="Gateway access, customers and exact spend."
+        meta={
+          query.data ? <PostureMeta value={query.data.posture} /> : undefined
+        }
         actions={<Refresh onClick={query.refetch} />}
       />
       <QueryBoundary title="Nexus overview" query={query}>
         {(data) => (
           <>
-            <PostureStrip value={data.posture} />
             {!data.posture.requireApiKey && (
               <Notice>
                 HTTP api and proxy routes accept requests without a key. A
@@ -76,7 +78,7 @@ export function OverviewPage() {
             {data.byOutcome && (
               <Section
                 title={`Request outcomes · ${data.outcomePeriod}`}
-                action={
+                actions={
                   <PluginLink to="/usage/records">View request log</PluginLink>
                 }
               >

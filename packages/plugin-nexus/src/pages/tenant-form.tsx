@@ -53,7 +53,7 @@ export function TenantEditPage({ params }: PluginPageProps) {
   return (
     <>
       {data ? (
-        <div aria-busy={query.loading} className="space-y-3">
+        <div aria-busy={query.loading} className="flex min-w-0 flex-col gap-4">
           {query.error && (
             <QueryBoundary title="Tenant refresh" query={query}>
               {() => null}

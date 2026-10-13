@@ -7,6 +7,7 @@ import { ResourceTable } from "@forge-go/dashboard-kit/components/resource-table
 import { Input } from "@forge-go/dashboard-kit/components/input"
 import { Button } from "@forge-go/dashboard-kit/components/button"
 import { NativeSelect } from "@forge-go/dashboard-kit/components/native-select"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { UsersIcon } from "@forge-go/dashboard-kit/icons"
 import { TenantBadge } from "../badges"
@@ -133,7 +134,7 @@ export function TenantsPage() {
     setStatus("")
   }
   return (
-    <div className="space-y-3">
+    <div className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Tenants"
         actions={
@@ -147,31 +148,37 @@ export function TenantsPage() {
         }
         description="Customer limits and exact monthly spend."
       />
-      <div className="flex flex-wrap items-center gap-2">
-        <Input
-          className="max-w-xs"
-          aria-label="Search tenants"
-          placeholder="Search name or slug"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
+      <Section
+        aria-label="Tenant list"
+        actions={
+          <>
+            <Input
+              className="max-w-xs"
+              aria-label="Search tenants"
+              placeholder="Search name or slug"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+            <NativeSelect
+              aria-label="Tenant status"
+              value={status}
+              onChange={(e) => setStatus(e.target.value)}
+            >
+              <option value="">All statuses</option>
+              <option value="active">Active</option>
+              <option value="disabled">Disabled</option>
+              <option value="suspended">Suspended</option>
+            </NativeSelect>
+          </>
+        }
+      >
+        <TenantRows
+          key={`${search}:${status}`}
+          search={search}
+          status={status}
+          clear={clear}
         />
-        <NativeSelect
-          aria-label="Tenant status"
-          value={status}
-          onChange={(e) => setStatus(e.target.value)}
-        >
-          <option value="">All statuses</option>
-          <option value="active">Active</option>
-          <option value="disabled">Disabled</option>
-          <option value="suspended">Suspended</option>
-        </NativeSelect>
-      </div>
-      <TenantRows
-        key={`${search}:${status}`}
-        search={search}
-        status={status}
-        clear={clear}
-      />
+      </Section>
     </div>
   )
 }

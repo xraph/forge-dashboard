@@ -4,6 +4,7 @@ import { Button } from "@forge-go/dashboard-kit/components/button"
 import { Input } from "@forge-go/dashboard-kit/components/input"
 import { NativeSelect } from "@forge-go/dashboard-kit/components/native-select"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { Switch } from "@forge-go/dashboard-kit/components/switch"
 import { CommandAlert } from "@forge-go/dashboard-kit/components/query-boundary"
 import {
@@ -15,7 +16,7 @@ import {
 import { tenantPath } from "../format"
 import type { Quota, Tenant } from "../types"
 import { MetadataFields } from "./metadata-fields"
-import { Empty, Notice, Section } from "./read"
+import { Empty, Notice } from "./read"
 
 export function TenantEditor({ tenant }: { tenant?: Tenant }) {
   return <Editor key={tenant?.id ?? "new"} tenant={tenant} />
@@ -75,7 +76,7 @@ function Editor({ tenant }: { tenant?: Tenant }) {
     )
   return (
     <form
-      className="space-y-4"
+      className="flex min-w-0 flex-col gap-4"
       noValidate
       onSubmit={(event) => {
         event.preventDefault()
@@ -110,30 +111,35 @@ function Editor({ tenant }: { tenant?: Tenant }) {
         </p>
       )}
       <CommandAlert title="Tenant could not be saved" error={command.error} />
-      <fieldset disabled={command.loading} className="space-y-4">
-        <div className="grid min-w-0 gap-3 sm:grid-cols-2">
-          <label className="space-y-1 text-sm">
-            Name
-            <Input
-              value={draft.name}
-              onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-            />
-          </label>
-          <label className="space-y-1 text-sm">
-            Slug
-            <Input
-              value={draft.slug}
-              readOnly={!!original}
-              onChange={(e) => setDraft({ ...draft, slug: e.target.value })}
-            />
-            {original && (
-              <span className="text-xs text-muted-foreground">
-                Slug cannot be changed.
-              </span>
-            )}
-          </label>
-        </div>
-        <Section title="Quotas">
+      <fieldset
+        disabled={command.loading}
+        className="flex min-w-0 flex-col gap-4"
+      >
+        <Section aria-label="Tenant details" inset>
+          <div className="grid min-w-0 gap-3 sm:grid-cols-2">
+            <label className="space-y-1 text-sm">
+              Name
+              <Input
+                value={draft.name}
+                onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+              />
+            </label>
+            <label className="space-y-1 text-sm">
+              Slug
+              <Input
+                value={draft.slug}
+                readOnly={!!original}
+                onChange={(e) => setDraft({ ...draft, slug: e.target.value })}
+              />
+              {original && (
+                <span className="text-xs text-muted-foreground">
+                  Slug cannot be changed.
+                </span>
+              )}
+            </label>
+          </div>
+        </Section>
+        <Section title="Quotas" inset>
           <div className="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-3">
             {(Object.keys(quotaLabels) as (keyof Quota)[]).map((key) => (
               <div key={key} className="space-y-1">
@@ -186,7 +192,7 @@ function Editor({ tenant }: { tenant?: Tenant }) {
           In-flight requests can exceed them. Collection must be enabled to
           enforce a budget.
         </Notice>
-        <Section title="Configuration">
+        <Section title="Configuration" inset>
           <div className="grid min-w-0 gap-3 sm:grid-cols-2">
             {(
               [
@@ -235,16 +241,20 @@ function Editor({ tenant }: { tenant?: Tenant }) {
             </label>
           </div>
         </Section>
-        <MetadataFields
-          label="Tenant metadata"
-          value={draft.metadata}
-          onChange={(metadata) => setDraft({ ...draft, metadata })}
-        />
-        <MetadataFields
-          label="Configuration metadata"
-          value={draft.config.metadata}
-          onChange={(value) => config("metadata", value)}
-        />
+        <Section title="Tenant metadata" inset>
+          <MetadataFields
+            label="Tenant metadata"
+            value={draft.metadata}
+            onChange={(metadata) => setDraft({ ...draft, metadata })}
+          />
+        </Section>
+        <Section title="Configuration metadata" inset>
+          <MetadataFields
+            label="Configuration metadata"
+            value={draft.config.metadata}
+            onChange={(value) => config("metadata", value)}
+          />
+        </Section>
       </fieldset>
     </form>
   )

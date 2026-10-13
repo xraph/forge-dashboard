@@ -2,6 +2,7 @@ import { useState } from "react"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { NativeSelect } from "@forge-go/dashboard-kit/components/native-select"
 import { Button } from "@forge-go/dashboard-kit/components/button"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { KeyDialog } from "../components/key-dialog"
 import { KeyList } from "../components/key-list"
 import { TenantFilter } from "../components/tenant-filter"
@@ -11,7 +12,7 @@ export function KeysPage() {
     [status, setStatus] = useState("active"),
     [creating, setCreating] = useState(false)
   return (
-    <div className="space-y-3">
+    <div className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="API keys"
         description="Tenant access, scopes and effective key status."
@@ -21,28 +22,34 @@ export function KeysPage() {
           </Button>
         }
       />
-      <div className="flex flex-wrap items-center gap-2">
-        <TenantFilter value={tenantId} onChange={setTenantId} />
-        <NativeSelect
-          aria-label="Key status"
-          value={status}
-          onChange={(e) => setStatus(e.target.value)}
-        >
-          <option value="active">Active</option>
-          <option value="">All statuses</option>
-          <option value="revoked">Revoked</option>
-          <option value="expired">Expired</option>
-        </NativeSelect>
-      </div>
-      <KeyList
-        key={`${tenantId}:${status}`}
-        tenantId={tenantId}
-        status={status}
-        onClear={() => {
-          setTenantId(undefined)
-          setStatus("")
-        }}
-      />
+      <Section
+        aria-label="Key list"
+        actions={
+          <>
+            <TenantFilter value={tenantId} onChange={setTenantId} />
+            <NativeSelect
+              aria-label="Key status"
+              value={status}
+              onChange={(e) => setStatus(e.target.value)}
+            >
+              <option value="active">Active</option>
+              <option value="">All statuses</option>
+              <option value="revoked">Revoked</option>
+              <option value="expired">Expired</option>
+            </NativeSelect>
+          </>
+        }
+      >
+        <KeyList
+          key={`${tenantId}:${status}`}
+          tenantId={tenantId}
+          status={status}
+          onClear={() => {
+            setTenantId(undefined)
+            setStatus("")
+          }}
+        />
+      </Section>
       <KeyDialog
         open={creating}
         onOpenChange={setCreating}

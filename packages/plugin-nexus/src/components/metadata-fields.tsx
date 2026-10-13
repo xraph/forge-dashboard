@@ -14,7 +14,7 @@ export function MetadataFields({
 }) {
   return (
     <fieldset className="space-y-2">
-      <legend className="text-sm font-medium">{label}</legend>
+      <legend className="sr-only">{label}</legend>
       {value.map((row, index) => (
         <div className="flex flex-wrap items-center gap-2" key={index}>
           <Input

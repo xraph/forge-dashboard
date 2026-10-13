@@ -6,6 +6,7 @@ import {
 } from "@forge-go/dashboard-plugin"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { PencilIcon } from "@forge-go/dashboard-kit/icons"
@@ -23,7 +24,6 @@ import {
   Metrics,
   Notice,
   Refresh,
-  Section,
   UsageOff,
 } from "../components/read"
 import { validID } from "../format"
@@ -55,10 +55,29 @@ export function TenantDetailPage({ params }: PluginPageProps) {
       />
     )
   return (
-    <div className="space-y-3">
+    <div className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title={query.data?.name ?? "Tenant"}
         description={params.id}
+        meta={
+          query.data ? (
+            <>
+              <TenantBadge status={query.data.status} />
+              <span className="text-muted-foreground">{query.data.slug}</span>
+              <Timestamp
+                value={query.data.createdAt ?? undefined}
+                label="creation time"
+              />
+              <span>
+                Updated{" "}
+                <Timestamp
+                  value={query.data.updatedAt ?? undefined}
+                  label="last update"
+                />
+              </span>
+            </>
+          ) : undefined
+        }
         actions={
           <div className="flex flex-wrap items-center gap-1">
             <Refresh onClick={query.refetch} />
@@ -79,21 +98,6 @@ export function TenantDetailPage({ params }: PluginPageProps) {
       <QueryBoundary title="Tenant" query={query}>
         {(data) => (
           <>
-            <div className="flex flex-wrap items-center gap-3 text-sm">
-              <TenantBadge status={data.status} />
-              <span className="text-muted-foreground">{data.slug}</span>
-              <Timestamp
-                value={data.createdAt ?? undefined}
-                label="creation time"
-              />
-              <span>
-                Updated{" "}
-                <Timestamp
-                  value={data.updatedAt ?? undefined}
-                  label="last update"
-                />
-              </span>
-            </div>
             {!data.usageEnabled && <UsageOff />}
             <Metrics
               items={[
@@ -146,50 +150,56 @@ export function TenantDetailPage({ params }: PluginPageProps) {
                   </div>
                 </div>
               )}
-            <Section title="Request limits">
-              {data.requestsToday !== null && data.quota.dailyRequests > 0 && (
-                <div className="space-y-1 text-xs">
-                  <span>
-                    {count(data.requestsToday)} of{" "}
-                    {count(data.quota.dailyRequests)} daily requests
-                  </span>
-                  <div
-                    aria-hidden="true"
-                    className="h-1.5 overflow-hidden rounded-full bg-muted"
-                  >
-                    <div
-                      className="h-full bg-primary"
-                      style={{
-                        width: `${sharePercent(String(data.requestsToday), String(data.quota.dailyRequests))}%`,
-                      }}
-                    />
-                  </div>
-                </div>
-              )}
-              <Facts
-                items={[
-                  {
-                    label: "Requests per minute",
-                    value: limit(data.quota.rpm),
-                  },
-                  { label: "Tokens per minute", value: limit(data.quota.tpm) },
-                  {
-                    label: "Tokens per request",
-                    value: limit(data.quota.maxTokensPerReq),
-                  },
-                  {
-                    label: "Stream tokens",
-                    value: limit(data.quota.maxStreamTokens),
-                  },
-                  {
-                    label: "Stream duration",
-                    value:
-                      data.quota.maxStreamDurationMs === 0
-                        ? "Unlimited"
-                        : `${count(data.quota.maxStreamDurationMs)} ms`,
-                  },
-                ]}
-              />
+            <Section title="Request limits" inset>
+              <div className="space-y-2">
+                {data.requestsToday !== null &&
+                  data.quota.dailyRequests > 0 && (
+                    <div className="space-y-1 text-xs">
+                      <span>
+                        {count(data.requestsToday)} of{" "}
+                        {count(data.quota.dailyRequests)} daily requests
+                      </span>
+                      <div
+                        aria-hidden="true"
+                        className="h-1.5 overflow-hidden rounded-full bg-muted"
+                      >
+                        <div
+                          className="h-full bg-primary"
+                          style={{
+                            width: `${sharePercent(String(data.requestsToday), String(data.quota.dailyRequests))}%`,
+                          }}
+                        />
+                      </div>
+                    </div>
+                  )}
+                <Facts
+                  items={[
+                    {
+                      label: "Requests per minute",
+                      value: limit(data.quota.rpm),
+                    },
+                    {
+                      label: "Tokens per minute",
+                      value: limit(data.quota.tpm),
+                    },
+                    {
+                      label: "Tokens per request",
+                      value: limit(data.quota.maxTokensPerReq),
+                    },
+                    {
+                      label: "Stream tokens",
+                      value: limit(data.quota.maxStreamTokens),
+                    },
+                    {
+                      label: "Stream duration",
+                      value:
+                        data.quota.maxStreamDurationMs === 0
+                          ? "Unlimited"
+                          : `${count(data.quota.maxStreamDurationMs)} ms`,
+                    },
+                  ]}
+                />
+              </div>
             </Section>
             <Notice>
               RPM and TPM use your configured limiter. Memory limits apply per
@@ -200,7 +210,7 @@ export function TenantDetailPage({ params }: PluginPageProps) {
               Monthly budgets are soft limits. In-flight requests, unpriced
               calls and records that fail to store can exceed the budget.
             </Notice>
-            <Section title="Configuration">
+            <Section title="Configuration" inset>
               <Facts
                 items={[
                   {
@@ -253,7 +263,10 @@ export function TenantDetailPage({ params }: PluginPageProps) {
                 ]}
               />
             </Section>
-            <Section title="Tenant metadata">
+            <Section
+              title="Tenant metadata"
+              inset={Object.keys(data.metadata ?? {}).length > 0}
+            >
               {Object.keys(data.metadata ?? {}).length ? (
                 <Facts
                   items={Object.entries(data.metadata!).map(
@@ -268,7 +281,10 @@ export function TenantDetailPage({ params }: PluginPageProps) {
                 />
               )}
             </Section>
-            <Section title="Configuration metadata">
+            <Section
+              title="Configuration metadata"
+              inset={Object.keys(data.config.metadata ?? {}).length > 0}
+            >
               {Object.keys(data.config.metadata ?? {}).length ? (
                 <Facts
                   items={Object.entries(data.config.metadata!).map(
@@ -285,7 +301,7 @@ export function TenantDetailPage({ params }: PluginPageProps) {
             </Section>
             <Section
               title="API keys"
-              action={
+              actions={
                 <Button size="sm" onClick={() => setCreatingKey(true)}>
                   Create API key
                 </Button>

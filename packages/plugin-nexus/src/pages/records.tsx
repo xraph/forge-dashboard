@@ -12,6 +12,7 @@ import { NativeSelect } from "@forge-go/dashboard-kit/components/native-select"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
 import { ResourceTable } from "@forge-go/dashboard-kit/components/resource-table"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { OutcomeBadge } from "../badges"
 import { KeyFilter } from "../components/key-filter"
@@ -225,7 +226,10 @@ function RecordRows({
                 }
               />
             )}
-            <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+            <nav
+              aria-label="Pagination"
+              className="flex items-center justify-between gap-2 text-xs text-muted-foreground"
+            >
               <span>{items.length} requests shown</span>
               {value.nextCursor && (
                 <IconButton
@@ -235,7 +239,7 @@ function RecordRows({
                   label="Load more requests"
                 />
               )}
-            </div>
+            </nav>
           </>
         )
       }
@@ -308,91 +312,95 @@ function RecordsFilterPage({ search }: { search: string }) {
     })
   }
   return (
-    <div className="space-y-3">
+    <div className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Request log"
         description="Priced and unpriced requests, refusal reasons and provider outcomes."
         actions={<Refresh onClick={() => setRevision((n) => n + 1)} />}
       />
-      <form
-        className="flex flex-wrap items-end gap-2"
-        onSubmit={(e) => {
-          e.preventDefault()
-          apply()
-        }}
-      >
-        <TenantFilter
-          value={tenantId}
-          onChange={(id) => {
-            setTenantId(id)
-            setKeyId(undefined)
+      <Section title="Filters" inset>
+        <form
+          className="flex flex-wrap items-end gap-2"
+          onSubmit={(e) => {
+            e.preventDefault()
+            apply()
           }}
-        />
-        <KeyFilter value={keyId} tenantId={tenantId} onChange={setKeyId} />
-        <NativeSelect
-          aria-label="Outcome"
-          value={outcome}
-          onChange={(e) => setOutcome(e.target.value)}
         >
-          <option value="">All outcomes</option>
-          {["ok", "cached", "blocked", "refused", "error"].map((value) => (
-            <option key={value} value={value}>
-              {value}
-            </option>
-          ))}
-        </NativeSelect>
-        <Input
-          className="w-36"
-          aria-label="Provider"
-          placeholder="Provider"
-          value={draft.provider}
-          onChange={(e) => setDraft({ ...draft, provider: e.target.value })}
-        />
-        <Input
-          className="w-36"
-          aria-label="Model"
-          placeholder="Model"
-          value={draft.model}
-          onChange={(e) => setDraft({ ...draft, model: e.target.value })}
-        />
-        <label className="space-y-1 text-xs text-muted-foreground">
-          From (local time)
+          <TenantFilter
+            value={tenantId}
+            onChange={(id) => {
+              setTenantId(id)
+              setKeyId(undefined)
+            }}
+          />
+          <KeyFilter value={keyId} tenantId={tenantId} onChange={setKeyId} />
+          <NativeSelect
+            aria-label="Outcome"
+            value={outcome}
+            onChange={(e) => setOutcome(e.target.value)}
+          >
+            <option value="">All outcomes</option>
+            {["ok", "cached", "blocked", "refused", "error"].map((value) => (
+              <option key={value} value={value}>
+                {value}
+              </option>
+            ))}
+          </NativeSelect>
           <Input
-            type="datetime-local"
-            value={draft.from}
-            onChange={(e) => setDraft({ ...draft, from: e.target.value })}
+            className="w-36"
+            aria-label="Provider"
+            placeholder="Provider"
+            value={draft.provider}
+            onChange={(e) => setDraft({ ...draft, provider: e.target.value })}
           />
-        </label>
-        <label className="space-y-1 text-xs text-muted-foreground">
-          To (local time)
           <Input
-            type="datetime-local"
-            value={draft.to}
-            onChange={(e) => setDraft({ ...draft, to: e.target.value })}
+            className="w-36"
+            aria-label="Model"
+            placeholder="Model"
+            value={draft.model}
+            onChange={(e) => setDraft({ ...draft, model: e.target.value })}
           />
-        </label>
-        <Button type="submit" size="sm" variant="outline">
-          Apply filters
-        </Button>
-        {Object.keys(filters).length > 0 && (
-          <IconButton
-            type="button"
-            variant="ghost"
-            onClick={clear}
-            label="Clear filters"
-          />
-        )}
-      </form>
+          <label className="space-y-1 text-xs text-muted-foreground">
+            From (local time)
+            <Input
+              type="datetime-local"
+              value={draft.from}
+              onChange={(e) => setDraft({ ...draft, from: e.target.value })}
+            />
+          </label>
+          <label className="space-y-1 text-xs text-muted-foreground">
+            To (local time)
+            <Input
+              type="datetime-local"
+              value={draft.to}
+              onChange={(e) => setDraft({ ...draft, to: e.target.value })}
+            />
+          </label>
+          <Button type="submit" size="sm" variant="outline">
+            Apply filters
+          </Button>
+          {Object.keys(filters).length > 0 && (
+            <IconButton
+              type="button"
+              variant="ghost"
+              onClick={clear}
+              label="Clear filters"
+            />
+          )}
+        </form>
+      </Section>
       {error && (
         <p role="alert" className="text-sm text-destructive">
           {error}
         </p>
       )}
-      <RecordRows
-        key={`${JSON.stringify(filters)}:${revision}`}
-        filters={filters}
-        clear={clear}
-      />
+      <Section aria-label="Request log">
+        <RecordRows
+          key={`${JSON.stringify(filters)}:${revision}`}
+          filters={filters}
+          clear={clear}
+        />
+      </Section>
     </div>
   )
 }

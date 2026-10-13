@@ -3,31 +3,33 @@ import { Badge } from "@forge-go/dashboard-kit/components/badge"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
 import { ResourceTable } from "@forge-go/dashboard-kit/components/resource-table"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import {
   count,
   Empty,
   Facts,
   Notice,
-  PostureStrip,
+  PostureMeta,
   rate,
   Refresh,
-  Section,
 } from "../components/read"
 import type { Gateway } from "../types"
 
 export function GatewayPage() {
   const query = useQuery<Gateway>("gateway.get")
   return (
-    <div className="space-y-3">
+    <div className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Gateway"
         description="Effective pipeline and enforcement limits."
+        meta={
+          query.data ? <PostureMeta value={query.data.posture} /> : undefined
+        }
         actions={<Refresh onClick={query.refetch} />}
       />
       <QueryBoundary title="Gateway" query={query}>
         {(data) => (
           <>
-            <PostureStrip value={data.posture} />
             <Section title="Pipeline">
               {!data.stagesAvailable ? (
                 <Empty
@@ -42,7 +44,7 @@ export function GatewayPage() {
                   action={<Refresh onClick={query.refetch} />}
                 />
               ) : (
-                <ol className="flex flex-wrap gap-2">
+                <ol className="flex flex-wrap gap-2 p-4">
                   {data.stages.map((stage, index) => (
                     <li
                       key={`${stage.name}-${index}`}
@@ -64,41 +66,45 @@ export function GatewayPage() {
               )}
             </Section>
             <div className="grid min-w-0 gap-4 lg:grid-cols-2">
-              <Section title="Routing">
-                <Facts
-                  items={[{ label: "Strategy", value: data.routingStrategy }]}
-                />
-                {data.routingCaveats.map((text) => (
-                  <Notice key={text}>{text}</Notice>
-                ))}
+              <Section title="Routing" inset>
+                <div className="flex flex-col gap-2">
+                  <Facts
+                    items={[{ label: "Strategy", value: data.routingStrategy }]}
+                  />
+                  {data.routingCaveats.map((text) => (
+                    <Notice key={text}>{text}</Notice>
+                  ))}
+                </div>
               </Section>
-              <Section title="Cache">
-                <Facts
-                  items={[
-                    { label: "Completion", value: data.cache.kind },
-                    { label: "Streaming", value: data.cache.streamKind },
-                    { label: "Hits", value: count(data.cache.hits) },
-                    { label: "Misses", value: count(data.cache.misses) },
-                    { label: "Hit rate", value: rate(data.cache.hitRate) },
-                    {
-                      label: "Entries",
-                      value:
-                        data.cache.size === null
-                          ? "Not tracked"
-                          : count(data.cache.size),
-                    },
-                    {
-                      label: "Bytes",
-                      value:
-                        data.cache.bytes === null
-                          ? "Not tracked"
-                          : count(data.cache.bytes),
-                    },
-                  ]}
-                />
-                <p className="text-xs text-muted-foreground">
-                  {data.cache.statsScope}
-                </p>
+              <Section title="Cache" inset>
+                <div className="flex flex-col gap-2">
+                  <Facts
+                    items={[
+                      { label: "Completion", value: data.cache.kind },
+                      { label: "Streaming", value: data.cache.streamKind },
+                      { label: "Hits", value: count(data.cache.hits) },
+                      { label: "Misses", value: count(data.cache.misses) },
+                      { label: "Hit rate", value: rate(data.cache.hitRate) },
+                      {
+                        label: "Entries",
+                        value:
+                          data.cache.size === null
+                            ? "Not tracked"
+                            : count(data.cache.size),
+                      },
+                      {
+                        label: "Bytes",
+                        value:
+                          data.cache.bytes === null
+                            ? "Not tracked"
+                            : count(data.cache.bytes),
+                      },
+                    ]}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    {data.cache.statsScope}
+                  </p>
+                </div>
               </Section>
             </div>
             <Section title="Guards">
@@ -120,9 +126,13 @@ export function GatewayPage() {
                   action={<Refresh onClick={query.refetch} />}
                 />
               )}
-              {data.guardCaveats.map((text) => (
-                <Notice key={text}>{text}</Notice>
-              ))}
+              {data.guardCaveats.length > 0 && (
+                <div className="flex flex-col gap-2 border-t p-4">
+                  {data.guardCaveats.map((text) => (
+                    <Notice key={text}>{text}</Notice>
+                  ))}
+                </div>
+              )}
             </Section>
             <Section title="Aliases">
               {data.aliases.length ? (
@@ -188,10 +198,12 @@ export function GatewayPage() {
                 />
               )}
             </Section>
-            <Section title="Enforcement limits">
-              {data.enforcementCaveats.map((text) => (
-                <Notice key={text}>{text}</Notice>
-              ))}
+            <Section title="Enforcement limits" inset>
+              <div className="flex flex-col gap-2">
+                {data.enforcementCaveats.map((text) => (
+                  <Notice key={text}>{text}</Notice>
+                ))}
+              </div>
             </Section>
           </>
         )}
