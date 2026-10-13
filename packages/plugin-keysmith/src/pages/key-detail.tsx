@@ -1,6 +1,6 @@
 import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { Suspense, lazy, useMemo, useState } from "react"
-import type { ComponentType, ReactNode } from "react"
+import type { ComponentType } from "react"
 import { PluginLink, useQuery } from "@forge-go/dashboard-plugin"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
 import { buttonVariants } from "@forge-go/dashboard-kit/components/button"
@@ -12,6 +12,7 @@ import { EmptyState } from "@forge-go/dashboard-kit/components/empty-state"
 import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { Skeleton } from "@forge-go/dashboard-kit/components/skeleton"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { formatTimestamp } from "@forge-go/dashboard-kit/lib/format"
@@ -282,32 +283,6 @@ function isNoSuchKey(
   return false
 }
 
-function Section({
-  title,
-  action,
-  children,
-}: {
-  title: string
-  /** A link beside the heading, to the page that shows all of it. */
-  action?: ReactNode
-  children: ReactNode
-}) {
-  const heading = <h2 className="text-sm font-medium">{title}</h2>
-  return (
-    <section className="flex min-w-0 flex-col gap-2">
-      {action ? (
-        <div className="flex items-baseline justify-between gap-4">
-          {heading}
-          {action}
-        </div>
-      ) : (
-        heading
-      )}
-      {children}
-    </section>
-  )
-}
-
 function KeyDetailView({
   data,
   onRotate,
@@ -342,6 +317,12 @@ function KeyDetailView({
         <PageHeader
           title={key.name}
           description={key.description}
+          meta={
+            <>
+              <span className="font-mono text-sm">{maskedKey(key)}</span>
+              <KeyStateBadge summary={key} />
+            </>
+          }
           actions={
             anyAction ? (
               <>
@@ -369,10 +350,6 @@ function KeyDetailView({
             A revoked or expired key cannot be rotated.
           </p>
         )}
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="font-mono text-sm">{maskedKey(key)}</span>
-          <KeyStateBadge summary={key} />
-        </div>
         {expiredUnmarked && (
           <p className="text-sm text-muted-foreground">
             {key.expiresAt
@@ -388,7 +365,7 @@ function KeyDetailView({
           <>
             <ValiditySection data={data} onEnd={onEnd} />
             <DetailsSection data={data} />
-            <Section title="Scopes">
+            <Section title="Scopes" inset>
               <ScopesEditor summary={key} editing={scopeEditing} />
             </Section>
             <RotationHistorySection keyId={key.id} />
@@ -426,7 +403,8 @@ function RotationHistorySection({ keyId }: { keyId: string }) {
   return (
     <Section
       title="Rotation history"
-      action={
+      inset
+      actions={
         <PluginLink
           to={rotationsForKey(keyId)}
           aria-label="View all rotations of this key"
@@ -501,7 +479,8 @@ function UsageSection({ keyId }: { keyId: string }) {
   return (
     <Section
       title="Usage"
-      action={
+      inset
+      actions={
         <PluginLink to={usageForKey(keyId)} className={SECTION_LINK}>
           Open usage
         </PluginLink>
@@ -556,7 +535,7 @@ function WardenSection({ keyId }: { keyId: string }) {
   const subject = `api_key:${keyId}`
   const hooked = settings.data?.plugins?.includes("warden-hook") === true
   return (
-    <Section title="Warden">
+    <Section title="Warden" inset>
       {hooked ? (
         <>
           <p className="text-sm text-muted-foreground">
@@ -596,7 +575,7 @@ function ValiditySection({
   const masked = previousMasked(data)
   const sentence = validitySentence(key.effectiveState, previous.length)
   return (
-    <Section title="Validity">
+    <Section title="Validity" inset>
       {previous.length === 0 ? (
         <p className="text-sm text-muted-foreground">
           No previous key is still accepted.
@@ -647,7 +626,7 @@ function validitySentence(state: KeyState, count: number): string | null {
 function DetailsSection({ data }: { data: KeyDetail }) {
   const { key } = data
   return (
-    <Section title="Details">
+    <Section title="Details" inset>
       <DescriptionList
         items={[
           {
@@ -713,7 +692,7 @@ function PolicySection({
   revoked: boolean
 }) {
   return (
-    <Section title="Policy">
+    <Section title="Policy" inset>
       {policy === null && policyId ? (
         <div className="flex min-w-0 flex-col gap-1">
           <p className="text-sm text-muted-foreground">
@@ -763,7 +742,7 @@ function MetadataSection({ metadata }: { metadata: KeyDetail["metadata"] }) {
     a.localeCompare(b)
   )
   return (
-    <Section title="Metadata">
+    <Section title="Metadata" inset>
       {entries.length === 0 ? (
         <NoneCell label="metadata" />
       ) : (

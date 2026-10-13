@@ -206,6 +206,24 @@ describe("KeyDetailPage header", () => {
     expect(screen.getByText("Active")).toBeTruthy()
   })
 
+  it("frames each part of the key as a section and puts the key in the header", async () => {
+    await render()
+    for (const name of [
+      "Validity",
+      "Details",
+      "Scopes",
+      "Rotation history",
+      "Metadata",
+      "Policy",
+      "Usage",
+      "Warden",
+    ]) {
+      expect(await screen.findByRole("region", { name })).toBeTruthy()
+    }
+    const meta = document.querySelector('[data-slot="page-header-meta"]')
+    expect(meta?.querySelector(".font-mono")).toBeTruthy()
+  })
+
   it("sends keys.detail with the route id", async () => {
     const { client, sent } = recordingQueryClient({
       ...SIDE,
