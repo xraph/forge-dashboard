@@ -1,6 +1,6 @@
 import { Badge } from "@forge-go/dashboard-kit/components/badge"
 import { EmptyState } from "@forge-go/dashboard-kit/components/empty-state"
-import { Panel } from "../components/presentation"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { useState } from "react"
 import { useCommand, useQuery } from "@forge-go/dashboard-plugin"
 import { Label } from "@forge-go/dashboard-kit/components/label"
@@ -83,9 +83,10 @@ export function AuthFeaturesPage() {
         {(data) => {
           const toggles = data.toggles ?? []
           return (
-            <Panel
+            <Section
               title="Sign-in methods"
               description={`${toggles.filter((row) => row.enabled).length} enabled · ${toggles.length} reported`}
+              inset
             >
               <ul className="divide-y">
                 {toggles.length === 0 && (
@@ -136,7 +137,7 @@ export function AuthFeaturesPage() {
                   </li>
                 ))}
               </ul>
-            </Panel>
+            </Section>
           )
         }}
       </QueryBoundary>

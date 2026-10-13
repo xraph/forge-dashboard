@@ -26,8 +26,8 @@ import {
 import { Textarea } from "@forge-go/dashboard-kit/components/textarea"
 import { ZeroState } from "@forge-go/dashboard-kit/components/zero-state"
 import { Bell, FileText, Plus, Send } from "@forge-go/dashboard-kit/icons"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import {
-  Panel,
   PageLink,
   ResourceTable,
   type Column,
@@ -374,16 +374,17 @@ export function NotificationCreatePage() {
       />
       <CommandAlert title="Could not create template" error={create.error} />
       {created && (
-        <Panel title="Template created">
+        <Section inset title="Template created">
           <PluginLink
             to={`/notifications/templates/${created}`}
             className="text-sm underline"
           >
             Open template
           </PluginLink>
-        </Panel>
+        </Section>
       )}
-      <Panel
+      <Section
+        inset
         title="Template content"
         description="Start with one locale. Add more versions after creating the template."
       >
@@ -492,7 +493,7 @@ export function NotificationCreatePage() {
             Create template
           </Button>
         </form>
-      </Panel>
+      </Section>
     </section>
   )
 }
@@ -683,7 +684,8 @@ function NotificationDetail({ id }: { id: string }) {
             title="Template action failed"
             error={update.error ?? remove.error ?? addVersion.error}
           />
-          <Panel
+          <Section
+            inset
             title="Template"
             description={item.is_system ? "System template" : "Custom template"}
           >
@@ -741,8 +743,9 @@ function NotificationDetail({ id }: { id: string }) {
                 </Button>
               )}
             </div>
-          </Panel>
-          <Panel
+          </Section>
+          <Section
+            inset
             title="Locale versions"
             actions={
               <Button
@@ -814,7 +817,7 @@ function NotificationDetail({ id }: { id: string }) {
                 illustration={<FileText className="size-6" />}
               />
             )}
-          </Panel>
+          </Section>
           <ConfirmDialog
             open={confirmDelete}
             onOpenChange={setConfirmDelete}
@@ -893,7 +896,7 @@ export function NotificationSendPage() {
       )}
       <QueryBoundary title="Templates" query={query}>
         {(data) => (
-          <Panel title="Message">
+          <Section inset title="Message">
             <div className="grid min-w-0 gap-4 md:grid-cols-2">
               <Field label="Template">
                 <select
@@ -957,7 +960,7 @@ export function NotificationSendPage() {
                 </Button>
               </div>
             </div>
-          </Panel>
+          </Section>
         )}
       </QueryBoundary>
       <ConfirmDialog

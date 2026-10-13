@@ -18,6 +18,7 @@ import {
   CommandAlert,
   QueryBoundary,
 } from "@forge-go/dashboard-kit/components/query-boundary"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { ResourceTable, type Column } from "../components/presentation"
 import { formatTimestamp } from "@forge-go/dashboard-kit/lib/format"
 import { CursorPager, useCursorStack } from "../components/cursor-pager"
@@ -165,15 +166,6 @@ export function AuthUsersPage() {
         }
       />
 
-      <FilterBar
-        search={{
-          value: searchInput,
-          onChange: setSearchInput,
-          label: "Search users",
-          placeholder: "Search by email",
-        }}
-      />
-
       {/*
         Unban fires straight from its row button, with no confirmation - the
         plan calls it non-destructive, so there is no dialog for Base UI to
@@ -182,106 +174,124 @@ export function AuthUsersPage() {
       */}
       <CommandAlert error={unban.error} title="Could not unban" />
 
-      <QueryBoundary title="Users" query={list} skeletonRows={5}>
-        {(data) => {
-          const users = data.users ?? []
-          // The caption carries the live count on every render, independent
-          // of whether `CursorPager` has anything to navigate to - it renders
-          // nothing at all on a single-page result, which used to mean the
-          // count disappeared along with it for the common case of a small
-          // org.
-          const caption =
-            data.total !== undefined
-              ? `${users.length} of ${data.total}`
-              : `${users.length} shown`
+      <Section
+        aria-label="User list"
+        actions={
+          <FilterBar
+            search={{
+              value: searchInput,
+              onChange: setSearchInput,
+              label: "Search users",
+              placeholder: "Search by email",
+            }}
+          />
+        }
+      >
+        <QueryBoundary title="Users" query={list} skeletonRows={5}>
+          {(data) => {
+            const users = data.users ?? []
+            // The caption carries the live count on every render, independent
+            // of whether `CursorPager` has anything to navigate to - it renders
+            // nothing at all on a single-page result, which used to mean the
+            // count disappeared along with it for the common case of a small
+            // org.
+            const caption =
+              data.total !== undefined
+                ? `${users.length} of ${data.total}`
+                : `${users.length} shown`
 
-          return (
-            <>
-              <ResourceTable<UserSummary>
-                columns={columns}
-                rows={users}
-                rowKey={(u) => u.id}
-                caption={caption}
-                emptyMessage={
-                  search ? `No users match “${search}”.` : "No users yet."
-                }
-                rowActions={(user) => (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger
-                      render={
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          aria-label={`Actions for ${user.email}`}
-                        />
-                      }
-                    >
-                      <span aria-hidden="true" className="text-lg leading-none">
-                        ⋯
-                      </span>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-44">
-                      <DropdownMenuItem
+            return (
+              <>
+                <ResourceTable<UserSummary>
+                  appearance="flush"
+                  columns={columns}
+                  rows={users}
+                  rowKey={(u) => u.id}
+                  caption={caption}
+                  emptyMessage={
+                    search ? `No users match “${search}”.` : "No users yet."
+                  }
+                  rowActions={(user) => (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger
                         render={
-                          <PluginLink to={`/users/${user.id}`}>
-                            Details
-                          </PluginLink>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            aria-label={`Actions for ${user.email}`}
+                          />
                         }
                       >
-                        Details
-                      </DropdownMenuItem>
-                      {user.banned ? (
-                        <DropdownMenuItem
-                          disabled={unban.loading}
-                          aria-label={`Unban ${user.email}`}
-                          onClick={() => void unban.execute({ id: user.id })}
+                        <span
+                          aria-hidden="true"
+                          className="text-lg leading-none"
                         >
-                          Unban user
-                        </DropdownMenuItem>
-                      ) : (
+                          ⋯
+                        </span>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-44">
                         <DropdownMenuItem
-                          aria-label={`Ban ${user.email}`}
+                          render={
+                            <PluginLink to={`/users/${user.id}`}>
+                              Details
+                            </PluginLink>
+                          }
+                        >
+                          Details
+                        </DropdownMenuItem>
+                        {user.banned ? (
+                          <DropdownMenuItem
+                            disabled={unban.loading}
+                            aria-label={`Unban ${user.email}`}
+                            onClick={() => void unban.execute({ id: user.id })}
+                          >
+                            Unban user
+                          </DropdownMenuItem>
+                        ) : (
+                          <DropdownMenuItem
+                            aria-label={`Ban ${user.email}`}
+                            onClick={() => {
+                              ban.reset()
+                              setBanReason("")
+                              setBanExpiry("")
+                              setBanning(user)
+                            }}
+                          >
+                            Ban user
+                          </DropdownMenuItem>
+                        )}
+                        <DropdownMenuItem
+                          variant="destructive"
+                          aria-label={`Delete ${user.email}`}
                           onClick={() => {
-                            ban.reset()
-                            setBanReason("")
-                            setBanExpiry("")
-                            setBanning(user)
+                            remove.reset()
+                            setDeleting(user)
                           }}
                         >
-                          Ban user
+                          Delete user
                         </DropdownMenuItem>
-                      )}
-                      <DropdownMenuItem
-                        variant="destructive"
-                        aria-label={`Delete ${user.email}`}
-                        onClick={() => {
-                          remove.reset()
-                          setDeleting(user)
-                        }}
-                      >
-                        Delete user
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                )}
-              />
-              <CursorPager
-                hideCount
-                shown={users.length}
-                total={data.total}
-                // A zero-row page still carrying a `nextCursor` must not
-                // leave Next clickable next to a count that says there is
-                // nothing to see - so Next only reflects a real cursor when
-                // there is something on screen to have paged to.
-                nextCursor={users.length > 0 ? data.nextCursor : undefined}
-                canGoBack={page.canGoBack}
-                onNext={page.next}
-                onPrevious={page.previous}
-              />
-            </>
-          )
-        }}
-      </QueryBoundary>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
+                />
+                <CursorPager
+                  hideCount
+                  shown={users.length}
+                  total={data.total}
+                  // A zero-row page still carrying a `nextCursor` must not
+                  // leave Next clickable next to a count that says there is
+                  // nothing to see - so Next only reflects a real cursor when
+                  // there is something on screen to have paged to.
+                  nextCursor={users.length > 0 ? data.nextCursor : undefined}
+                  canGoBack={page.canGoBack}
+                  onNext={page.next}
+                  onPrevious={page.previous}
+                />
+              </>
+            )
+          }}
+        </QueryBoundary>
+      </Section>
 
       <ConfirmDialog
         open={banning !== null}

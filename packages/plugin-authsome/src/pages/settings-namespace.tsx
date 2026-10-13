@@ -81,6 +81,9 @@ export function SettingsNamespaceBody({
                 fields={toDescriptors(fields)}
                 saving={update.loading}
                 onSave={(changed) => void save(changed)}
+                // Embedded in the settings page's plugin tabs, the form is
+                // already inside a section, so its groups must not be.
+                nested={embedded}
               />
             </>
           )

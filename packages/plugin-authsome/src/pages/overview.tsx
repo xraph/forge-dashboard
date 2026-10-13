@@ -1,4 +1,4 @@
-import { Panel, PageLink, Identity } from "../components/presentation"
+import { PageLink, Identity } from "../components/presentation"
 import {
   PluginLink,
   PluginSlot,
@@ -7,6 +7,7 @@ import {
 } from "@forge-go/dashboard-plugin"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { ResourceTable, type Column } from "../components/presentation"
 import { StatGrid } from "@forge-go/dashboard-kit/components/stat-grid"
 import { formatTimestamp } from "@forge-go/dashboard-kit/lib/format"
@@ -79,7 +80,7 @@ export function AuthOverviewPage() {
         )}
       </QueryBoundary>
 
-      <Panel
+      <Section
         title="Recent signups"
         description="The latest accounts created in this scope."
         actions={<PageLink to="/users">View users</PageLink>}
@@ -89,6 +90,7 @@ export function AuthOverviewPage() {
             const users = data.users ?? []
             return (
               <ResourceTable<UserSummary>
+                appearance="flush"
                 columns={columns}
                 rows={users}
                 rowKey={(u) => u.id}
@@ -106,13 +108,12 @@ export function AuthOverviewPage() {
             )
           }}
         </QueryBoundary>
-      </Panel>
+      </Section>
 
       {widgetCount > 0 && (
-        <div className="flex min-w-0 flex-col gap-4">
-          <h2 className="text-sm font-medium">More from your plugins</h2>
+        <Section title="More from your plugins">
           <PluginSlot name="overview.widgets" />
-        </div>
+        </Section>
       )}
     </section>
   )

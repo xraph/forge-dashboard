@@ -10,6 +10,7 @@ import {
   CommandAlert,
   QueryBoundary,
 } from "@forge-go/dashboard-kit/components/query-boundary"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import type { AckResponse } from "./users"
 
 /** One entry of `FormField.options`. */
@@ -118,73 +119,78 @@ function EditorBody({ fields: initialFields }: { fields: FormField[] }) {
   }
 
   return (
-    <div className="flex min-w-0 flex-col gap-4">
-      <CommandAlert error={save.error} title="Could not save the signup form" />
-      <div className="flex min-w-0 flex-col gap-3">
-        {fields.map((field, i) => (
-          <div
-            key={i}
-            className="flex min-w-0 flex-col gap-2 rounded-md border p-3"
-          >
-            <div className="flex flex-wrap items-end gap-2">
-              <div className="flex min-w-0 flex-col gap-1.5">
-                <Label htmlFor={`field-key-${i}`}>Key</Label>
-                <Input
-                  id={`field-key-${i}`}
-                  value={field.key}
-                  onChange={(e) => updateField(i, { key: e.target.value })}
+    <Section title="Fields" inset>
+      <div className="flex min-w-0 flex-col gap-4">
+        <CommandAlert
+          error={save.error}
+          title="Could not save the signup form"
+        />
+        <div className="flex min-w-0 flex-col gap-3">
+          {fields.map((field, i) => (
+            <div
+              key={i}
+              className="flex min-w-0 flex-col gap-2 rounded-md border p-3"
+            >
+              <div className="flex flex-wrap items-end gap-2">
+                <div className="flex min-w-0 flex-col gap-1.5">
+                  <Label htmlFor={`field-key-${i}`}>Key</Label>
+                  <Input
+                    id={`field-key-${i}`}
+                    value={field.key}
+                    onChange={(e) => updateField(i, { key: e.target.value })}
+                  />
+                </div>
+                <div className="flex min-w-0 flex-col gap-1.5">
+                  <Label htmlFor={`field-label-${i}`}>Label</Label>
+                  <Input
+                    id={`field-label-${i}`}
+                    value={field.label}
+                    onChange={(e) => updateField(i, { label: e.target.value })}
+                  />
+                </div>
+                <div className="flex min-w-0 flex-col gap-1.5">
+                  <Label htmlFor={`field-type-${i}`}>Type</Label>
+                  <Input
+                    id={`field-type-${i}`}
+                    value={field.type}
+                    onChange={(e) => updateField(i, { type: e.target.value })}
+                  />
+                </div>
+                <span className="text-xs text-muted-foreground">
+                  Order {field.order}
+                </span>
+              </div>
+              <div className="flex gap-2">
+                <IconButton
+                  variant="outline"
+                  onClick={() => moveUp(i)}
+                  disabled={i === 0}
+                  label={`Move ${field.label || field.key || "field " + (i + 1)} up`}
+                />
+                <IconButton
+                  variant="outline"
+                  onClick={() => moveDown(i)}
+                  disabled={i === fields.length - 1}
+                  label={`Move ${field.label || field.key || "field " + (i + 1)} down`}
+                />
+                <IconButton
+                  variant="destructive"
+                  onClick={() => removeField(i)}
+                  label={`Remove ${field.label || field.key || "field " + (i + 1)}`}
                 />
               </div>
-              <div className="flex min-w-0 flex-col gap-1.5">
-                <Label htmlFor={`field-label-${i}`}>Label</Label>
-                <Input
-                  id={`field-label-${i}`}
-                  value={field.label}
-                  onChange={(e) => updateField(i, { label: e.target.value })}
-                />
-              </div>
-              <div className="flex min-w-0 flex-col gap-1.5">
-                <Label htmlFor={`field-type-${i}`}>Type</Label>
-                <Input
-                  id={`field-type-${i}`}
-                  value={field.type}
-                  onChange={(e) => updateField(i, { type: e.target.value })}
-                />
-              </div>
-              <span className="text-xs text-muted-foreground">
-                Order {field.order}
-              </span>
             </div>
-            <div className="flex gap-2">
-              <IconButton
-                variant="outline"
-                onClick={() => moveUp(i)}
-                disabled={i === 0}
-                label={`Move ${field.label || field.key || "field " + (i + 1)} up`}
-              />
-              <IconButton
-                variant="outline"
-                onClick={() => moveDown(i)}
-                disabled={i === fields.length - 1}
-                label={`Move ${field.label || field.key || "field " + (i + 1)} down`}
-              />
-              <IconButton
-                variant="destructive"
-                onClick={() => removeField(i)}
-                label={`Remove ${field.label || field.key || "field " + (i + 1)}`}
-              />
-            </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
 
-      <div className="flex gap-2">
-        <IconButton variant="outline" onClick={addField} label="Add field" />
-        <Button onClick={() => void submit()} disabled={save.loading}>
-          {save.loading ? "Saving…" : "Save"}
-        </Button>
+        <div className="flex gap-2">
+          <IconButton variant="outline" onClick={addField} label="Add field" />
+          <Button onClick={() => void submit()} disabled={save.loading}>
+            {save.loading ? "Saving…" : "Save"}
+          </Button>
+        </div>
       </div>
-    </div>
+    </Section>
   )
 }
 

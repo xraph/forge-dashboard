@@ -12,6 +12,7 @@ import {
   CommandAlert,
   QueryBoundary,
 } from "@forge-go/dashboard-kit/components/query-boundary"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { ResourceTable, type Column } from "../components/presentation"
 import { formatTimestamp } from "@forge-go/dashboard-kit/lib/format"
 import type { AckResponse } from "./users"
@@ -92,51 +93,52 @@ function EditWebhookPanel({
   }
 
   return (
-    <div className="flex min-w-0 flex-col gap-3 rounded-md border p-4">
-      <h2 className="text-sm font-medium">Edit webhook</h2>
-      <CommandAlert error={update.error} title="Could not save" />
-      <div className="flex min-w-0 flex-col gap-1.5">
-        <Label htmlFor="webhook-edit-url">URL</Label>
-        <Input
-          id="webhook-edit-url"
-          value={url}
-          onChange={(e) => setUrl(e.target.value)}
-        />
+    <Section title="Edit webhook" inset>
+      <div className="flex min-w-0 flex-col gap-3">
+        <CommandAlert error={update.error} title="Could not save" />
+        <div className="flex min-w-0 flex-col gap-1.5">
+          <Label htmlFor="webhook-edit-url">URL</Label>
+          <Input
+            id="webhook-edit-url"
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+          />
+        </div>
+        <div className="flex min-w-0 flex-col gap-1.5">
+          <Label htmlFor="webhook-edit-events">Events</Label>
+          <Input
+            id="webhook-edit-events"
+            value={eventsInput}
+            onChange={(e) => setEventsInput(e.target.value)}
+            placeholder="user.created, user.deleted"
+          />
+          <span className="text-xs text-muted-foreground">
+            Comma-separated. The server does not enumerate valid events, so
+            anything typed here is sent as-is.
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          <Label id="webhook-edit-active-label">Active</Label>
+          <Switch
+            id="webhook-edit-active"
+            aria-labelledby="webhook-edit-active-label"
+            checked={active}
+            onCheckedChange={setActive}
+          />
+        </div>
+        <div className="flex gap-2">
+          <Button
+            onClick={() => void submit()}
+            disabled={update.loading || !dirty}
+          >
+            {update.loading ? "Saving…" : "Save changes"}
+          </Button>
+          <Button variant="ghost" onClick={onDone} disabled={update.loading}>
+            Cancel
+          </Button>
+        </div>
       </div>
-      <div className="flex min-w-0 flex-col gap-1.5">
-        <Label htmlFor="webhook-edit-events">Events</Label>
-        <Input
-          id="webhook-edit-events"
-          value={eventsInput}
-          onChange={(e) => setEventsInput(e.target.value)}
-          placeholder="user.created, user.deleted"
-        />
-        <span className="text-xs text-muted-foreground">
-          Comma-separated. The server does not enumerate valid events, so
-          anything typed here is sent as-is.
-        </span>
-      </div>
-      <div className="flex items-center gap-2">
-        <Label id="webhook-edit-active-label">Active</Label>
-        <Switch
-          id="webhook-edit-active"
-          aria-labelledby="webhook-edit-active-label"
-          checked={active}
-          onCheckedChange={setActive}
-        />
-      </div>
-      <div className="flex gap-2">
-        <Button
-          onClick={() => void submit()}
-          disabled={update.loading || !dirty}
-        >
-          {update.loading ? "Saving…" : "Save changes"}
-        </Button>
-        <Button variant="ghost" onClick={onDone} disabled={update.loading}>
-          Cancel
-        </Button>
-      </div>
-    </div>
+    </Section>
   )
 }
 
@@ -172,44 +174,48 @@ function CreateWebhookPanel({ onDone }: { onDone: () => void }) {
   }
 
   return (
-    <div className="flex min-w-0 flex-col gap-3 rounded-md border p-4">
-      <h2 className="text-sm font-medium">New webhook</h2>
-      <CommandAlert error={create.error} title="Could not create the webhook" />
-      <div className="flex min-w-0 flex-col gap-1.5">
-        <Label htmlFor="webhook-create-url">URL</Label>
-        <Input
-          id="webhook-create-url"
-          value={url}
-          onChange={(e) => setUrl(e.target.value)}
+    <Section title="New webhook" inset>
+      <div className="flex min-w-0 flex-col gap-3">
+        <CommandAlert
+          error={create.error}
+          title="Could not create the webhook"
         />
+        <div className="flex min-w-0 flex-col gap-1.5">
+          <Label htmlFor="webhook-create-url">URL</Label>
+          <Input
+            id="webhook-create-url"
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+          />
+        </div>
+        <div className="flex min-w-0 flex-col gap-1.5">
+          <Label htmlFor="webhook-create-events">Events</Label>
+          <Input
+            id="webhook-create-events"
+            value={eventsInput}
+            onChange={(e) => setEventsInput(e.target.value)}
+            placeholder="user.created, user.deleted"
+          />
+          <span className="text-xs text-muted-foreground">
+            Comma-separated. The server does not enumerate valid events, so
+            anything typed here is sent as-is. At least one is required.
+          </span>
+        </div>
+        <div className="flex gap-2">
+          <Button
+            onClick={() => void submit()}
+            disabled={
+              create.loading || url.trim() === "" || parsedEvents.length === 0
+            }
+          >
+            {create.loading ? "Creating…" : "Create webhook"}
+          </Button>
+          <Button variant="ghost" onClick={onDone} disabled={create.loading}>
+            Cancel
+          </Button>
+        </div>
       </div>
-      <div className="flex min-w-0 flex-col gap-1.5">
-        <Label htmlFor="webhook-create-events">Events</Label>
-        <Input
-          id="webhook-create-events"
-          value={eventsInput}
-          onChange={(e) => setEventsInput(e.target.value)}
-          placeholder="user.created, user.deleted"
-        />
-        <span className="text-xs text-muted-foreground">
-          Comma-separated. The server does not enumerate valid events, so
-          anything typed here is sent as-is. At least one is required.
-        </span>
-      </div>
-      <div className="flex gap-2">
-        <Button
-          onClick={() => void submit()}
-          disabled={
-            create.loading || url.trim() === "" || parsedEvents.length === 0
-          }
-        >
-          {create.loading ? "Creating…" : "Create webhook"}
-        </Button>
-        <Button variant="ghost" onClick={onDone} disabled={create.loading}>
-          Cancel
-        </Button>
-      </div>
-    </div>
+    </Section>
   )
 }
 
@@ -281,57 +287,60 @@ export function AuthWebhooksPage() {
       */}
       <CommandAlert error={toggle.error} title="Could not update the webhook" />
 
-      <QueryBoundary title="Webhooks" query={list} skeletonRows={4}>
-        {(data) => {
-          const webhooks = data.webhooks ?? []
-          const caption = `${webhooks.length} ${webhooks.length === 1 ? "webhook" : "webhooks"}`
+      <Section aria-label="Webhook list">
+        <QueryBoundary title="Webhooks" query={list} skeletonRows={4}>
+          {(data) => {
+            const webhooks = data.webhooks ?? []
+            const caption = `${webhooks.length} ${webhooks.length === 1 ? "webhook" : "webhooks"}`
 
-          return (
-            <ResourceTable<WebhookSummary>
-              columns={columns}
-              rows={webhooks}
-              rowKey={(w) => w.id}
-              caption={caption}
-              emptyMessage="No webhooks yet."
-              rowActions={(webhook) => (
-                <>
-                  <Switch
-                    aria-label={`Toggle active for ${webhook.url}`}
-                    checked={webhook.active}
-                    disabled={toggle.loading}
-                    onCheckedChange={(checked) =>
-                      void toggle.execute({ id: webhook.id, active: checked })
-                    }
-                  />
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    aria-label={`Edit ${webhook.url}`}
-                    onClick={() => setEditing(webhook)}
-                  >
-                    Edit
-                  </Button>
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    aria-label={`Delete webhook ${webhook.url}`}
-                    onClick={() => {
-                      // Reset at open, not at close: the operator is about to
-                      // read whatever this dialog shows for THIS webhook, so
-                      // a failure left over from a previous row's delete must
-                      // not be attributed to one they have not touched.
-                      remove.reset()
-                      setDeleting(webhook)
-                    }}
-                  >
-                    Delete
-                  </Button>
-                </>
-              )}
-            />
-          )
-        }}
-      </QueryBoundary>
+            return (
+              <ResourceTable<WebhookSummary>
+                appearance="flush"
+                columns={columns}
+                rows={webhooks}
+                rowKey={(w) => w.id}
+                caption={caption}
+                emptyMessage="No webhooks yet."
+                rowActions={(webhook) => (
+                  <>
+                    <Switch
+                      aria-label={`Toggle active for ${webhook.url}`}
+                      checked={webhook.active}
+                      disabled={toggle.loading}
+                      onCheckedChange={(checked) =>
+                        void toggle.execute({ id: webhook.id, active: checked })
+                      }
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      aria-label={`Edit ${webhook.url}`}
+                      onClick={() => setEditing(webhook)}
+                    >
+                      Edit
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      aria-label={`Delete webhook ${webhook.url}`}
+                      onClick={() => {
+                        // Reset at open, not at close: the operator is about to
+                        // read whatever this dialog shows for THIS webhook, so
+                        // a failure left over from a previous row's delete must
+                        // not be attributed to one they have not touched.
+                        remove.reset()
+                        setDeleting(webhook)
+                      }}
+                    >
+                      Delete
+                    </Button>
+                  </>
+                )}
+              />
+            )
+          }}
+        </QueryBoundary>
+      </Section>
 
       {editing && (
         <EditWebhookPanel

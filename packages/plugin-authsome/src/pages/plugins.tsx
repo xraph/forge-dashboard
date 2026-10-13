@@ -4,6 +4,7 @@ import { Input } from "@forge-go/dashboard-kit/components/input"
 import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { ResourceTable, type Column } from "../components/presentation"
 
 interface InstalledPlugin {
@@ -61,6 +62,9 @@ export function AuthPluginsPage() {
       <PageHeader
         title="Extensions"
         description="Authsome plugins registered on this server and their configurable settings."
+      />
+      <Section
+        aria-label="Extension list"
         actions={
           <Input
             aria-label="Filter extensions"
@@ -70,32 +74,34 @@ export function AuthPluginsPage() {
             className="w-56 max-w-full"
           />
         }
-      />
-      <QueryBoundary title="Extensions" query={query} skeletonRows={6}>
-        {(data) => {
-          const plugins = data.plugins ?? []
-          const filtered = plugins.filter((plugin) =>
-            plugin.name.toLowerCase().includes(filter.trim().toLowerCase())
-          )
-          return (
-            <ResourceTable<InstalledPlugin>
-              columns={columns}
-              rows={filtered}
-              rowKey={(plugin) => plugin.name}
-              caption={
-                filter
-                  ? `${filtered.length} of ${plugins.length} extensions`
-                  : `${plugins.length} ${plugins.length === 1 ? "extension" : "extensions"}`
-              }
-              emptyMessage={
-                filter
-                  ? "No extensions match this filter."
-                  : "No Authsome extensions registered."
-              }
-            />
-          )
-        }}
-      </QueryBoundary>
+      >
+        <QueryBoundary title="Extensions" query={query} skeletonRows={6}>
+          {(data) => {
+            const plugins = data.plugins ?? []
+            const filtered = plugins.filter((plugin) =>
+              plugin.name.toLowerCase().includes(filter.trim().toLowerCase())
+            )
+            return (
+              <ResourceTable<InstalledPlugin>
+                appearance="flush"
+                columns={columns}
+                rows={filtered}
+                rowKey={(plugin) => plugin.name}
+                caption={
+                  filter
+                    ? `${filtered.length} of ${plugins.length} extensions`
+                    : `${plugins.length} ${plugins.length === 1 ? "extension" : "extensions"}`
+                }
+                emptyMessage={
+                  filter
+                    ? "No extensions match this filter."
+                    : "No Authsome extensions registered."
+                }
+              />
+            )
+          }}
+        </QueryBoundary>
+      </Section>
     </section>
   )
 }

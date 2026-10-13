@@ -1,4 +1,4 @@
-import { Panel, PageLink } from "../components/presentation"
+import { PageLink } from "../components/presentation"
 import { useState } from "react"
 import { PluginLink, useCommand } from "@forge-go/dashboard-plugin"
 import { Button } from "@forge-go/dashboard-kit/components/button"
@@ -6,6 +6,7 @@ import { Input } from "@forge-go/dashboard-kit/components/input"
 import { Label } from "@forge-go/dashboard-kit/components/label"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { CommandAlert } from "@forge-go/dashboard-kit/components/query-boundary"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import type { AckResponse } from "./users"
 
 /**
@@ -42,7 +43,7 @@ export function AuthAppCreatePage() {
         title="New app"
         description="Its own users, sessions and environments, isolated from every other app."
       />
-      <Panel title="Application details" className="max-w-3xl">
+      <Section title="Application details" inset className="max-w-3xl">
         <div className="flex min-w-0 flex-col gap-4">
           <CommandAlert error={create.error} title="Could not create the app" />
           {created !== null && (
@@ -94,7 +95,7 @@ export function AuthAppCreatePage() {
             <PageLink to="/apps">Cancel</PageLink>
           </div>
         </div>
-      </Panel>
+      </Section>
     </section>
   )
 }

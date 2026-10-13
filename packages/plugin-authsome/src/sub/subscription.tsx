@@ -19,7 +19,7 @@ import {
 } from "@forge-go/dashboard-kit/components/query-boundary"
 import { ZeroState } from "@forge-go/dashboard-kit/components/zero-state"
 import { CreditCard } from "@forge-go/dashboard-kit/icons"
-import { Panel } from "../components/presentation"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { PageLink } from "../components/presentation"
 import {
   PlanCreatePage,
@@ -503,12 +503,13 @@ function SubscriptionsForTenant({ tenantId }: { tenantId: string }) {
 export function SubscriptionOrgTab({ orgId }: { orgId?: string }) {
   if (!orgId) return null
   return (
-    <Panel
+    <Section
+      inset
       title="Subscriptions"
       description="Plans linked to this organization"
     >
       <SubscriptionsForTenant tenantId={orgId} />
-    </Panel>
+    </Section>
   )
 }
 
@@ -536,7 +537,8 @@ function SubscriptionOrgSummaryContent({
   const plansQuery = useQuery<PlansListResponse>("plans.list")
 
   return (
-    <Panel
+    <Section
+      inset
       title="Billing"
       actions={
         onOpenTab && (
@@ -591,7 +593,7 @@ function SubscriptionOrgSummaryContent({
           )
         }}
       </QueryBoundary>
-    </Panel>
+    </Section>
   )
 }
 

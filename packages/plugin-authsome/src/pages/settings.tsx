@@ -13,13 +13,14 @@ import {
 import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import {
   Tabs,
   TabsContent,
   TabsList,
   TabsTrigger,
 } from "@forge-go/dashboard-kit/components/tabs"
-import { Panel, ResourceTable, type Column } from "../components/presentation"
+import { ResourceTable, type Column } from "../components/presentation"
 import { SettingsNamespaceBody } from "./settings-namespace"
 
 export interface NamespaceSummary {
@@ -123,23 +124,25 @@ function SettingsDirectory({
 
   return (
     <>
-      <Panel
+      <Section
         title="Configuration namespaces"
         description="Settings registered by the installed authentication plugins."
       >
         <ResourceTable<NamespaceSummary>
+          appearance="flush"
           columns={columns}
           rows={namespaces}
           rowKey={(namespace) => namespace.name}
           caption={caption}
           emptyMessage="No settings namespaces yet."
         />
-      </Panel>
+      </Section>
 
       {choices.length > 0 && (
-        <Panel
+        <Section
           title="Plugin settings"
           description="Choose a plugin to configure. Unsaved edits stay here while you switch between plugins."
+          inset
         >
           <Tabs
             value={active}
@@ -195,7 +198,7 @@ function SettingsDirectory({
               </TabsContent>
             ))}
           </Tabs>
-        </Panel>
+        </Section>
       )}
     </>
   )

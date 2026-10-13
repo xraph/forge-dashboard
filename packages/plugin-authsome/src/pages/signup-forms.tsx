@@ -2,6 +2,7 @@ import { PluginLink, useQuery } from "@forge-go/dashboard-plugin"
 import { Badge } from "@forge-go/dashboard-kit/components/badge"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { ResourceTable, type Column } from "../components/presentation"
 import { formatTimestamp } from "@forge-go/dashboard-kit/lib/format"
 
@@ -75,22 +76,25 @@ export function AuthSignupFormsPage() {
         }
       />
 
-      <QueryBoundary title="Signup forms" query={list} skeletonRows={4}>
-        {(data) => {
-          const formConfigs = data.formConfigs ?? []
-          const caption = `${formConfigs.length} ${formConfigs.length === 1 ? "form" : "forms"}`
+      <Section aria-label="Signup form list">
+        <QueryBoundary title="Signup forms" query={list} skeletonRows={4}>
+          {(data) => {
+            const formConfigs = data.formConfigs ?? []
+            const caption = `${formConfigs.length} ${formConfigs.length === 1 ? "form" : "forms"}`
 
-          return (
-            <ResourceTable<FormConfigSummary>
-              columns={columns}
-              rows={formConfigs}
-              rowKey={(f) => f.id}
-              caption={caption}
-              emptyMessage="No signup forms yet."
-            />
-          )
-        }}
-      </QueryBoundary>
+            return (
+              <ResourceTable<FormConfigSummary>
+                appearance="flush"
+                columns={columns}
+                rows={formConfigs}
+                rowKey={(f) => f.id}
+                caption={caption}
+                emptyMessage="No signup forms yet."
+              />
+            )
+          }}
+        </QueryBoundary>
+      </Section>
     </section>
   )
 }

@@ -4,8 +4,9 @@ import { Badge } from "@forge-go/dashboard-kit/components/badge"
 import { Button } from "@forge-go/dashboard-kit/components/button"
 import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
-import { DescriptionList } from "../components/presentation"
+import { DescriptionList } from "@forge-go/dashboard-kit/components/detail-layout"
 import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 
 /** `credentials.detail`. */
 export interface CredentialsDetail {
@@ -72,50 +73,54 @@ export function AuthCredentialsPage() {
 
       <QueryBoundary title="Credentials" query={query} skeletonRows={4}>
         {(data) => (
-          <DescriptionList
-            items={[
-              {
-                term: "App",
-                value: (
-                  <span className="flex items-center gap-2">
-                    <span className="font-medium">{data.appName}</span>
-                    <Badge variant={data.isPlatform ? "outline" : "secondary"}>
-                      {data.isPlatform ? "platform" : "app"}
-                    </Badge>
-                  </span>
-                ),
-              },
-              {
-                term: "Slug",
-                value: (
-                  <span className="font-mono text-xs">{data.appSlug}</span>
-                ),
-              },
-              {
-                term: "Environment",
-                value: data.envName ? (
-                  <span className="flex items-center gap-2">
-                    <span>{data.envName}</span>
-                    {data.envSlug && (
-                      <span className="font-mono text-xs text-muted-foreground">
-                        {data.envSlug}
-                      </span>
-                    )}
-                  </span>
-                ) : (
-                  <NoneCell label="environment" />
-                ),
-              },
-              {
-                term: "Publishable key",
-                value: data.publishableKey ? (
-                  <PublishableKey value={data.publishableKey} />
-                ) : (
-                  <NoneCell label="publishable key" />
-                ),
-              },
-            ]}
-          />
+          <Section title="Details" inset>
+            <DescriptionList
+              items={[
+                {
+                  term: "App",
+                  value: (
+                    <span className="flex items-center gap-2">
+                      <span className="font-medium">{data.appName}</span>
+                      <Badge
+                        variant={data.isPlatform ? "outline" : "secondary"}
+                      >
+                        {data.isPlatform ? "platform" : "app"}
+                      </Badge>
+                    </span>
+                  ),
+                },
+                {
+                  term: "Slug",
+                  value: (
+                    <span className="font-mono text-xs">{data.appSlug}</span>
+                  ),
+                },
+                {
+                  term: "Environment",
+                  value: data.envName ? (
+                    <span className="flex items-center gap-2">
+                      <span>{data.envName}</span>
+                      {data.envSlug && (
+                        <span className="font-mono text-xs text-muted-foreground">
+                          {data.envSlug}
+                        </span>
+                      )}
+                    </span>
+                  ) : (
+                    <NoneCell label="environment" />
+                  ),
+                },
+                {
+                  term: "Publishable key",
+                  value: data.publishableKey ? (
+                    <PublishableKey value={data.publishableKey} />
+                  ) : (
+                    <NoneCell label="publishable key" />
+                  ),
+                },
+              ]}
+            />
+          </Section>
         )}
       </QueryBoundary>
     </section>

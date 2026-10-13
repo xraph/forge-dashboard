@@ -1,11 +1,6 @@
-import { Panel, PageLink } from "../components/presentation"
+import { PageLink } from "../components/presentation"
 import { useState } from "react"
-import {
-  PluginSlot,
-  useCommand,
-  useQuery,
-  useSlotCount,
-} from "@forge-go/dashboard-plugin"
+import { PluginSlot, useCommand, useQuery } from "@forge-go/dashboard-plugin"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
 import { Badge } from "@forge-go/dashboard-kit/components/badge"
 import { Button } from "@forge-go/dashboard-kit/components/button"
@@ -13,13 +8,17 @@ import { Input } from "@forge-go/dashboard-kit/components/input"
 import { Label } from "@forge-go/dashboard-kit/components/label"
 import { Switch } from "@forge-go/dashboard-kit/components/switch"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
-import { DescriptionList, DetailLayout } from "../components/presentation"
+import {
+  DescriptionList,
+  DetailLayout,
+} from "@forge-go/dashboard-kit/components/detail-layout"
 import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import {
   CommandAlert,
   QueryBoundary,
 } from "@forge-go/dashboard-kit/components/query-boundary"
 import { ResourceTable, type Column } from "../components/presentation"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { formatTimestamp } from "@forge-go/dashboard-kit/lib/format"
 import { displayName, type AckResponse, type UserSummary } from "./users"
@@ -122,6 +121,7 @@ function UserSessions({ userId }: { userId: string }) {
         const caption = `${sessions.length} ${sessions.length === 1 ? "session" : "sessions"}`
         return (
           <ResourceTable<SessionRow>
+            appearance="flush"
             columns={sessionColumns}
             rows={sessions}
             rowKey={(s) => s.id}
@@ -144,6 +144,7 @@ function UserDevices({ userId }: { userId: string }) {
         const caption = `${devices.length} ${devices.length === 1 ? "device" : "devices"}`
         return (
           <ResourceTable<DeviceRow>
+            appearance="flush"
             columns={deviceColumns}
             rows={devices}
             rowKey={(d) => d.id}
@@ -175,35 +176,35 @@ function EditUser({ user }: { user: UserDetail }) {
   const dirty = Object.keys(changed).length > 1
 
   return (
-    <div className="flex min-w-0 flex-col gap-4 rounded-md border bg-card p-4">
-      <h2 className="text-sm font-medium">Edit</h2>
-      <CommandAlert error={update.error} title="Could not save" />
-      <div className="flex min-w-0 flex-col gap-1.5">
-        <Label htmlFor="user-first">First name</Label>
-        <Input
-          id="user-first"
-          value={firstName}
-          onChange={(e) => setFirstName(e.target.value)}
-        />
-      </div>
-      <div className="flex min-w-0 flex-col gap-1.5">
-        <Label htmlFor="user-last">Last name</Label>
-        <Input
-          id="user-last"
-          value={lastName}
-          onChange={(e) => setLastName(e.target.value)}
-        />
-      </div>
-      <div className="flex min-w-0 flex-col gap-1.5">
-        <Label htmlFor="user-username">Username</Label>
-        <Input
-          id="user-username"
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
-        />
-      </div>
-      <div className="flex items-center gap-2">
-        {/*
+    <Section title="Edit" inset>
+      <div className="flex min-w-0 flex-col gap-4">
+        <CommandAlert error={update.error} title="Could not save" />
+        <div className="flex min-w-0 flex-col gap-1.5">
+          <Label htmlFor="user-first">First name</Label>
+          <Input
+            id="user-first"
+            value={firstName}
+            onChange={(e) => setFirstName(e.target.value)}
+          />
+        </div>
+        <div className="flex min-w-0 flex-col gap-1.5">
+          <Label htmlFor="user-last">Last name</Label>
+          <Input
+            id="user-last"
+            value={lastName}
+            onChange={(e) => setLastName(e.target.value)}
+          />
+        </div>
+        <div className="flex min-w-0 flex-col gap-1.5">
+          <Label htmlFor="user-username">Username</Label>
+          <Input
+            id="user-username"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+          />
+        </div>
+        <div className="flex items-center gap-2">
+          {/*
           No `htmlFor` here on purpose. Base UI's Switch renders a hidden
           native checkbox carrying this `id`, and a Label with a matching
           `htmlFor` auto-wires an `aria-labelledby` onto the visible switch
@@ -211,21 +212,22 @@ function EditUser({ user }: { user: UserDetail }) {
           id/aria-labelledby pair (the same one settings-form.tsx uses for its
           boolean fields) keeps it to one.
         */}
-        <Label id="user-verified-label">Email verified</Label>
-        <Switch
-          id="user-verified"
-          aria-labelledby="user-verified-label"
-          checked={emailVerified}
-          onCheckedChange={setEmailVerified}
-        />
+          <Label id="user-verified-label">Email verified</Label>
+          <Switch
+            id="user-verified"
+            aria-labelledby="user-verified-label"
+            checked={emailVerified}
+            onCheckedChange={setEmailVerified}
+          />
+        </div>
+        <Button
+          onClick={() => void update.execute(changed)}
+          disabled={update.loading || !dirty}
+        >
+          {update.loading ? "Saving…" : "Save changes"}
+        </Button>
       </div>
-      <Button
-        onClick={() => void update.execute(changed)}
-        disabled={update.loading || !dirty}
-      >
-        {update.loading ? "Saving…" : "Save changes"}
-      </Button>
-    </div>
+    </Section>
   )
 }
 
@@ -243,7 +245,6 @@ export function AuthUserDetailPage({ params }: PluginPageProps) {
 
 function UserDetailBody({ userId }: { userId: string }) {
   const query = useQuery<UserDetail>("users.detail", { id: userId })
-  const contributed = useSlotCount("user.detail.sections")
 
   return (
     <section className="flex min-w-0 flex-col gap-4">
@@ -258,86 +259,84 @@ function UserDetailBody({ userId }: { userId: string }) {
             <DetailLayout
               main={
                 <>
-                  <DescriptionList
-                    items={[
-                      { term: "Email", value: user.email },
-                      {
-                        term: "Verified",
-                        value: (
-                          <Badge
-                            variant={
-                              user.emailVerified ? "outline" : "secondary"
-                            }
-                          >
-                            {user.emailVerified ? "verified" : "unverified"}
-                          </Badge>
-                        ),
-                      },
-                      {
-                        term: "Phone",
-                        value: user.phone || <NoneCell label="phone" />,
-                      },
-                      {
-                        term: "Status",
-                        value: (
-                          <Badge
-                            variant={user.banned ? "destructive" : "outline"}
-                          >
-                            {user.banned ? "banned" : "active"}
-                          </Badge>
-                        ),
-                      },
-                      {
-                        term: "Ban reason",
-                        value: user.banReason || (
-                          <NoneCell label="ban reason" />
-                        ),
-                      },
-                      {
-                        term: "Ban expires",
-                        value: (
-                          <Timestamp
-                            value={user.banExpiresAt}
-                            label="ban expiry"
-                          />
-                        ),
-                      },
-                      {
-                        term: "Password changed",
-                        value: (
-                          <Timestamp
-                            value={user.passwordChangedAt}
-                            label="password change"
-                          />
-                        ),
-                      },
-                      {
-                        term: "Created",
-                        value: formatTimestamp(user.createdAt),
-                      },
-                      {
-                        term: "Updated",
-                        value: formatTimestamp(user.updatedAt),
-                      },
-                    ]}
-                  />
-                  <Panel title="Sessions">
+                  <Section title="Details" inset>
+                    <DescriptionList
+                      items={[
+                        { term: "Email", value: user.email },
+                        {
+                          term: "Verified",
+                          value: (
+                            <Badge
+                              variant={
+                                user.emailVerified ? "outline" : "secondary"
+                              }
+                            >
+                              {user.emailVerified ? "verified" : "unverified"}
+                            </Badge>
+                          ),
+                        },
+                        {
+                          term: "Phone",
+                          value: user.phone || <NoneCell label="phone" />,
+                        },
+                        {
+                          term: "Status",
+                          value: (
+                            <Badge
+                              variant={user.banned ? "destructive" : "outline"}
+                            >
+                              {user.banned ? "banned" : "active"}
+                            </Badge>
+                          ),
+                        },
+                        {
+                          term: "Ban reason",
+                          value: user.banReason || (
+                            <NoneCell label="ban reason" />
+                          ),
+                        },
+                        {
+                          term: "Ban expires",
+                          value: (
+                            <Timestamp
+                              value={user.banExpiresAt}
+                              label="ban expiry"
+                            />
+                          ),
+                        },
+                        {
+                          term: "Password changed",
+                          value: (
+                            <Timestamp
+                              value={user.passwordChangedAt}
+                              label="password change"
+                            />
+                          ),
+                        },
+                        {
+                          term: "Created",
+                          value: formatTimestamp(user.createdAt),
+                        },
+                        {
+                          term: "Updated",
+                          value: formatTimestamp(user.updatedAt),
+                        },
+                      ]}
+                    />
+                  </Section>
+                  <Section title="Sessions">
                     <UserSessions userId={userId} />
-                  </Panel>
-                  <Panel title="Devices">
+                  </Section>
+                  <Section title="Devices">
                     <UserDevices userId={userId} />
-                  </Panel>
+                  </Section>
                   {/*
                     Where the MFA, consent and social sub-plugins put their
-                    per-user panels. The heading is conditional because
-                    PluginSlot renders nothing at all when nobody contributes,
-                    and a bare heading over nothing is worse than no heading.
+                    per-user panels. Each contribution brings its own titled
+                    section, so there is no heading of ours above them: a bare
+                    h2 would sit outside every section, and wrapping the slot
+                    in one would nest the contributions' sections inside it.
                   */}
-                  {contributed > 0 && (
-                    <h2 className="text-sm font-medium">
-                      From installed plugins
-                    </h2>
-                  )}
                   <PluginSlot name="user.detail.sections" params={{ userId }} />
                 </>
               }

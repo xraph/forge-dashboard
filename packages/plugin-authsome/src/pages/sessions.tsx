@@ -8,6 +8,7 @@ import {
   CommandAlert,
   QueryBoundary,
 } from "@forge-go/dashboard-kit/components/query-boundary"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import { ResourceTable, type Column } from "../components/presentation"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
@@ -134,14 +135,6 @@ export function AuthSessionsPage() {
         title="Sessions"
         description={`Showing the most recent ${LIMIT}.`}
       />
-      <FilterBar
-        search={{
-          value: userFilter,
-          onChange: setUserFilter,
-          label: "Filter by user",
-          placeholder: "User id",
-        }}
-      />
 
       {bulkResult && (
         <p role="status" className="text-sm text-muted-foreground">
@@ -151,61 +144,76 @@ export function AuthSessionsPage() {
         </p>
       )}
 
-      <QueryBoundary title="Sessions" query={list} skeletonRows={5}>
-        {(data) => {
-          const sessions = data.sessions ?? []
+      <Section
+        aria-label="Session list"
+        actions={
+          <FilterBar
+            search={{
+              value: userFilter,
+              onChange: setUserFilter,
+              label: "Filter by user",
+              placeholder: "User id",
+            }}
+          />
+        }
+      >
+        <QueryBoundary title="Sessions" query={list} skeletonRows={5}>
+          {(data) => {
+            const sessions = data.sessions ?? []
 
-          return (
-            <ResourceTable<SessionSummary>
-              columns={columns}
-              rows={sessions}
-              rowKey={(s) => s.id}
-              caption={`${sessions.length} ${sessions.length === 1 ? "session" : "sessions"}`}
-              emptyMessage="No active sessions."
-              rowActions={(session) => (
-                <>
-                  <PluginLink
-                    to={`/sessions/${session.id}`}
-                    className="text-sm underline underline-offset-4"
-                  >
-                    Details
-                  </PluginLink>
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    aria-label={`Revoke session ${session.id}`}
-                    onClick={() => {
-                      // Reset at open, not at close: the state that matters
-                      // is what the operator is looking at right now, for
-                      // this session, not whatever the last dialog left
-                      // behind.
-                      revoke.reset()
-                      setRevoking(session)
-                    }}
-                  >
-                    Revoke
-                  </Button>
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    aria-label={`Revoke all for ${session.userId}`}
-                    onClick={() => {
-                      bulkRevoke.reset()
-                      // A stale count from a previous user's bulk revoke must
-                      // not still be on screen once a different user's
-                      // dialog opens - it would read as this user's result.
-                      setBulkResult(null)
-                      setBulkFor(session.userId)
-                    }}
-                  >
-                    Revoke all
-                  </Button>
-                </>
-              )}
-            />
-          )
-        }}
-      </QueryBoundary>
+            return (
+              <ResourceTable<SessionSummary>
+                appearance="flush"
+                columns={columns}
+                rows={sessions}
+                rowKey={(s) => s.id}
+                caption={`${sessions.length} ${sessions.length === 1 ? "session" : "sessions"}`}
+                emptyMessage="No active sessions."
+                rowActions={(session) => (
+                  <>
+                    <PluginLink
+                      to={`/sessions/${session.id}`}
+                      className="text-sm underline underline-offset-4"
+                    >
+                      Details
+                    </PluginLink>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      aria-label={`Revoke session ${session.id}`}
+                      onClick={() => {
+                        // Reset at open, not at close: the state that matters
+                        // is what the operator is looking at right now, for
+                        // this session, not whatever the last dialog left
+                        // behind.
+                        revoke.reset()
+                        setRevoking(session)
+                      }}
+                    >
+                      Revoke
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      aria-label={`Revoke all for ${session.userId}`}
+                      onClick={() => {
+                        bulkRevoke.reset()
+                        // A stale count from a previous user's bulk revoke must
+                        // not still be on screen once a different user's
+                        // dialog opens - it would read as this user's result.
+                        setBulkResult(null)
+                        setBulkFor(session.userId)
+                      }}
+                    >
+                      Revoke all
+                    </Button>
+                  </>
+                )}
+              />
+            )
+          }}
+        </QueryBoundary>
+      </Section>
 
       {/*
         The error alerts live inside each dialog rather than

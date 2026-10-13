@@ -11,6 +11,7 @@ import {
   CommandAlert,
   QueryBoundary,
 } from "@forge-go/dashboard-kit/components/query-boundary"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { ResourceTable, type Column } from "../components/presentation"
 import { formatTimestamp } from "@forge-go/dashboard-kit/lib/format"
 import type { AckResponse } from "./users"
@@ -54,64 +55,67 @@ function CreateEnvironmentForm({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <div className="flex min-w-0 flex-col gap-3 rounded-md border p-4">
-      <h2 className="text-sm font-medium">New environment</h2>
-      <CommandAlert
-        error={create.error}
-        title="Could not create the environment"
-      />
-      <div className="flex min-w-0 flex-col gap-1.5">
-        <Label htmlFor="new-env-name">Name</Label>
-        <Input
-          id="new-env-name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
+    <Section title="New environment" inset>
+      <div className="flex min-w-0 flex-col gap-3">
+        <CommandAlert
+          error={create.error}
+          title="Could not create the environment"
         />
+        <div className="flex min-w-0 flex-col gap-1.5">
+          <Label htmlFor="new-env-name">Name</Label>
+          <Input
+            id="new-env-name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+          />
+        </div>
+        <div className="flex min-w-0 flex-col gap-1.5">
+          <Label htmlFor="new-env-slug">Slug</Label>
+          <Input
+            id="new-env-slug"
+            value={slug}
+            onChange={(e) => setSlug(e.target.value)}
+          />
+        </div>
+        <div className="flex min-w-0 flex-col gap-1.5">
+          <Label htmlFor="new-env-type">Type</Label>
+          <Input
+            id="new-env-type"
+            value={type}
+            onChange={(e) => setType(e.target.value)}
+          />
+        </div>
+        <div className="flex min-w-0 flex-col gap-1.5">
+          <Label htmlFor="new-env-description">Description</Label>
+          <Textarea
+            id="new-env-description"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+          />
+        </div>
+        <div className="flex min-w-0 flex-col gap-1.5">
+          <Label htmlFor="new-env-color">Color</Label>
+          <Input
+            id="new-env-color"
+            value={color}
+            onChange={(e) => setColor(e.target.value)}
+          />
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            onClick={() => void submit()}
+            disabled={
+              create.loading || name.trim() === "" || slug.trim() === ""
+            }
+          >
+            {create.loading ? "Creating…" : "Create environment"}
+          </Button>
+          <Button variant="outline" onClick={onClose} disabled={create.loading}>
+            Cancel
+          </Button>
+        </div>
       </div>
-      <div className="flex min-w-0 flex-col gap-1.5">
-        <Label htmlFor="new-env-slug">Slug</Label>
-        <Input
-          id="new-env-slug"
-          value={slug}
-          onChange={(e) => setSlug(e.target.value)}
-        />
-      </div>
-      <div className="flex min-w-0 flex-col gap-1.5">
-        <Label htmlFor="new-env-type">Type</Label>
-        <Input
-          id="new-env-type"
-          value={type}
-          onChange={(e) => setType(e.target.value)}
-        />
-      </div>
-      <div className="flex min-w-0 flex-col gap-1.5">
-        <Label htmlFor="new-env-description">Description</Label>
-        <Textarea
-          id="new-env-description"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-        />
-      </div>
-      <div className="flex min-w-0 flex-col gap-1.5">
-        <Label htmlFor="new-env-color">Color</Label>
-        <Input
-          id="new-env-color"
-          value={color}
-          onChange={(e) => setColor(e.target.value)}
-        />
-      </div>
-      <div className="flex items-center gap-2">
-        <Button
-          onClick={() => void submit()}
-          disabled={create.loading || name.trim() === "" || slug.trim() === ""}
-        >
-          {create.loading ? "Creating…" : "Create environment"}
-        </Button>
-        <Button variant="outline" onClick={onClose} disabled={create.loading}>
-          Cancel
-        </Button>
-      </div>
-    </div>
+    </Section>
   )
 }
 
@@ -233,60 +237,63 @@ export function AuthEnvironmentsPage() {
         title="Could not set the default environment"
       />
 
-      <QueryBoundary title="Environments" query={list} skeletonRows={5}>
-        {(data) => {
-          const environments = data.environments ?? []
+      <Section aria-label="Environment list">
+        <QueryBoundary title="Environments" query={list} skeletonRows={5}>
+          {(data) => {
+            const environments = data.environments ?? []
 
-          return (
-            <ResourceTable<EnvSummary>
-              columns={columns}
-              rows={environments}
-              rowKey={(e) => e.id}
-              caption={`${environments.length} ${environments.length === 1 ? "environment" : "environments"}`}
-              emptyMessage="No environments yet."
-              rowActions={(env) => (
-                <>
-                  <PluginLink
-                    to={`/environments/${env.id}`}
-                    className="text-sm underline underline-offset-4"
-                  >
-                    Details
-                  </PluginLink>
-                  {!env.isDefault && (
+            return (
+              <ResourceTable<EnvSummary>
+                appearance="flush"
+                columns={columns}
+                rows={environments}
+                rowKey={(e) => e.id}
+                caption={`${environments.length} ${environments.length === 1 ? "environment" : "environments"}`}
+                emptyMessage="No environments yet."
+                rowActions={(env) => (
+                  <>
+                    <PluginLink
+                      to={`/environments/${env.id}`}
+                      className="text-sm underline underline-offset-4"
+                    >
+                      Details
+                    </PluginLink>
+                    {!env.isDefault && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        aria-label={`Make ${env.name} the default`}
+                        disabled={setDefault.loading}
+                        onClick={() => void setDefault.execute({ id: env.id })}
+                      >
+                        Make default
+                      </Button>
+                    )}
                     <Button
                       variant="outline"
                       size="sm"
-                      aria-label={`Make ${env.name} the default`}
-                      disabled={setDefault.loading}
-                      onClick={() => void setDefault.execute({ id: env.id })}
+                      aria-label={`Clone ${env.name}`}
+                      onClick={() => openClone(env)}
                     >
-                      Make default
+                      Clone
                     </Button>
-                  )}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    aria-label={`Clone ${env.name}`}
-                    onClick={() => openClone(env)}
-                  >
-                    Clone
-                  </Button>
-                  {!env.isDefault && (
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      aria-label={`Delete ${env.name}`}
-                      onClick={() => openDelete(env)}
-                    >
-                      Delete
-                    </Button>
-                  )}
-                </>
-              )}
-            />
-          )
-        }}
-      </QueryBoundary>
+                    {!env.isDefault && (
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        aria-label={`Delete ${env.name}`}
+                        onClick={() => openDelete(env)}
+                      >
+                        Delete
+                      </Button>
+                    )}
+                  </>
+                )}
+              />
+            )
+          }}
+        </QueryBoundary>
+      </Section>
 
       {/*
         Both error alerts live inside their dialog, not above

@@ -2,6 +2,7 @@ import { PluginLink, useQuery } from "@forge-go/dashboard-plugin"
 import { Badge } from "@forge-go/dashboard-kit/components/badge"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { ResourceTable, type Column } from "../components/presentation"
 
 /** One entry of `apps.context`'s `availableApps`, matching `SwitcherApp`. */
@@ -72,21 +73,24 @@ export function AuthAppPicker() {
         description="Pick an app to scope its users, roles, sessions and devices. Switching apps clears the current environment, and most of the rest of this dashboard keeps answering for the platform app regardless of what you pick here."
       />
 
-      <QueryBoundary title="Apps" query={read} skeletonRows={5}>
-        {(data) => {
-          const apps = data.availableApps ?? []
+      <Section aria-label="App list">
+        <QueryBoundary title="Apps" query={read} skeletonRows={5}>
+          {(data) => {
+            const apps = data.availableApps ?? []
 
-          return (
-            <ResourceTable<PickerApp>
-              columns={columns}
-              rows={apps}
-              rowKey={(app) => app.id}
-              caption={`${apps.length} ${apps.length === 1 ? "app" : "apps"}`}
-              emptyMessage="No apps yet."
-            />
-          )
-        }}
-      </QueryBoundary>
+            return (
+              <ResourceTable<PickerApp>
+                appearance="flush"
+                columns={columns}
+                rows={apps}
+                rowKey={(app) => app.id}
+                caption={`${apps.length} ${apps.length === 1 ? "app" : "apps"}`}
+                emptyMessage="No apps yet."
+              />
+            )
+          }}
+        </QueryBoundary>
+      </Section>
     </section>
   )
 }

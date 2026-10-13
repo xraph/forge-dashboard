@@ -10,6 +10,7 @@ import {
   CommandAlert,
   QueryBoundary,
 } from "@forge-go/dashboard-kit/components/query-boundary"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { ResourceTable, type Column } from "../components/presentation"
 import { formatTimestamp } from "@forge-go/dashboard-kit/lib/format"
 import type { AckResponse } from "./users"
@@ -70,44 +71,48 @@ function CreateRoleForm({ onDone }: { onDone: () => void }) {
   }
 
   return (
-    <div className="flex min-w-0 flex-col gap-3 rounded-md border p-4">
-      <CommandAlert error={create.error} title="Could not create the role" />
-      <div className="flex min-w-0 flex-col gap-1.5">
-        <Label htmlFor="role-name">Name</Label>
-        <Input
-          id="role-name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-        />
+    <Section aria-label="New role" inset>
+      <div className="flex min-w-0 flex-col gap-3">
+        <CommandAlert error={create.error} title="Could not create the role" />
+        <div className="flex min-w-0 flex-col gap-1.5">
+          <Label htmlFor="role-name">Name</Label>
+          <Input
+            id="role-name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+          />
+        </div>
+        <div className="flex min-w-0 flex-col gap-1.5">
+          <Label htmlFor="role-slug">Slug</Label>
+          <Input
+            id="role-slug"
+            value={slug}
+            onChange={(e) => setSlug(e.target.value)}
+          />
+        </div>
+        <div className="flex min-w-0 flex-col gap-1.5">
+          <Label htmlFor="role-description">Description</Label>
+          <Input
+            id="role-description"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+          />
+        </div>
+        <div className="flex gap-2">
+          <Button
+            onClick={() => void submit()}
+            disabled={
+              create.loading || name.trim() === "" || slug.trim() === ""
+            }
+          >
+            {create.loading ? "Creating…" : "Create role"}
+          </Button>
+          <Button variant="ghost" onClick={onDone} disabled={create.loading}>
+            Cancel
+          </Button>
+        </div>
       </div>
-      <div className="flex min-w-0 flex-col gap-1.5">
-        <Label htmlFor="role-slug">Slug</Label>
-        <Input
-          id="role-slug"
-          value={slug}
-          onChange={(e) => setSlug(e.target.value)}
-        />
-      </div>
-      <div className="flex min-w-0 flex-col gap-1.5">
-        <Label htmlFor="role-description">Description</Label>
-        <Input
-          id="role-description"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-        />
-      </div>
-      <div className="flex gap-2">
-        <Button
-          onClick={() => void submit()}
-          disabled={create.loading || name.trim() === "" || slug.trim() === ""}
-        >
-          {create.loading ? "Creating…" : "Create role"}
-        </Button>
-        <Button variant="ghost" onClick={onDone} disabled={create.loading}>
-          Cancel
-        </Button>
-      </div>
-    </div>
+    </Section>
   )
 }
 
@@ -171,50 +176,53 @@ export function AuthRolesPage() {
 
       {creating && <CreateRoleForm onDone={() => setCreating(false)} />}
 
-      <QueryBoundary title="Roles" query={list} skeletonRows={5}>
-        {(data) => {
-          const roles = data.roles ?? []
-          // `roles.list` has no total field to report against, but the
-          // caption still carries the live count, the same as every other
-          // table in this package.
-          const caption = `${roles.length} ${roles.length === 1 ? "role" : "roles"}`
+      <Section aria-label="Role list">
+        <QueryBoundary title="Roles" query={list} skeletonRows={5}>
+          {(data) => {
+            const roles = data.roles ?? []
+            // `roles.list` has no total field to report against, but the
+            // caption still carries the live count, the same as every other
+            // table in this package.
+            const caption = `${roles.length} ${roles.length === 1 ? "role" : "roles"}`
 
-          return (
-            <ResourceTable<RoleSummary>
-              columns={columns}
-              rows={roles}
-              rowKey={(r) => r.id}
-              caption={caption}
-              emptyMessage="No roles yet."
-              rowActions={(role) => (
-                <>
-                  <PluginLink
-                    to={`/roles/${role.id}`}
-                    className="text-sm underline underline-offset-4"
-                  >
-                    Details
-                  </PluginLink>
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    aria-label={`Delete ${role.name}`}
-                    onClick={() => {
-                      // Reset at open, not at close: the operator is about to
-                      // read whatever this dialog shows for THIS role, so a
-                      // failure left over from a previous row's delete must
-                      // not be attributed to one they have not touched.
-                      remove.reset()
-                      setDeleting(role)
-                    }}
-                  >
-                    Delete
-                  </Button>
-                </>
-              )}
-            />
-          )
-        }}
-      </QueryBoundary>
+            return (
+              <ResourceTable<RoleSummary>
+                appearance="flush"
+                columns={columns}
+                rows={roles}
+                rowKey={(r) => r.id}
+                caption={caption}
+                emptyMessage="No roles yet."
+                rowActions={(role) => (
+                  <>
+                    <PluginLink
+                      to={`/roles/${role.id}`}
+                      className="text-sm underline underline-offset-4"
+                    >
+                      Details
+                    </PluginLink>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      aria-label={`Delete ${role.name}`}
+                      onClick={() => {
+                        // Reset at open, not at close: the operator is about to
+                        // read whatever this dialog shows for THIS role, so a
+                        // failure left over from a previous row's delete must
+                        // not be attributed to one they have not touched.
+                        remove.reset()
+                        setDeleting(role)
+                      }}
+                    >
+                      Delete
+                    </Button>
+                  </>
+                )}
+              />
+            )
+          }}
+        </QueryBoundary>
+      </Section>
 
       {/*
         The error lives inside the dialog, not above the table.

@@ -1,4 +1,4 @@
-import { Panel, PageLink } from "../components/presentation"
+import { PageLink } from "../components/presentation"
 import { useState } from "react"
 import { PluginLink, useCommand } from "@forge-go/dashboard-plugin"
 import { Button } from "@forge-go/dashboard-kit/components/button"
@@ -6,6 +6,7 @@ import { Input } from "@forge-go/dashboard-kit/components/input"
 import { Label } from "@forge-go/dashboard-kit/components/label"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { CommandAlert } from "@forge-go/dashboard-kit/components/query-boundary"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import type { AckResponse } from "./users"
 
 export function AuthUserCreatePage() {
@@ -42,7 +43,7 @@ export function AuthUserCreatePage() {
         title="New user"
         description="Creates an account directly, with no invitation email."
       />
-      <Panel title="Account details" className="max-w-3xl">
+      <Section title="Account details" inset className="max-w-3xl">
         <div className="flex min-w-0 flex-col gap-4">
           <CommandAlert
             error={create.error}
@@ -118,7 +119,7 @@ export function AuthUserCreatePage() {
             <PageLink to="/users">Cancel</PageLink>
           </div>
         </div>
-      </Panel>
+      </Section>
     </section>
   )
 }

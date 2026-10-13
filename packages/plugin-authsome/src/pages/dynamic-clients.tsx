@@ -3,6 +3,7 @@ import { Badge } from "@forge-go/dashboard-kit/components/badge"
 import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { ResourceTable, type Column } from "../components/presentation"
 
 /**
@@ -101,28 +102,20 @@ export function AuthDynamicClientsPage() {
           const caption = `${fields.length} ${fields.length === 1 ? "field" : "fields"}`
 
           return (
-            <>
-              <div className="flex min-w-0 flex-col gap-2 rounded-md border p-4">
-                <div className="flex items-center gap-2">
-                  <Badge variant="outline">active</Badge>
-                  <span className="text-sm font-medium">
-                    {data.title || "Untitled form"}
-                  </span>
-                </div>
-                {data.description && (
-                  <p className="text-sm text-muted-foreground">
-                    {data.description}
-                  </p>
-                )}
-                <ResourceTable<DynamicSignupField>
-                  columns={columns}
-                  rows={fields}
-                  rowKey={(f) => f.key}
-                  caption={caption}
-                  emptyMessage="No fields configured."
-                />
-              </div>
-            </>
+            <Section
+              title={data.title || "Untitled form"}
+              description={data.description || undefined}
+              actions={<Badge variant="outline">active</Badge>}
+            >
+              <ResourceTable<DynamicSignupField>
+                appearance="flush"
+                columns={columns}
+                rows={fields}
+                rowKey={(f) => f.key}
+                caption={caption}
+                emptyMessage="No fields configured."
+              />
+            </Section>
           )
         }}
       </QueryBoundary>

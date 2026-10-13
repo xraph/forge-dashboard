@@ -10,6 +10,7 @@ import {
   NativeSelectOption,
 } from "@forge-go/dashboard-kit/components/native-select"
 import { EmptyState } from "@forge-go/dashboard-kit/components/empty-state"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 
 export type SettingFieldType =
   "string" | "number" | "boolean" | "select" | "secret"
@@ -40,7 +41,17 @@ export interface SettingsFormProps {
   saving?: boolean
   emptyMessage?: string
   className?: string
+  /**
+   * `rows` draws each group as a kit `Section` with ruled rows, so the form
+   * follows the shared page layout. `stack` is the plain, unframed form.
+   */
   layout?: "stack" | "rows"
+  /**
+   * For a `rows` form that already sits inside a `Section` (a tab in a panel).
+   * Its groups cannot be sections of their own without nesting one, so they
+   * are bordered `h3` subsections instead.
+   */
+  nested?: boolean
 }
 
 function toFormValue(field: SettingFieldDescriptor): string | boolean {
@@ -74,6 +85,7 @@ export function SettingsForm({
   emptyMessage = "This namespace has no settings.",
   className,
   layout = "stack",
+  nested = false,
 }: SettingsFormProps) {
   const initial = useMemo(() => {
     const out: Record<string, string | boolean> = {}
@@ -139,29 +151,44 @@ export function SettingsForm({
       data-layout={layout}
       className={cn("group/settings flex min-w-0 flex-col gap-4", className)}
     >
-      {sections.map(([section, sectionFields]) => (
-        <section
-          key={section ?? ""}
-          className="flex flex-col gap-4 group-data-[layout=rows]/settings:gap-0 group-data-[layout=rows]/settings:overflow-hidden group-data-[layout=rows]/settings:rounded-md group-data-[layout=rows]/settings:border group-data-[layout=rows]/settings:bg-card"
-        >
-          {section !== undefined && (
-            <h2 className="text-sm font-medium group-data-[layout=rows]/settings:border-b group-data-[layout=rows]/settings:bg-muted/30 group-data-[layout=rows]/settings:px-4 group-data-[layout=rows]/settings:py-3">
-              {section}
-            </h2>
-          )}
-          {sectionFields.map((field) => (
-            <Field
-              key={field.key}
-              field={field}
-              value={draft[field.key]}
-              invalid={blankNumbers.includes(field.key)}
-              onChange={(value) =>
-                setDraft((prev) => ({ ...prev, [field.key]: value }))
-              }
-            />
-          ))}
-        </section>
-      ))}
+      {sections.map(([section, sectionFields]) => {
+        const rows = sectionFields.map((field) => (
+          <Field
+            key={field.key}
+            field={field}
+            value={draft[field.key]}
+            invalid={blankNumbers.includes(field.key)}
+            onChange={(value) =>
+              setDraft((prev) => ({ ...prev, [field.key]: value }))
+            }
+          />
+        ))
+        if (layout === "rows" && !nested) {
+          return (
+            <Section
+              key={section ?? ""}
+              title={section}
+              aria-label={section === undefined ? "Settings" : undefined}
+            >
+              {rows}
+            </Section>
+          )
+        }
+        const Heading = nested ? "h3" : "h2"
+        return (
+          <section
+            key={section ?? ""}
+            className="flex flex-col gap-4 group-data-[layout=rows]/settings:gap-0 group-data-[layout=rows]/settings:overflow-hidden group-data-[layout=rows]/settings:rounded-md group-data-[layout=rows]/settings:border group-data-[layout=rows]/settings:bg-card"
+          >
+            {section !== undefined && (
+              <Heading className="text-sm font-medium group-data-[layout=rows]/settings:border-b group-data-[layout=rows]/settings:bg-muted/30 group-data-[layout=rows]/settings:px-4 group-data-[layout=rows]/settings:py-3">
+                {section}
+              </Heading>
+            )}
+            {rows}
+          </section>
+        )
+      })}
 
       <div className="flex items-center gap-2">
         <Button

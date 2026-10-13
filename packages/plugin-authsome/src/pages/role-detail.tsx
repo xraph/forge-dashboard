@@ -5,13 +5,17 @@ import { Button } from "@forge-go/dashboard-kit/components/button"
 import { Input } from "@forge-go/dashboard-kit/components/input"
 import { Label } from "@forge-go/dashboard-kit/components/label"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
-import { DescriptionList, DetailLayout } from "../components/presentation"
+import {
+  DescriptionList,
+  DetailLayout,
+} from "@forge-go/dashboard-kit/components/detail-layout"
 import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import {
   CommandAlert,
   QueryBoundary,
 } from "@forge-go/dashboard-kit/components/query-boundary"
 import { ResourceTable, type Column } from "../components/presentation"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { formatTimestamp } from "@forge-go/dashboard-kit/lib/format"
 import type { AckResponse } from "./users"
 // Type-only: erased at compile time, so this does not create a runtime
@@ -55,32 +59,33 @@ function EditRole({ role }: { role: RoleDetail }) {
   const dirty = Object.keys(changed).length > 1
 
   return (
-    <div className="flex min-w-0 flex-col gap-3 rounded-md border p-4">
-      <h2 className="text-sm font-medium">Edit</h2>
-      <CommandAlert error={update.error} title="Could not save" />
-      <div className="flex min-w-0 flex-col gap-1.5">
-        <Label htmlFor="role-edit-name">Name</Label>
-        <Input
-          id="role-edit-name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-        />
+    <Section title="Edit" inset>
+      <div className="flex min-w-0 flex-col gap-3">
+        <CommandAlert error={update.error} title="Could not save" />
+        <div className="flex min-w-0 flex-col gap-1.5">
+          <Label htmlFor="role-edit-name">Name</Label>
+          <Input
+            id="role-edit-name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+          />
+        </div>
+        <div className="flex min-w-0 flex-col gap-1.5">
+          <Label htmlFor="role-edit-description">Description</Label>
+          <Input
+            id="role-edit-description"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+          />
+        </div>
+        <Button
+          onClick={() => void update.execute(changed)}
+          disabled={update.loading || !dirty}
+        >
+          {update.loading ? "Saving…" : "Save changes"}
+        </Button>
       </div>
-      <div className="flex min-w-0 flex-col gap-1.5">
-        <Label htmlFor="role-edit-description">Description</Label>
-        <Input
-          id="role-edit-description"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-        />
-      </div>
-      <Button
-        onClick={() => void update.execute(changed)}
-        disabled={update.loading || !dirty}
-      >
-        {update.loading ? "Saving…" : "Save changes"}
-      </Button>
-    </div>
+    </Section>
   )
 }
 
@@ -102,24 +107,25 @@ function AssignRole({ roleId }: { roleId: string }) {
   }
 
   return (
-    <div className="flex min-w-0 flex-col gap-3 rounded-md border p-4">
-      <h2 className="text-sm font-medium">Assign to a user</h2>
-      <CommandAlert error={assign.error} title="Could not assign" />
-      <div className="flex min-w-0 flex-col gap-1.5">
-        <Label htmlFor="role-assign-user">User ID</Label>
-        <Input
-          id="role-assign-user"
-          value={userId}
-          onChange={(e) => setUserId(e.target.value)}
-        />
+    <Section title="Assign to a user" inset>
+      <div className="flex min-w-0 flex-col gap-3">
+        <CommandAlert error={assign.error} title="Could not assign" />
+        <div className="flex min-w-0 flex-col gap-1.5">
+          <Label htmlFor="role-assign-user">User ID</Label>
+          <Input
+            id="role-assign-user"
+            value={userId}
+            onChange={(e) => setUserId(e.target.value)}
+          />
+        </div>
+        <Button
+          onClick={() => void submit()}
+          disabled={assign.loading || userId.trim() === ""}
+        >
+          {assign.loading ? "Assigning…" : "Assign"}
+        </Button>
       </div>
-      <Button
-        onClick={() => void submit()}
-        disabled={assign.loading || userId.trim() === ""}
-      >
-        {assign.loading ? "Assigning…" : "Assign"}
-      </Button>
-    </div>
+    </Section>
   )
 }
 
@@ -141,25 +147,26 @@ function UnassignRole({ roleId }: { roleId: string }) {
   }
 
   return (
-    <div className="flex min-w-0 flex-col gap-3 rounded-md border p-4">
-      <h2 className="text-sm font-medium">Remove from a user</h2>
-      <CommandAlert error={unassign.error} title="Could not remove" />
-      <div className="flex min-w-0 flex-col gap-1.5">
-        <Label htmlFor="role-unassign-user">User ID</Label>
-        <Input
-          id="role-unassign-user"
-          value={userId}
-          onChange={(e) => setUserId(e.target.value)}
-        />
+    <Section title="Remove from a user" inset>
+      <div className="flex min-w-0 flex-col gap-3">
+        <CommandAlert error={unassign.error} title="Could not remove" />
+        <div className="flex min-w-0 flex-col gap-1.5">
+          <Label htmlFor="role-unassign-user">User ID</Label>
+          <Input
+            id="role-unassign-user"
+            value={userId}
+            onChange={(e) => setUserId(e.target.value)}
+          />
+        </div>
+        <Button
+          variant="destructive"
+          onClick={() => void submit()}
+          disabled={unassign.loading || userId.trim() === ""}
+        >
+          {unassign.loading ? "Removing…" : "Remove"}
+        </Button>
       </div>
-      <Button
-        variant="destructive"
-        onClick={() => void submit()}
-        disabled={unassign.loading || userId.trim() === ""}
-      >
-        {unassign.loading ? "Removing…" : "Remove"}
-      </Button>
-    </div>
+    </Section>
   )
 }
 
@@ -189,57 +196,67 @@ function RoleDetailBody({ roleId }: { roleId: string }) {
               <DetailLayout
                 main={
                   <>
-                    <DescriptionList
-                      items={[
-                        {
-                          term: "Slug",
-                          value: (
-                            <span className="font-mono text-xs">
-                              {role.slug}
-                            </span>
-                          ),
-                        },
-                        {
-                          term: "Description",
-                          value: role.description || (
-                            <NoneCell label="description" />
-                          ),
-                        },
-                        {
-                          term: "Parent",
-                          value: (
-                            <IdCell value={role.parentId} label="parent role" />
-                          ),
-                        },
-                        {
-                          term: "App",
-                          value: <IdCell value={role.appId} label="app" />,
-                        },
-                        {
-                          term: "Environment",
-                          value: (
-                            <IdCell value={role.envId} label="environment" />
-                          ),
-                        },
-                        {
-                          term: "Created",
-                          value: formatTimestamp(role.createdAt),
-                        },
-                        {
-                          term: "Updated",
-                          value: formatTimestamp(role.updatedAt),
-                        },
-                      ]}
-                    />
-                    <ResourceTable<PermissionRecord>
-                      columns={permissionColumns}
-                      rows={permissions}
-                      rowKey={(p) => p.id}
-                      caption={`${permissions.length} ${
-                        permissions.length === 1 ? "permission" : "permissions"
-                      }`}
-                      emptyMessage="This role grants no permissions."
-                    />
+                    <Section title="Details" inset>
+                      <DescriptionList
+                        items={[
+                          {
+                            term: "Slug",
+                            value: (
+                              <span className="font-mono text-xs">
+                                {role.slug}
+                              </span>
+                            ),
+                          },
+                          {
+                            term: "Description",
+                            value: role.description || (
+                              <NoneCell label="description" />
+                            ),
+                          },
+                          {
+                            term: "Parent",
+                            value: (
+                              <IdCell
+                                value={role.parentId}
+                                label="parent role"
+                              />
+                            ),
+                          },
+                          {
+                            term: "App",
+                            value: <IdCell value={role.appId} label="app" />,
+                          },
+                          {
+                            term: "Environment",
+                            value: (
+                              <IdCell value={role.envId} label="environment" />
+                            ),
+                          },
+                          {
+                            term: "Created",
+                            value: formatTimestamp(role.createdAt),
+                          },
+                          {
+                            term: "Updated",
+                            value: formatTimestamp(role.updatedAt),
+                          },
+                        ]}
+                      />
+                    </Section>
+                    <Section title="Permissions">
+                      <ResourceTable<PermissionRecord>
+                        appearance="flush"
+                        columns={permissionColumns}
+                        rows={permissions}
+                        rowKey={(p) => p.id}
+                        caption={`${permissions.length} ${
+                          permissions.length === 1
+                            ? "permission"
+                            : "permissions"
+                        }`}
+                        emptyMessage="This role grants no permissions."
+                      />
+                    </Section>
                   </>
                 }
                 aside={

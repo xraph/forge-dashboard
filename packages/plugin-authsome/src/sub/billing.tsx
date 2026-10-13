@@ -19,9 +19,9 @@ import {
 import { Textarea } from "@forge-go/dashboard-kit/components/textarea"
 import { ZeroState } from "@forge-go/dashboard-kit/components/zero-state"
 import { CreditCard } from "@forge-go/dashboard-kit/icons"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import {
   PageLink,
-  Panel,
   ResourceTable,
   DescriptionList,
   type Column,
@@ -188,7 +188,7 @@ function PlanEditor({ plan }: { plan?: PlanDetail }) {
         onSubmit={(event) => void save(event)}
         className="grid min-w-0 gap-4"
       >
-        <Panel title="Plan details">
+        <Section inset title="Plan details">
           <div className="grid min-w-0 gap-3 sm:grid-cols-2">
             {field(
               "Name",
@@ -253,8 +253,8 @@ function PlanEditor({ plan }: { plan?: PlanDetail }) {
               )}
             </div>
           </div>
-        </Panel>
-        <Panel title="Pricing">
+        </Section>
+        <Section inset title="Pricing">
           <div className="grid min-w-0 gap-3 sm:grid-cols-2">
             {field(
               `Base amount (${currency.toUpperCase()})`,
@@ -278,8 +278,9 @@ function PlanEditor({ plan }: { plan?: PlanDetail }) {
               </select>
             )}
           </div>
-        </Panel>
-        <Panel
+        </Section>
+        <Section
+          inset
           title="Entitlements"
           actions={
             <Button
@@ -446,8 +447,9 @@ function PlanEditor({ plan }: { plan?: PlanDetail }) {
               className="border-0 bg-transparent p-0"
             />
           )}
-        </Panel>
-        <Panel
+        </Section>
+        <Section
+          inset
           title="Usage pricing tiers"
           actions={
             <Button
@@ -579,7 +581,7 @@ function PlanEditor({ plan }: { plan?: PlanDetail }) {
               No usage tiers. Base pricing applies to this plan.
             </p>
           )}
-        </Panel>
+        </Section>
         <div className="flex justify-end">
           <Button type="submit" disabled={command.loading}>
             {plan ? "Save plan" : "Create draft plan"}
@@ -679,7 +681,7 @@ export function SubscriptionsPage() {
         title="Subscriptions"
         description="Manage tenant subscriptions and lifecycle."
       />
-      <Panel title="Create subscription">
+      <Section inset title="Create subscription">
         <form
           onSubmit={(event) => void add(event)}
           className="flex flex-wrap items-end gap-2"
@@ -719,7 +721,7 @@ export function SubscriptionsPage() {
           </Button>
         </form>
         <CommandAlert error={create.error} title="Could not complete action" />
-      </Panel>
+      </Section>
       <CommandAlert error={pause.error} title="Could not complete action" />
       <CommandAlert error={resume.error} title="Could not complete action" />
       <CommandAlert error={cancel.error} title="Could not complete action" />
@@ -776,7 +778,8 @@ export function SubscriptionsPage() {
         )}
       </QueryBoundary>
       {changeTarget && (
-        <Panel
+        <Section
+          inset
           title="Change plan"
           actions={
             <Button
@@ -823,7 +826,7 @@ export function SubscriptionsPage() {
               Apply plan
             </Button>
           </div>
-        </Panel>
+        </Section>
       )}
       <ConfirmDialog
         open={!!target}
@@ -907,7 +910,7 @@ export function InvoicesPage() {
         title="Invoices"
         description="Review charges and record payment outcomes."
       />
-      <Panel title="Generate invoice">
+      <Section inset title="Generate invoice">
         <div className="flex flex-wrap items-end gap-2">
           <div className="min-w-48 flex-1">
             {field(
@@ -943,7 +946,7 @@ export function InvoicesPage() {
           error={generate.error}
           title="Could not complete action"
         />
-      </Panel>
+      </Section>
       <CommandAlert error={paid.error} title="Could not complete action" />
       <CommandAlert
         error={voidInvoice.error}
@@ -981,7 +984,8 @@ export function InvoicesPage() {
         )}
       </QueryBoundary>
       {target && (
-        <Panel
+        <Section
+          inset
           title={`${target.action === "paid" ? "Mark paid" : "Void"} ${target.invoice.id}`}
           actions={
             <Button size="sm" variant="ghost" onClick={() => setTarget(null)}>
@@ -1028,7 +1032,7 @@ export function InvoicesPage() {
               Confirm
             </Button>
           </div>
-        </Panel>
+        </Section>
       )}
     </section>
   )
@@ -1113,7 +1117,7 @@ export function CouponsPage() {
         title="Coupons"
         description="Manage subscription discount codes."
       />
-      <Panel title="Create coupon">
+      <Section inset title="Create coupon">
         <form
           onSubmit={(event) => void add(event)}
           className="grid min-w-0 gap-2 lg:grid-cols-3 lg:items-end xl:grid-cols-6"
@@ -1200,7 +1204,7 @@ export function CouponsPage() {
           </Button>
         </form>
         <CommandAlert error={create.error} title="Could not complete action" />
-      </Panel>
+      </Section>
       <CommandAlert error={remove.error} title="Could not complete action" />
       <QueryBoundary title="Coupons" query={query}>
         {(data) => (
@@ -1318,7 +1322,8 @@ export function BillingFeaturesPage() {
         title="Feature catalog"
         description="Define reusable entitlements for billing plans."
       />
-      <Panel
+      <Section
+        inset
         title={editing ? `Edit ${editing.name}` : "New catalog feature"}
         actions={
           editing && (
@@ -1407,7 +1412,7 @@ export function BillingFeaturesPage() {
           </div>
         </form>
         <CommandAlert error={command.error} title="Could not save feature" />
-      </Panel>
+      </Section>
       <CommandAlert error={archive.error} title="Could not archive feature" />
       <QueryBoundary title="Feature catalog" query={query}>
         {(data) => (
@@ -1502,7 +1507,7 @@ export function SubscriptionDetailPage({ params }: PluginPageProps) {
               }
               title="Could not update subscription"
             />
-            <Panel title="Overview">
+            <Section inset title="Overview">
               <DescriptionList
                 items={[
                   {
@@ -1529,8 +1534,8 @@ export function SubscriptionDetailPage({ params }: PluginPageProps) {
                   },
                 ]}
               />
-            </Panel>
-            <Panel title="Manage subscription">
+            </Section>
+            <Section inset title="Manage subscription">
               <div className="flex flex-wrap items-end gap-2">
                 <div className="min-w-48 flex-1">
                   {field(
@@ -1579,8 +1584,8 @@ export function SubscriptionDetailPage({ params }: PluginPageProps) {
                   </Button>
                 )}
               </div>
-            </Panel>
-            <Panel title="Usage">
+            </Section>
+            <Section inset title="Usage">
               <ResourceTable
                 columns={[
                   {
@@ -1606,8 +1611,8 @@ export function SubscriptionDetailPage({ params }: PluginPageProps) {
                 caption="Feature usage"
                 emptyMessage="No usage data for this subscription."
               />
-            </Panel>
-            <Panel title="Invoices">
+            </Section>
+            <Section inset title="Invoices">
               <ResourceTable
                 columns={[
                   {
@@ -1631,7 +1636,7 @@ export function SubscriptionDetailPage({ params }: PluginPageProps) {
                 caption="Subscription invoices"
                 emptyMessage="No invoices for this subscription."
               />
-            </Panel>
+            </Section>
           </>
         )}
       </QueryBoundary>
@@ -1690,7 +1695,7 @@ export function InvoiceDetailPage({ params }: PluginPageProps) {
               error={paid.error ?? voidInvoice.error}
               title="Could not update invoice"
             />
-            <Panel title="Invoice details">
+            <Section inset title="Invoice details">
               <DescriptionList
                 items={[
                   { term: "Tenant", value: item.tenantId },
@@ -1736,8 +1741,8 @@ export function InvoiceDetailPage({ params }: PluginPageProps) {
                   },
                 ]}
               />
-            </Panel>
-            <Panel title="Line items">
+            </Section>
+            <Section inset title="Line items">
               <ResourceTable
                 columns={[
                   {
@@ -1769,9 +1774,9 @@ export function InvoiceDetailPage({ params }: PluginPageProps) {
                 caption="Invoice line items"
                 emptyMessage="No line items."
               />
-            </Panel>
+            </Section>
             {item.status !== "paid" && item.status !== "voided" && (
-              <Panel title="Record outcome">
+              <Section inset title="Record outcome">
                 <div className="grid min-w-0 gap-3 sm:grid-cols-2">
                   <div className="flex items-end gap-2">
                     <div className="min-w-0 flex-1">
@@ -1815,7 +1820,7 @@ export function InvoiceDetailPage({ params }: PluginPageProps) {
                     </Button>
                   </div>
                 </div>
-              </Panel>
+              </Section>
             )}
           </>
         )}

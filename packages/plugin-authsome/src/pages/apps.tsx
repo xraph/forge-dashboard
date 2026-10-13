@@ -9,6 +9,7 @@ import {
   CommandAlert,
   QueryBoundary,
 } from "@forge-go/dashboard-kit/components/query-boundary"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { ResourceTable, type Column } from "../components/presentation"
 import { formatTimestamp } from "@forge-go/dashboard-kit/lib/format"
 import type { AckResponse } from "./users"
@@ -91,49 +92,52 @@ export function AuthAppsPage() {
         }
       />
 
-      <QueryBoundary title="Apps" query={list} skeletonRows={5}>
-        {(data) => {
-          const apps = data.apps ?? []
+      <Section aria-label="App list">
+        <QueryBoundary title="Apps" query={list} skeletonRows={5}>
+          {(data) => {
+            const apps = data.apps ?? []
 
-          return (
-            <ResourceTable<AppSummary>
-              columns={columns}
-              rows={apps}
-              rowKey={(a) => a.id}
-              caption={`${apps.length} ${apps.length === 1 ? "app" : "apps"}`}
-              emptyMessage="No apps yet."
-              rowActions={(app) => (
-                <>
-                  <PluginLink
-                    to={`/apps/${app.id}`}
-                    className="text-sm underline underline-offset-4"
-                  >
-                    Details
-                  </PluginLink>
-                  {!app.isPlatform && (
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      aria-label={`Delete ${app.name}`}
-                      onClick={() => {
-                        // Opening the dialog is the moment that matters, not
-                        // closing it: the operator is about to read whatever
-                        // is on screen for THIS row, so a leftover error from
-                        // the last row this dialog was pointed at has to go
-                        // now.
-                        remove.reset()
-                        setDeleting(app)
-                      }}
+            return (
+              <ResourceTable<AppSummary>
+                appearance="flush"
+                columns={columns}
+                rows={apps}
+                rowKey={(a) => a.id}
+                caption={`${apps.length} ${apps.length === 1 ? "app" : "apps"}`}
+                emptyMessage="No apps yet."
+                rowActions={(app) => (
+                  <>
+                    <PluginLink
+                      to={`/apps/${app.id}`}
+                      className="text-sm underline underline-offset-4"
                     >
-                      Delete
-                    </Button>
-                  )}
-                </>
-              )}
-            />
-          )
-        }}
-      </QueryBoundary>
+                      Details
+                    </PluginLink>
+                    {!app.isPlatform && (
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        aria-label={`Delete ${app.name}`}
+                        onClick={() => {
+                          // Opening the dialog is the moment that matters, not
+                          // closing it: the operator is about to read whatever
+                          // is on screen for THIS row, so a leftover error from
+                          // the last row this dialog was pointed at has to go
+                          // now.
+                          remove.reset()
+                          setDeleting(app)
+                        }}
+                      >
+                        Delete
+                      </Button>
+                    )}
+                  </>
+                )}
+              />
+            )
+          }}
+        </QueryBoundary>
+      </Section>
 
       {/*
         The delete error lives inside the dialog, not above the

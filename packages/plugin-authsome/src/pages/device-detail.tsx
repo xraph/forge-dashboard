@@ -5,7 +5,8 @@ import { Badge } from "@forge-go/dashboard-kit/components/badge"
 import { Button } from "@forge-go/dashboard-kit/components/button"
 import { ConfirmDialog } from "@forge-go/dashboard-kit/components/confirm-dialog"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
-import { DescriptionList } from "../components/presentation"
+import { DescriptionList } from "@forge-go/dashboard-kit/components/detail-layout"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import {
   CommandAlert,
@@ -34,52 +35,53 @@ function DeviceActions({
   }
 
   return (
-    <div className="flex min-w-0 flex-col gap-3 rounded-md border p-4">
-      <h2 className="text-sm font-medium">Actions</h2>
-      <CommandAlert error={trust.error} title="Could not trust the device" />
-      <div className="flex items-center gap-2">
-        {!device.trusted && (
+    <Section title="Actions" inset>
+      <div className="flex min-w-0 flex-col gap-3">
+        <CommandAlert error={trust.error} title="Could not trust the device" />
+        <div className="flex items-center gap-2">
+          {!device.trusted && (
+            <Button
+              variant="outline"
+              size="sm"
+              aria-label={`Trust ${deviceLabel(device)}`}
+              disabled={trust.loading}
+              onClick={() => void trust.execute({ id: device.id })}
+            >
+              Trust
+            </Button>
+          )}
           <Button
-            variant="outline"
+            variant="destructive"
             size="sm"
-            aria-label={`Trust ${deviceLabel(device)}`}
-            disabled={trust.loading}
-            onClick={() => void trust.execute({ id: device.id })}
+            aria-label={`Forget ${deviceLabel(device)}`}
+            onClick={() => setForgetting(true)}
           >
-            Trust
+            Forget
           </Button>
-        )}
-        <Button
-          variant="destructive"
-          size="sm"
-          aria-label={`Forget ${deviceLabel(device)}`}
-          onClick={() => setForgetting(true)}
-        >
-          Forget
-        </Button>
-      </div>
+        </div>
 
-      {/*
+        {/*
         The forget error lives inside the dialog, not above it:
         Base UI marks everything outside an open AlertDialog `inert` and
         `aria-hidden`, so an alert rendered outside it is unreachable for as
         long as the dialog that can fail is open.
       */}
-      <ConfirmDialog
-        open={forgetting}
-        onOpenChange={setForgetting}
-        title={`Forget ${deviceLabel(device)}?`}
-        description="The next sign-in from it counts as a new device, which may trigger verification."
-        confirmLabel="Forget"
-        pending={remove.loading}
-        onConfirm={() => void confirmForget()}
-      >
-        <CommandAlert
-          error={remove.error}
-          title="Could not forget the device"
-        />
-      </ConfirmDialog>
-    </div>
+        <ConfirmDialog
+          open={forgetting}
+          onOpenChange={setForgetting}
+          title={`Forget ${deviceLabel(device)}?`}
+          description="The next sign-in from it counts as a new device, which may trigger verification."
+          confirmLabel="Forget"
+          pending={remove.loading}
+          onConfirm={() => void confirmForget()}
+        >
+          <CommandAlert
+            error={remove.error}
+            title="Could not forget the device"
+          />
+        </ConfirmDialog>
+      </div>
+    </Section>
   )
 }
 
@@ -131,41 +133,43 @@ function DeviceDetailBody({ deviceId }: { deviceId: string }) {
         {(device) => (
           <>
             <PageHeader title={deviceLabel(device)} description={device.id} />
-            <DescriptionList
-              items={[
-                { term: "User", value: device.userId },
-                {
-                  term: "Type",
-                  value: device.type || <NoneCell label="type" />,
-                },
-                {
-                  term: "Browser",
-                  value: device.browser || <NoneCell label="browser" />,
-                },
-                { term: "OS", value: device.os || <NoneCell label="os" /> },
-                {
-                  term: "IP",
-                  value: device.ipAddress || <NoneCell label="ip address" />,
-                },
-                {
-                  term: "Trusted",
-                  value: (
-                    // Same pairing as the devices list and the devices table
-                    // embedded in user-detail.tsx: untrusted is an ordinary
-                    // starting state, not an alarm condition like `banned`,
-                    // so it gets `secondary` rather than `destructive`.
-                    <Badge variant={device.trusted ? "outline" : "secondary"}>
-                      {device.trusted ? "trusted" : "untrusted"}
-                    </Badge>
-                  ),
-                },
-                {
-                  term: "Last seen",
-                  value: formatTimestamp(device.lastSeenAt),
-                },
-                { term: "Created", value: formatTimestamp(device.createdAt) },
-              ]}
-            />
+            <Section title="Details" inset>
+              <DescriptionList
+                items={[
+                  { term: "User", value: device.userId },
+                  {
+                    term: "Type",
+                    value: device.type || <NoneCell label="type" />,
+                  },
+                  {
+                    term: "Browser",
+                    value: device.browser || <NoneCell label="browser" />,
+                  },
+                  { term: "OS", value: device.os || <NoneCell label="os" /> },
+                  {
+                    term: "IP",
+                    value: device.ipAddress || <NoneCell label="ip address" />,
+                  },
+                  {
+                    term: "Trusted",
+                    value: (
+                      // Same pairing as the devices list and the devices table
+                      // embedded in user-detail.tsx: untrusted is an ordinary
+                      // starting state, not an alarm condition like `banned`,
+                      // so it gets `secondary` rather than `destructive`.
+                      <Badge variant={device.trusted ? "outline" : "secondary"}>
+                        {device.trusted ? "trusted" : "untrusted"}
+                      </Badge>
+                    ),
+                  },
+                  {
+                    term: "Last seen",
+                    value: formatTimestamp(device.lastSeenAt),
+                  },
+                  { term: "Created", value: formatTimestamp(device.createdAt) },
+                ]}
+              />
+            </Section>
             <DeviceActions device={device} onForgotten={handleForgotten} />
           </>
         )}

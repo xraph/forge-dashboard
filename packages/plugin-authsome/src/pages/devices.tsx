@@ -9,6 +9,7 @@ import {
   CommandAlert,
   QueryBoundary,
 } from "@forge-go/dashboard-kit/components/query-boundary"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import { ResourceTable, type Column } from "../components/presentation"
 import { formatTimestamp } from "@forge-go/dashboard-kit/lib/format"
@@ -129,70 +130,77 @@ export function AuthDevicesPage() {
         title="Devices"
         description={`Showing the most recent ${LIMIT}.`}
       />
-      <FilterBar
-        search={{
-          value: userFilter,
-          onChange: setUserFilter,
-          label: "Filter by user",
-          placeholder: "User id",
-        }}
-      />
       <CommandAlert
         error={trust.error}
         title={`Could not trust ${trustAttempt ? deviceLabel(trustAttempt) : "the device"}`}
       />
 
-      <QueryBoundary title="Devices" query={list} skeletonRows={5}>
-        {(data) => {
-          const devices = data.devices ?? []
+      <Section
+        aria-label="Device list"
+        actions={
+          <FilterBar
+            search={{
+              value: userFilter,
+              onChange: setUserFilter,
+              label: "Filter by user",
+              placeholder: "User id",
+            }}
+          />
+        }
+      >
+        <QueryBoundary title="Devices" query={list} skeletonRows={5}>
+          {(data) => {
+            const devices = data.devices ?? []
 
-          return (
-            <ResourceTable<DeviceSummary>
-              columns={columns}
-              rows={devices}
-              rowKey={(d) => d.id}
-              caption={`${devices.length} ${devices.length === 1 ? "device" : "devices"}`}
-              emptyMessage="No devices seen."
-              rowActions={(device) => (
-                <>
-                  <PluginLink
-                    to={`/devices/${device.id}`}
-                    className="text-sm underline underline-offset-4"
-                  >
-                    Details
-                  </PluginLink>
-                  {!device.trusted && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      aria-label={`Trust ${deviceLabel(device)}`}
-                      disabled={trust.loading}
-                      onClick={() => void handleTrust(device)}
+            return (
+              <ResourceTable<DeviceSummary>
+                appearance="flush"
+                columns={columns}
+                rows={devices}
+                rowKey={(d) => d.id}
+                caption={`${devices.length} ${devices.length === 1 ? "device" : "devices"}`}
+                emptyMessage="No devices seen."
+                rowActions={(device) => (
+                  <>
+                    <PluginLink
+                      to={`/devices/${device.id}`}
+                      className="text-sm underline underline-offset-4"
                     >
-                      Trust
+                      Details
+                    </PluginLink>
+                    {!device.trusted && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        aria-label={`Trust ${deviceLabel(device)}`}
+                        disabled={trust.loading}
+                        onClick={() => void handleTrust(device)}
+                      >
+                        Trust
+                      </Button>
+                    )}
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      aria-label={`Forget ${deviceLabel(device)}`}
+                      onClick={() => {
+                        // Reset at open: the dialog is about to show whatever
+                        // is on screen for THIS device, not a leftover error
+                        // from whichever device was forgotten (or failed to
+                        // be) last.
+                        remove.reset()
+                        setForgetting(device)
+                      }}
+                    >
+                      Forget
                     </Button>
-                  )}
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    aria-label={`Forget ${deviceLabel(device)}`}
-                    onClick={() => {
-                      // Reset at open: the dialog is about to show whatever
-                      // is on screen for THIS device, not a leftover error
-                      // from whichever device was forgotten (or failed to
-                      // be) last.
-                      remove.reset()
-                      setForgetting(device)
-                    }}
-                  >
-                    Forget
-                  </Button>
-                </>
-              )}
-            />
-          )
-        }}
-      </QueryBoundary>
+                  </>
+                )}
+              />
+            )
+          }}
+        </QueryBoundary>
+      </Section>
 
       {/*
         The forget error lives inside the dialog, not above the

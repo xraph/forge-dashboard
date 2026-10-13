@@ -8,11 +8,15 @@ import { Input } from "@forge-go/dashboard-kit/components/input"
 import { Label } from "@forge-go/dashboard-kit/components/label"
 import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
-import { DescriptionList, DetailLayout } from "../components/presentation"
+import {
+  DescriptionList,
+  DetailLayout,
+} from "@forge-go/dashboard-kit/components/detail-layout"
 import {
   CommandAlert,
   QueryBoundary,
 } from "@forge-go/dashboard-kit/components/query-boundary"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { formatTimestamp } from "@forge-go/dashboard-kit/lib/format"
 import type { AckResponse } from "./users"
 import type { AppSummary } from "./apps"
@@ -94,40 +98,41 @@ function EditApp({ app }: { app: AppDetail }) {
   const dirty = Object.keys(changed).length > 1
 
   return (
-    <div className="flex min-w-0 flex-col gap-3 rounded-md border p-4">
-      <h2 className="text-sm font-medium">Edit</h2>
-      <CommandAlert error={update.error} title="Could not save" />
-      <div className="flex min-w-0 flex-col gap-1.5">
-        <Label htmlFor="app-name">Name</Label>
-        <Input
-          id="app-name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-        />
+    <Section title="Edit" inset>
+      <div className="flex min-w-0 flex-col gap-3">
+        <CommandAlert error={update.error} title="Could not save" />
+        <div className="flex min-w-0 flex-col gap-1.5">
+          <Label htmlFor="app-name">Name</Label>
+          <Input
+            id="app-name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+          />
+        </div>
+        <div className="flex min-w-0 flex-col gap-1.5">
+          <Label htmlFor="app-slug">Slug</Label>
+          <Input
+            id="app-slug"
+            value={slug}
+            onChange={(e) => setSlug(e.target.value)}
+          />
+        </div>
+        <div className="flex min-w-0 flex-col gap-1.5">
+          <Label htmlFor="app-logo">Logo</Label>
+          <Input
+            id="app-logo"
+            value={logo}
+            onChange={(e) => setLogo(e.target.value)}
+          />
+        </div>
+        <Button
+          onClick={() => void update.execute(changed)}
+          disabled={update.loading || !dirty}
+        >
+          {update.loading ? "Saving…" : "Save changes"}
+        </Button>
       </div>
-      <div className="flex min-w-0 flex-col gap-1.5">
-        <Label htmlFor="app-slug">Slug</Label>
-        <Input
-          id="app-slug"
-          value={slug}
-          onChange={(e) => setSlug(e.target.value)}
-        />
-      </div>
-      <div className="flex min-w-0 flex-col gap-1.5">
-        <Label htmlFor="app-logo">Logo</Label>
-        <Input
-          id="app-logo"
-          value={logo}
-          onChange={(e) => setLogo(e.target.value)}
-        />
-      </div>
-      <Button
-        onClick={() => void update.execute(changed)}
-        disabled={update.loading || !dirty}
-      >
-        {update.loading ? "Saving…" : "Save changes"}
-      </Button>
-    </div>
+    </Section>
   )
 }
 
@@ -154,38 +159,46 @@ function AppDetailBody({ appId }: { appId: string }) {
             <PageHeader title={app.name} description={app.slug} />
             <DetailLayout
               main={
-                <DescriptionList
-                  items={[
-                    { term: "Name", value: app.name },
-                    {
-                      term: "Slug",
-                      value: (
-                        <span className="font-mono text-xs">{app.slug}</span>
-                      ),
-                    },
-                    {
-                      term: "Platform",
-                      value: (
-                        <Badge
-                          variant={app.isPlatform ? "outline" : "secondary"}
-                        >
-                          {app.isPlatform ? "platform" : "app"}
-                        </Badge>
-                      ),
-                    },
-                    {
-                      term: "Publishable key",
-                      value: app.publishableKey ? (
-                        <PublishableKey value={app.publishableKey} />
-                      ) : (
-                        <NoneCell label="publishable key" />
-                      ),
-                    },
-                    { term: "Metadata", value: formatMetadata(app.metadata) },
-                    { term: "Created", value: formatTimestamp(app.createdAt) },
-                    { term: "Updated", value: formatTimestamp(app.updatedAt) },
-                  ]}
-                />
+                <Section title="Details" inset>
+                  <DescriptionList
+                    items={[
+                      { term: "Name", value: app.name },
+                      {
+                        term: "Slug",
+                        value: (
+                          <span className="font-mono text-xs">{app.slug}</span>
+                        ),
+                      },
+                      {
+                        term: "Platform",
+                        value: (
+                          <Badge
+                            variant={app.isPlatform ? "outline" : "secondary"}
+                          >
+                            {app.isPlatform ? "platform" : "app"}
+                          </Badge>
+                        ),
+                      },
+                      {
+                        term: "Publishable key",
+                        value: app.publishableKey ? (
+                          <PublishableKey value={app.publishableKey} />
+                        ) : (
+                          <NoneCell label="publishable key" />
+                        ),
+                      },
+                      { term: "Metadata", value: formatMetadata(app.metadata) },
+                      {
+                        term: "Created",
+                        value: formatTimestamp(app.createdAt),
+                      },
+                      {
+                        term: "Updated",
+                        value: formatTimestamp(app.updatedAt),
+                      },
+                    ]}
+                  />
+                </Section>
               }
               aside={<EditApp app={app} />}
             />

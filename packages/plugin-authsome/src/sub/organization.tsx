@@ -42,7 +42,7 @@ import {
 } from "@forge-go/dashboard-kit/components/tabs"
 import { formatTimestamp } from "@forge-go/dashboard-kit/lib/format"
 import { ZeroState } from "@forge-go/dashboard-kit/components/zero-state"
-import { Panel } from "../components/presentation"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import {
   Dialog,
   DialogContent,
@@ -769,7 +769,8 @@ function OrgPeopleSummary({
   const query = useQuery<MembersResponse>("orgs.members", { orgId })
 
   return (
-    <Panel
+    <Section
+      inset
       title="People"
       actions={
         <Button variant="outline" size="sm" onClick={onOpenMembers}>
@@ -801,7 +802,7 @@ function OrgPeopleSummary({
           )
         }}
       </QueryBoundary>
-    </Panel>
+    </Section>
   )
 }
 
@@ -866,7 +867,7 @@ function OrgTabs({ org, orgId }: { org: OrgDetail; orgId: string }) {
       */}
       <TabsContent value="overview">
         <div className="grid min-w-0 gap-4 pt-2 @3xl/main:grid-cols-[minmax(0,1.4fr)_minmax(18rem,1fr)]">
-          <Panel title="Organization details">
+          <Section inset title="Organization details">
             <DescriptionList
               className="border-0 bg-transparent [&>div]:grid-cols-[7rem_minmax(0,1fr)] [&>div]:px-0"
               items={[
@@ -899,7 +900,7 @@ function OrgTabs({ org, orgId }: { org: OrgDetail; orgId: string }) {
                   : []),
               ]}
             />
-          </Panel>
+          </Section>
           <div className="flex min-w-0 flex-col gap-4">
             <OrgPeopleSummary
               orgId={orgId}
