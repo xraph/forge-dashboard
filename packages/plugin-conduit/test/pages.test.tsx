@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 import {
   render,
   fireEvent,
@@ -113,6 +113,42 @@ describe("Conduit pages", () => {
     expect(screen.getByText("Acknowledged")).toBeTruthy()
     expect(screen.getByText("4 / 16")).toBeTruthy()
     expect(screen.getAllByText("Durable")).toBeTruthy()
+  })
+  it("frames the overview: status in the header, counters as a strip, one region per table", async () => {
+    render(
+      <PluginProvider client={client({ overview: snapshot })}>
+        <ConduitOverviewPage />
+      </PluginProvider>
+    )
+    const counters = await screen.findByRole("group", {
+      name: "Instance counters",
+    })
+    expect(within(counters).getByText("Acknowledged")).toBeTruthy()
+    for (const name of ["Providers", "Streams", "Subscriptions"]) {
+      expect(screen.getByRole("region", { name })).toBeTruthy()
+    }
+    const meta = document.querySelector('[data-slot="page-header-meta"]')
+    expect(meta?.textContent).toContain(snapshot.identity.instanceID)
+  })
+  // Review Focus 5: the header stands before data arrives, with no meta.
+  it("shows the header with no meta while the overview is loading", () => {
+    render(
+      <PluginProvider
+        client={
+          {
+            extension: "conduit",
+            query: () => new Promise(() => {}),
+            command: vi.fn(),
+          } as unknown as ScopedClient
+        }
+      >
+        <ConduitOverviewPage />
+      </PluginProvider>
+    )
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Conduit" })
+    ).toBeTruthy()
+    expect(document.querySelector('[data-slot="page-header-meta"]')).toBeNull()
   })
   it("keeps service identity shared while showing separate replicas", async () => {
     render(

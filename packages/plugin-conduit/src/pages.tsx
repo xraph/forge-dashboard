@@ -12,6 +12,8 @@ import {
 import { Badge } from "@forge-go/dashboard-kit/components/badge"
 import { Button } from "@forge-go/dashboard-kit/components/button"
 import { ConfirmDialog } from "@forge-go/dashboard-kit/components/confirm-dialog"
+import { Section } from "@forge-go/dashboard-kit/components/section"
+import { StatGrid } from "@forge-go/dashboard-kit/components/stat-grid"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import {
@@ -139,78 +141,99 @@ const subscriptionColumns: Column<Subscription>[] = [
   },
 ]
 
+/** The instance this overview reads: run state, service, instance, namespace. */
+function InstanceMeta({ data }: { data: Snapshot }) {
+  return (
+    <>
+      <Badge variant={data.running ? "outline" : "destructive"}>
+        {data.running ? "Running" : "Stopped"}
+      </Badge>
+      <span className="font-medium">{data.identity.serviceID}</span>
+      <span className="font-mono text-xs break-all">
+        {data.identity.instanceID}
+      </span>
+      <span className="text-muted-foreground">{data.identity.namespace}</span>
+    </>
+  )
+}
+
 export function ConduitOverviewPage() {
   const query = useQuery<Snapshot>("overview")
   usePoll(query.refetch)
   return (
-    <section className="flex min-w-0 flex-col gap-3">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Conduit"
         description="Broker state and counters for this service instance."
+        meta={query.data ? <InstanceMeta data={query.data} /> : undefined}
       />
       <QueryBoundary title="Conduit" query={query}>
         {(data) => (
           <>
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-md border px-3 py-2 text-sm">
-              <Badge variant={data.running ? "outline" : "destructive"}>
-                {data.running ? "Running" : "Stopped"}
-              </Badge>
-              <span className="font-medium">{data.identity.serviceID}</span>
-              <span className="font-mono text-xs break-all">
-                {data.identity.instanceID}
-              </span>
-              <span className="text-muted-foreground">
-                {data.identity.namespace}
-              </span>
-            </div>
-            <dl
-              className="flex flex-wrap gap-x-6 gap-y-2 text-sm"
+            <StatGrid
               aria-label="Instance counters"
+              items={[
+                { label: "Published", value: data.published },
+                { label: "RPC calls", value: data.rpcCalls },
+                { label: "RPC handled", value: data.rpcHandled },
+                { label: "RPC failures", value: data.rpcFailed },
+                { label: "RPC timeouts", value: data.rpcTimedOut },
+                { label: "Acknowledged", value: data.acknowledged },
+                { label: "Failed attempts", value: data.failed },
+                { label: "Retries", value: data.retried },
+                {
+                  label: "Dead letters",
+                  value: data.deadLettered,
+                  tone:
+                    data.deadLettered > 0
+                      ? ("danger" as const)
+                      : ("default" as const),
+                },
+                {
+                  label: "Dropped hook observations",
+                  value: data.observerDrops,
+                },
+              ].map((item) => ({
+                ...item,
+                value: Number(item.value).toLocaleString(),
+              }))}
+            />
+            <Section
+              title="Providers"
+              description="Brokers this instance publishes and subscribes through."
             >
-              {[
-                ["Published", data.published],
-                ["RPC calls", data.rpcCalls],
-                ["RPC handled", data.rpcHandled],
-                ["RPC failures", data.rpcFailed],
-                ["RPC timeouts", data.rpcTimedOut],
-                ["Acknowledged", data.acknowledged],
-                ["Failed attempts", data.failed],
-                ["Retries", data.retried],
-                ["Dead letters", data.deadLettered],
-                ["Dropped hook observations", data.observerDrops],
-              ].map(([label, value]) => (
-                <div key={label}>
-                  <dt className="text-muted-foreground">{label}</dt>
-                  <dd className="font-medium tabular-nums">
-                    {Number(value).toLocaleString()}
-                  </dd>
-                </div>
-              ))}
-            </dl>
-            <h2 className="text-sm font-medium">Providers</h2>
-            <ResourceTable
-              columns={providerColumns}
-              rows={data.providers ?? []}
-              rowKey={(p) => p.name}
-              density="compact"
-              emptyMessage="No providers configured."
-            />
-            <h2 className="text-sm font-medium">Streams</h2>
-            <ResourceTable
-              columns={streamColumns}
-              rows={data.streams ?? []}
-              rowKey={(s) => s.config.name}
-              density="compact"
-              emptyMessage="No streams configured."
-            />
-            <h2 className="text-sm font-medium">Subscriptions</h2>
-            <ResourceTable
-              columns={subscriptionColumns}
-              rows={data.subscriptions ?? []}
-              rowKey={(s) => s.id}
-              density="compact"
-              emptyMessage="No subscriptions configured."
-            />
+              <ResourceTable
+                columns={providerColumns}
+                rows={data.providers ?? []}
+                rowKey={(p) => p.name}
+                density="compact"
+                emptyMessage="No providers configured."
+              />
+            </Section>
+            <Section
+              title="Streams"
+              description="Durable streams on the broker and what they retain."
+            >
+              <ResourceTable
+                columns={streamColumns}
+                rows={data.streams ?? []}
+                rowKey={(s) => s.config.name}
+                density="compact"
+                emptyMessage="No streams configured."
+              />
+            </Section>
+            <Section
+              title="Subscriptions"
+              description="Handlers this instance registered, and how each is delivered."
+            >
+              <ResourceTable
+                columns={subscriptionColumns}
+                rows={data.subscriptions ?? []}
+                rowKey={(s) => s.id}
+                density="compact"
+                emptyMessage="No subscriptions configured."
+              />
+            </Section>
           </>
         )}
       </QueryBoundary>
