@@ -468,6 +468,16 @@ describe("EventDetailPage", () => {
     }
   })
 
+  it("wraps a long hash at any character, keeping it small", async () => {
+    renderPage(EventDetailPage, client(detail()).client, {
+      id: "audit_globex_2780",
+    })
+    await waitFor(() => expect(screen.getByText("2,780")).toBeTruthy())
+    const classes = screen.getByText("aa".repeat(32)).classList
+    expect(classes.contains("text-xs")).toBe(true)
+    expect(classes.contains("break-all")).toBe(true)
+  })
+
   it("names the event's tenant, and says app level for an event with none", async () => {
     const view = renderPage(
       EventDetailPage,

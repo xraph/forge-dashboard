@@ -12,6 +12,7 @@ import {
 } from "@forge-go/dashboard-kit/components/query-boundary"
 import { Section } from "@forge-go/dashboard-kit/components/section"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
+import { cn } from "@forge-go/dashboard-kit/lib/utils"
 import { PluginLink, useQuery } from "@forge-go/dashboard-plugin"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
 import type { EventDetail, MineResponse, VerifyEventResponse } from "../types"
@@ -53,7 +54,7 @@ function field(
 /** A hash or id: monospace, and selected whole on click so it can be copied. */
 function Raw({ value, wrap = false }: { value: string; wrap?: boolean }) {
   return (
-    <span className={`font-mono select-all text-xs${wrap ? "break-all" : ""}`}>
+    <span className={cn("font-mono text-xs select-all", wrap && "break-all")}>
       {value}
     </span>
   )
