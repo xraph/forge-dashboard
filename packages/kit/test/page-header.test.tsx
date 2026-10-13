@@ -18,4 +18,25 @@ describe("PageHeader", () => {
     render(<PageHeader title="Users" actions={<button>New user</button>} />)
     expect(screen.getByRole("button", { name: "New user" })).toBeTruthy()
   })
+
+  it("renders meta under the description", () => {
+    render(
+      <PageHeader
+        title="Conduit"
+        description="Broker state"
+        meta={<span>Running</span>}
+      />
+    )
+    const meta = screen.getByText("Running")
+    expect(meta.closest('[data-slot="page-header-meta"]')).toBeTruthy()
+    expect(
+      screen.getByText("Broker state").compareDocumentPosition(meta) &
+        Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy()
+  })
+
+  it("draws no meta row when meta is empty", () => {
+    const { container } = render(<PageHeader title="Conduit" meta={null} />)
+    expect(container.querySelector('[data-slot="page-header-meta"]')).toBeNull()
+  })
 })

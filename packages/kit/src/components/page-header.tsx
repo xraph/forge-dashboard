@@ -7,6 +7,8 @@ export interface PageHeaderProps {
   description?: string
   /** Buttons for this page as a whole. Row actions belong in the table. */
   actions?: ReactNode
+  /** Identity and status under the description: badges, the app, an ID. */
+  meta?: ReactNode
   density?: "compact" | "comfortable"
   className?: string
 }
@@ -22,6 +24,7 @@ export function PageHeader({
   title,
   description,
   actions,
+  meta,
   className,
   density = "compact",
 }: PageHeaderProps) {
@@ -53,6 +56,14 @@ export function PageHeader({
           >
             {description}
           </p>
+        )}
+        {meta && (
+          <div
+            data-slot="page-header-meta"
+            className="flex flex-wrap items-center gap-2 pt-1 text-sm"
+          >
+            {meta}
+          </div>
         )}
       </div>
       {actions && (
