@@ -12,8 +12,8 @@ export interface StatItem {
   value: string | number
   hint?: string
   /**
-   * Emphasis for the card: a coloured value and a ring (a top bar in
-   * `StatGrid`), from the kit's own tone tokens. Defaults to `"default"`, which
+   * Emphasis for the card: a coloured value and a ring (a tint over the
+   * cell in `StatGrid`), from the kit's own tone tokens. Defaults to `"default"`, which
    * adds nothing. Reach for `"danger"` or `"warning"` only when the number is
    * the thing to act on.
    */
@@ -57,16 +57,13 @@ export function Stat({ label, value, hint, tone = "default" }: StatItem) {
   )
 }
 
-// The strip's emphasis: a 2px bar along the top of the cell. A ring would
-// fight the rules between cells.
-const TONE_BAR: Record<StatTone, string | undefined> = {
+// The strip's emphasis: a tint over the whole cell. A bar along the top would
+// sit on the rule between rows and read as an underline of the cell above.
+const TONE_TINT: Record<StatTone, string | undefined> = {
   default: undefined,
-  warning:
-    "before:absolute before:inset-x-0 before:top-0 before:h-0.5 before:bg-warning",
-  danger:
-    "before:absolute before:inset-x-0 before:top-0 before:h-0.5 before:bg-destructive",
-  success:
-    "before:absolute before:inset-x-0 before:top-0 before:h-0.5 before:bg-success",
+  warning: "bg-warning/10",
+  danger: "bg-destructive/5",
+  success: "bg-success/10",
 }
 
 /** One cell of the strip. Draws only its right and bottom rules. */
@@ -76,8 +73,8 @@ function StatCell({ label, value, hint, tone = "default" }: StatItem) {
       data-slot="stat"
       data-tone={tone}
       className={cn(
-        "relative flex min-w-0 flex-col gap-1 border-r border-b px-4 py-3",
-        TONE_BAR[tone]
+        "flex min-w-0 flex-col gap-1 border-r border-b px-4 py-3",
+        TONE_TINT[tone]
       )}
     >
       <span className="truncate text-xs text-muted-foreground">{label}</span>
@@ -93,6 +90,31 @@ function StatCell({ label, value, hint, tone = "default" }: StatItem) {
       {hint && <span className="text-xs text-muted-foreground">{hint}</span>}
     </div>
   )
+}
+
+// Written out in full for the same reason as the tone maps above.
+const NARROW: Record<number, string> = { 1: "grid-cols-1" }
+const WIDE: Record<1 | 2 | 3 | 4, string> = {
+  1: "@2xl/main:grid-cols-1",
+  2: "@2xl/main:grid-cols-2",
+  3: "@2xl/main:grid-cols-3",
+  4: "@2xl/main:grid-cols-4",
+}
+
+/**
+ * The column classes that leave no empty cell on the last row where the count
+ * allows it: one row of up to four, else five or four across (five only past
+ * `@5xl`), else three, else four with a short last row.
+ */
+function columnsFor(count: number): string {
+  const narrow = NARROW[count] ?? "grid-cols-2"
+  if (count >= 1 && count <= 4) {
+    return cn(narrow, WIDE[count as 1 | 2 | 3 | 4])
+  }
+  if (count % 5 === 0) return cn(narrow, WIDE[4], "@5xl/main:grid-cols-5")
+  if (count % 4 === 0) return cn(narrow, WIDE[4])
+  if (count % 3 === 0) return cn(narrow, WIDE[3])
+  return cn(narrow, WIDE[4])
 }
 
 export interface StatGridProps {
@@ -116,8 +138,6 @@ export function StatGrid({
   className,
   "aria-label": ariaLabel,
 }: StatGridProps) {
-  // Five across only when it fills every row; 7 or 9 would leave a ragged end.
-  const fives = items.length > 0 && items.length % 5 === 0
   return (
     <div
       data-slot="stat-grid"
@@ -125,12 +145,7 @@ export function StatGrid({
       aria-label={ariaLabel}
       className={cn("overflow-hidden rounded-lg border bg-card", className)}
     >
-      <div
-        className={cn(
-          "-mr-px -mb-px grid grid-cols-2 @2xl/main:grid-cols-4",
-          fives && "@5xl/main:grid-cols-5"
-        )}
-      >
+      <div className={cn("-mr-px -mb-px grid", columnsFor(items.length))}>
         {items.map((item) => (
           <StatCell key={item.label} {...item} />
         ))}

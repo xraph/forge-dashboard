@@ -1,5 +1,6 @@
 import { useId, type ReactNode } from "react"
 import { cn } from "@forge-go/dashboard-kit/lib/utils"
+import "../styles/section.css"
 
 export interface SectionProps {
   /** The section's `<h2>`. Leave it out when the page title already says it. */
@@ -16,16 +17,12 @@ export interface SectionProps {
 }
 
 /*
- * Flush content: a table meets the panel edges, its outer cells line up with
- * the header's px-4, and anything that brings its own frame (the empty state,
- * QueryBoundary's error card) drops it, since the panel already is one.
- * Arbitrary variants, not a stylesheet, so Tailwind finds them in this file.
+ * Flush content: a table meets the panel edges and anything that brings its
+ * own frame (the empty state, QueryBoundary's error card) drops it, since the
+ * panel already is one. The outer cells' padding is in section.css, which has
+ * to beat density.css. Arbitrary variants here so Tailwind finds them.
  */
 const FLUSH = [
-  "[&_th:first-child]:pl-4",
-  "[&_td:first-child]:pl-4",
-  "[&_th:last-child]:pr-4",
-  "[&_td:last-child]:pr-4",
   "[&_caption]:px-4",
   "[&_caption]:pb-3",
   "[&_[data-slot=resource-table]>nav]:px-4",

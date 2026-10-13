@@ -52,19 +52,21 @@ describe("StatGrid", () => {
   it("marks an untoned cell as default and adds no emphasis", () => {
     render(<StatGrid items={[{ label: "Rooms", value: 3 }]} />)
     expect(cell("Rooms").getAttribute("data-tone")).toBe("default")
-    expect(cell("Rooms").className).not.toMatch(/before:bg-/)
+    expect(cell("Rooms").className).not.toMatch(
+      /bg-(destructive|warning|success)/
+    )
     expect(value("Rooms").className).not.toMatch(
       /text-(destructive|warning|success)/
     )
   })
 
   it.each([
-    ["danger", "before:bg-destructive", "text-destructive"],
-    ["warning", "before:bg-warning", "text-warning-foreground"],
-    ["success", "before:bg-success", "text-success-foreground"],
+    ["danger", "bg-destructive/5", "text-destructive"],
+    ["warning", "bg-warning/10", "text-warning-foreground"],
+    ["success", "bg-success/10", "text-success-foreground"],
   ] as const)(
-    "a %s tone sets the attribute, a top bar and the value colour",
-    (tone, bar, text) => {
+    "a %s tone sets the attribute, a cell tint and the value colour",
+    (tone, tint, text) => {
       render(
         <StatGrid
           items={[
@@ -74,11 +76,11 @@ describe("StatGrid", () => {
         />
       )
       expect(cell("Loud").getAttribute("data-tone")).toBe(tone)
-      expect(cell("Loud").className).toContain(bar)
+      expect(cell("Loud").className).toContain(tint)
       expect(cell("Loud").className).not.toMatch(/ring-/)
       expect(value("Loud").className).toContain(text)
       expect(cell("Quiet").getAttribute("data-tone")).toBe("default")
-      expect(cell("Quiet").className).not.toContain(bar)
+      expect(cell("Quiet").className).not.toContain(tint)
     }
   )
 
@@ -95,7 +97,7 @@ describe("StatGrid", () => {
     expect(grid().className).toContain("@5xl/main:grid-cols-5")
   })
 
-  it.each([1, 4, 7, 9])("keeps four columns for %i items", (n) => {
+  const gridOf = (n: number) => {
     render(
       <StatGrid
         items={Array.from({ length: n }, (_, i) => ({
@@ -104,8 +106,45 @@ describe("StatGrid", () => {
         }))}
       />
     )
-    expect(grid().className).not.toContain("grid-cols-5")
-    expect(grid().className).toContain("@2xl/main:grid-cols-4")
+    return grid().className.split(/\s+/)
+  }
+
+  // Pick the count that fills every row: n up to four, then 5, 4, 3 divide it.
+  it.each([
+    [1, "@2xl/main:grid-cols-1"],
+    [2, "@2xl/main:grid-cols-2"],
+    [3, "@2xl/main:grid-cols-3"],
+    [4, "@2xl/main:grid-cols-4"],
+    [6, "@2xl/main:grid-cols-3"],
+    [7, "@2xl/main:grid-cols-4"],
+    [8, "@2xl/main:grid-cols-4"],
+    [9, "@2xl/main:grid-cols-3"],
+    [10, "@2xl/main:grid-cols-4"],
+  ])("lays %i items out with %s", (n, expected) => {
+    const cls = gridOf(n)
+    expect(cls).toContain(expected)
+    // Only one wide-container column count at a time.
+    expect(
+      cls.filter((c) => c.startsWith("@2xl/main:grid-cols-"))
+    ).toHaveLength(1)
+  })
+
+  it("keeps a single item on one column at every width", () => {
+    const cls = gridOf(1)
+    expect(cls).toContain("grid-cols-1")
+    expect(cls).not.toContain("grid-cols-2")
+  })
+
+  it.each([2, 3, 4, 6])("keeps two columns when narrow for %i items", (n) => {
+    expect(gridOf(n)).toContain("grid-cols-2")
+  })
+
+  it("goes to five columns only past @5xl, for multiples of five", () => {
+    expect(gridOf(10)).toContain("@5xl/main:grid-cols-5")
+  })
+
+  it.each([1, 3, 4, 6, 7, 8, 9])("adds no five-column step for %i", (n) => {
+    expect(gridOf(n).some((c) => c.startsWith("@5xl/main:"))).toBe(false)
   })
 })
 

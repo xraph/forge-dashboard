@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs"
+import { join } from "node:path"
 import { describe, expect, it } from "vitest"
 import { render, screen, within } from "@testing-library/react"
 import { Section } from "../src/components/section"
@@ -128,12 +130,22 @@ describe("Section", () => {
     expect(classes(c)).toContain("[&_[data-slot=card]]:rounded-none")
   })
 
-  it("leaves inset content without the flush table rules", () => {
+  // The flush table padding lives in section.css and keys on data-inset.
+  it("marks inset content so the flush table rules skip it", () => {
     render(
       <Section title="Details" inset>
         <p>body</p>
       </Section>
     )
+    expect(content("body").getAttribute("data-inset")).toBe("true")
     expect(classes(content("body"))).not.toContain("[&_td:first-child]:pl-4")
+  })
+
+  it("loads the stylesheet that aligns flush table cells", () => {
+    const src = readFileSync(
+      join(__dirname, "../src/components/section.tsx"),
+      "utf8"
+    )
+    expect(src).toContain('import "../styles/section.css"')
   })
 })

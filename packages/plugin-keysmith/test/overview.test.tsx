@@ -270,7 +270,7 @@ describe("OverviewPage", () => {
       await screen.findByText("Expiring within 7 days")
       expect(toneOf("Expiring within 7 days")).toBe("danger")
       expect(stat("Expiring within 7 days").className).toContain(
-        "before:bg-destructive"
+        "bg-destructive/5"
       )
       expect(title("Expiring within 7 days").className).toContain(
         "text-destructive"

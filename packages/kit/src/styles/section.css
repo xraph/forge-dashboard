@@ -1,0 +1,32 @@
+/*
+ * Unlayered on purpose. density.css is unlayered too, and unlayered rules beat
+ * everything in Tailwind's layers, so a utility like `[&_td:first-child]:pl-4`
+ * on the section never wins against a compact table's cell padding. These
+ * selectors are written to out-specify density.css (0,3,0) for every density.
+ *
+ * Flush content only: inset sections pad their own content.
+ */
+
+/* Outer cells line up with the header's px-4. */
+[data-slot="section-content"]:not([data-inset])
+  [data-slot="table-row"]
+  > [data-slot="table-head"]:first-child,
+[data-slot="section-content"]:not([data-inset])
+  [data-slot="table-row"]
+  > [data-slot="table-cell"]:first-child {
+  padding-left: 1rem;
+}
+[data-slot="section-content"]:not([data-inset])
+  [data-slot="table-row"]
+  > [data-slot="table-head"]:last-child,
+[data-slot="section-content"]:not([data-inset])
+  [data-slot="table-row"]
+  > [data-slot="table-cell"]:last-child {
+  padding-right: 1rem;
+}
+
+/* The panel clips what is drawn outside the table, so draw the ring inside. */
+[data-slot="section-content"]:not([data-inset])
+  [data-slot="table-container"]:focus-visible {
+  outline-offset: -2px;
+}

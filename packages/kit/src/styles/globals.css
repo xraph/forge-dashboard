@@ -3,6 +3,7 @@
 @import "shadcn/tailwind.css";
 @import "@fontsource-variable/inter";
 @import "./density.css";
+@import "./section.css";
 
 @custom-variant dark (&:is(.dark *));
 @source "../**/*.{ts,tsx}";
