@@ -126,7 +126,7 @@ function PolicyView({
       </Section>
       {policy.editable && (
         <>
-          <Section title="Edit policy" inset>
+          <Section aria-label="Edit policy" inset>
             <EditForm policy={policy} />
           </Section>
           <Section title="Danger zone" inset>

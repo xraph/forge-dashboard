@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react"
+import { ContractError } from "@forge-go/dashboard-plugin"
 import { afterEach, describe, expect, it } from "vitest"
 import { layoutViolations } from "@forge-go/dashboard-kit/lib/layout-check"
 import { ActivityPage } from "../src/pages/activity"
@@ -427,5 +428,58 @@ describe("Chronicle pages follow the shared layout", () => {
     })
     await waitFor(() => expect(screen.getByText("1 of 31 events")).toBeTruthy())
     expectLayout(container, "Event list")
+  })
+
+  it("Policy detail without edit rights follows the shared layout", async () => {
+    const { client } = scriptedClient({
+      "retention.policyDetail": {
+        ...policy,
+        editable: false,
+        tenantId: undefined,
+      },
+    })
+    const { container } = renderPage(PolicyDetailPage, client, {
+      id: "retpol_acme_debug",
+    })
+    await screen.findByText(/This policy is set at the app level/)
+    expect(screen.queryByRole("region", { name: "Edit policy" })).toBeNull()
+    expect(screen.queryByRole("region", { name: "Danger zone" })).toBeNull()
+    expectLayout(container, "Details")
+  })
+
+  it("Event detail of an erased event follows the shared layout", async () => {
+    const { client } = scriptedClient({
+      "events.detail": {
+        ...eventDetail,
+        erased: true,
+        erasureId: "erasure_1",
+        erasedAt: "2026-09-29T09:00:00Z",
+        metadata: undefined,
+      },
+      "streams.mine": { stream: { ...stream, id: "stream_globex" } },
+    })
+    const { container } = renderPage(EventDetailPage, client, {
+      id: "audit_globex_2780",
+    })
+    await screen.findByText(/Erased by/)
+    await screen.findByText(
+      /Erased with the rest of this event's sealed fields/
+    )
+    expectLayout(container, "Details", "Metadata", "Chain position")
+  })
+
+  it("Chain with a failed verification follows the shared layout", async () => {
+    const { client } = scriptedClient({
+      "streams.mine": { stream },
+      "streams.list": { streams: [stream], total: 1, hasMore: false },
+      "verify.run": new ContractError("BAD_REQUEST", "range too large"),
+    })
+    const { container } = renderPage(ChainPage, client, {
+      streamId: "stream_acme",
+      fromSeq: "1",
+      toSeq: "50",
+    })
+    await screen.findByText(/The chain could not be checked/)
+    expectLayout(container, "Posture", "Check a range", "Verification result")
   })
 })

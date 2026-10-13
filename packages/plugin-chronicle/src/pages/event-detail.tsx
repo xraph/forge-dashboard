@@ -285,7 +285,7 @@ function Body({ ev }: { ev: EventDetail }) {
               />
             </div>
           </Section>
-          <Section title="Digest check" inset>
+          <Section aria-label="Digest check" inset>
             <div className="flex min-w-0 flex-col gap-4 text-sm">
               <Button
                 variant="outline"
