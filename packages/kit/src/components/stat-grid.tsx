@@ -1,3 +1,4 @@
+import { Fragment, type ReactElement } from "react"
 import { cn } from "@forge-go/dashboard-kit/lib/utils"
 import {
   Card,
@@ -18,6 +19,8 @@ export interface StatItem {
    * `"danger"` or `"warning"` only when the number is the thing to act on.
    */
   tone?: StatTone
+  /** A destination for the cell. Linked only when the grid has `renderLink`. */
+  href?: string
 }
 
 export type StatTone = "default" | "warning" | "danger" | "success"
@@ -118,8 +121,13 @@ function columnsFor(count: number): string {
   return cn(narrow, WIDE[4])
 }
 
+/** Renders a linked cell, the way the host links: the kit has no router. */
+export type RenderStatLink = (href: string, cell: ReactElement) => ReactElement
+
 export interface StatGridProps {
   items: StatItem[]
+  /** Wraps each item that has an `href`. */
+  renderLink?: RenderStatLink
   className?: string
   /** Names the strip as a group, e.g. "Instance counters". */
   "aria-label"?: string
@@ -137,6 +145,7 @@ export interface StatGridProps {
  */
 export function StatGrid({
   items,
+  renderLink,
   className,
   "aria-label": ariaLabel,
 }: StatGridProps) {
@@ -149,9 +158,14 @@ export function StatGrid({
       className={cn("overflow-hidden rounded-lg border bg-card", className)}
     >
       <div className={cn("-mr-px -mb-px grid", columnsFor(items.length))}>
-        {items.map((item) => (
-          <StatCell key={item.label} {...item} />
-        ))}
+        {items.map((item) => {
+          const cell = <StatCell {...item} />
+          return (
+            <Fragment key={item.label}>
+              {item.href && renderLink ? renderLink(item.href, cell) : cell}
+            </Fragment>
+          )
+        })}
       </div>
     </div>
   )

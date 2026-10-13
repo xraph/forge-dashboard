@@ -3,6 +3,7 @@ import { join } from "node:path"
 import { describe, expect, it } from "vitest"
 import { render, screen, within } from "@testing-library/react"
 import { Section } from "../src/components/section"
+import { StatGrid } from "../src/components/stat-grid"
 import { ResourceTable } from "../src/components/resource-table"
 import { QueryBoundary } from "../src/components/query-boundary"
 
@@ -191,5 +192,25 @@ describe("Section", () => {
       "utf8"
     )
     expect(src).toContain('import "../styles/section.css"')
+  })
+
+  it("draws the foot strip for a plugin pager but not for ResourceTable's", () => {
+    const css = readFileSync(
+      join(__dirname, "../src/styles/section.css"),
+      "utf8"
+    )
+    expect(css).toContain('nav[aria-label="Pagination"]')
+    expect(css).toContain(':not([data-slot="resource-table-pagination"])')
+  })
+
+  it("unframes a StatGrid in flush content so a titled group is one panel", () => {
+    render(
+      <Section title="Jobs">
+        <StatGrid items={[{ label: "Queued", value: 5 }]} />
+      </Section>
+    )
+    const c = content("Queued")
+    expect(classes(c)).toContain("[&_[data-slot=stat-grid]]:border-0")
+    expect(classes(c)).toContain("[&_[data-slot=stat-grid]]:rounded-none")
   })
 })

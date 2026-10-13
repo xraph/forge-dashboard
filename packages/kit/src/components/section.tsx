@@ -41,6 +41,8 @@ const FLUSH = [
   "[&_[data-slot=zero-state]]:bg-transparent",
   "[&_[aria-busy=true][role=status]]:p-4",
   ...UNFRAME_CARD,
+  "[&_[data-slot=stat-grid]]:rounded-none",
+  "[&_[data-slot=stat-grid]]:border-0",
 ].join(" ")
 
 // The card's own side padding would double the content's p-4.

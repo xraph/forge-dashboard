@@ -196,6 +196,7 @@ export function ResourceTable<Row>({
       {pagination && onPageChange && pageCount > 1 && (
         <nav
           aria-label="Pagination"
+          data-slot="resource-table-pagination"
           className="flex items-center justify-between gap-2 text-sm text-muted-foreground"
         >
           <span>

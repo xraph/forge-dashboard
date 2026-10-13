@@ -30,3 +30,15 @@
   [data-slot="table-container"]:focus-visible {
   outline-offset: -2px;
 }
+
+/*
+ * A plugin's pager placed after a flush table draws the panel's foot strip.
+ * Pagers render nothing on a single page, so the strip only appears when
+ * there is more than one. ResourceTable's own pager is padded by Section's
+ * FLUSH rules instead, so it is left out here.
+ */
+[data-slot="section-content"]:not([data-inset])
+  nav[aria-label="Pagination"]:not([data-slot="resource-table-pagination"]) {
+  border-top: 1px solid var(--color-border);
+  padding: 0.5rem 1rem;
+}

@@ -152,4 +152,22 @@ describe("ResourceTable", () => {
     // around it: a focusable box that scrolls nothing is worse than no fix.
     expect(region.getAttribute("data-slot")).toBe("table-container")
   })
+
+  it("marks its own pagination so a section's pager strip skips it", () => {
+    render(
+      <ResourceTable<{ id: string }>
+        columns={[{ id: "id", header: "ID", cell: (r) => r.id }]}
+        rows={[{ id: "a" }]}
+        rowKey={(r) => r.id}
+        pagination={{ page: 1, pageSize: 1, total: 3 }}
+        onPageChange={() => {}}
+        emptyMessage="No rows"
+      />
+    )
+    expect(
+      screen
+        .getByRole("navigation", { name: "Pagination" })
+        .getAttribute("data-slot")
+    ).toBe("resource-table-pagination")
+  })
 })

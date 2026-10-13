@@ -152,6 +152,38 @@ describe("StatGrid", () => {
   it.each([1, 3, 4, 6, 7, 8, 9])("adds no five-column step for %i", (n) => {
     expect(gridOf(n).some((c) => c.startsWith("@5xl/main:"))).toBe(false)
   })
+
+  it("wraps a linked cell with renderLink, and leaves it plain without one", () => {
+    const { rerender } = render(
+      <StatGrid
+        items={[{ label: "Failed", value: 2, href: "/jobs?state=failed" }]}
+      />
+    )
+    expect(cell("Failed").closest("a")).toBeNull()
+    rerender(
+      <StatGrid
+        items={[{ label: "Failed", value: 2, href: "/jobs?state=failed" }]}
+        renderLink={(href, c) => <a href={href}>{c}</a>}
+      />
+    )
+    const link = cell("Failed").closest("a")
+    expect(link?.getAttribute("href")).toBe("/jobs?state=failed")
+    expect(link?.querySelector("[data-slot=stat-value]")?.textContent).toBe("2")
+  })
+
+  it("only links the items that carry an href", () => {
+    render(
+      <StatGrid
+        items={[
+          { label: "Failed", value: 2, href: "/jobs?state=failed" },
+          { label: "Queued", value: 5 },
+        ]}
+        renderLink={(href, c) => <a href={href}>{c}</a>}
+      />
+    )
+    expect(cell("Failed").closest("a")).toBeTruthy()
+    expect(cell("Queued").closest("a")).toBeNull()
+  })
 })
 
 // The standalone Stat stays a card: dispatch places it inside links.
