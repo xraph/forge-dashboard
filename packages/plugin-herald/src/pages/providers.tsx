@@ -13,6 +13,7 @@ import {
   ResourceTable,
   type Column,
 } from "@forge-go/dashboard-kit/components/resource-table"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { EnabledBadge } from "../badges"
 import { HeraldHeader, useEngineInfo } from "../components/herald-header"
 import { credentialSummary, plural } from "../format"
@@ -82,18 +83,20 @@ export const ProvidersPage: ComponentType<PluginPageProps> = () => {
           </AlertDescription>
         </Alert>
       )}
-      <QueryBoundary title="Providers" query={list} skeletonRows={4}>
-        {(data) => (
-          <ResourceTable<ProviderSummary>
-            columns={columns}
-            rows={data.providers}
-            rowKey={(p) => p.id}
-            caption={plural(data.providers.length, "provider")}
-            emptyMessage="No providers yet. Add one so Herald has somewhere to send."
-            emptyAction={<NewProviderLink />}
-          />
-        )}
-      </QueryBoundary>
+      <Section aria-label="Provider list">
+        <QueryBoundary title="Providers" query={list} skeletonRows={4}>
+          {(data) => (
+            <ResourceTable<ProviderSummary>
+              columns={columns}
+              rows={data.providers}
+              rowKey={(p) => p.id}
+              caption={plural(data.providers.length, "provider")}
+              emptyMessage="No providers yet. Add one so Herald has somewhere to send."
+              emptyAction={<NewProviderLink />}
+            />
+          )}
+        </QueryBoundary>
+      </Section>
     </section>
   )
 }

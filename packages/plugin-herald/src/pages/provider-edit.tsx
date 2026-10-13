@@ -15,6 +15,7 @@ import {
   CommandAlert,
   QueryBoundary,
 } from "@forge-go/dashboard-kit/components/query-boundary"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { Switch } from "@forge-go/dashboard-kit/components/switch"
 import { ProtectionBadge } from "../badges"
 import { HeraldHeader, useEngineInfo } from "../components/herald-header"
@@ -202,139 +203,142 @@ function EditForm({
       className="flex max-w-2xl min-w-0 flex-col gap-4"
     >
       <CommandAlert error={update.error} title="Could not save the provider" />
-      <div className="grid min-w-0 gap-4 sm:grid-cols-2">
-        <div className="flex min-w-0 flex-col gap-1.5">
-          <Label htmlFor="provider-name">Name</Label>
-          <Input
-            id="provider-name"
-            autoComplete="off"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-          />
+      <Section aria-label="Provider details" inset>
+        <div className="grid min-w-0 gap-4 sm:grid-cols-2">
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <Label htmlFor="provider-name">Name</Label>
+            <Input
+              id="provider-name"
+              autoComplete="off"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
+          </div>
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <Label htmlFor="provider-priority">Priority</Label>
+            <Input
+              id="provider-priority"
+              inputMode="numeric"
+              className="font-mono"
+              value={priority}
+              onChange={(e) => setPriority(e.target.value)}
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <Switch
+              id="provider-enabled"
+              aria-label="Enabled"
+              checked={enabled}
+              onCheckedChange={setEnabled}
+            />
+            <span className="text-sm">Enabled</span>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Channel {provider.channel} and driver{" "}
+            <span className="font-mono text-xs">{provider.driver}</span> can't
+            change. Create a new provider for another driver.
+          </p>
         </div>
-        <div className="flex min-w-0 flex-col gap-1.5">
-          <Label htmlFor="provider-priority">Priority</Label>
-          <Input
-            id="provider-priority"
-            inputMode="numeric"
-            className="font-mono"
-            value={priority}
-            onChange={(e) => setPriority(e.target.value)}
-          />
-        </div>
-        <div className="flex items-center gap-2">
-          <Switch
-            id="provider-enabled"
-            aria-label="Enabled"
-            checked={enabled}
-            onCheckedChange={setEnabled}
-          />
-          <span className="text-sm">Enabled</span>
-        </div>
-        <p className="text-sm text-muted-foreground">
-          Channel {provider.channel} and driver{" "}
-          <span className="font-mono text-xs">{provider.driver}</span> can't
-          change. Create a new provider for another driver.
-        </p>
-      </div>
+      </Section>
 
-      <fieldset className="flex min-w-0 flex-col gap-3">
-        <legend className="mb-1 text-sm font-medium">Settings</legend>
-        {storedSettings.map((s) => {
-          const field = fieldOf(s.key)
-          const id = `setting-${s.key}`
-          if (s.secret) {
-            const key = `setting:${s.key}`
-            return (
-              <div
-                key={s.key}
-                className="flex flex-wrap items-center gap-2 text-sm"
-              >
-                <span className="font-mono text-xs">{s.key}</span>
-                <span className="text-muted-foreground">
-                  {removing.has(key) ? "Will be removed" : "Hidden"}
-                </span>
-                <Button
-                  type="button"
-                  size="xs"
-                  variant="outline"
-                  onClick={() => setReplacing((r) => toggle(r, key))}
+      <Section title="Settings" inset>
+        <div className="flex min-w-0 flex-col gap-3">
+          {storedSettings.map((s) => {
+            const field = fieldOf(s.key)
+            const id = `setting-${s.key}`
+            if (s.secret) {
+              const key = `setting:${s.key}`
+              return (
+                <div
+                  key={s.key}
+                  className="flex flex-wrap items-center gap-2 text-sm"
                 >
-                  {replacing.has(key) ? "Keep" : `Replace ${s.key}`}
-                </Button>
-                <IconButton
-                  type="button"
-                  variant="ghost"
-                  onClick={() => setRemoving((r) => toggle(r, key))}
-                  label={removing.has(key) ? "Undo" : `Remove ${s.key}`}
-                />
-                {replacing.has(key) && !removing.has(key) && (
-                  <SecretInput
-                    aria-label={`New value for ${s.key}`}
-                    name={key}
-                    secrets={secrets}
+                  <span className="font-mono text-xs">{s.key}</span>
+                  <span className="text-muted-foreground">
+                    {removing.has(key) ? "Will be removed" : "Hidden"}
+                  </span>
+                  <Button
+                    type="button"
+                    size="xs"
+                    variant="outline"
+                    onClick={() => setReplacing((r) => toggle(r, key))}
+                  >
+                    {replacing.has(key) ? "Keep" : `Replace ${s.key}`}
+                  </Button>
+                  <IconButton
+                    type="button"
+                    variant="ghost"
+                    onClick={() => setRemoving((r) => toggle(r, key))}
+                    label={removing.has(key) ? "Undo" : `Remove ${s.key}`}
                   />
+                  {replacing.has(key) && !removing.has(key) && (
+                    <SecretInput
+                      aria-label={`New value for ${s.key}`}
+                      name={key}
+                      secrets={secrets}
+                    />
+                  )}
+                </div>
+              )
+            }
+            return (
+              <div key={s.key} className="flex min-w-0 flex-col gap-1.5">
+                <Label htmlFor={id}>{field?.label ?? s.key}</Label>
+                <Input
+                  id={id}
+                  className="font-mono"
+                  autoComplete="off"
+                  spellCheck={false}
+                  value={settingDrafts[s.key] ?? ""}
+                  onChange={(e) =>
+                    setSettingDrafts((d) => ({ ...d, [s.key]: e.target.value }))
+                  }
+                />
+                {field?.help && (
+                  <p className="text-xs text-muted-foreground">{field.help}</p>
+                )}
+                {(settingDrafts[s.key] ?? "").trim() === "" && (
+                  <p className="text-xs text-muted-foreground">
+                    Empty removes this setting.
+                  </p>
                 )}
               </div>
             )
-          }
-          return (
-            <div key={s.key} className="flex min-w-0 flex-col gap-1.5">
-              <Label htmlFor={id}>{field?.label ?? s.key}</Label>
-              <Input
-                id={id}
-                className="font-mono"
-                autoComplete="off"
-                spellCheck={false}
-                value={settingDrafts[s.key] ?? ""}
-                onChange={(e) =>
-                  setSettingDrafts((d) => ({ ...d, [s.key]: e.target.value }))
-                }
-              />
-              {field?.help && (
-                <p className="text-xs text-muted-foreground">{field.help}</p>
+          })}
+          {newSettingFields.map((f) => (
+            <div key={f.key} className="flex min-w-0 flex-col gap-1.5">
+              <Label htmlFor={`setting-${f.key}`}>{f.label}</Label>
+              {f.secret ? (
+                <SecretInput
+                  id={`setting-${f.key}`}
+                  name={`setting:${f.key}`}
+                  secrets={secrets}
+                />
+              ) : (
+                <Input
+                  id={`setting-${f.key}`}
+                  className="font-mono"
+                  autoComplete="off"
+                  spellCheck={false}
+                  value={newValues[`setting:${f.key}`] ?? ""}
+                  onChange={(e) =>
+                    setNewValues((v) => ({
+                      ...v,
+                      [`setting:${f.key}`]: e.target.value,
+                    }))
+                  }
+                />
               )}
-              {(settingDrafts[s.key] ?? "").trim() === "" && (
-                <p className="text-xs text-muted-foreground">
-                  Empty removes this setting.
-                </p>
+              {f.help && (
+                <p className="text-xs text-muted-foreground">{f.help}</p>
               )}
             </div>
-          )
-        })}
-        {newSettingFields.map((f) => (
-          <div key={f.key} className="flex min-w-0 flex-col gap-1.5">
-            <Label htmlFor={`setting-${f.key}`}>{f.label}</Label>
-            {f.secret ? (
-              <SecretInput
-                id={`setting-${f.key}`}
-                name={`setting:${f.key}`}
-                secrets={secrets}
-              />
-            ) : (
-              <Input
-                id={`setting-${f.key}`}
-                className="font-mono"
-                autoComplete="off"
-                spellCheck={false}
-                value={newValues[`setting:${f.key}`] ?? ""}
-                onChange={(e) =>
-                  setNewValues((v) => ({
-                    ...v,
-                    [`setting:${f.key}`]: e.target.value,
-                  }))
-                }
-              />
-            )}
-            {f.help && (
-              <p className="text-xs text-muted-foreground">{f.help}</p>
-            )}
-          </div>
-        ))}
-        {storedSettings.length === 0 && newSettingFields.length === 0 && (
-          <p className="text-sm text-muted-foreground">No settings.</p>
-        )}
-      </fieldset>
+          ))}
+          {storedSettings.length === 0 && newSettingFields.length === 0 && (
+            <p className="text-sm text-muted-foreground">No settings.</p>
+          )}
+        </div>
+      </Section>
 
       {/* Always mounted, text set later: a live region announces what changes inside it, not what arrives with it. */}
       <p
@@ -347,107 +351,110 @@ function EditForm({
           `Changing ${moved.join(" and ")} sends credentials to a new server, so enter ${mustReenter.join(", ")} again in this update, or remove ${mustReenter.length === 1 ? "it" : "them"}.`}
       </p>
 
-      <fieldset className="flex min-w-0 flex-col gap-3">
-        <legend className="mb-1 text-sm font-medium">Credentials</legend>
-        <p className="text-xs text-muted-foreground">
-          Write-only. Replace or remove a credential; its value is never shown.
-        </p>
-        {provider.credentials.length > 0 && (
-          <table className="w-full text-sm">
-            <caption className="pb-1 text-left text-xs text-muted-foreground">
-              {plural(provider.credentials.length, "stored credential")}
-            </caption>
-            <tbody>
-              {provider.credentials.map((c) => (
-                <tr key={c.key} className="border-b last:border-0">
-                  <td className="py-2 font-mono text-xs">{c.key}</td>
-                  <td className="py-2">
-                    <ProtectionBadge protection={c.protection} />
-                  </td>
-                  <td className="py-2">
-                    <div className="flex flex-wrap items-center justify-end gap-2">
-                      {removing.has(c.key) ? (
-                        <span className="text-muted-foreground">
-                          Will be removed
-                        </span>
-                      ) : null}
-                      <Button
-                        type="button"
-                        size="xs"
-                        variant="outline"
-                        disabled={removing.has(c.key)}
-                        onClick={() => setReplacing((r) => toggle(r, c.key))}
-                      >
-                        {replacing.has(c.key) ? "Keep" : `Replace ${c.key}`}
-                      </Button>
-                      <IconButton
-                        type="button"
-                        variant="ghost"
-                        onClick={() => setRemoving((r) => toggle(r, c.key))}
-                        label={removing.has(c.key) ? "Undo" : `Remove ${c.key}`}
-                      />
-                    </div>
-                    {replacing.has(c.key) && !removing.has(c.key) && (
-                      <div className="mt-2">
-                        <SecretInput
-                          aria-label={`New value for ${c.key}`}
-                          name={`cred:${c.key}`}
-                          secrets={secrets}
+      <Section title="Credentials" inset>
+        <div className="flex min-w-0 flex-col gap-3">
+          <p className="text-xs text-muted-foreground">
+            Write-only. Replace or remove a credential; its value is never
+            shown.
+          </p>
+          {provider.credentials.length > 0 && (
+            <table className="w-full text-sm">
+              <caption className="pb-1 text-left text-xs text-muted-foreground">
+                {plural(provider.credentials.length, "stored credential")}
+              </caption>
+              <tbody>
+                {provider.credentials.map((c) => (
+                  <tr key={c.key} className="border-b last:border-0">
+                    <td className="py-2 font-mono text-xs">{c.key}</td>
+                    <td className="py-2">
+                      <ProtectionBadge protection={c.protection} />
+                    </td>
+                    <td className="py-2">
+                      <div className="flex flex-wrap items-center justify-end gap-2">
+                        {removing.has(c.key) ? (
+                          <span className="text-muted-foreground">
+                            Will be removed
+                          </span>
+                        ) : null}
+                        <Button
+                          type="button"
+                          size="xs"
+                          variant="outline"
+                          disabled={removing.has(c.key)}
+                          onClick={() => setReplacing((r) => toggle(r, c.key))}
+                        >
+                          {replacing.has(c.key) ? "Keep" : `Replace ${c.key}`}
+                        </Button>
+                        <IconButton
+                          type="button"
+                          variant="ghost"
+                          onClick={() => setRemoving((r) => toggle(r, c.key))}
+                          label={
+                            removing.has(c.key) ? "Undo" : `Remove ${c.key}`
+                          }
                         />
                       </div>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-        {newCredentialFields.map((f) => (
-          <div key={f.key} className="flex min-w-0 flex-col gap-1.5">
-            <Label htmlFor={`cred-${f.key}`}>{f.label}</Label>
-            {f.secret ? (
-              <SecretInput
-                id={`cred-${f.key}`}
-                name={`cred:${f.key}`}
-                secrets={secrets}
-              />
-            ) : (
-              <Input
-                id={`cred-${f.key}`}
-                className="font-mono"
-                autoComplete="off"
-                spellCheck={false}
-                value={newValues[`cred:${f.key}`] ?? ""}
-                onChange={(e) =>
-                  setNewValues((v) => ({
-                    ...v,
-                    [`cred:${f.key}`]: e.target.value,
-                  }))
-                }
-              />
-            )}
-            {f.help && (
-              <p className="text-xs text-muted-foreground">{f.help}</p>
-            )}
-          </div>
-        ))}
-        {provider.credentials.length === 0 &&
-          newCredentialFields.length === 0 && (
-            <p className="text-sm text-muted-foreground">No credentials.</p>
+                      {replacing.has(c.key) && !removing.has(c.key) && (
+                        <div className="mt-2">
+                          <SecretInput
+                            aria-label={`New value for ${c.key}`}
+                            name={`cred:${c.key}`}
+                            secrets={secrets}
+                          />
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           )}
-      </fieldset>
-
-      <div className="flex items-center gap-3">
-        <Button type="submit" disabled={!canSubmit}>
-          {update.loading ? "Saving…" : "Save changes"}
-        </Button>
-        <PluginLink
-          to={providerPath(provider.id)}
-          className="text-sm underline"
-        >
-          Cancel
-        </PluginLink>
-      </div>
+          {newCredentialFields.map((f) => (
+            <div key={f.key} className="flex min-w-0 flex-col gap-1.5">
+              <Label htmlFor={`cred-${f.key}`}>{f.label}</Label>
+              {f.secret ? (
+                <SecretInput
+                  id={`cred-${f.key}`}
+                  name={`cred:${f.key}`}
+                  secrets={secrets}
+                />
+              ) : (
+                <Input
+                  id={`cred-${f.key}`}
+                  className="font-mono"
+                  autoComplete="off"
+                  spellCheck={false}
+                  value={newValues[`cred:${f.key}`] ?? ""}
+                  onChange={(e) =>
+                    setNewValues((v) => ({
+                      ...v,
+                      [`cred:${f.key}`]: e.target.value,
+                    }))
+                  }
+                />
+              )}
+              {f.help && (
+                <p className="text-xs text-muted-foreground">{f.help}</p>
+              )}
+            </div>
+          ))}
+          {provider.credentials.length === 0 &&
+            newCredentialFields.length === 0 && (
+              <p className="text-sm text-muted-foreground">No credentials.</p>
+            )}
+          <div className="flex items-center gap-3">
+            <Button type="submit" disabled={!canSubmit}>
+              {update.loading ? "Saving…" : "Save changes"}
+            </Button>
+            <PluginLink
+              to={providerPath(provider.id)}
+              className="text-sm underline"
+            >
+              Cancel
+            </PluginLink>
+          </div>
+        </div>
+      </Section>
     </form>
   )
 }

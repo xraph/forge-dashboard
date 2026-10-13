@@ -14,6 +14,7 @@ import {
   CommandAlert,
   QueryBoundary,
 } from "@forge-go/dashboard-kit/components/query-boundary"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { Textarea } from "@forge-go/dashboard-kit/components/textarea"
 import { HeraldHeader, useEngineInfo } from "../components/herald-header"
 import {
@@ -92,89 +93,89 @@ function ResultCard({ r, sent }: { r: SendTestResponse; sent: Snapshot }) {
     sent.providerId !== "" &&
     r.provider.id !== sent.providerId
   return (
-    <section
-      aria-labelledby="send-result"
-      className="flex min-w-0 flex-col gap-2 rounded-lg border p-4 text-sm"
-    >
-      <h2 id="send-result" className="font-medium">
-        Result
-      </h2>
-      {rerouted && r.provider && (
-        <p>
-          Herald sent it through {who}
-          {r.provider.driver ? ` (${r.provider.driver})` : ""}, not{" "}
-          <ProviderLabel
-            id={sent.providerId}
-            name={sent.provider === sent.providerId ? "" : sent.provider}
-          />{" "}
-          as the confirm said. Routing changed between the check and the send.
-        </p>
-      )}
-      {r.status === "sent" && (
-        <p>
-          Accepted by {who ?? "the provider"}
-          {r.providerMessageId && (
-            <>
-              {" "}
-              (<span className="font-mono text-xs">{r.providerMessageId}</span>)
-            </>
-          )}
-          . {NO_RECEIPTS}
-        </p>
-      )}
-      {r.status === "failed" && (
-        <>
-          <p>It failed{who && <> ({who})</>}. The error Herald recorded:</p>
-          <pre className="overflow-x-auto rounded-md border p-3 font-mono text-xs whitespace-pre-wrap">
-            {r.error || "(no error text)"}
-          </pre>
-        </>
-      )}
-      {r.status === "suppressed" && (
-        <>
+    <Section title="Result" inset>
+      <div className="flex min-w-0 flex-col gap-2 text-sm">
+        {rerouted && r.provider && (
           <p>
-            Not sent:{" "}
-            {sent.userId ? (
-              <span className="font-mono text-xs">{sent.userId}</span>
-            ) : (
-              "the user"
-            )}{" "}
-            opted out of{" "}
-            {sent.templateSlug ? (
-              <span className="font-mono text-xs">{sent.templateSlug}</span>
-            ) : (
-              "this template"
-            )}{" "}
-            on {sent.channel}.
+            Herald sent it through {who}
+            {r.provider.driver ? ` (${r.provider.driver})` : ""}, not{" "}
+            <ProviderLabel
+              id={sent.providerId}
+              name={sent.provider === sent.providerId ? "" : sent.provider}
+            />{" "}
+            as the confirm said. Routing changed between the check and the send.
           </p>
-          {r.error && (
-            <p className="text-muted-foreground">Herald's reason: {r.error}</p>
-          )}
-        </>
-      )}
-      {r.status === "sending" && (
-        <p>Handed to {who ?? "the provider"}, and not settled yet.</p>
-      )}
-      {r.status !== "sent" &&
-        r.status !== "failed" &&
-        r.status !== "suppressed" &&
-        r.status !== "sending" && (
-          <p>Herald recorded it as {statusLabel(r.status)}.</p>
         )}
-      {!r.logged && (
-        <p>
-          The message log couldn't be written, so this send won't appear under
-          Messages.
-        </p>
-      )}
-      {r.messageId && r.logged && (
-        <p>
-          <PluginLink to={messagePath(r.messageId)} className="underline">
-            Open it under Messages
-          </PluginLink>
-        </p>
-      )}
-    </section>
+        {r.status === "sent" && (
+          <p>
+            Accepted by {who ?? "the provider"}
+            {r.providerMessageId && (
+              <>
+                {" "}
+                (
+                <span className="font-mono text-xs">{r.providerMessageId}</span>
+                )
+              </>
+            )}
+            . {NO_RECEIPTS}
+          </p>
+        )}
+        {r.status === "failed" && (
+          <>
+            <p>It failed{who && <> ({who})</>}. The error Herald recorded:</p>
+            <pre className="overflow-x-auto rounded-md border p-3 font-mono text-xs whitespace-pre-wrap">
+              {r.error || "(no error text)"}
+            </pre>
+          </>
+        )}
+        {r.status === "suppressed" && (
+          <>
+            <p>
+              Not sent:{" "}
+              {sent.userId ? (
+                <span className="font-mono text-xs">{sent.userId}</span>
+              ) : (
+                "the user"
+              )}{" "}
+              opted out of{" "}
+              {sent.templateSlug ? (
+                <span className="font-mono text-xs">{sent.templateSlug}</span>
+              ) : (
+                "this template"
+              )}{" "}
+              on {sent.channel}.
+            </p>
+            {r.error && (
+              <p className="text-muted-foreground">
+                Herald's reason: {r.error}
+              </p>
+            )}
+          </>
+        )}
+        {r.status === "sending" && (
+          <p>Handed to {who ?? "the provider"}, and not settled yet.</p>
+        )}
+        {r.status !== "sent" &&
+          r.status !== "failed" &&
+          r.status !== "suppressed" &&
+          r.status !== "sending" && (
+            <p>Herald recorded it as {statusLabel(r.status)}.</p>
+          )}
+        {!r.logged && (
+          <p>
+            The message log couldn't be written, so this send won't appear under
+            Messages.
+          </p>
+        )}
+        {r.messageId && r.logged && (
+          <p>
+            <PluginLink to={messagePath(r.messageId)} className="underline">
+              Open it under Messages
+            </PluginLink>
+          </p>
+        )}
+      </div>
+    </Section>
   )
 }
 
@@ -529,26 +530,22 @@ function SendForm({
       </form>
 
       {mode === "template" && template && (
-        <section
-          aria-labelledby="send-preview"
-          className="flex min-w-0 flex-col gap-3"
-        >
-          <h2 id="send-preview" className="text-sm font-medium">
-            Preview
-          </h2>
-          {preview.error && (
-            <p className="text-sm text-destructive">
-              {preview.error.code}: {preview.error.message}
-            </p>
-          )}
-          <DiagnosticsList diagnostics={preview.result?.diagnostics ?? []} />
-          <RenderedPreview
-            channel={channel}
-            result={preview.result}
-            from={who.data?.from}
-            stale={preview.stale}
-          />
-        </section>
+        <Section title="Preview" inset>
+          <div className="flex min-w-0 flex-col gap-3">
+            {preview.error && (
+              <p className="text-sm text-destructive">
+                {preview.error.code}: {preview.error.message}
+              </p>
+            )}
+            <DiagnosticsList diagnostics={preview.result?.diagnostics ?? []} />
+            <RenderedPreview
+              channel={channel}
+              result={preview.result}
+              from={who.data?.from}
+              stale={preview.stale}
+            />
+          </div>
+        </Section>
       )}
 
       <ConfirmDialog

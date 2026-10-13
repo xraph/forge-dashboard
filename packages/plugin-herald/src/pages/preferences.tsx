@@ -14,6 +14,7 @@ import {
   ResourceTable,
   type Column,
 } from "@forge-go/dashboard-kit/components/resource-table"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { HeraldHeader } from "../components/herald-header"
 import { plural, PREF_CHANNELS } from "../format"
 import { useDebounced } from "../use-debounced"
@@ -137,62 +138,64 @@ export const PreferencesPage: ComponentType<PluginPageProps> = () => {
         title="Preferences"
         description="Which notifications a user has opted out of, per channel."
       />
-      <div className="flex max-w-sm min-w-0 flex-col gap-1.5">
-        <Label htmlFor="pref-user">User ID</Label>
-        <Input
-          id="pref-user"
-          className="font-mono text-xs"
-          autoComplete="off"
-          spellCheck={false}
-          value={typed}
-          onChange={(e) => setTyped(e.target.value)}
-        />
-      </div>
-      <p className="text-sm text-muted-foreground">
-        Opt-outs can't be undone here. A user with no record gets every
-        notification, so reversing an opt-out has to come from the user, through
-        your own application.
-      </p>
       {/* Always mounted, text set later: a live region announces what changes inside it, not what arrives with it. */}
       <p role="status" className="text-sm empty:sr-only">
         {done &&
           `${done.userId} is now opted out of ${done.type} by ${done.channel}.`}
       </p>
-      {userId === "" ? (
-        <p className="text-sm text-muted-foreground">
-          Enter a user ID to see their preferences.
-        </p>
-      ) : (
-        <QueryBoundary title="Preferences" query={prefs} skeletonRows={4}>
-          {(data) => {
-            const overrides = data.preference?.overrides ?? {}
-            const types = [
-              ...new Set([...data.knownTypes, ...Object.keys(overrides)]),
-            ].sort()
-            const rows: TypeRow[] = types.map((type) => ({
-              type,
-              prefs: overrides[type],
-            }))
-            return (
-              <div className="flex min-w-0 flex-col gap-3">
-                {data.preference === null && (
-                  <p className="text-sm">
-                    No preferences recorded for {userId}, so they get every
-                    notification.
-                  </p>
-                )}
-                <ResourceTable<TypeRow>
-                  columns={columns}
-                  rows={rows}
-                  rowKey={(r) => r.type}
-                  caption={`${plural(rows.length, "notification type")} for ${userId}`}
-                  emptyMessage="This app has no templates and the user has no opt-outs, so there is nothing to show."
-                />
-              </div>
-            )
-          }}
-        </QueryBoundary>
-      )}
+      <Section
+        aria-label="User preferences"
+        description="Opt-outs can't be undone here. A user with no record gets every notification, so reversing an opt-out has to come from the user, through your own application."
+        actions={
+          <div className="flex min-w-0 items-center gap-2">
+            <Label htmlFor="pref-user">User ID</Label>
+            <Input
+              id="pref-user"
+              className="font-mono text-xs"
+              autoComplete="off"
+              spellCheck={false}
+              value={typed}
+              onChange={(e) => setTyped(e.target.value)}
+            />
+          </div>
+        }
+      >
+        {userId === "" ? (
+          <p className="px-4 py-3 text-sm text-muted-foreground">
+            Enter a user ID to see their preferences.
+          </p>
+        ) : (
+          <QueryBoundary title="Preferences" query={prefs} skeletonRows={4}>
+            {(data) => {
+              const overrides = data.preference?.overrides ?? {}
+              const types = [
+                ...new Set([...data.knownTypes, ...Object.keys(overrides)]),
+              ].sort()
+              const rows: TypeRow[] = types.map((type) => ({
+                type,
+                prefs: overrides[type],
+              }))
+              return (
+                <>
+                  {data.preference === null && (
+                    <p className="border-b px-4 py-3 text-sm">
+                      No preferences recorded for {userId}, so they get every
+                      notification.
+                    </p>
+                  )}
+                  <ResourceTable<TypeRow>
+                    columns={columns}
+                    rows={rows}
+                    rowKey={(r) => r.type}
+                    caption={`${plural(rows.length, "notification type")} for ${userId}`}
+                    emptyMessage="This app has no templates and the user has no opt-outs, so there is nothing to show."
+                  />
+                </>
+              )
+            }}
+          </QueryBoundary>
+        )}
+      </Section>
       <ConfirmDialog
         open={confirming}
         onOpenChange={(o) => !o && !optOut.loading && setConfirming(false)}

@@ -5,6 +5,7 @@ import { buttonVariants } from "@forge-go/dashboard-kit/components/button"
 import { DescriptionList } from "@forge-go/dashboard-kit/components/detail-layout"
 import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { MessageStatusBadge } from "../badges"
 import { HeraldHeader, useEngineInfo } from "../components/herald-header"
@@ -101,8 +102,7 @@ function MessageBody({ id }: { id: string }) {
           <div className="flex min-w-0 flex-col gap-4">
             <Outcome m={m} />
             {(m.error || m.status === "failed") && (
-              <section className="flex min-w-0 flex-col gap-1.5">
-                <h2 className="text-sm font-medium">Error</h2>
+              <Section title="Error" inset>
                 {m.error ? (
                   <pre className="overflow-x-auto rounded-md border p-3 font-mono text-xs whitespace-pre-wrap">
                     {m.error}
@@ -112,80 +112,87 @@ function MessageBody({ id }: { id: string }) {
                     No error was recorded.
                   </p>
                 )}
-              </section>
+              </Section>
             )}
-            <DescriptionList
-              items={[
-                {
-                  term: "ID",
-                  value: <span className="font-mono text-xs">{m.id}</span>,
-                },
-                { term: "Recipient", value: m.recipient },
-                { term: "Channel", value: m.channel },
-                {
-                  term: "Status",
-                  value: <MessageStatusBadge status={m.status} />,
-                },
-                { term: "Template", value: <TemplateValue m={m} /> },
-                { term: "Provider", value: <ProviderValue m={m} /> },
-                {
-                  term: "Vendor message ID",
-                  value: m.providerMessageId ? (
-                    <span className="font-mono text-xs">
-                      {m.providerMessageId}
-                    </span>
-                  ) : (
-                    <NoneCell label="vendor message ID" />
-                  ),
-                },
-                {
-                  term: "Attempts",
-                  value: (
-                    <span className="font-mono text-xs">{m.attempts}</span>
-                  ),
-                },
-                { term: "Sent asynchronously", value: m.async ? "Yes" : "No" },
-                {
-                  term: "Environment",
-                  value: m.envId ? (
-                    <span className="font-mono text-xs">{m.envId}</span>
-                  ) : (
-                    <NoneCell label="environment" />
-                  ),
-                },
-                {
-                  term: "Created",
-                  value: (
-                    <Timestamp value={m.createdAt} label="creation time" />
-                  ),
-                },
-                {
-                  term: "Sent",
-                  value: <Timestamp value={m.sentAt} label="send time" />,
-                },
-              ]}
-            />
-            <section className="flex min-w-0 flex-col gap-1.5">
-              <h2 className="text-sm font-medium">Body</h2>
-              {m.subject && <p className="text-sm">Subject: {m.subject}</p>}
-              {m.body ? (
-                <pre className="overflow-x-auto rounded-md border p-3 font-mono text-xs whitespace-pre-wrap">
-                  {m.body}
-                </pre>
-              ) : (
-                <p className="text-sm text-muted-foreground">
-                  No body recorded.
+            <Section title="Details" inset>
+              <DescriptionList
+                items={[
+                  {
+                    term: "ID",
+                    value: <span className="font-mono text-xs">{m.id}</span>,
+                  },
+                  { term: "Recipient", value: m.recipient },
+                  { term: "Channel", value: m.channel },
+                  {
+                    term: "Status",
+                    value: <MessageStatusBadge status={m.status} />,
+                  },
+                  { term: "Template", value: <TemplateValue m={m} /> },
+                  { term: "Provider", value: <ProviderValue m={m} /> },
+                  {
+                    term: "Vendor message ID",
+                    value: m.providerMessageId ? (
+                      <span className="font-mono text-xs">
+                        {m.providerMessageId}
+                      </span>
+                    ) : (
+                      <NoneCell label="vendor message ID" />
+                    ),
+                  },
+                  {
+                    term: "Attempts",
+                    value: (
+                      <span className="font-mono text-xs">{m.attempts}</span>
+                    ),
+                  },
+                  {
+                    term: "Sent asynchronously",
+                    value: m.async ? "Yes" : "No",
+                  },
+                  {
+                    term: "Environment",
+                    value: m.envId ? (
+                      <span className="font-mono text-xs">{m.envId}</span>
+                    ) : (
+                      <NoneCell label="environment" />
+                    ),
+                  },
+                  {
+                    term: "Created",
+                    value: (
+                      <Timestamp value={m.createdAt} label="creation time" />
+                    ),
+                  },
+                  {
+                    term: "Sent",
+                    value: <Timestamp value={m.sentAt} label="send time" />,
+                  },
+                ]}
+              />
+            </Section>
+            <Section title="Body" inset>
+              <div className="flex min-w-0 flex-col gap-1.5">
+                {m.subject && <p className="text-sm">Subject: {m.subject}</p>}
+                {m.body ? (
+                  <pre className="overflow-x-auto rounded-md border p-3 font-mono text-xs whitespace-pre-wrap">
+                    {m.body}
+                  </pre>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    No body recorded.
+                  </p>
+                )}
+                <p className="text-xs text-muted-foreground">
+                  This is the text part only. HTML bodies aren't logged, and
+                  bodies are cut at{" "}
+                  {limit === undefined
+                    ? "the engine's limit"
+                    : `${limit} bytes`}{" "}
+                  with no marker.
                 </p>
-              )}
-              <p className="text-xs text-muted-foreground">
-                This is the text part only. HTML bodies aren't logged, and
-                bodies are cut at{" "}
-                {limit === undefined ? "the engine's limit" : `${limit} bytes`}{" "}
-                with no marker.
-              </p>
-            </section>
-            <section className="flex min-w-0 flex-col gap-1.5">
-              <h2 className="text-sm font-medium">Metadata</h2>
+              </div>
+            </Section>
+            <Section title="Metadata" inset>
               {Object.keys(m.metadata).length === 0 ? (
                 <p className="text-sm text-muted-foreground">No metadata.</p>
               ) : (
@@ -196,7 +203,7 @@ function MessageBody({ id }: { id: string }) {
                   }))}
                 />
               )}
-            </section>
+            </Section>
           </div>
         )}
       </QueryBoundary>

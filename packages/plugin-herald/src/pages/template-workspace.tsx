@@ -13,6 +13,7 @@ import {
   CommandAlert,
   QueryBoundary,
 } from "@forge-go/dashboard-kit/components/query-boundary"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import {
   Tabs,
   TabsContent,
@@ -514,17 +515,21 @@ function Editor({
           </div>
         </TabsContent>
         <TabsContent value="variables" className="mt-4">
-          <VariablesTab
-            variables={draft.variables}
-            onChange={(variables) => setDraft((d) => ({ ...d, variables }))}
-          />
+          <Section aria-label="Template variables" inset>
+            <VariablesTab
+              variables={draft.variables}
+              onChange={(variables) => setDraft((d) => ({ ...d, variables }))}
+            />
+          </Section>
         </TabsContent>
         <TabsContent value="settings" className="mt-4">
-          <SettingsTab
-            template={template}
-            settings={draft.settings}
-            onChange={(settings) => setDraft((d) => ({ ...d, settings }))}
-          />
+          <Section aria-label="Template settings" inset>
+            <SettingsTab
+              template={template}
+              settings={draft.settings}
+              onChange={(settings) => setDraft((d) => ({ ...d, settings }))}
+            />
+          </Section>
         </TabsContent>
       </Tabs>
       <ReviewChanges

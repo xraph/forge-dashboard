@@ -14,6 +14,7 @@ import {
   ResourceTable,
   type Column,
 } from "@forge-go/dashboard-kit/components/resource-table"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { TagList } from "@forge-go/dashboard-kit/components/tag-list"
 import { EnabledBadge } from "../badges"
 import { HeraldHeader, useEngineInfo } from "../components/herald-header"
@@ -138,70 +139,76 @@ function TemplatesView({
           </div>
         }
       />
-      <FilterBar
-        filters={[
-          {
-            id: "channel",
-            label: "Channel",
-            value: channel,
-            onChange: setChannel,
-            options: [
-              { label: "All channels", value: "" },
-              ...(info.data?.channels ?? []).map((c) => ({
-                label: c,
-                value: c,
-              })),
-            ],
-          },
-          {
-            id: "category",
-            label: "Category",
-            value: category,
-            onChange: setCategory,
-            options: [
-              { label: "All categories", value: "" },
-              ...CATEGORIES.map((c) => ({ label: c, value: c })),
-            ],
-          },
-          {
-            id: "fallback",
-            label: "Fallback",
-            value: fallback,
-            onChange: setFallback,
-            options: [
-              { label: "Any", value: "" },
-              { label: "Without a fallback version", value: "missing" },
-            ],
-          },
-        ]}
-      />
       {/* Always mounted, text set later: a live region announces what changes inside it, not what arrives with it. */}
       <p role="status" className="text-sm empty:sr-only">
         {reset.data &&
           `Removed ${plural(reset.data.deleted, "system template")} and seeded ${reset.data.seeded}.`}
       </p>
-      <QueryBoundary title="Templates" query={list} skeletonRows={6}>
-        {(data) => (
-          <ResourceTable<TemplateSummary>
-            columns={columns}
-            rows={data.templates}
-            rowKey={(t) => t.id}
-            caption={plural(data.templates.length, "template")}
-            emptyMessage={
-              onlyMissingFallback
-                ? noneAtAll
-                  ? "This app has no templates yet."
-                  : everything.data
-                    ? "Every template has a fallback version."
-                    : "No template is missing a fallback version."
-                : filtered
-                  ? "No templates match these filters."
-                  : "No templates yet. Create one, or reset the system templates to get Herald's defaults."
-            }
-            emptyAction={filtered ? undefined : <NewTemplateLink />}
+      <Section
+        aria-label="Template list"
+        actions={
+          <FilterBar
+            filters={[
+              {
+                id: "channel",
+                label: "Channel",
+                value: channel,
+                onChange: setChannel,
+                options: [
+                  { label: "All channels", value: "" },
+                  ...(info.data?.channels ?? []).map((c) => ({
+                    label: c,
+                    value: c,
+                  })),
+                ],
+              },
+              {
+                id: "category",
+                label: "Category",
+                value: category,
+                onChange: setCategory,
+                options: [
+                  { label: "All categories", value: "" },
+                  ...CATEGORIES.map((c) => ({ label: c, value: c })),
+                ],
+              },
+              {
+                id: "fallback",
+                label: "Fallback",
+                value: fallback,
+                onChange: setFallback,
+                options: [
+                  { label: "Any", value: "" },
+                  { label: "Without a fallback version", value: "missing" },
+                ],
+              },
+            ]}
           />
-        )}
-      </QueryBoundary>
+        }
+      >
+        <QueryBoundary title="Templates" query={list} skeletonRows={6}>
+          {(data) => (
+            <ResourceTable<TemplateSummary>
+              columns={columns}
+              rows={data.templates}
+              rowKey={(t) => t.id}
+              caption={plural(data.templates.length, "template")}
+              emptyMessage={
+                onlyMissingFallback
+                  ? noneAtAll
+                    ? "This app has no templates yet."
+                    : everything.data
+                      ? "Every template has a fallback version."
+                      : "No template is missing a fallback version."
+                  : filtered
+                    ? "No templates match these filters."
+                    : "No templates yet. Create one, or reset the system templates to get Herald's defaults."
+              }
+              emptyAction={filtered ? undefined : <NewTemplateLink />}
+            />
+          )}
+        </QueryBoundary>
+      </Section>
       <ConfirmDialog
         open={confirming}
         onOpenChange={(open) => !open && !reset.loading && setConfirming(false)}

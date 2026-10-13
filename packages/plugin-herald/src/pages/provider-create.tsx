@@ -19,6 +19,7 @@ import {
   CommandAlert,
   QueryBoundary,
 } from "@forge-go/dashboard-kit/components/query-boundary"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { Switch } from "@forge-go/dashboard-kit/components/switch"
 import { HeraldHeader, useEngineInfo } from "../components/herald-header"
 import { SecretInput, useSecretFields } from "../components/secret-fields"
@@ -198,6 +199,28 @@ function CreateForm({ engine }: { engine: EngineInfoResponse }) {
     )
   }
 
+  const showSettings = driver !== undefined && settingFields.length > 0
+  const showCredentials = driver !== undefined && credentialFields.length > 0
+  const showFields = driver !== undefined && fields === null
+  // The submit row sits at the foot of whichever section renders last.
+  const lastSection = showFields
+    ? "fields"
+    : showCredentials
+      ? "credentials"
+      : showSettings
+        ? "settings"
+        : "provider"
+  const submitRow = (
+    <div className="flex items-center gap-3">
+      <Button type="submit" disabled={!canSubmit}>
+        {create.loading ? "Creating…" : "Create provider"}
+      </Button>
+      <PluginLink to={providersPath} className="text-sm underline">
+        Cancel
+      </PluginLink>
+    </div>
+  )
+
   return (
     <form
       onSubmit={(e) => void submit(e)}
@@ -207,188 +230,196 @@ function CreateForm({ engine }: { engine: EngineInfoResponse }) {
         error={create.error}
         title="Could not create the provider"
       />
-      <div className="flex min-w-0 flex-col gap-1.5">
-        <Label htmlFor="provider-name">Name</Label>
-        <Input
-          id="provider-name"
-          autoComplete="off"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-        />
-      </div>
-      <div className="grid min-w-0 gap-4 sm:grid-cols-2">
-        <div className="flex min-w-0 flex-col gap-1.5">
-          <Label htmlFor="provider-channel">Channel</Label>
-          <NativeSelect
-            id="provider-channel"
-            value={channel}
-            onChange={(e) => pickChannel(e.target.value)}
-          >
-            <NativeSelectOption value="">Choose a channel</NativeSelectOption>
-            {channels.map((c) => (
-              <NativeSelectOption key={c} value={c}>
-                {c}
-              </NativeSelectOption>
-            ))}
-          </NativeSelect>
-        </div>
-        <div className="flex min-w-0 flex-col gap-1.5">
-          <Label htmlFor="provider-driver">Driver</Label>
-          <NativeSelect
-            id="provider-driver"
-            value={driverName}
-            disabled={channel === ""}
-            onChange={(e) => pickDriver(e.target.value)}
-          >
-            <NativeSelectOption value="">
-              {channel === "" ? "Choose a channel first" : "Choose a driver"}
-            </NativeSelectOption>
-            {drivers.map((d) => (
-              <NativeSelectOption key={d.name} value={d.name}>
-                {d.name}
-              </NativeSelectOption>
-            ))}
-          </NativeSelect>
-        </div>
-        <div className="flex min-w-0 flex-col gap-1.5">
-          <Label htmlFor="provider-priority">Priority</Label>
-          <Input
-            id="provider-priority"
-            inputMode="numeric"
-            className="font-mono"
-            value={priority}
-            onChange={(e) => setPriority(e.target.value)}
-          />
-          <p className="text-xs text-muted-foreground">
-            Lower goes first when no routing rule picks a provider.
-          </p>
-        </div>
-        <div className="flex items-center gap-2 self-center">
-          <Switch
-            id="provider-enabled"
-            aria-label="Enabled"
-            checked={enabled}
-            onCheckedChange={setEnabled}
-          />
-          <span className="text-sm">Enabled</span>
-        </div>
-      </div>
-
-      {driver && fields && fields.length === 0 && (
-        <p className="text-sm text-muted-foreground">
-          This driver needs no settings or credentials.
-        </p>
-      )}
-
-      {driver && settingFields.length > 0 && (
-        <fieldset className="flex min-w-0 flex-col gap-3">
-          <legend className="mb-1 text-sm font-medium">Settings</legend>
-          {settingFields.map(renderField)}
-        </fieldset>
-      )}
-      {driver && credentialFields.length > 0 && (
-        <fieldset className="flex min-w-0 flex-col gap-3">
-          <legend className="mb-1 text-sm font-medium">Credentials</legend>
-          <p className="text-xs text-muted-foreground">
-            Write-only. Once saved, a credential can be replaced or removed,
-            never shown.
-          </p>
-          {credentialFields.map(renderField)}
-        </fieldset>
-      )}
-
-      {driver && fields === null && (
-        <fieldset className="flex min-w-0 flex-col gap-3">
-          <legend className="mb-1 text-sm font-medium">Fields</legend>
-          <p className="text-sm text-muted-foreground">
-            This driver has no field schema, so Herald can't tell settings from
-            secrets. Mark each secret: secrets are stored as credentials and
-            never shown again, the rest as settings.
-          </p>
-          {rows.map((r, i) => (
-            <div
-              key={r.rowId}
-              className="grid min-w-0 items-end gap-2 sm:grid-cols-[1fr_auto_1fr_auto]"
-            >
-              <div className="flex min-w-0 flex-col gap-1.5">
-                <Label
-                  htmlFor={`row-key-${r.rowId}`}
-                >{`Key, field ${i + 1}`}</Label>
-                <Input
-                  id={`row-key-${r.rowId}`}
-                  className="font-mono"
-                  value={r.key}
-                  onChange={(e) => updateRow(r.rowId, { key: e.target.value })}
-                />
-              </div>
-              <div className="flex items-center gap-2 pb-2">
-                <Checkbox
-                  aria-label={`Secret, field ${i + 1}`}
-                  checked={r.secret}
-                  onCheckedChange={(checked) =>
-                    updateRow(r.rowId, { secret: checked === true })
-                  }
-                />
-                <span className="text-sm" aria-hidden="true">
-                  Secret
-                </span>
-              </div>
-              <div className="flex min-w-0 flex-col gap-1.5">
-                <Label
-                  htmlFor={`row-value-${r.rowId}`}
-                >{`Value, field ${i + 1}`}</Label>
-                {r.secret ? (
-                  <SecretInput
-                    id={`row-value-${r.rowId}`}
-                    name={`row-${r.rowId}`}
-                    secrets={secrets}
-                  />
-                ) : (
-                  <Input
-                    id={`row-value-${r.rowId}`}
-                    className="font-mono"
-                    value={r.value}
-                    onChange={(e) =>
-                      updateRow(r.rowId, { value: e.target.value })
-                    }
-                  />
-                )}
-              </div>
-              <IconButton
-                type="button"
-                variant="ghost"
-                onClick={() =>
-                  setRows((prev) => prev.filter((x) => x.rowId !== r.rowId))
-                }
-                label="Remove"
-              />
-            </div>
-          ))}
-          <div>
-            <IconButton
-              type="button"
-              variant="outline"
-              onClick={() => {
-                setRows((prev) => [
-                  ...prev,
-                  { rowId: nextRow, key: "", secret: false, value: "" },
-                ])
-                setNextRow((n) => n + 1)
-              }}
-              label="Add a field"
+      <Section aria-label="Provider" inset>
+        <div className="flex min-w-0 flex-col gap-4">
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <Label htmlFor="provider-name">Name</Label>
+            <Input
+              id="provider-name"
+              autoComplete="off"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
             />
           </div>
-        </fieldset>
+          <div className="grid min-w-0 gap-4 sm:grid-cols-2">
+            <div className="flex min-w-0 flex-col gap-1.5">
+              <Label htmlFor="provider-channel">Channel</Label>
+              <NativeSelect
+                id="provider-channel"
+                value={channel}
+                onChange={(e) => pickChannel(e.target.value)}
+              >
+                <NativeSelectOption value="">
+                  Choose a channel
+                </NativeSelectOption>
+                {channels.map((c) => (
+                  <NativeSelectOption key={c} value={c}>
+                    {c}
+                  </NativeSelectOption>
+                ))}
+              </NativeSelect>
+            </div>
+            <div className="flex min-w-0 flex-col gap-1.5">
+              <Label htmlFor="provider-driver">Driver</Label>
+              <NativeSelect
+                id="provider-driver"
+                value={driverName}
+                disabled={channel === ""}
+                onChange={(e) => pickDriver(e.target.value)}
+              >
+                <NativeSelectOption value="">
+                  {channel === ""
+                    ? "Choose a channel first"
+                    : "Choose a driver"}
+                </NativeSelectOption>
+                {drivers.map((d) => (
+                  <NativeSelectOption key={d.name} value={d.name}>
+                    {d.name}
+                  </NativeSelectOption>
+                ))}
+              </NativeSelect>
+            </div>
+            <div className="flex min-w-0 flex-col gap-1.5">
+              <Label htmlFor="provider-priority">Priority</Label>
+              <Input
+                id="provider-priority"
+                inputMode="numeric"
+                className="font-mono"
+                value={priority}
+                onChange={(e) => setPriority(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                Lower goes first when no routing rule picks a provider.
+              </p>
+            </div>
+            <div className="flex items-center gap-2 self-center">
+              <Switch
+                id="provider-enabled"
+                aria-label="Enabled"
+                checked={enabled}
+                onCheckedChange={setEnabled}
+              />
+              <span className="text-sm">Enabled</span>
+            </div>
+          </div>
+
+          {driver && fields && fields.length === 0 && (
+            <p className="text-sm text-muted-foreground">
+              This driver needs no settings or credentials.
+            </p>
+          )}
+          {lastSection === "provider" && submitRow}
+        </div>
+      </Section>
+
+      {showSettings && (
+        <Section title="Settings" inset>
+          <div className="flex min-w-0 flex-col gap-3">
+            {settingFields.map(renderField)}
+            {lastSection === "settings" && submitRow}
+          </div>
+        </Section>
+      )}
+      {showCredentials && (
+        <Section title="Credentials" inset>
+          <div className="flex min-w-0 flex-col gap-3">
+            <p className="text-xs text-muted-foreground">
+              Write-only. Once saved, a credential can be replaced or removed,
+              never shown.
+            </p>
+            {credentialFields.map(renderField)}
+            {lastSection === "credentials" && submitRow}
+          </div>
+        </Section>
       )}
 
-      <div className="flex items-center gap-3">
-        <Button type="submit" disabled={!canSubmit}>
-          {create.loading ? "Creating…" : "Create provider"}
-        </Button>
-        <PluginLink to={providersPath} className="text-sm underline">
-          Cancel
-        </PluginLink>
-      </div>
+      {showFields && (
+        <Section title="Fields" inset>
+          <div className="flex min-w-0 flex-col gap-3">
+            <p className="text-sm text-muted-foreground">
+              This driver has no field schema, so Herald can't tell settings
+              from secrets. Mark each secret: secrets are stored as credentials
+              and never shown again, the rest as settings.
+            </p>
+            {rows.map((r, i) => (
+              <div
+                key={r.rowId}
+                className="grid min-w-0 items-end gap-2 sm:grid-cols-[1fr_auto_1fr_auto]"
+              >
+                <div className="flex min-w-0 flex-col gap-1.5">
+                  <Label
+                    htmlFor={`row-key-${r.rowId}`}
+                  >{`Key, field ${i + 1}`}</Label>
+                  <Input
+                    id={`row-key-${r.rowId}`}
+                    className="font-mono"
+                    value={r.key}
+                    onChange={(e) =>
+                      updateRow(r.rowId, { key: e.target.value })
+                    }
+                  />
+                </div>
+                <div className="flex items-center gap-2 pb-2">
+                  <Checkbox
+                    aria-label={`Secret, field ${i + 1}`}
+                    checked={r.secret}
+                    onCheckedChange={(checked) =>
+                      updateRow(r.rowId, { secret: checked === true })
+                    }
+                  />
+                  <span className="text-sm" aria-hidden="true">
+                    Secret
+                  </span>
+                </div>
+                <div className="flex min-w-0 flex-col gap-1.5">
+                  <Label
+                    htmlFor={`row-value-${r.rowId}`}
+                  >{`Value, field ${i + 1}`}</Label>
+                  {r.secret ? (
+                    <SecretInput
+                      id={`row-value-${r.rowId}`}
+                      name={`row-${r.rowId}`}
+                      secrets={secrets}
+                    />
+                  ) : (
+                    <Input
+                      id={`row-value-${r.rowId}`}
+                      className="font-mono"
+                      value={r.value}
+                      onChange={(e) =>
+                        updateRow(r.rowId, { value: e.target.value })
+                      }
+                    />
+                  )}
+                </div>
+                <IconButton
+                  type="button"
+                  variant="ghost"
+                  onClick={() =>
+                    setRows((prev) => prev.filter((x) => x.rowId !== r.rowId))
+                  }
+                  label="Remove"
+                />
+              </div>
+            ))}
+            <div>
+              <IconButton
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setRows((prev) => [
+                    ...prev,
+                    { rowId: nextRow, key: "", secret: false, value: "" },
+                  ])
+                  setNextRow((n) => n + 1)
+                }}
+                label="Add a field"
+              />
+            </div>
+            {lastSection === "fields" && submitRow}
+          </div>
+        </Section>
+      )}
     </form>
   )
 }

@@ -13,6 +13,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@forge-go/dashboard-kit/components/dialog"
+import { DescriptionList } from "@forge-go/dashboard-kit/components/detail-layout"
 import { Input } from "@forge-go/dashboard-kit/components/input"
 import { Label } from "@forge-go/dashboard-kit/components/label"
 import {
@@ -24,6 +25,7 @@ import {
   CommandAlert,
   QueryBoundary,
 } from "@forge-go/dashboard-kit/components/query-boundary"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { DanglingBadge, DisabledProviderBadge } from "../badges"
 import { HeraldHeader, useEngineInfo } from "../components/herald-header"
 import { ResolvedProvider } from "../components/resolved-provider"
@@ -71,58 +73,54 @@ function WhoSends({ channels }: { channels: string[] }) {
     enabled: channel !== "",
   })
   return (
-    <section
-      aria-labelledby="who-sends"
-      className="flex min-w-0 flex-col gap-3 rounded-lg border p-4"
-    >
-      <h2 id="who-sends" className="text-sm font-medium">
-        Who sends?
-      </h2>
-      <div className="grid min-w-0 gap-3 sm:grid-cols-3">
-        <div className="flex min-w-0 flex-col gap-1.5">
-          <Label htmlFor="who-channel">Channel to test</Label>
-          <NativeSelect
-            id="who-channel"
-            value={channel}
-            onChange={(e) => setChannel(e.target.value)}
-          >
-            <NativeSelectOption value="">Choose a channel</NativeSelectOption>
-            {channels.map((c) => (
-              <NativeSelectOption key={c} value={c}>
-                {c}
-              </NativeSelectOption>
-            ))}
-          </NativeSelect>
+    <Section title="Who sends?" inset>
+      <div className="flex min-w-0 flex-col gap-3">
+        <div className="grid min-w-0 gap-3 sm:grid-cols-3">
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <Label htmlFor="who-channel">Channel to test</Label>
+            <NativeSelect
+              id="who-channel"
+              value={channel}
+              onChange={(e) => setChannel(e.target.value)}
+            >
+              <NativeSelectOption value="">Choose a channel</NativeSelectOption>
+              {channels.map((c) => (
+                <NativeSelectOption key={c} value={c}>
+                  {c}
+                </NativeSelectOption>
+              ))}
+            </NativeSelect>
+          </div>
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <Label htmlFor="who-org">Org ID (optional)</Label>
+            <Input
+              id="who-org"
+              className="font-mono text-xs"
+              autoComplete="off"
+              spellCheck={false}
+              value={org}
+              onChange={(e) => setOrg(e.target.value)}
+            />
+          </div>
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <Label htmlFor="who-user">User ID (optional)</Label>
+            <Input
+              id="who-user"
+              className="font-mono text-xs"
+              autoComplete="off"
+              spellCheck={false}
+              value={user}
+              onChange={(e) => setUser(e.target.value)}
+            />
+          </div>
         </div>
-        <div className="flex min-w-0 flex-col gap-1.5">
-          <Label htmlFor="who-org">Org ID (optional)</Label>
-          <Input
-            id="who-org"
-            className="font-mono text-xs"
-            autoComplete="off"
-            spellCheck={false}
-            value={org}
-            onChange={(e) => setOrg(e.target.value)}
-          />
-        </div>
-        <div className="flex min-w-0 flex-col gap-1.5">
-          <Label htmlFor="who-user">User ID (optional)</Label>
-          <Input
-            id="who-user"
-            className="font-mono text-xs"
-            autoComplete="off"
-            spellCheck={false}
-            value={user}
-            onChange={(e) => setUser(e.target.value)}
-          />
-        </div>
+        {channel !== "" && (
+          <QueryBoundary title="Who sends" query={resolve} skeletonRows={1}>
+            {(r) => <ResolvedProvider answer={r} channel={channel} link from />}
+          </QueryBoundary>
+        )}
       </div>
-      {channel !== "" && (
-        <QueryBoundary title="Who sends" query={resolve} skeletonRows={1}>
-          {(r) => <ResolvedProvider answer={r} channel={channel} link from />}
-        </QueryBoundary>
-      )}
-    </section>
+    </Section>
   )
 }
 
@@ -142,7 +140,7 @@ function RuleCard({
       ? "the app rule"
       : `the ${rule.scope} rule for ${rule.scopeId}`
   return (
-    <article className="flex min-w-0 flex-col gap-3 rounded-lg border p-4">
+    <article className="flex min-w-0 flex-col gap-3 px-4 py-3">
       <header className="flex flex-wrap items-center justify-between gap-2">
         <span className="text-sm font-medium">
           {rule.scope === "app" ? (
@@ -164,68 +162,74 @@ function RuleCard({
           />
         </span>
       </header>
-      <dl className="grid min-w-0 grid-cols-[8rem_1fr] gap-x-3 gap-y-1.5 text-sm">
-        {ROUTED_CHANNELS.map((ch) => {
-          const p = rule.providers[ch]
-          return (
-            <div key={ch} className="contents">
-              <dt className="text-muted-foreground">{ch}</dt>
-              <dd>
-                {!p ? (
-                  <NoneCell label={`${ch} provider`} />
-                ) : p.dangling ? (
-                  <span className="flex flex-wrap items-center gap-2">
-                    <DanglingBadge />
-                    <span className="font-mono text-xs">{p.id}</span>
-                  </span>
-                ) : (
-                  <span className="flex flex-wrap items-center gap-2">
-                    <PluginLink to={providerPath(p.id)} className="underline">
-                      {p.name}
-                    </PluginLink>
-                    {providers.some((q) => q.id === p.id && !q.enabled) && (
-                      <>
-                        <DisabledProviderBadge />
-                        <span className="text-xs text-muted-foreground">
-                          Provider disabled: this rule is skipped for {ch} until
-                          it's enabled.
-                        </span>
-                      </>
-                    )}
-                  </span>
-                )}
-              </dd>
-            </div>
-          )
-        })}
-        <dt className="text-muted-foreground">From</dt>
-        <dd>
-          {rule.fromEmail || rule.fromName || rule.fromPhone ? (
-            <span>
-              {rule.fromName ? `${rule.fromName} ` : ""}
-              {rule.fromEmail && (
-                <span className="font-mono text-xs">{rule.fromEmail}</span>
-              )}
-              {rule.fromPhone && (
-                <span className="font-mono text-xs"> {rule.fromPhone}</span>
-              )}
-            </span>
-          ) : (
-            <NoneCell label="sender" />
-          )}
-        </dd>
-        {rule.defaultLocale && (
-          <>
-            <dt className="text-muted-foreground">Default locale</dt>
-            <dd>
-              <span className="font-mono text-xs">{rule.defaultLocale}</span>{" "}
-              <span className="text-muted-foreground">
-                (stored, but Send doesn't use it)
-              </span>
-            </dd>
-          </>
-        )}
-      </dl>
+      <DescriptionList
+        className="grid-cols-[8rem_minmax(0,1fr)] gap-y-1.5"
+        items={[
+          ...ROUTED_CHANNELS.map((ch) => {
+            const p = rule.providers[ch]
+            return {
+              term: ch,
+              value: !p ? (
+                <NoneCell label={`${ch} provider`} />
+              ) : p.dangling ? (
+                <span className="flex flex-wrap items-center gap-2">
+                  <DanglingBadge />
+                  <span className="font-mono text-xs">{p.id}</span>
+                </span>
+              ) : (
+                <span className="flex flex-wrap items-center gap-2">
+                  <PluginLink to={providerPath(p.id)} className="underline">
+                    {p.name}
+                  </PluginLink>
+                  {providers.some((q) => q.id === p.id && !q.enabled) && (
+                    <>
+                      <DisabledProviderBadge />
+                      <span className="text-xs text-muted-foreground">
+                        Provider disabled: this rule is skipped for {ch} until
+                        it's enabled.
+                      </span>
+                    </>
+                  )}
+                </span>
+              ),
+            }
+          }),
+          {
+            term: "From",
+            value:
+              rule.fromEmail || rule.fromName || rule.fromPhone ? (
+                <span>
+                  {rule.fromName ? `${rule.fromName} ` : ""}
+                  {rule.fromEmail && (
+                    <span className="font-mono text-xs">{rule.fromEmail}</span>
+                  )}
+                  {rule.fromPhone && (
+                    <span className="font-mono text-xs"> {rule.fromPhone}</span>
+                  )}
+                </span>
+              ) : (
+                <NoneCell label="sender" />
+              ),
+          },
+          ...(rule.defaultLocale
+            ? [
+                {
+                  term: "Default locale",
+                  value: (
+                    <>
+                      <span className="font-mono text-xs">
+                        {rule.defaultLocale}
+                      </span>{" "}
+                      <span className="text-muted-foreground">
+                        (stored, but Send doesn't use it)
+                      </span>
+                    </>
+                  ),
+                },
+              ]
+            : []),
+        ]}
+      />
     </article>
   )
 }
@@ -504,26 +508,27 @@ export const RoutingPage: ComponentType<PluginPageProps> = () => {
             {LEVELS.map(({ scope, heading }) => {
               const level = data.rules.filter((r) => r.scope === scope)
               return (
-                <section key={scope} className="flex min-w-0 flex-col gap-3">
-                  <h2 className="text-sm font-medium">{heading}</h2>
+                <Section key={scope} title={heading}>
                   {level.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">
+                    <p className="px-4 py-3 text-sm text-muted-foreground">
                       {scope === "app"
                         ? "No app rule. Each channel falls back to its first enabled provider."
                         : `No ${scope} rules.`}
                     </p>
                   ) : (
-                    level.map((rule) => (
-                      <RuleCard
-                        key={rule.id}
-                        rule={rule}
-                        providers={providers.data?.providers ?? []}
-                        onEdit={() => openRule(rule)}
-                        onDelete={() => openDelete(rule)}
-                      />
-                    ))
+                    <div className="flex min-w-0 flex-col divide-y">
+                      {level.map((rule) => (
+                        <RuleCard
+                          key={rule.id}
+                          rule={rule}
+                          providers={providers.data?.providers ?? []}
+                          onEdit={() => openRule(rule)}
+                          onDelete={() => openDelete(rule)}
+                        />
+                      ))}
+                    </div>
                   )}
-                </section>
+                </Section>
               )
             })}
           </div>

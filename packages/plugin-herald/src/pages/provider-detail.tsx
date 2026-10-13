@@ -23,6 +23,7 @@ import {
   ResourceTable,
   type Column,
 } from "@forge-go/dashboard-kit/components/resource-table"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { EnabledBadge, ProtectionBadge } from "../badges"
 import { HeraldHeader } from "../components/herald-header"
@@ -195,46 +196,54 @@ function ProviderBody({ id }: { id: string }) {
         {({ provider: p }) => (
           <DetailLayout
             main={
-              <div className="flex min-w-0 flex-col gap-4">
-                <DescriptionList
-                  items={[
-                    {
-                      term: "ID",
-                      value: <span className="font-mono text-xs">{p.id}</span>,
-                    },
-                    { term: "Channel", value: p.channel },
-                    {
-                      term: "Driver",
-                      value: (
-                        <span className="font-mono text-xs">{p.driver}</span>
-                      ),
-                    },
-                    {
-                      term: "Priority",
-                      value: (
-                        <span className="font-mono text-xs">{p.priority}</span>
-                      ),
-                    },
-                    {
-                      term: "Status",
-                      value: <EnabledBadge enabled={p.enabled} />,
-                    },
-                    {
-                      term: "Created",
-                      value: (
-                        <Timestamp value={p.createdAt} label="creation time" />
-                      ),
-                    },
-                    {
-                      term: "Updated",
-                      value: (
-                        <Timestamp value={p.updatedAt} label="update time" />
-                      ),
-                    },
-                  ]}
-                />
-                <section className="flex min-w-0 flex-col gap-2">
-                  <h2 className="text-sm font-medium">Settings</h2>
+              <>
+                <Section title="Details" inset>
+                  <DescriptionList
+                    items={[
+                      {
+                        term: "ID",
+                        value: (
+                          <span className="font-mono text-xs">{p.id}</span>
+                        ),
+                      },
+                      { term: "Channel", value: p.channel },
+                      {
+                        term: "Driver",
+                        value: (
+                          <span className="font-mono text-xs">{p.driver}</span>
+                        ),
+                      },
+                      {
+                        term: "Priority",
+                        value: (
+                          <span className="font-mono text-xs">
+                            {p.priority}
+                          </span>
+                        ),
+                      },
+                      {
+                        term: "Status",
+                        value: <EnabledBadge enabled={p.enabled} />,
+                      },
+                      {
+                        term: "Created",
+                        value: (
+                          <Timestamp
+                            value={p.createdAt}
+                            label="creation time"
+                          />
+                        ),
+                      },
+                      {
+                        term: "Updated",
+                        value: (
+                          <Timestamp value={p.updatedAt} label="update time" />
+                        ),
+                      },
+                    ]}
+                  />
+                </Section>
+                <Section title="Settings">
                   <ResourceTable<SettingEntry>
                     columns={settingColumns}
                     rows={p.settings}
@@ -243,14 +252,13 @@ function ProviderBody({ id }: { id: string }) {
                     emptyMessage="No settings stored."
                   />
                   {p.settings.some((s) => s.secret) && (
-                    <p className="text-sm text-muted-foreground">
+                    <p className="border-t px-4 py-3 text-sm text-muted-foreground">
                       Hidden values are secrets, or belong to a driver with no
                       field schema, where any setting could be one.
                     </p>
                   )}
-                </section>
-                <section className="flex min-w-0 flex-col gap-2">
-                  <h2 className="text-sm font-medium">Credentials</h2>
+                </Section>
+                <Section title="Credentials">
                   <ResourceTable<CredentialStatus>
                     columns={credentialColumns}
                     rows={p.credentials}
@@ -258,17 +266,16 @@ function ProviderBody({ id }: { id: string }) {
                     caption={plural(p.credentials.length, "credential")}
                     emptyMessage="No credentials stored."
                   />
-                  <p className="text-sm text-muted-foreground">
+                  <p className="border-t px-4 py-3 text-sm text-muted-foreground">
                     Credential values are write-only. Replace one from Edit.
                   </p>
-                </section>
-              </div>
+                </Section>
+              </>
             }
             aside={
-              <section className="flex min-w-0 flex-col gap-2">
-                <h2 className="text-sm font-medium">Used by routing rules</h2>
+              <Section title="Used by routing rules" inset>
                 <UsedBy uses={p.usedBy} enabled={p.enabled} />
-              </section>
+              </Section>
             }
           />
         )}

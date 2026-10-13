@@ -255,7 +255,7 @@ describe("MessagesPage", () => {
     expect(within(log).getByLabelText("Channel")).toBeTruthy()
   })
 
-  it("leaves no empty ruled strip under a single page, and keeps the pager in the panel when there are more", async () => {
+  it("draws no pager under a single page, and keeps the pager in the panel, unwrapped, when there are more", async () => {
     const single = renderPage(
       MessagesPage,
       recordingQueryClient({
@@ -265,13 +265,17 @@ describe("MessagesPage", () => {
     )
     let log = await screen.findByRole("region", { name: "Message log" })
     await within(log).findByRole("table")
-    expect(log.querySelector(".border-t")).toBeNull()
+    expect(
+      within(log).queryByRole("navigation", { name: "Pagination" })
+    ).toBeNull()
     single.unmount()
 
     renderPage(MessagesPage, client().client)
     log = await screen.findByRole("region", { name: "Message log" })
-    expect(
-      await within(log).findByRole("navigation", { name: "Pagination" })
-    ).toBeTruthy()
+    const pager = await within(log).findByRole("navigation", {
+      name: "Pagination",
+    })
+    // The kit draws the ruled strip; no wrapper of the page's own does.
+    expect(pager.closest("div.border-t")).toBeNull()
   })
 })

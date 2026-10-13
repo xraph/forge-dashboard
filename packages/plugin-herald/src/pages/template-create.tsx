@@ -17,6 +17,7 @@ import {
   CommandAlert,
   QueryBoundary,
 } from "@forge-go/dashboard-kit/components/query-boundary"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { HeraldHeader, useEngineInfo } from "../components/herald-header"
 import {
   CATEGORIES,
@@ -71,121 +72,123 @@ function CreateForm({ engine }: { engine: EngineInfoResponse }) {
   }
 
   return (
-    <form
-      onSubmit={(e) => void submit(e)}
-      className="flex max-w-xl min-w-0 flex-col gap-4"
-    >
-      <CommandAlert
-        title="Could not create the template"
-        error={
-          sent !== null && create.error?.code === "CONFLICT"
-            ? {
-                code: create.error.code,
-                message: `A template with the slug ${sent.slug} already exists on ${sent.channel}. Slugs are unique per channel; open the existing one, or pick another slug.`,
-              }
-            : create.error
-        }
-      />
-      <div className="flex min-w-0 flex-col gap-1.5">
-        <Label htmlFor="template-name">Name</Label>
-        <Input
-          id="template-name"
-          autoComplete="off"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-        />
-      </div>
-      <div className="flex min-w-0 flex-col gap-1.5">
-        <Label htmlFor="template-slug">Slug</Label>
-        <Input
-          id="template-slug"
-          className="font-mono"
-          autoComplete="off"
-          spellCheck={false}
-          value={slug}
-          aria-invalid={slugBad || undefined}
-          onChange={(e) => {
-            create.reset()
-            setSlug(e.target.value)
-          }}
-        />
-        <p
-          className={
-            slugBad
-              ? "text-xs text-destructive"
-              : "text-xs text-muted-foreground"
+    <Section aria-label="New template" inset className="max-w-xl">
+      <form
+        onSubmit={(e) => void submit(e)}
+        className="flex min-w-0 flex-col gap-4"
+      >
+        <CommandAlert
+          title="Could not create the template"
+          error={
+            sent !== null && create.error?.code === "CONFLICT"
+              ? {
+                  code: create.error.code,
+                  message: `A template with the slug ${sent.slug} already exists on ${sent.channel}. Slugs are unique per channel; open the existing one, or pick another slug.`,
+                }
+              : create.error
           }
-        >
-          What callers send to pick this template. Use lower-case letters,
-          digits, dots, dashes or underscores. It can't change later.
-        </p>
-      </div>
-      <div className="grid min-w-0 gap-4 sm:grid-cols-2">
+        />
         <div className="flex min-w-0 flex-col gap-1.5">
-          <Label htmlFor="template-channel">Channel</Label>
-          <NativeSelect
-            id="template-channel"
-            value={channel}
+          <Label htmlFor="template-name">Name</Label>
+          <Input
+            id="template-name"
+            autoComplete="off"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+          />
+        </div>
+        <div className="flex min-w-0 flex-col gap-1.5">
+          <Label htmlFor="template-slug">Slug</Label>
+          <Input
+            id="template-slug"
+            className="font-mono"
+            autoComplete="off"
+            spellCheck={false}
+            value={slug}
+            aria-invalid={slugBad || undefined}
             onChange={(e) => {
               create.reset()
-              setChannel(e.target.value)
+              setSlug(e.target.value)
             }}
+          />
+          <p
+            className={
+              slugBad
+                ? "text-xs text-destructive"
+                : "text-xs text-muted-foreground"
+            }
           >
-            <NativeSelectOption value="">Choose a channel</NativeSelectOption>
-            {engine.channels.map((c) => (
-              <NativeSelectOption key={c} value={c}>
-                {c}
-              </NativeSelectOption>
-            ))}
-          </NativeSelect>
+            What callers send to pick this template. Use lower-case letters,
+            digits, dots, dashes or underscores. It can't change later.
+          </p>
+        </div>
+        <div className="grid min-w-0 gap-4 sm:grid-cols-2">
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <Label htmlFor="template-channel">Channel</Label>
+            <NativeSelect
+              id="template-channel"
+              value={channel}
+              onChange={(e) => {
+                create.reset()
+                setChannel(e.target.value)
+              }}
+            >
+              <NativeSelectOption value="">Choose a channel</NativeSelectOption>
+              {engine.channels.map((c) => (
+                <NativeSelectOption key={c} value={c}>
+                  {c}
+                </NativeSelectOption>
+              ))}
+            </NativeSelect>
+          </div>
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <Label htmlFor="template-category">Category</Label>
+            <NativeSelect
+              id="template-category"
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+            >
+              {CATEGORIES.map((c) => (
+                <NativeSelectOption key={c} value={c}>
+                  {c}
+                </NativeSelectOption>
+              ))}
+            </NativeSelect>
+          </div>
         </div>
         <div className="flex min-w-0 flex-col gap-1.5">
-          <Label htmlFor="template-category">Category</Label>
-          <NativeSelect
-            id="template-category"
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
+          <Label htmlFor="template-locale">First version's locale</Label>
+          <Input
+            id="template-locale"
+            className="font-mono"
+            autoComplete="off"
+            spellCheck={false}
+            value={locale}
+            aria-invalid={localeBad || undefined}
+            onChange={(e) => setLocale(e.target.value)}
+          />
+          <p
+            className={
+              localeBad
+                ? "text-xs text-destructive"
+                : "text-xs text-muted-foreground"
+            }
           >
-            {CATEGORIES.map((c) => (
-              <NativeSelectOption key={c} value={c}>
-                {c}
-              </NativeSelectOption>
-            ))}
-          </NativeSelect>
+            Empty starts with the fallback version, which answers any locale the
+            template doesn't list. A tag like pt-BR starts with that translation
+            instead. This app's default locale is {engine.defaultLocale}.
+          </p>
         </div>
-      </div>
-      <div className="flex min-w-0 flex-col gap-1.5">
-        <Label htmlFor="template-locale">First version's locale</Label>
-        <Input
-          id="template-locale"
-          className="font-mono"
-          autoComplete="off"
-          spellCheck={false}
-          value={locale}
-          aria-invalid={localeBad || undefined}
-          onChange={(e) => setLocale(e.target.value)}
-        />
-        <p
-          className={
-            localeBad
-              ? "text-xs text-destructive"
-              : "text-xs text-muted-foreground"
-          }
-        >
-          Empty starts with the fallback version, which answers any locale the
-          template doesn't list. A tag like pt-BR starts with that translation
-          instead. This app's default locale is {engine.defaultLocale}.
-        </p>
-      </div>
-      <div className="flex items-center gap-3">
-        <Button type="submit" disabled={!canSubmit}>
-          {create.loading ? "Creating…" : "Create template"}
-        </Button>
-        <PluginLink to={templatesPath} className="text-sm underline">
-          Cancel
-        </PluginLink>
-      </div>
-    </form>
+        <div className="flex items-center gap-3">
+          <Button type="submit" disabled={!canSubmit}>
+            {create.loading ? "Creating…" : "Create template"}
+          </Button>
+          <PluginLink to={templatesPath} className="text-sm underline">
+            Cancel
+          </PluginLink>
+        </div>
+      </form>
+    </Section>
   )
 }
 

@@ -15,6 +15,7 @@ import {
   ResourceTable,
   type Column,
 } from "@forge-go/dashboard-kit/components/resource-table"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { CursorPager, useCursorStack } from "../components/cursor-pager"
 import { HeraldHeader } from "../components/herald-header"
@@ -152,79 +153,85 @@ export const InboxPage: ComponentType<PluginPageProps> = () => {
         title="Inbox"
         description="One user's in-app notifications in this app."
       />
-      <div className="flex max-w-sm min-w-0 flex-col gap-1.5">
-        <Label htmlFor="inbox-user">User ID</Label>
-        <Input
-          id="inbox-user"
-          className="font-mono text-xs"
-          autoComplete="off"
-          spellCheck={false}
-          value={typed}
-          onChange={(e) => setTyped(e.target.value)}
-        />
-      </div>
       <CommandAlert
         error={markRead.error}
         title="Could not mark the notification read"
       />
-      {userId === "" ? (
-        <p className="text-sm text-muted-foreground">
-          Enter a user ID to see their in-app notifications.
-        </p>
-      ) : (
-        <QueryBoundary title="Inbox" query={list} skeletonRows={6}>
-          {(data) => (
-            <div className="flex min-w-0 flex-col gap-3">
-              <div className="flex items-center justify-end">
-                <IconButton
-                  variant="outline"
-                  disabled={data.unread === 0}
-                  onClick={() => openMarkAll(userId, data.unread)}
-                  label="Mark all read"
-                />
-              </div>
-              <ResourceTable<NotificationWire>
-                columns={columns}
-                rows={data.notifications}
-                rowKey={(n) => n.id}
-                caption={`${plural(data.notifications.length, "notification")} on this page, ${data.unread} unread in total`}
-                emptyMessage={
-                  pager.canGoBack
-                    ? "Nothing further."
-                    : `No notifications for ${userId} in this app.`
-                }
-                rowActions={(n) => (
-                  <>
-                    {!n.read && (
+      <Section
+        aria-label="Notification list"
+        actions={
+          <div className="flex min-w-0 items-center gap-2">
+            <Label htmlFor="inbox-user">User ID</Label>
+            <Input
+              id="inbox-user"
+              className="font-mono text-xs"
+              autoComplete="off"
+              spellCheck={false}
+              value={typed}
+              onChange={(e) => setTyped(e.target.value)}
+            />
+          </div>
+        }
+      >
+        {userId === "" ? (
+          <p className="px-4 py-3 text-sm text-muted-foreground">
+            Enter a user ID to see their in-app notifications.
+          </p>
+        ) : (
+          <QueryBoundary title="Inbox" query={list} skeletonRows={6}>
+            {(data) => (
+              <>
+                <div className="flex items-center justify-end border-b px-4 py-2">
+                  <IconButton
+                    variant="outline"
+                    disabled={data.unread === 0}
+                    onClick={() => openMarkAll(userId, data.unread)}
+                    label="Mark all read"
+                  />
+                </div>
+                <ResourceTable<NotificationWire>
+                  columns={columns}
+                  rows={data.notifications}
+                  rowKey={(n) => n.id}
+                  caption={`${plural(data.notifications.length, "notification")} on this page, ${data.unread} unread in total`}
+                  emptyMessage={
+                    pager.canGoBack
+                      ? "Nothing further."
+                      : `No notifications for ${userId} in this app.`
+                  }
+                  rowActions={(n) => (
+                    <>
+                      {!n.read && (
+                        <IconButton
+                          variant="outline"
+                          disabled={markRead.loading}
+                          onClick={() => {
+                            markRead.reset()
+                            void markRead.execute({ id: n.id })
+                          }}
+                          label={`Mark ${nameOf(n)} read`}
+                        />
+                      )}
                       <IconButton
-                        variant="outline"
-                        disabled={markRead.loading}
-                        onClick={() => {
-                          markRead.reset()
-                          void markRead.execute({ id: n.id })
-                        }}
-                        label={`Mark ${nameOf(n)} read`}
+                        variant="ghost"
+                        onClick={() => openDelete(n)}
+                        label={`Delete ${nameOf(n)}`}
                       />
-                    )}
-                    <IconButton
-                      variant="ghost"
-                      onClick={() => openDelete(n)}
-                      label={`Delete ${nameOf(n)}`}
-                    />
-                  </>
-                )}
-              />
-              <CursorPager
-                shown={data.notifications.length}
-                nextCursor={data.nextCursor}
-                onNext={pager.next}
-                onPrevious={pager.previous}
-                canGoBack={pager.canGoBack}
-              />
-            </div>
-          )}
-        </QueryBoundary>
-      )}
+                    </>
+                  )}
+                />
+                <CursorPager
+                  shown={data.notifications.length}
+                  nextCursor={data.nextCursor}
+                  onNext={pager.next}
+                  onPrevious={pager.previous}
+                  canGoBack={pager.canGoBack}
+                />
+              </>
+            )}
+          </QueryBoundary>
+        )}
+      </Section>
       <ConfirmDialog
         open={markingAll}
         onOpenChange={(open) =>
