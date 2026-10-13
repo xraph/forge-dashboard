@@ -2,6 +2,7 @@ import type { ComponentType } from "react"
 import { DescriptionList } from "@forge-go/dashboard-kit/components/detail-layout"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { PluginLink, useQuery } from "@forge-go/dashboard-plugin"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
@@ -67,30 +68,34 @@ export const CheckpointDetailPage: ComponentType<PluginPageProps> = ({
         {({ checkpoint: cp }) => {
           const ownerId = cp.streamId || owningChain(cp, list.data)?.id
           return (
-            <div className="flex min-w-0 flex-col gap-4">
-              <DescriptionList
-                items={[
-                  {
-                    term: "Sequences",
-                    value: (
-                      <span className="font-mono text-xs">{`${formatSeq(cp.fromSeq)} to ${formatSeq(cp.toSeq)}`}</span>
-                    ),
-                  },
-                  { term: "Events", value: formatSeq(cp.eventCount) },
-                  {
-                    term: "Signing key",
-                    value: (
-                      <span className="font-mono text-xs">{cp.signKeyId}</span>
-                    ),
-                  },
-                  {
-                    term: "Signed",
-                    value: (
-                      <Timestamp value={cp.createdAt} label="signing time" />
-                    ),
-                  },
-                ]}
-              />
+            <>
+              <Section title="Details" inset>
+                <DescriptionList
+                  items={[
+                    {
+                      term: "Sequences",
+                      value: (
+                        <span className="font-mono text-xs">{`${formatSeq(cp.fromSeq)} to ${formatSeq(cp.toSeq)}`}</span>
+                      ),
+                    },
+                    { term: "Events", value: formatSeq(cp.eventCount) },
+                    {
+                      term: "Signing key",
+                      value: (
+                        <span className="font-mono text-xs">
+                          {cp.signKeyId}
+                        </span>
+                      ),
+                    },
+                    {
+                      term: "Signed",
+                      value: (
+                        <Timestamp value={cp.createdAt} label="signing time" />
+                      ),
+                    },
+                  ]}
+                />
+              </Section>
               {ownerId ? (
                 <PluginLink
                   to={`/chain/${encodeURIComponent(ownerId)}/${cp.fromSeq}/${cp.toSeq}`}
@@ -106,7 +111,7 @@ export const CheckpointDetailPage: ComponentType<PluginPageProps> = ({
                   Back to checkpoints
                 </PluginLink>
               )}
-            </div>
+            </>
           )
         }}
       </QueryBoundary>

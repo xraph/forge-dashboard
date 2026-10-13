@@ -6,6 +6,7 @@ import { Input } from "@forge-go/dashboard-kit/components/input"
 import { Label } from "@forge-go/dashboard-kit/components/label"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { CommandAlert } from "@forge-go/dashboard-kit/components/query-boundary"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import {
   PluginLink,
   useCommand,
@@ -68,62 +69,64 @@ export const PolicyCreatePage: ComponentType<PluginPageProps> = () => {
             : save.error
         }
       />
-      <form
-        onSubmit={(e) => void submit(e)}
-        className="flex max-w-lg min-w-0 flex-col gap-4"
-      >
-        <div className="flex min-w-0 flex-col gap-1.5">
-          <Label htmlFor="policy-category">Category</Label>
-          <Input
-            id="policy-category"
-            className="font-mono text-xs"
-            autoComplete="off"
-            spellCheck={false}
-            value={category}
-            aria-invalid={cProblem !== null}
-            onChange={(e) => setCategory(e.target.value)}
+      <Section aria-label="New policy" inset className="max-w-lg">
+        <form
+          onSubmit={(e) => void submit(e)}
+          className="flex min-w-0 flex-col gap-4"
+        >
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <Label htmlFor="policy-category">Category</Label>
+            <Input
+              id="policy-category"
+              className="font-mono text-xs"
+              autoComplete="off"
+              spellCheck={false}
+              value={category}
+              aria-invalid={cProblem !== null}
+              onChange={(e) => setCategory(e.target.value)}
+            />
+            {cProblem && <p className="text-sm text-destructive">{cProblem}</p>}
+            <p className="text-xs text-muted-foreground">
+              A category of * means every category, not a default: it removes
+              events of every category, and a short wildcard overrides a longer
+              specific policy for its category.
+            </p>
+          </div>
+          <DurationField
+            amount={amount}
+            unit={unit}
+            onChange={(a, u) => {
+              setAmount(a)
+              setUnit(u)
+            }}
           />
-          {cProblem && <p className="text-sm text-destructive">{cProblem}</p>}
-          <p className="text-xs text-muted-foreground">
-            A category of * means every category, not a default: it removes
-            events of every category, and a short wildcard overrides a longer
-            specific policy for its category.
+          <div className="flex items-center gap-2">
+            <Checkbox
+              id="policy-archive"
+              checked={archive}
+              onCheckedChange={(checked) => setArchive(checked === true)}
+            />
+            <Label htmlFor="policy-archive">
+              Archive events before removing them
+            </Label>
+          </div>
+          <p className="text-sm">
+            A policy saved by an app-wide operator has no tenant, so it removes
+            events from every tenant in the app.
           </p>
-        </div>
-        <DurationField
-          amount={amount}
-          unit={unit}
-          onChange={(a, u) => {
-            setAmount(a)
-            setUnit(u)
-          }}
-        />
-        <div className="flex items-center gap-2">
-          <Checkbox
-            id="policy-archive"
-            checked={archive}
-            onCheckedChange={(checked) => setArchive(checked === true)}
-          />
-          <Label htmlFor="policy-archive">
-            Archive events before removing them
-          </Label>
-        </div>
-        <p className="text-sm">
-          A policy saved by an app-wide operator has no tenant, so it removes
-          events from every tenant in the app.
-        </p>
-        <div className="flex gap-2">
-          <Button type="submit" disabled={!ready}>
-            {save.loading ? "Saving…" : "Save policy"}
-          </Button>
-          <PluginLink
-            to="/retention"
-            className="self-center text-sm underline underline-offset-4"
-          >
-            Cancel
-          </PluginLink>
-        </div>
-      </form>
+          <div className="flex gap-2">
+            <Button type="submit" disabled={!ready}>
+              {save.loading ? "Saving…" : "Save policy"}
+            </Button>
+            <PluginLink
+              to="/retention"
+              className="self-center text-sm underline underline-offset-4"
+            >
+              Cancel
+            </PluginLink>
+          </div>
+        </form>
+      </Section>
     </section>
   )
 }

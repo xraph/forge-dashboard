@@ -2,6 +2,7 @@ import { useState, type ComponentType } from "react"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
 import { ResourceTable } from "@forge-go/dashboard-kit/components/resource-table"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { useQuery } from "@forge-go/dashboard-plugin"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
 import type { EventListResponse } from "../types"
@@ -38,23 +39,30 @@ function UserEventsView({ userId }: { userId: string }) {
         title={`Events by ${userId}`}
         description="Every event this user took part in, newest first."
       />
-      <QueryBoundary title="events" query={q} skeletonRows={10}>
-        {(data) => (
-          <ResourceTable
-            columns={eventColumns({ showUser: false })}
-            rows={data.events}
-            rowKey={(e) => e.id}
-            caption={pageOf(data.events.length, data.total, "event", "events")}
-            emptyMessage="No events are recorded for this user."
-            pagination={{
-              page: offset / PAGE + 1,
-              pageSize: PAGE,
-              total: data.total,
-            }}
-            onPageChange={(page) => setOffset((page - 1) * PAGE)}
-          />
-        )}
-      </QueryBoundary>
+      <Section aria-label="Event list">
+        <QueryBoundary title="events" query={q} skeletonRows={10}>
+          {(data) => (
+            <ResourceTable
+              columns={eventColumns({ showUser: false })}
+              rows={data.events}
+              rowKey={(e) => e.id}
+              caption={pageOf(
+                data.events.length,
+                data.total,
+                "event",
+                "events"
+              )}
+              emptyMessage="No events are recorded for this user."
+              pagination={{
+                page: offset / PAGE + 1,
+                pageSize: PAGE,
+                total: data.total,
+              }}
+              onPageChange={(page) => setOffset((page - 1) * PAGE)}
+            />
+          )}
+        </QueryBoundary>
+      </Section>
     </section>
   )
 }

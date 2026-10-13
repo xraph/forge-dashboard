@@ -9,6 +9,7 @@ import {
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
 import { ResourceTable } from "@forge-go/dashboard-kit/components/resource-table"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { useQuery } from "@forge-go/dashboard-plugin"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
 import type { EventListResponse } from "../types"
@@ -150,91 +151,95 @@ export const EventsPage: ComponentType<PluginPageProps> = () => {
         title="Events"
         description="Every event in your scope's audit trail. Filters run on the server, so a search covers the whole log, not the page on screen."
       />
-      <form
-        className="grid min-w-0 grid-cols-2 gap-3 md:grid-cols-4"
-        onSubmit={(e) => {
-          e.preventDefault()
-          setApplied(draft)
-          setOffset(0)
-        }}
-      >
-        {field("actions", "text", "user.login, role.grant")}
-        {field("resources", "text", "patient_record")}
-        {field("categories", "text", "auth, data")}
-        {select("outcome", ["success", "failure", "denied"])}
-        {select("severity", ["info", "warning", "critical"])}
-        {field("userId")}
-        {field("sessionId")}
-        {field("requestId")}
-        {field("after", "datetime-local")}
-        {field("before", "datetime-local")}
-        <div className="col-span-2 flex items-end gap-2 md:col-span-2">
-          <Button type="submit">Apply filters</Button>
-          {/* Named apart from the empty state's "Clear filters" so both can be on screen at once. */}
-          {active.length > 0 && (
-            <IconButton
-              type="button"
-              variant="outline"
-              onClick={clear}
-              label="Reset filters"
-            />
-          )}
-        </div>
-      </form>
-      <QueryBoundary title="events" query={q} skeletonRows={10}>
-        {(data) => {
-          // A later page can come back empty while the first still holds rows,
-          // when events were removed after the first page was read. That says
-          // nothing about the chain, and the pager is gone with the rows.
-          const pastEnd = offset > 0 && data.events.length === 0
-          return (
-            <ResourceTable
-              columns={eventColumns({ showUser: true })}
-              rows={data.events}
-              rowKey={(e) => e.id}
-              caption={pageOf(
-                data.events.length,
-                data.total,
-                "event",
-                "events"
-              )}
-              emptyMessage={
-                pastEnd
-                  ? "No events on this page."
-                  : active.length
-                    ? "No events match these filters"
-                    : "This chain holds no events yet."
-              }
-              emptyAction={
-                pastEnd ? (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setOffset(0)}
-                  >
-                    Back to the first page
-                  </Button>
-                ) : active.length ? (
-                  <div className="flex min-w-0 flex-col items-center gap-2 text-sm">
-                    <p>
-                      {active.map((f) => `${f.label}: ${f.value}`).join("; ")}
-                    </p>
-                    <Button type="button" variant="outline" onClick={clear}>
-                      Clear filters
+      <Section title="Filters" inset>
+        <form
+          className="grid min-w-0 grid-cols-2 gap-3 md:grid-cols-4"
+          onSubmit={(e) => {
+            e.preventDefault()
+            setApplied(draft)
+            setOffset(0)
+          }}
+        >
+          {field("actions", "text", "user.login, role.grant")}
+          {field("resources", "text", "patient_record")}
+          {field("categories", "text", "auth, data")}
+          {select("outcome", ["success", "failure", "denied"])}
+          {select("severity", ["info", "warning", "critical"])}
+          {field("userId")}
+          {field("sessionId")}
+          {field("requestId")}
+          {field("after", "datetime-local")}
+          {field("before", "datetime-local")}
+          <div className="col-span-2 flex items-end gap-2 md:col-span-2">
+            <Button type="submit">Apply filters</Button>
+            {/* Named apart from the empty state's "Clear filters" so both can be on screen at once. */}
+            {active.length > 0 && (
+              <IconButton
+                type="button"
+                variant="outline"
+                onClick={clear}
+                label="Reset filters"
+              />
+            )}
+          </div>
+        </form>
+      </Section>
+      <Section aria-label="Event list">
+        <QueryBoundary title="events" query={q} skeletonRows={10}>
+          {(data) => {
+            // A later page can come back empty while the first still holds rows,
+            // when events were removed after the first page was read. That says
+            // nothing about the chain, and the pager is gone with the rows.
+            const pastEnd = offset > 0 && data.events.length === 0
+            return (
+              <ResourceTable
+                columns={eventColumns({ showUser: true })}
+                rows={data.events}
+                rowKey={(e) => e.id}
+                caption={pageOf(
+                  data.events.length,
+                  data.total,
+                  "event",
+                  "events"
+                )}
+                emptyMessage={
+                  pastEnd
+                    ? "No events on this page."
+                    : active.length
+                      ? "No events match these filters"
+                      : "This chain holds no events yet."
+                }
+                emptyAction={
+                  pastEnd ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setOffset(0)}
+                    >
+                      Back to the first page
                     </Button>
-                  </div>
-                ) : undefined
-              }
-              pagination={{
-                page: offset / PAGE + 1,
-                pageSize: PAGE,
-                total: data.total,
-              }}
-              onPageChange={(page) => setOffset((page - 1) * PAGE)}
-            />
-          )
-        }}
-      </QueryBoundary>
+                  ) : active.length ? (
+                    <div className="flex min-w-0 flex-col items-center gap-2 text-sm">
+                      <p>
+                        {active.map((f) => `${f.label}: ${f.value}`).join("; ")}
+                      </p>
+                      <Button type="button" variant="outline" onClick={clear}>
+                        Clear filters
+                      </Button>
+                    </div>
+                  ) : undefined
+                }
+                pagination={{
+                  page: offset / PAGE + 1,
+                  pageSize: PAGE,
+                  total: data.total,
+                }}
+                onPageChange={(page) => setOffset((page - 1) * PAGE)}
+              />
+            )
+          }}
+        </QueryBoundary>
+      </Section>
     </section>
   )
 }

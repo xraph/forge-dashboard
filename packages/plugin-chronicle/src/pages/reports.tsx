@@ -7,6 +7,7 @@ import {
   ResourceTable,
   type Column,
 } from "@forge-go/dashboard-kit/components/resource-table"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { PluginLink, useQuery } from "@forge-go/dashboard-plugin"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
@@ -82,34 +83,36 @@ export const ReportsPage: ComponentType<PluginPageProps> = () => {
           </>
         }
       />
-      <QueryBoundary title="reports" query={q} skeletonRows={5}>
-        {(data) => (
-          <>
-            <ResourceTable
-              columns={columns}
-              rows={data.reports}
-              rowKey={(r) => r.id}
-              caption={`${countOf(data.reports.length, "report", "reports")} shown`}
-              emptyMessage="No reports have been generated in this scope."
-            />
-            {/* The store keeps no count, so there is no "page 2 of N": only whether another page exists. */}
-            <div className="flex justify-end gap-2">
-              <IconButton
-                variant="outline"
-                disabled={offset === 0}
-                onClick={() => setOffset(Math.max(0, offset - PAGE))}
-                label="Previous page"
+      <Section aria-label="Report list">
+        <QueryBoundary title="reports" query={q} skeletonRows={5}>
+          {(data) => (
+            <>
+              <ResourceTable
+                columns={columns}
+                rows={data.reports}
+                rowKey={(r) => r.id}
+                caption={`${countOf(data.reports.length, "report", "reports")} shown`}
+                emptyMessage="No reports have been generated in this scope."
               />
-              <IconButton
-                variant="outline"
-                disabled={!data.hasMore}
-                onClick={() => setOffset(offset + PAGE)}
-                label="Next page"
-              />
-            </div>
-          </>
-        )}
-      </QueryBoundary>
+              {/* The store keeps no count, so there is no "page 2 of N": only whether another page exists. */}
+              <nav aria-label="Pagination" className="flex justify-end gap-2">
+                <IconButton
+                  variant="outline"
+                  disabled={offset === 0}
+                  onClick={() => setOffset(Math.max(0, offset - PAGE))}
+                  label="Previous page"
+                />
+                <IconButton
+                  variant="outline"
+                  disabled={!data.hasMore}
+                  onClick={() => setOffset(offset + PAGE)}
+                  label="Next page"
+                />
+              </nav>
+            </>
+          )}
+        </QueryBoundary>
+      </Section>
     </section>
   )
 }

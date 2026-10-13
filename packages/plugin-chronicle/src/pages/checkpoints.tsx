@@ -10,6 +10,7 @@ import {
   ResourceTable,
   type Column,
 } from "@forge-go/dashboard-kit/components/resource-table"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { PluginLink, useCommand, useQuery } from "@forge-go/dashboard-plugin"
 import type { PluginPageProps, QueryState } from "@forge-go/dashboard-plugin"
@@ -102,7 +103,7 @@ function CheckpointsView({ streamId }: { streamId?: string }) {
       {(data) => {
         if (!data.supported) {
           return (
-            <p className="text-sm">
+            <p className="p-4 text-sm">
               This deployment stores no checkpoints. Without them, verification
               cannot detect events removed from the end of the chain.
             </p>
@@ -120,7 +121,7 @@ function CheckpointsView({ streamId }: { streamId?: string }) {
               emptyMessage="This chain has no checkpoints yet."
             />
             {/* The store keeps no count, so there is no "page 2 of N": only whether another page exists. */}
-            <div className="flex justify-end gap-2">
+            <nav aria-label="Pagination" className="flex justify-end gap-2">
               <IconButton
                 variant="outline"
                 disabled={offset === 0}
@@ -133,7 +134,7 @@ function CheckpointsView({ streamId }: { streamId?: string }) {
                 onClick={() => setOffset(offset + PAGE)}
                 label="Next page"
               />
-            </div>
+            </nav>
           </>
         )
       }}
@@ -183,13 +184,15 @@ function CheckpointsView({ streamId }: { streamId?: string }) {
         </p>
       )}
       <CommandAlert title="Could not take a checkpoint" error={take.error} />
-      {streamId === undefined ? (
-        <QueryBoundary title="chain" query={mine} skeletonRows={3}>
-          {(m) => (m.stream ? listing : <NoOwnChain list={list} />)}
-        </QueryBoundary>
-      ) : (
-        listing
-      )}
+      <Section aria-label="Checkpoint list">
+        {streamId === undefined ? (
+          <QueryBoundary title="chain" query={mine} skeletonRows={3}>
+            {(m) => (m.stream ? listing : <NoOwnChain list={list} />)}
+          </QueryBoundary>
+        ) : (
+          listing
+        )}
+      </Section>
     </section>
   )
 }
@@ -200,12 +203,12 @@ function NoOwnChain({ list }: { list: QueryState<StreamListResponse> }) {
     <QueryBoundary title="chains" query={list} skeletonRows={2}>
       {(l) =>
         l.streams.length === 0 ? (
-          <p className="text-sm">
+          <p className="p-4 text-sm">
             This scope has not recorded any events yet, so there are no
             checkpoints.
           </p>
         ) : (
-          <div className="flex min-w-0 flex-col gap-3 text-sm">
+          <div className="flex min-w-0 flex-col gap-3 p-4 text-sm">
             <p>
               This app has no app-level chain: its events are recorded under its
               tenants. Choose a tenant's chain to see its checkpoints.

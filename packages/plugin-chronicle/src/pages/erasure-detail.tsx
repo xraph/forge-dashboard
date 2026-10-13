@@ -3,6 +3,7 @@ import { DescriptionList } from "@forge-go/dashboard-kit/components/detail-layou
 import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { PluginLink, useQuery } from "@forge-go/dashboard-plugin"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
@@ -24,76 +25,90 @@ export const ErasureDetailPage: ComponentType<PluginPageProps> = ({
       />
       <QueryBoundary title="erasure" query={q} skeletonRows={5}>
         {(e) => (
-          <div className="flex min-w-0 flex-col gap-4">
-            <DescriptionList
-              items={[
-                {
-                  term: "Erasure",
-                  value: <span className="font-mono text-xs">{e.id}</span>,
-                },
-                {
-                  term: "Subject",
-                  value: (
-                    <span className="font-mono text-xs">{e.subjectId}</span>
-                  ),
-                },
-                {
-                  term: "Tenant",
-                  value: (
-                    <TenantValue
-                      tenantId={e.tenantId}
-                      appLevel="App level, every tenant"
-                    />
-                  ),
-                },
-                {
-                  term: "Reason",
-                  value: (
-                    <span className="whitespace-pre-line">{e.reason}</span>
-                  ),
-                },
-                {
-                  term: "Requested by",
-                  value: e.requestedBy ? (
-                    <span className="font-mono text-xs">{e.requestedBy}</span>
-                  ) : (
-                    <NoneCell label="requester" />
-                  ),
-                },
-                { term: "Events erased", value: formatSeq(e.eventsAffected) },
-                { term: "Status", value: <ErasureStatusBadge erasure={e} /> },
-                { term: "Key", value: <KeyBadge erasure={e} /> },
-                {
-                  term: "Requested",
-                  value: <Timestamp value={e.createdAt} label="request time" />,
-                },
-              ]}
-            />
-            {isPending(e) ? (
-              <p className="max-w-prose text-sm">
-                This erasure did not finish. Its events may be marked and some
-                of its keys may already be gone, but not every key is confirmed
-                destroyed. Run the erasure again for this subject; the retry
-                gets its own record.
-              </p>
-            ) : (
-              !e.keyDestroyed &&
-              e.legacyKeyRetained && (
-                <p className="max-w-prose text-sm">
-                  The key was kept because events in another scope still use it.
-                  This erasure's events are marked erased and unreadable; the
-                  key is destroyed the first time an erasure finds no other
-                  scope using it.
-                </p>
-              )
-            )}
+          <>
+            <Section title="Details" inset>
+              <div className="flex min-w-0 flex-col gap-4">
+                <DescriptionList
+                  items={[
+                    {
+                      term: "Erasure",
+                      value: <span className="font-mono text-xs">{e.id}</span>,
+                    },
+                    {
+                      term: "Subject",
+                      value: (
+                        <span className="font-mono text-xs">{e.subjectId}</span>
+                      ),
+                    },
+                    {
+                      term: "Tenant",
+                      value: (
+                        <TenantValue
+                          tenantId={e.tenantId}
+                          appLevel="App level, every tenant"
+                        />
+                      ),
+                    },
+                    {
+                      term: "Reason",
+                      value: (
+                        <span className="whitespace-pre-line">{e.reason}</span>
+                      ),
+                    },
+                    {
+                      term: "Requested by",
+                      value: e.requestedBy ? (
+                        <span className="font-mono text-xs">
+                          {e.requestedBy}
+                        </span>
+                      ) : (
+                        <NoneCell label="requester" />
+                      ),
+                    },
+                    {
+                      term: "Events erased",
+                      value: formatSeq(e.eventsAffected),
+                    },
+                    {
+                      term: "Status",
+                      value: <ErasureStatusBadge erasure={e} />,
+                    },
+                    { term: "Key", value: <KeyBadge erasure={e} /> },
+                    {
+                      term: "Requested",
+                      value: (
+                        <Timestamp value={e.createdAt} label="request time" />
+                      ),
+                    },
+                  ]}
+                />
+                {isPending(e) ? (
+                  <p className="max-w-prose text-sm">
+                    This erasure did not finish. Its events may be marked and
+                    some of its keys may already be gone, but not every key is
+                    confirmed destroyed. Run the erasure again for this subject;
+                    the retry gets its own record.
+                  </p>
+                ) : (
+                  !e.keyDestroyed &&
+                  e.legacyKeyRetained && (
+                    <p className="max-w-prose text-sm">
+                      The key was kept because events in another scope still use
+                      it. This erasure's events are marked erased and
+                      unreadable; the key is destroyed the first time an erasure
+                      finds no other scope using it.
+                    </p>
+                  )
+                )}
+              </div>
+            </Section>
             <PluginLink
               to="/erasures"
               className="text-sm underline underline-offset-4"
             >
               Back to erasures
             </PluginLink>
-          </div>
+          </>
         )}
       </QueryBoundary>
     </section>

@@ -1,13 +1,8 @@
 import { useState, type ComponentType } from "react"
 import { Button } from "@forge-go/dashboard-kit/components/button"
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@forge-go/dashboard-kit/components/card"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { StatGrid } from "@forge-go/dashboard-kit/components/stat-grid"
 import { useQuery } from "@forge-go/dashboard-plugin"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
@@ -41,18 +36,13 @@ function Breakdown({
 }) {
   const data = breakdown(groups, by)
   return (
-    <Card size="sm">
-      <CardHeader>
-        <CardTitle>{title}</CardTitle>
-      </CardHeader>
-      <CardContent>
-        {data.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No events.</p>
-        ) : (
-          <HorizontalBars data={data} label={title} />
-        )}
-      </CardContent>
-    </Card>
+    <Section title={title} inset>
+      {data.length === 0 ? (
+        <p className="text-sm text-muted-foreground">No events.</p>
+      ) : (
+        <HorizontalBars data={data} label={title} />
+      )}
+    </Section>
   )
 }
 
@@ -138,24 +128,22 @@ export const ActivityPage: ComponentType<PluginPageProps & { now?: Date }> = ({
           </>
         )}
       </QueryBoundary>
-      <Card size="sm">
-        <CardHeader className="flex flex-wrap items-center justify-between gap-2">
-          <CardTitle>Volume over time</CardTitle>
-          <div className="flex gap-1">
-            {(Object.keys(RANGE) as BucketUnit[]).map((u) => (
-              <Button
-                key={u}
-                size="sm"
-                variant={u === unit ? "secondary" : "outline"}
-                aria-pressed={u === unit}
-                onClick={() => setUnit(u)}
-              >
-                {RANGE[u].label}
-              </Button>
-            ))}
-          </div>
-        </CardHeader>
-        <CardContent className="flex min-w-0 flex-col gap-3">
+      <Section
+        title="Volume over time"
+        inset
+        actions={(Object.keys(RANGE) as BucketUnit[]).map((u) => (
+          <Button
+            key={u}
+            size="sm"
+            variant={u === unit ? "secondary" : "outline"}
+            aria-pressed={u === unit}
+            onClick={() => setUnit(u)}
+          >
+            {RANGE[u].label}
+          </Button>
+        ))}
+      >
+        <div className="flex min-w-0 flex-col gap-3">
           <QueryBoundary title="event volume" query={volume} skeletonRows={4}>
             {(agg) => {
               if (agg.total === 0)
@@ -176,8 +164,8 @@ export const ActivityPage: ComponentType<PluginPageProps & { now?: Date }> = ({
               )
             }}
           </QueryBoundary>
-        </CardContent>
-      </Card>
+        </div>
+      </Section>
     </div>
   )
 }

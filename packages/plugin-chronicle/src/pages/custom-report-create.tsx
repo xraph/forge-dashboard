@@ -6,6 +6,7 @@ import { Input } from "@forge-go/dashboard-kit/components/input"
 import { Label } from "@forge-go/dashboard-kit/components/label"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { CommandAlert } from "@forge-go/dashboard-kit/components/query-boundary"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { Textarea } from "@forge-go/dashboard-kit/components/textarea"
 import {
   PluginLink,
@@ -152,124 +153,130 @@ export const CustomReportCreatePage: ComponentType<PluginPageProps> = () => {
         onSubmit={(e) => void submit(e)}
         className="flex max-w-2xl min-w-0 flex-col gap-4"
       >
-        <div className="flex min-w-0 flex-col gap-1.5">
-          <Label htmlFor="custom-title">Title</Label>
-          <Input
-            id="custom-title"
-            autoComplete="off"
-            value={title}
-            aria-invalid={titleProblem !== null}
-            onChange={(e) => setTitle(e.target.value)}
-          />
-          {titleProblem && (
-            <p className="text-sm text-destructive">{titleProblem}</p>
-          )}
-        </div>
-        <PeriodFields
-          value={period}
-          onChange={setPeriod}
-          idPrefix="custom-period"
-        />
+        <Section aria-label="Report details" inset>
+          <div className="flex min-w-0 flex-col gap-4">
+            <div className="flex min-w-0 flex-col gap-1.5">
+              <Label htmlFor="custom-title">Title</Label>
+              <Input
+                id="custom-title"
+                autoComplete="off"
+                value={title}
+                aria-invalid={titleProblem !== null}
+                onChange={(e) => setTitle(e.target.value)}
+              />
+              {titleProblem && (
+                <p className="text-sm text-destructive">{titleProblem}</p>
+              )}
+            </div>
+            <PeriodFields
+              value={period}
+              onChange={setPeriod}
+              idPrefix="custom-period"
+            />
+          </div>
+        </Section>
         {sections.map((s, i) => {
           const n = i + 1
           const p = problems[i]
           return (
-            <fieldset
-              key={s.key}
-              className="flex min-w-0 flex-col gap-3 rounded-md border p-4"
-            >
-              <legend className="px-1 text-sm font-medium">{`Section ${n}`}</legend>
-              <div className="flex min-w-0 flex-col gap-1.5">
-                <Label
-                  htmlFor={`section-${s.key}-title`}
-                >{`Section ${n} title`}</Label>
-                <Input
-                  id={`section-${s.key}-title`}
-                  autoComplete="off"
-                  value={s.title}
-                  aria-invalid={p.title !== undefined}
-                  onChange={(e) => update(s.key, { title: e.target.value })}
-                />
-                {p.title && (
-                  <p className="text-sm text-destructive">{p.title}</p>
-                )}
-              </div>
-              <div className="flex min-w-0 flex-col gap-1.5">
-                <Label
-                  htmlFor={`section-${s.key}-notes`}
-                >{`Section ${n} notes`}</Label>
-                <Textarea
-                  id={`section-${s.key}-notes`}
-                  rows={3}
-                  value={s.notes}
-                  aria-invalid={p.notes !== undefined}
-                  onChange={(e) => update(s.key, { notes: e.target.value })}
-                />
-                {p.notes && (
-                  <p className="text-sm text-destructive">{p.notes}</p>
-                )}
-              </div>
-              {FILTERS.map((f) => (
-                <div key={f.name} className="flex min-w-0 flex-col gap-1.5">
+            <Section key={s.key} title={`Section ${n}`} inset>
+              <div className="flex min-w-0 flex-col gap-3">
+                <div className="flex min-w-0 flex-col gap-1.5">
                   <Label
-                    htmlFor={`section-${s.key}-${f.name}`}
-                  >{`Section ${n} ${f.label.toLowerCase()}`}</Label>
+                    htmlFor={`section-${s.key}-title`}
+                  >{`Section ${n} title`}</Label>
                   <Input
-                    id={`section-${s.key}-${f.name}`}
-                    className="font-mono text-xs"
+                    id={`section-${s.key}-title`}
                     autoComplete="off"
-                    spellCheck={false}
-                    placeholder="Comma separated, empty for all"
-                    value={s[f.name]}
-                    aria-invalid={p[f.name] !== undefined}
-                    onChange={(e) =>
-                      update(s.key, { [f.name]: e.target.value })
-                    }
+                    value={s.title}
+                    aria-invalid={p.title !== undefined}
+                    onChange={(e) => update(s.key, { title: e.target.value })}
                   />
-                  {p[f.name] && (
-                    <p className="text-sm text-destructive">{p[f.name]}</p>
+                  {p.title && (
+                    <p className="text-sm text-destructive">{p.title}</p>
                   )}
                 </div>
-              ))}
+                <div className="flex min-w-0 flex-col gap-1.5">
+                  <Label
+                    htmlFor={`section-${s.key}-notes`}
+                  >{`Section ${n} notes`}</Label>
+                  <Textarea
+                    id={`section-${s.key}-notes`}
+                    rows={3}
+                    value={s.notes}
+                    aria-invalid={p.notes !== undefined}
+                    onChange={(e) => update(s.key, { notes: e.target.value })}
+                  />
+                  {p.notes && (
+                    <p className="text-sm text-destructive">{p.notes}</p>
+                  )}
+                </div>
+                {FILTERS.map((f) => (
+                  <div key={f.name} className="flex min-w-0 flex-col gap-1.5">
+                    <Label
+                      htmlFor={`section-${s.key}-${f.name}`}
+                    >{`Section ${n} ${f.label.toLowerCase()}`}</Label>
+                    <Input
+                      id={`section-${s.key}-${f.name}`}
+                      className="font-mono text-xs"
+                      autoComplete="off"
+                      spellCheck={false}
+                      placeholder="Comma separated, empty for all"
+                      value={s[f.name]}
+                      aria-invalid={p[f.name] !== undefined}
+                      onChange={(e) =>
+                        update(s.key, { [f.name]: e.target.value })
+                      }
+                    />
+                    {p[f.name] && (
+                      <p className="text-sm text-destructive">{p[f.name]}</p>
+                    )}
+                  </div>
+                ))}
+                <div>
+                  <IconButton
+                    type="button"
+                    variant="outline"
+                    disabled={sections.length === 1}
+                    onClick={() =>
+                      setSections((all) => all.filter((x) => x.key !== s.key))
+                    }
+                    label={`Remove section ${n}`}
+                  />
+                </div>
+              </div>
+            </Section>
+          )
+        })}
+        <Section aria-label="Add sections and generate" inset>
+          <div className="flex min-w-0 flex-col gap-4">
+            <div className="flex min-w-0 flex-col gap-1.5">
               <div>
                 <IconButton
                   type="button"
                   variant="outline"
-                  disabled={sections.length === 1}
+                  disabled={sections.length >= LIMITS.customReportSections}
                   onClick={() =>
-                    setSections((all) => all.filter((x) => x.key !== s.key))
+                    setSections((all) => [...all, blank(nextKey.current++)])
                   }
-                  label={`Remove section ${n}`}
+                  label="Add section"
                 />
               </div>
-            </fieldset>
-          )
-        })}
-        <div className="flex min-w-0 flex-col gap-1.5">
-          <div>
-            <IconButton
-              type="button"
-              variant="outline"
-              disabled={sections.length >= LIMITS.customReportSections}
-              onClick={() =>
-                setSections((all) => [...all, blank(nextKey.current++)])
-              }
-              label="Add section"
-            />
+              <p className="text-xs text-muted-foreground">{`${sections.length} of ${LIMITS.customReportSections} sections.`}</p>
+            </div>
+            <div className="flex gap-2">
+              <Button type="submit" disabled={!ready}>
+                {generate.loading ? "Generating…" : "Generate report"}
+              </Button>
+              <PluginLink
+                to="/reports"
+                className="self-center text-sm underline underline-offset-4"
+              >
+                Cancel
+              </PluginLink>
+            </div>
           </div>
-          <p className="text-xs text-muted-foreground">{`${sections.length} of ${LIMITS.customReportSections} sections.`}</p>
-        </div>
-        <div className="flex gap-2">
-          <Button type="submit" disabled={!ready}>
-            {generate.loading ? "Generating…" : "Generate report"}
-          </Button>
-          <PluginLink
-            to="/reports"
-            className="self-center text-sm underline underline-offset-4"
-          >
-            Cancel
-          </PluginLink>
-        </div>
+        </Section>
       </form>
     </section>
   )

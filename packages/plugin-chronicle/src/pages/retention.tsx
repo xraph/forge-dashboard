@@ -9,6 +9,7 @@ import {
   ResourceTable,
   type Column,
 } from "@forge-go/dashboard-kit/components/resource-table"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { PluginLink, useQuery } from "@forge-go/dashboard-plugin"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
@@ -83,22 +84,22 @@ export const RetentionPage: ComponentType<PluginPageProps> = () => {
           </>
         }
       />
-      <p className="max-w-prose text-sm">
-        A policy removes events in its category once they are older than its
-        duration. A category of * means every category, not a default: a short
-        wildcard overrides a longer specific policy for its category.
-      </p>
-      <QueryBoundary title="retention policies" query={q} skeletonRows={5}>
-        {(data) => (
-          <ResourceTable
-            columns={columns}
-            rows={data.policies}
-            rowKey={(p) => p.id}
-            caption={countOf(data.total, "policy", "policies")}
-            emptyMessage="No retention policies: nothing is removed from this audit trail automatically."
-          />
-        )}
-      </QueryBoundary>
+      <Section
+        aria-label="Policy list"
+        description="A policy removes events in its category once they are older than its duration. A category of * means every category, not a default: a short wildcard overrides a longer specific policy for its category."
+      >
+        <QueryBoundary title="retention policies" query={q} skeletonRows={5}>
+          {(data) => (
+            <ResourceTable
+              columns={columns}
+              rows={data.policies}
+              rowKey={(p) => p.id}
+              caption={countOf(data.total, "policy", "policies")}
+              emptyMessage="No retention policies: nothing is removed from this audit trail automatically."
+            />
+          )}
+        </QueryBoundary>
+      </Section>
       <EnforceDialog open={enforcing} onOpenChange={setEnforcing} />
     </section>
   )

@@ -1,3 +1,4 @@
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import type { ReportDetail } from "../types"
 import { formatSeq } from "../format"
 import { Certificate } from "../verification/certificate"
@@ -37,48 +38,44 @@ export function ReportVerification({ report }: { report: ReportDetail }) {
   )
 
   return (
-    <section
-      aria-labelledby="report-integrity"
-      className="flex min-w-0 flex-col gap-3"
-    >
-      <h2 id="report-integrity" className="text-lg font-medium">
-        Integrity
-      </h2>
-      {reason && <p>{reason}</p>}
-      {/* A verification that came with a contradicting scope is still shown: hiding a result is the one thing this section must not do. */}
-      {v && (
-        <div className="flex min-w-0 flex-col gap-4">
-          {contradicted && (
-            <p className="font-medium">
-              This report&apos;s scope says no verification ran, but it carries
-              a stored result, shown here as it was recorded.
-            </p>
-          )}
-          {!scope && (
-            <p className="font-medium">
-              This report was generated before chronicle recorded what its
-              verification covered, so the range and limits of this check are
-              not known beyond what the result itself says.
-            </p>
-          )}
-          {scope?.capped && scope.fromSeq > 1 && !notesStateCap && (
-            <p className="font-medium">
-              {`Sequences 1 to ${formatSeq(scope.fromSeq - 1)} were not checked: a report verifies at most the newest ${formatSeq(scope.window)} sequences, ending at the head.`}
-            </p>
-          )}
-          <Certificate
-            response={{ noChain: false, report: v }}
-            checkpointingConfigured={scope?.checkpointsConfigured}
-          />
-        </div>
-      )}
-      {scope && scope.notes.length > 0 && (
-        <ul className="list-disc pl-5 text-sm">
-          {scope.notes.map((n, i) => (
-            <li key={`${i}-${n}`}>{n}</li>
-          ))}
-        </ul>
-      )}
-    </section>
+    <Section title="Integrity" inset>
+      <div className="flex min-w-0 flex-col gap-3">
+        {reason && <p>{reason}</p>}
+        {/* A verification that came with a contradicting scope is still shown: hiding a result is the one thing this section must not do. */}
+        {v && (
+          <div className="flex min-w-0 flex-col gap-4">
+            {contradicted && (
+              <p className="font-medium">
+                This report&apos;s scope says no verification ran, but it
+                carries a stored result, shown here as it was recorded.
+              </p>
+            )}
+            {!scope && (
+              <p className="font-medium">
+                This report was generated before chronicle recorded what its
+                verification covered, so the range and limits of this check are
+                not known beyond what the result itself says.
+              </p>
+            )}
+            {scope?.capped && scope.fromSeq > 1 && !notesStateCap && (
+              <p className="font-medium">
+                {`Sequences 1 to ${formatSeq(scope.fromSeq - 1)} were not checked: a report verifies at most the newest ${formatSeq(scope.window)} sequences, ending at the head.`}
+              </p>
+            )}
+            <Certificate
+              response={{ noChain: false, report: v }}
+              checkpointingConfigured={scope?.checkpointsConfigured}
+            />
+          </div>
+        )}
+        {scope && scope.notes.length > 0 && (
+          <ul className="list-disc pl-5 text-sm">
+            {scope.notes.map((n, i) => (
+              <li key={`${i}-${n}`}>{n}</li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </Section>
   )
 }

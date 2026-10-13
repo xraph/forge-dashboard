@@ -8,6 +8,7 @@ import {
 } from "@forge-go/dashboard-kit/components/native-select"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { CommandAlert } from "@forge-go/dashboard-kit/components/query-boundary"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import {
   PluginLink,
   useCommand,
@@ -58,41 +59,43 @@ export const ReportCreatePage: ComponentType<PluginPageProps> = () => {
         title="Could not generate the report"
         error={generate.error}
       />
-      <form
-        onSubmit={(e) => void submit(e)}
-        className="flex max-w-lg min-w-0 flex-col gap-4"
-      >
-        <div className="flex min-w-0 flex-col gap-1.5">
-          <Label htmlFor="report-type">Report type</Label>
-          <NativeSelect
-            id="report-type"
-            value={type}
-            onChange={(e) => setType(e.target.value)}
-          >
-            {TYPES.map((t) => (
-              <NativeSelectOption key={t.value} value={t.value}>
-                {t.label}
-              </NativeSelectOption>
-            ))}
-          </NativeSelect>
-        </div>
-        <PeriodFields
-          value={period}
-          onChange={setPeriod}
-          idPrefix="report-period"
-        />
-        <div className="flex gap-2">
-          <Button type="submit" disabled={!ready}>
-            {generate.loading ? "Generating…" : "Generate report"}
-          </Button>
-          <PluginLink
-            to="/reports"
-            className="self-center text-sm underline underline-offset-4"
-          >
-            Cancel
-          </PluginLink>
-        </div>
-      </form>
+      <Section aria-label="New report" inset className="max-w-lg">
+        <form
+          onSubmit={(e) => void submit(e)}
+          className="flex min-w-0 flex-col gap-4"
+        >
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <Label htmlFor="report-type">Report type</Label>
+            <NativeSelect
+              id="report-type"
+              value={type}
+              onChange={(e) => setType(e.target.value)}
+            >
+              {TYPES.map((t) => (
+                <NativeSelectOption key={t.value} value={t.value}>
+                  {t.label}
+                </NativeSelectOption>
+              ))}
+            </NativeSelect>
+          </div>
+          <PeriodFields
+            value={period}
+            onChange={setPeriod}
+            idPrefix="report-period"
+          />
+          <div className="flex gap-2">
+            <Button type="submit" disabled={!ready}>
+              {generate.loading ? "Generating…" : "Generate report"}
+            </Button>
+            <PluginLink
+              to="/reports"
+              className="self-center text-sm underline underline-offset-4"
+            >
+              Cancel
+            </PluginLink>
+          </div>
+        </form>
+      </Section>
     </section>
   )
 }

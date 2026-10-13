@@ -10,6 +10,7 @@ import {
   CommandAlert,
   QueryBoundary,
 } from "@forge-go/dashboard-kit/components/query-boundary"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { PluginLink, useQuery } from "@forge-go/dashboard-plugin"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
@@ -155,75 +156,80 @@ function Body({ ev }: { ev: EventDetail }) {
   return (
     <DetailLayout
       main={
-        <div className="flex min-w-0 flex-col gap-4">
-          <DescriptionList
-            items={[
-              { term: "Event", value: <Raw value={ev.id} /> },
-              {
-                term: "Action",
-                value: <span className="font-medium">{ev.action}</span>,
-              },
-              {
-                term: "Resource",
-                value: (
-                  <span>
-                    {ev.resource}{" "}
-                    {field(ev.resourceId, "resource id", ev, true)}
-                  </span>
-                ),
-              },
-              { term: "Category", value: ev.category },
-              { term: "Outcome", value: <OutcomeBadge outcome={ev.outcome} /> },
-              {
-                term: "Severity",
-                value: <SeverityBadge severity={ev.severity} />,
-              },
-              {
-                term: "Time",
-                value: <Timestamp value={ev.timestamp} label="time" />,
-              },
-              { term: "Tenant", value: <TenantValue tenantId={ev.tenantId} /> },
-              {
-                term: "User",
-                value: ev.userId ? (
-                  <PluginLink
-                    to={`/users/${encodeURIComponent(ev.userId)}`}
-                    className="font-mono text-xs underline underline-offset-4"
-                  >
-                    {ev.userId}
-                  </PluginLink>
-                ) : (
-                  <NoneCell label="user" />
-                ),
-              },
-              {
-                term: "Subject",
-                value: field(ev.subjectId, "subject", ev, true),
-              },
-              { term: "Encryption key", value: encryptionKey(ev) },
-              {
-                term: "IP address",
-                value: field(ev.ip, "IP address", ev, true),
-              },
-              {
-                term: "User agent",
-                value: field(ev.userAgent, "user agent", ev),
-              },
-              { term: "Reason", value: field(ev.reason, "reason", ev) },
-              {
-                term: "Request",
-                value: field(ev.requestId, "request id", ev, true),
-              },
-              {
-                term: "Session",
-                value: field(ev.sessionId, "session id", ev, true),
-              },
-            ]}
-          />
-          <div>
-            <h2 className="mb-2 text-sm font-medium text-muted-foreground">
-              Metadata
-            </h2>
+        <>
+          <Section title="Details" inset>
+            <DescriptionList
+              items={[
+                { term: "Event", value: <Raw value={ev.id} /> },
+                {
+                  term: "Action",
+                  value: <span className="font-medium">{ev.action}</span>,
+                },
+                {
+                  term: "Resource",
+                  value: (
+                    <span>
+                      {ev.resource}{" "}
+                      {field(ev.resourceId, "resource id", ev, true)}
+                    </span>
+                  ),
+                },
+                { term: "Category", value: ev.category },
+                {
+                  term: "Outcome",
+                  value: <OutcomeBadge outcome={ev.outcome} />,
+                },
+                {
+                  term: "Severity",
+                  value: <SeverityBadge severity={ev.severity} />,
+                },
+                {
+                  term: "Time",
+                  value: <Timestamp value={ev.timestamp} label="time" />,
+                },
+                {
+                  term: "Tenant",
+                  value: <TenantValue tenantId={ev.tenantId} />,
+                },
+                {
+                  term: "User",
+                  value: ev.userId ? (
+                    <PluginLink
+                      to={`/users/${encodeURIComponent(ev.userId)}`}
+                      className="font-mono text-xs underline underline-offset-4"
+                    >
+                      {ev.userId}
+                    </PluginLink>
+                  ) : (
+                    <NoneCell label="user" />
+                  ),
+                },
+                {
+                  term: "Subject",
+                  value: field(ev.subjectId, "subject", ev, true),
+                },
+                { term: "Encryption key", value: encryptionKey(ev) },
+                {
+                  term: "IP address",
+                  value: field(ev.ip, "IP address", ev, true),
+                },
+                {
+                  term: "User agent",
+                  value: field(ev.userAgent, "user agent", ev),
+                },
+                { term: "Reason", value: field(ev.reason, "reason", ev) },
+                {
+                  term: "Request",
+                  value: field(ev.requestId, "request id", ev, true),
+                },
+                {
+                  term: "Session",
+                  value: field(ev.sessionId, "session id", ev, true),
+                },
+              ]}
+            />
+          </Section>
+          <Section title="Metadata" inset>
             {ev.erased && ev.metadata === undefined ? (
               // Erasure drops sealed metadata altogether, so "None" would say the event never had any.
               <p className="text-sm text-muted-foreground">
@@ -232,77 +238,89 @@ function Body({ ev }: { ev: EventDetail }) {
             ) : (
               <JsonView value={ev.metadata} label="metadata" />
             )}
-          </div>
-        </div>
+          </Section>
+        </>
       }
       aside={
-        <div className="flex min-w-0 flex-col gap-4 text-sm">
-          {ev.erased && ev.erasureId ? (
-            <div className="flex min-w-0 flex-col items-start gap-1">
-              <ErasedBadge />
-              <span>
-                {"Erased by "}
-                <PluginLink
-                  to={`/erasures/${encodeURIComponent(ev.erasureId)}`}
-                  className="font-mono text-xs underline underline-offset-4"
-                >
-                  {ev.erasureId}
-                </PluginLink>
-              </span>
-              <Timestamp value={ev.erasedAt} label="erasure time" />
-            </div>
-          ) : null}
-          <DescriptionList
-            items={[
-              {
-                term: "Sequence",
-                value: (
-                  <span className="font-mono text-xs">
-                    {formatSeq(ev.sequence)}
+        <>
+          <Section title="Chain position" inset>
+            <div className="flex min-w-0 flex-col gap-4 text-sm">
+              {ev.erased && ev.erasureId ? (
+                <div className="flex min-w-0 flex-col items-start gap-1">
+                  <ErasedBadge />
+                  <span>
+                    {"Erased by "}
+                    <PluginLink
+                      to={`/erasures/${encodeURIComponent(ev.erasureId)}`}
+                      className="font-mono text-xs underline underline-offset-4"
+                    >
+                      {ev.erasureId}
+                    </PluginLink>
                   </span>
-                ),
-              },
-              { term: "Hash", value: <Raw value={ev.hash} wrap /> },
-              { term: "Previous hash", value: previousHash(ev) },
-              {
-                term: "Digest scheme",
-                value: field(ev.hashScheme, "digest scheme", ev, true),
-              },
-              {
-                term: "Key id",
-                value: field(ev.hashKeyId, "key id", ev, true),
-              },
-              { term: "Chain", value: <Raw value={ev.streamId} /> },
-            ]}
-          />
-          <Button
-            variant="outline"
-            className="self-start"
-            onClick={() => (checking ? verify.refetch() : setChecking(true))}
-            disabled={checking && verify.loading}
-          >
-            Check this event's digest
-          </Button>
-          {/* The store keeps the last answer while it reloads, and an answer is only this check's once it settles. */}
-          {checking && verify.loading && (
-            <p className="text-muted-foreground">Checking the digest...</p>
-          )}
-          {!verify.loading && verify.error && (
-            <CommandAlert
-              title="The digest could not be checked"
-              error={verify.error}
-            />
-          )}
-          {!verify.loading && verify.data && <DigestResult r={verify.data} />}
-          {around && (
-            <PluginLink
-              to={`/chain/${encodeURIComponent(ev.streamId)}/${around.fromSeq}/${around.toSeq}`}
-              className="underline underline-offset-4"
-            >
-              Check the chain around this event
-            </PluginLink>
-          )}
-        </div>
+                  <Timestamp value={ev.erasedAt} label="erasure time" />
+                </div>
+              ) : null}
+              <DescriptionList
+                items={[
+                  {
+                    term: "Sequence",
+                    value: (
+                      <span className="font-mono text-xs">
+                        {formatSeq(ev.sequence)}
+                      </span>
+                    ),
+                  },
+                  { term: "Hash", value: <Raw value={ev.hash} wrap /> },
+                  { term: "Previous hash", value: previousHash(ev) },
+                  {
+                    term: "Digest scheme",
+                    value: field(ev.hashScheme, "digest scheme", ev, true),
+                  },
+                  {
+                    term: "Key id",
+                    value: field(ev.hashKeyId, "key id", ev, true),
+                  },
+                  { term: "Chain", value: <Raw value={ev.streamId} /> },
+                ]}
+              />
+            </div>
+          </Section>
+          <Section title="Digest check" inset>
+            <div className="flex min-w-0 flex-col gap-4 text-sm">
+              <Button
+                variant="outline"
+                className="self-start"
+                onClick={() =>
+                  checking ? verify.refetch() : setChecking(true)
+                }
+                disabled={checking && verify.loading}
+              >
+                Check this event's digest
+              </Button>
+              {/* The store keeps the last answer while it reloads, and an answer is only this check's once it settles. */}
+              {checking && verify.loading && (
+                <p className="text-muted-foreground">Checking the digest...</p>
+              )}
+              {!verify.loading && verify.error && (
+                <CommandAlert
+                  title="The digest could not be checked"
+                  error={verify.error}
+                />
+              )}
+              {!verify.loading && verify.data && (
+                <DigestResult r={verify.data} />
+              )}
+              {around && (
+                <PluginLink
+                  to={`/chain/${encodeURIComponent(ev.streamId)}/${around.fromSeq}/${around.toSeq}`}
+                  className="underline underline-offset-4"
+                >
+                  Check the chain around this event
+                </PluginLink>
+              )}
+            </div>
+          </Section>
+        </>
       }
     />
   )

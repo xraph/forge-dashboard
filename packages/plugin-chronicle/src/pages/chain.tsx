@@ -6,6 +6,7 @@ import {
   CommandAlert,
   QueryBoundary,
 } from "@forge-go/dashboard-kit/components/query-boundary"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { DescriptionList } from "@forge-go/dashboard-kit/components/detail-layout"
 import { useQuery } from "@forge-go/dashboard-plugin"
 import type { PluginPageProps, QueryState } from "@forge-go/dashboard-plugin"
@@ -83,28 +84,30 @@ export const ChainPage: ComponentType<PluginPageProps> = ({ params }) => {
 /** Whether this scope has chains at all is the list's answer, so nothing is said about them until the list has one. */
 function NoOwnChain({ list }: { list: QueryState<StreamListResponse> }) {
   return (
-    <QueryBoundary title="chains" query={list} skeletonRows={2}>
-      {(l) =>
-        l.streams.length === 0 ? (
-          <p className="text-sm">
-            This scope has not recorded any events yet, so there is no chain to
-            show.
-          </p>
-        ) : (
-          <div className="flex min-w-0 flex-col gap-3 text-sm">
-            <p>
-              This app has no app-level chain: its events are recorded under its
-              tenants. Choose a tenant's chain to verify.
+    <Section aria-label="Chain choice" inset>
+      <QueryBoundary title="chains" query={list} skeletonRows={2}>
+        {(l) =>
+          l.streams.length === 0 ? (
+            <p className="text-sm">
+              This scope has not recorded any events yet, so there is no chain
+              to show.
             </p>
-            <ChainPicker
-              streams={l.streams}
-              basePath="/chain"
-              truncated={listTruncated(l)}
-            />
-          </div>
-        )
-      }
-    </QueryBoundary>
+          ) : (
+            <div className="flex min-w-0 flex-col gap-3 text-sm">
+              <p>
+                This app has no app-level chain: its events are recorded under
+                its tenants. Choose a tenant's chain to verify.
+              </p>
+              <ChainPicker
+                streams={l.streams}
+                basePath="/chain"
+                truncated={listTruncated(l)}
+              />
+            </div>
+          )
+        }
+      </QueryBoundary>
+    </Section>
   )
 }
 
@@ -157,93 +160,109 @@ function ChainBody({
     if (runnable) request(typed)
   }
 
+  const showResult =
+    requested !== null &&
+    (verify.loading || verify.error !== undefined || verify.data !== undefined)
+
   return (
-    <div className="flex min-w-0 flex-col gap-4">
-      <Posture stream={stream} />
-      <form
-        className="flex flex-wrap items-end gap-3"
-        onSubmit={(e) => {
-          e.preventDefault()
-          runTyped()
-        }}
-      >
-        <label className="flex min-w-0 flex-col gap-1 text-sm">
-          <span>From sequence</span>
-          <Input
-            aria-label="From sequence"
-            className="w-36 font-mono text-xs"
-            inputMode="numeric"
-            value={from}
-            onChange={(e) => setFrom(e.target.value)}
-          />
-        </label>
-        <label className="flex min-w-0 flex-col gap-1 text-sm">
-          <span>To sequence</span>
-          <Input
-            aria-label="To sequence"
-            aria-invalid={pastHead || undefined}
-            aria-describedby={pastHead ? "chain-head-note" : undefined}
-            className="w-36 font-mono text-xs"
-            inputMode="numeric"
-            value={to}
-            onChange={(e) => setTo(e.target.value)}
-          />
-        </label>
-        <Button type="submit" disabled={!runnable}>
-          Check this range
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          disabled={wholeTooBig}
-          onClick={() => request(whole)}
+    <>
+      <Section title="Posture" inset>
+        <Posture stream={stream} />
+      </Section>
+      <Section title="Check a range" inset>
+        <form
+          className="flex flex-wrap items-end gap-3"
+          onSubmit={(e) => {
+            e.preventDefault()
+            runTyped()
+          }}
         >
-          Check the whole chain
-        </Button>
-        {pastHead && (
-          <p id="chain-head-note" className="basis-full text-sm">
-            {`The chain's head is at sequence ${formatSeq(head)}.`}
-          </p>
-        )}
-        {wholeTooBig && (
-          <p className="basis-full text-sm text-muted-foreground">
-            {`The whole chain is ${formatSeq(head)} sequences. Verification checks at most 100,000 sequences at a time, because it holds every event in the range in memory.`}
-          </p>
-        )}
-      </form>
-      {/*
-        The store keeps an entry's last answer while it reloads, so a range
-        checked before would paint its old result as if it were this one. A
-        verification is only ever shown once the read that produced it settled.
-      */}
-      {requested && verify.loading && (
-        <p className="text-sm text-muted-foreground">Checking the chain...</p>
-      )}
-      {requested && !verify.loading && verify.error && (
-        <div className="flex min-w-0 flex-col gap-2">
-          <CommandAlert
-            title="The chain could not be checked"
-            error={verify.error}
-          />
-          {verify.error.code === "BAD_REQUEST" && recent && (
-            <Button
-              type="button"
-              variant="outline"
-              className="self-start"
-              onClick={() => request(recent)}
-            >
-              {`Check the most recent ${formatSeq(DEFAULT_WINDOW)} instead`}
-            </Button>
+          <label className="flex min-w-0 flex-col gap-1 text-sm">
+            <span>From sequence</span>
+            <Input
+              aria-label="From sequence"
+              className="w-36 font-mono text-xs"
+              inputMode="numeric"
+              value={from}
+              onChange={(e) => setFrom(e.target.value)}
+            />
+          </label>
+          <label className="flex min-w-0 flex-col gap-1 text-sm">
+            <span>To sequence</span>
+            <Input
+              aria-label="To sequence"
+              aria-invalid={pastHead || undefined}
+              aria-describedby={pastHead ? "chain-head-note" : undefined}
+              className="w-36 font-mono text-xs"
+              inputMode="numeric"
+              value={to}
+              onChange={(e) => setTo(e.target.value)}
+            />
+          </label>
+          <Button type="submit" disabled={!runnable}>
+            Check this range
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={wholeTooBig}
+            onClick={() => request(whole)}
+          >
+            Check the whole chain
+          </Button>
+          {pastHead && (
+            <p id="chain-head-note" className="basis-full text-sm">
+              {`The chain's head is at sequence ${formatSeq(head)}.`}
+            </p>
           )}
-        </div>
+          {wholeTooBig && (
+            <p className="basis-full text-sm text-muted-foreground">
+              {`The whole chain is ${formatSeq(head)} sequences. Verification checks at most 100,000 sequences at a time, because it holds every event in the range in memory.`}
+            </p>
+          )}
+        </form>
+      </Section>
+      {showResult && (
+        <Section aria-label="Verification result" inset>
+          <div className="flex min-w-0 flex-col gap-4">
+            {/*
+              The store keeps an entry's last answer while it reloads, so a range
+              checked before would paint its old result as if it were this one. A
+              verification is only ever shown once the read that produced it settled.
+            */}
+            {requested && verify.loading && (
+              <p className="text-sm text-muted-foreground">
+                Checking the chain...
+              </p>
+            )}
+            {requested && !verify.loading && verify.error && (
+              <div className="flex min-w-0 flex-col gap-2">
+                <CommandAlert
+                  title="The chain could not be checked"
+                  error={verify.error}
+                />
+                {verify.error.code === "BAD_REQUEST" && recent && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="self-start"
+                    onClick={() => request(recent)}
+                  >
+                    {`Check the most recent ${formatSeq(DEFAULT_WINDOW)} instead`}
+                  </Button>
+                )}
+              </div>
+            )}
+            {requested && !verify.loading && verify.data && (
+              <Certificate
+                response={verify.data}
+                checkpointingConfigured={stream.checkpointingConfigured}
+              />
+            )}
+          </div>
+        </Section>
       )}
-      {requested && !verify.loading && verify.data && (
-        <Certificate
-          response={verify.data}
-          checkpointingConfigured={stream.checkpointingConfigured}
-        />
-      )}
-    </div>
+    </>
   )
 }
 

@@ -7,6 +7,7 @@ import {
   ResourceTable,
   type Column,
 } from "@forge-go/dashboard-kit/components/resource-table"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { useQuery } from "@forge-go/dashboard-plugin"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
@@ -89,34 +90,36 @@ export const ArchivesPage: ComponentType<PluginPageProps> = () => {
         title="Archives"
         description="Events a retention run wrote to an archive sink before removing them."
       />
-      <QueryBoundary title="archives" query={q} skeletonRows={5}>
-        {(data) => (
-          <>
-            <ResourceTable
-              columns={columns}
-              rows={data.archives}
-              rowKey={(a) => a.id}
-              caption={`${countOf(data.archives.length, "archive", "archives")} shown`}
-              emptyMessage="No retention run has archived anything yet."
-            />
-            {/* The store keeps no count, so there is no "page 2 of N": only whether another page exists. */}
-            <div className="flex justify-end gap-2">
-              <IconButton
-                variant="outline"
-                disabled={offset === 0}
-                onClick={() => setOffset(Math.max(0, offset - PAGE))}
-                label="Previous page"
+      <Section aria-label="Archive list">
+        <QueryBoundary title="archives" query={q} skeletonRows={5}>
+          {(data) => (
+            <>
+              <ResourceTable
+                columns={columns}
+                rows={data.archives}
+                rowKey={(a) => a.id}
+                caption={`${countOf(data.archives.length, "archive", "archives")} shown`}
+                emptyMessage="No retention run has archived anything yet."
               />
-              <IconButton
-                variant="outline"
-                disabled={!data.hasMore}
-                onClick={() => setOffset(offset + PAGE)}
-                label="Next page"
-              />
-            </div>
-          </>
-        )}
-      </QueryBoundary>
+              {/* The store keeps no count, so there is no "page 2 of N": only whether another page exists. */}
+              <nav aria-label="Pagination" className="flex justify-end gap-2">
+                <IconButton
+                  variant="outline"
+                  disabled={offset === 0}
+                  onClick={() => setOffset(Math.max(0, offset - PAGE))}
+                  label="Previous page"
+                />
+                <IconButton
+                  variant="outline"
+                  disabled={!data.hasMore}
+                  onClick={() => setOffset(offset + PAGE)}
+                  label="Next page"
+                />
+              </nav>
+            </>
+          )}
+        </QueryBoundary>
+      </Section>
     </section>
   )
 }

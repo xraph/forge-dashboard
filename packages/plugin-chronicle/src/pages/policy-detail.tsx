@@ -11,6 +11,7 @@ import {
   CommandAlert,
   QueryBoundary,
 } from "@forge-go/dashboard-kit/components/query-boundary"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import {
   PluginLink,
@@ -73,50 +74,65 @@ function PolicyView({
   onDeleted: () => void
 }) {
   return (
-    <div className="flex min-w-0 flex-col gap-4">
-      <DescriptionList
-        items={[
-          {
-            term: "Policy",
-            value: <span className="font-mono text-xs">{policy.id}</span>,
-          },
-          { term: "Category", value: categoryLabel(policy.category) },
-          { term: "Keeps for", value: durationLabel(policy.duration) },
-          {
-            term: "Archive",
-            value: policy.archive ? "Archived first" : "Not archived",
-          },
-          { term: "Scope", value: policyScopeLabel(policy) },
-          {
-            term: "App",
-            value: <span className="font-mono text-xs">{policy.appId}</span>,
-          },
-          {
-            term: "Created",
-            value: <Timestamp value={policy.createdAt} label="creation time" />,
-          },
-          {
-            term: "Updated",
-            value: <Timestamp value={policy.updatedAt} label="update time" />,
-          },
-        ]}
-      />
-      {!policy.tenantId && (
-        <p className="max-w-prose text-sm">
-          This policy has no tenant, so it removes events from every tenant in
-          the app.
-        </p>
-      )}
-      {policy.editable ? (
+    <>
+      <Section title="Details" inset>
+        <div className="flex min-w-0 flex-col gap-4">
+          <DescriptionList
+            items={[
+              {
+                term: "Policy",
+                value: <span className="font-mono text-xs">{policy.id}</span>,
+              },
+              { term: "Category", value: categoryLabel(policy.category) },
+              { term: "Keeps for", value: durationLabel(policy.duration) },
+              {
+                term: "Archive",
+                value: policy.archive ? "Archived first" : "Not archived",
+              },
+              { term: "Scope", value: policyScopeLabel(policy) },
+              {
+                term: "App",
+                value: (
+                  <span className="font-mono text-xs">{policy.appId}</span>
+                ),
+              },
+              {
+                term: "Created",
+                value: (
+                  <Timestamp value={policy.createdAt} label="creation time" />
+                ),
+              },
+              {
+                term: "Updated",
+                value: (
+                  <Timestamp value={policy.updatedAt} label="update time" />
+                ),
+              },
+            ]}
+          />
+          {!policy.tenantId && (
+            <p className="max-w-prose text-sm">
+              This policy has no tenant, so it removes events from every tenant
+              in the app.
+            </p>
+          )}
+          {!policy.editable && (
+            <p className="max-w-prose text-sm">
+              This policy is set at the app level and applies to your tenant. An
+              app-wide operator manages it.
+            </p>
+          )}
+        </div>
+      </Section>
+      {policy.editable && (
         <>
-          <EditForm policy={policy} />
-          <DeleteAction policy={policy} onDeleted={onDeleted} />
+          <Section title="Edit policy" inset>
+            <EditForm policy={policy} />
+          </Section>
+          <Section title="Danger zone" inset>
+            <DeleteAction policy={policy} onDeleted={onDeleted} />
+          </Section>
         </>
-      ) : (
-        <p className="max-w-prose text-sm">
-          This policy is set at the app level and applies to your tenant. An
-          app-wide operator manages it.
-        </p>
       )}
       <PluginLink
         to="/retention"
@@ -124,7 +140,7 @@ function PolicyView({
       >
         Back to retention
       </PluginLink>
-    </div>
+    </>
   )
 }
 

@@ -7,6 +7,7 @@ import {
   ResourceTable,
   type Column,
 } from "@forge-go/dashboard-kit/components/resource-table"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { PluginLink, useQuery } from "@forge-go/dashboard-plugin"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
@@ -95,28 +96,30 @@ export const ErasuresPage: ComponentType<PluginPageProps> = () => {
           </Button>
         }
       />
-      <QueryBoundary title="erasures" query={q} skeletonRows={6}>
-        {(data) => (
-          <ResourceTable
-            columns={columns}
-            rows={data.erasures}
-            rowKey={(e) => e.id}
-            caption={pageOf(
-              data.erasures.length,
-              data.total,
-              "erasure",
-              "erasures"
-            )}
-            emptyMessage="No erasures have been requested in this scope."
-            pagination={{
-              page: offset / PAGE + 1,
-              pageSize: PAGE,
-              total: data.total,
-            }}
-            onPageChange={(page) => setOffset((page - 1) * PAGE)}
-          />
-        )}
-      </QueryBoundary>
+      <Section aria-label="Erasure list">
+        <QueryBoundary title="erasures" query={q} skeletonRows={6}>
+          {(data) => (
+            <ResourceTable
+              columns={columns}
+              rows={data.erasures}
+              rowKey={(e) => e.id}
+              caption={pageOf(
+                data.erasures.length,
+                data.total,
+                "erasure",
+                "erasures"
+              )}
+              emptyMessage="No erasures have been requested in this scope."
+              pagination={{
+                page: offset / PAGE + 1,
+                pageSize: PAGE,
+                total: data.total,
+              }}
+              onPageChange={(page) => setOffset((page - 1) * PAGE)}
+            />
+          )}
+        </QueryBoundary>
+      </Section>
       <ErasureRequestDialog open={requesting} onOpenChange={setRequesting} />
     </section>
   )

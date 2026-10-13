@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor } from "@testing-library/react"
+import { fireEvent, screen, waitFor, within } from "@testing-library/react"
 import { describe, expect, it } from "vitest"
 import { ContractError } from "@forge-go/dashboard-plugin"
 import { ChainPage } from "../src/pages/chain"
@@ -36,6 +36,13 @@ function client(over: Record<string, unknown> = {}) {
     ...over,
   })
 }
+
+/** The certificate's headline: the one h2 inside the verification result panel. */
+const verdictHeading = () =>
+  within(screen.getByRole("region", { name: "Verification result" })).getByRole(
+    "heading",
+    { level: 2 }
+  )
 
 describe("ChainPage", () => {
   it("shows the posture and runs nothing until asked", async () => {
@@ -436,9 +443,7 @@ describe("ChainPage, a chain wiped to head zero", () => {
     expect(
       c.queried.filter((q) => q.intent === "verify.run").map((q) => q.params)
     ).toEqual([{ streamId: "stream_acme" }])
-    expect(screen.getByRole("heading", { level: 2 }).className).toContain(
-      "text-destructive"
-    )
+    expect(verdictHeading().className).toContain("text-destructive")
   })
 
   it("says the gap check did not run when nothing was examined", async () => {
@@ -507,23 +512,21 @@ describe("ChainPage, never a cached verification", () => {
     fireEvent.click(
       await screen.findByRole("button", { name: "Check this range" })
     )
-    await waitFor(() =>
-      expect(screen.getByRole("heading", { level: 2 }).textContent).toContain(
-        "2,432"
-      )
-    )
+    await waitFor(() => expect(verdictHeading().textContent).toContain("2,432"))
     setRange("100", "200")
     fireEvent.click(screen.getByRole("button", { name: "Check this range" }))
     await waitFor(() =>
-      expect(screen.getByRole("heading", { level: 2 }).textContent).toContain(
-        "100 to 200"
-      )
+      expect(verdictHeading().textContent).toContain("100 to 200")
     )
     setRange("2432", "12431")
     fireEvent.click(screen.getByRole("button", { name: "Check this range" }))
     await waitFor(() => expect(aCalls).toBe(2))
     expect(screen.getByText("Checking the chain...")).toBeTruthy()
-    expect(screen.queryByRole("heading", { level: 2 })).toBeNull()
+    expect(
+      within(
+        screen.getByRole("region", { name: "Verification result" })
+      ).queryByRole("heading", { level: 2 })
+    ).toBeNull()
   })
 
   it("shows the check running, not the last answer, when the same range is asked again", async () => {
