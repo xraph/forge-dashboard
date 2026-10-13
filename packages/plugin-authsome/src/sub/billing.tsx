@@ -20,10 +20,10 @@ import { Textarea } from "@forge-go/dashboard-kit/components/textarea"
 import { ZeroState } from "@forge-go/dashboard-kit/components/zero-state"
 import { CreditCard } from "@forge-go/dashboard-kit/icons"
 import { Section } from "@forge-go/dashboard-kit/components/section"
+import { DescriptionList } from "@forge-go/dashboard-kit/components/detail-layout"
 import {
   PageLink,
   ResourceTable,
-  DescriptionList,
   type Column,
 } from "../components/presentation"
 import type {
@@ -726,57 +726,65 @@ export function SubscriptionsPage() {
       <CommandAlert error={resume.error} title="Could not complete action" />
       <CommandAlert error={cancel.error} title="Could not complete action" />
       <CommandAlert error={change.error} title="Could not complete action" />
-      <QueryBoundary title="Subscriptions" query={query}>
-        {(data) => (
-          <ResourceTable
-            columns={columns}
-            rows={data.subscriptions ?? []}
-            rowKey={(item) => item.id}
-            caption={`${data.subscriptions?.length ?? 0} subscriptions`}
-            emptyMessage="No subscriptions yet."
-            rowActions={(item) => (
-              <div className="flex flex-wrap gap-1">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => {
-                    setChangeTarget(item.id)
-                    setNewPlanId(item.planId)
-                  }}
-                >
-                  Change plan
-                </Button>
-                {item.status === "paused" ? (
+      <Section aria-label="Subscription list">
+        <QueryBoundary title="Subscriptions" query={query}>
+          {(data) => (
+            <ResourceTable
+              columns={columns}
+              rows={data.subscriptions ?? []}
+              rowKey={(item) => item.id}
+              caption={`${data.subscriptions?.length ?? 0} subscriptions`}
+              emptyMessage="No subscriptions yet."
+              rowActions={(item) => (
+                <div className="flex flex-wrap gap-1">
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => setTarget({ id: item.id, action: "resume" })}
+                    onClick={() => {
+                      setChangeTarget(item.id)
+                      setNewPlanId(item.planId)
+                    }}
                   >
-                    Resume
+                    Change plan
                   </Button>
-                ) : item.status === "active" || item.status === "trialing" ? (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setTarget({ id: item.id, action: "pause" })}
-                  >
-                    Pause
-                  </Button>
-                ) : null}
-                {item.status !== "canceled" && !item.cancelAt && (
-                  <Button
-                    size="sm"
-                    variant="destructive"
-                    onClick={() => setTarget({ id: item.id, action: "cancel" })}
-                  >
-                    Cancel
-                  </Button>
-                )}
-              </div>
-            )}
-          />
-        )}
-      </QueryBoundary>
+                  {item.status === "paused" ? (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() =>
+                        setTarget({ id: item.id, action: "resume" })
+                      }
+                    >
+                      Resume
+                    </Button>
+                  ) : item.status === "active" || item.status === "trialing" ? (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() =>
+                        setTarget({ id: item.id, action: "pause" })
+                      }
+                    >
+                      Pause
+                    </Button>
+                  ) : null}
+                  {item.status !== "canceled" && !item.cancelAt && (
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      onClick={() =>
+                        setTarget({ id: item.id, action: "cancel" })
+                      }
+                    >
+                      Cancel
+                    </Button>
+                  )}
+                </div>
+              )}
+            />
+          )}
+        </QueryBoundary>
+      </Section>
       {changeTarget && (
         <Section
           inset
@@ -952,37 +960,43 @@ export function InvoicesPage() {
         error={voidInvoice.error}
         title="Could not complete action"
       />
-      <QueryBoundary title="Invoices" query={query}>
-        {(data) => (
-          <ResourceTable
-            columns={columns}
-            rows={data.invoices ?? []}
-            rowKey={(item) => item.id}
-            caption={`${data.invoices?.length ?? 0} invoices`}
-            emptyMessage="No invoices yet."
-            rowActions={(item) =>
-              item.status === "paid" || item.status === "voided" ? null : (
-                <div className="flex gap-1">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setTarget({ invoice: item, action: "paid" })}
-                  >
-                    Mark paid
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setTarget({ invoice: item, action: "void" })}
-                  >
-                    Void
-                  </Button>
-                </div>
-              )
-            }
-          />
-        )}
-      </QueryBoundary>
+      <Section aria-label="Invoice list">
+        <QueryBoundary title="Invoices" query={query}>
+          {(data) => (
+            <ResourceTable
+              columns={columns}
+              rows={data.invoices ?? []}
+              rowKey={(item) => item.id}
+              caption={`${data.invoices?.length ?? 0} invoices`}
+              emptyMessage="No invoices yet."
+              rowActions={(item) =>
+                item.status === "paid" || item.status === "voided" ? null : (
+                  <div className="flex gap-1">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() =>
+                        setTarget({ invoice: item, action: "paid" })
+                      }
+                    >
+                      Mark paid
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() =>
+                        setTarget({ invoice: item, action: "void" })
+                      }
+                    >
+                      Void
+                    </Button>
+                  </div>
+                )
+              }
+            />
+          )}
+        </QueryBoundary>
+      </Section>
       {target && (
         <Section
           inset
@@ -1206,26 +1220,28 @@ export function CouponsPage() {
         <CommandAlert error={create.error} title="Could not complete action" />
       </Section>
       <CommandAlert error={remove.error} title="Could not complete action" />
-      <QueryBoundary title="Coupons" query={query}>
-        {(data) => (
-          <ResourceTable
-            columns={columns}
-            rows={data.coupons ?? []}
-            rowKey={(item) => item.id}
-            caption={`${data.coupons?.length ?? 0} coupons`}
-            emptyMessage="No coupons yet."
-            rowActions={(item) => (
-              <Button
-                size="sm"
-                variant="destructive"
-                onClick={() => setTarget(item)}
-              >
-                Delete
-              </Button>
-            )}
-          />
-        )}
-      </QueryBoundary>
+      <Section aria-label="Coupon list">
+        <QueryBoundary title="Coupons" query={query}>
+          {(data) => (
+            <ResourceTable
+              columns={columns}
+              rows={data.coupons ?? []}
+              rowKey={(item) => item.id}
+              caption={`${data.coupons?.length ?? 0} coupons`}
+              emptyMessage="No coupons yet."
+              rowActions={(item) => (
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  onClick={() => setTarget(item)}
+                >
+                  Delete
+                </Button>
+              )}
+            />
+          )}
+        </QueryBoundary>
+      </Section>
       <ConfirmDialog
         open={!!target}
         onOpenChange={(open) => !open && setTarget(null)}
@@ -1414,37 +1430,39 @@ export function BillingFeaturesPage() {
         <CommandAlert error={command.error} title="Could not save feature" />
       </Section>
       <CommandAlert error={archive.error} title="Could not archive feature" />
-      <QueryBoundary title="Feature catalog" query={query}>
-        {(data) => (
-          <ResourceTable
-            columns={columns}
-            rows={data.features ?? []}
-            rowKey={(item) => item.id}
-            caption={`${data.features?.length ?? 0} features`}
-            emptyMessage="No catalog features yet."
-            rowActions={(item) => (
-              <div className="flex gap-1">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => select(item)}
-                >
-                  Edit
-                </Button>
-                {item.status !== "archived" && (
+      <Section aria-label="Feature list">
+        <QueryBoundary title="Feature catalog" query={query}>
+          {(data) => (
+            <ResourceTable
+              columns={columns}
+              rows={data.features ?? []}
+              rowKey={(item) => item.id}
+              caption={`${data.features?.length ?? 0} features`}
+              emptyMessage="No catalog features yet."
+              rowActions={(item) => (
+                <div className="flex gap-1">
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => setTarget(item)}
+                    onClick={() => select(item)}
                   >
-                    Archive
+                    Edit
                   </Button>
-                )}
-              </div>
-            )}
-          />
-        )}
-      </QueryBoundary>
+                  {item.status !== "archived" && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setTarget(item)}
+                    >
+                      Archive
+                    </Button>
+                  )}
+                </div>
+              )}
+            />
+          )}
+        </QueryBoundary>
+      </Section>
       <ConfirmDialog
         open={!!target}
         onOpenChange={(open) => !open && setTarget(null)}
@@ -1585,7 +1603,7 @@ export function SubscriptionDetailPage({ params }: PluginPageProps) {
                 )}
               </div>
             </Section>
-            <Section inset title="Usage">
+            <Section title="Usage">
               <ResourceTable
                 columns={[
                   {
@@ -1612,7 +1630,7 @@ export function SubscriptionDetailPage({ params }: PluginPageProps) {
                 emptyMessage="No usage data for this subscription."
               />
             </Section>
-            <Section inset title="Invoices">
+            <Section title="Invoices">
               <ResourceTable
                 columns={[
                   {
@@ -1742,7 +1760,7 @@ export function InvoiceDetailPage({ params }: PluginPageProps) {
                 ]}
               />
             </Section>
-            <Section inset title="Line items">
+            <Section title="Line items">
               <ResourceTable
                 columns={[
                   {

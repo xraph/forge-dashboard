@@ -146,8 +146,10 @@ export function NotificationsPage() {
         item.versions?.map((version) => version.locale).join(", ") || "None",
     },
   ]
+  const countByChannel = (name: string) =>
+    (query.data?.templates ?? []).filter((item) => item.channel === name).length
   return (
-    <section className="flex min-w-0 flex-col gap-3">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Notifications"
         actions={
@@ -202,129 +204,132 @@ export function NotificationsPage() {
           </div>
         </div>
         <TabsContent value="templates" className="pt-2">
-          <QueryBoundary title="Notifications" query={query}>
-            {(data) => {
-              const templates = (data.templates ?? []).filter(
-                (item) =>
-                  (channel === "all" || item.channel === channel) &&
-                  `${item.name} ${item.slug}`
-                    .toLowerCase()
-                    .includes(search.toLowerCase())
-              )
-              const countByChannel = (name: string) =>
-                (data.templates ?? []).filter((item) => item.channel === name)
-                  .length
-              return (
-                <div className="space-y-2">
-                  <div className="flex flex-wrap gap-2">
-                    <Input
-                      aria-label="Search templates"
-                      placeholder="Search templates"
-                      value={search}
-                      onChange={(event) => setSearch(event.target.value)}
-                      className="min-w-40 flex-1 sm:w-64 sm:flex-none"
-                    />
-                    <select
-                      aria-label="Channel"
-                      className={`${fieldClass} max-w-36 sm:max-w-40`}
-                      value={channel}
-                      onChange={(event) => setChannel(event.target.value)}
-                    >
-                      <option value="all">All channels</option>
-                      {channels.map((item) => (
-                        <option key={item} value={item}>
-                          {item} ({countByChannel(item)})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  {templates.length ? (
-                    <ResourceTable
-                      appearance="quiet"
-                      columns={columns}
-                      rows={templates}
-                      rowKey={(item) => item.id}
-                      caption="Notification templates"
-                      emptyMessage="No templates yet."
-                    />
-                  ) : (
-                    <ZeroState
-                      title={
-                        search || channel !== "all"
-                          ? "No matching templates"
-                          : "No templates yet"
-                      }
-                      body={
-                        search || channel !== "all"
-                          ? "Try another name or channel."
-                          : "Create a template to define the content sent to recipients."
-                      }
-                      illustration={<FileText className="size-6" />}
-                      action={
-                        !(search || channel !== "all") && (
-                          <PageLink to="/notifications/templates/new" primary>
-                            Create template
-                          </PageLink>
-                        )
-                      }
-                    />
-                  )}
-                </div>
-              )
-            }}
-          </QueryBoundary>
-        </TabsContent>
-        <TabsContent value="mappings" className="pt-2">
-          <QueryBoundary title="Notification mappings" query={mappings}>
-            {(data) =>
-              data.mappings?.length ? (
-                <ResourceTable<Mapping>
-                  appearance="quiet"
-                  columns={[
-                    {
-                      id: "action",
-                      header: "Event",
-                      cell: (item) => (
-                        <span className="font-mono text-xs">{item.action}</span>
-                      ),
-                    },
-                    {
-                      id: "template",
-                      header: "Template",
-                      cell: (item) => item.template,
-                    },
-                    {
-                      id: "channels",
-                      header: "Channels",
-                      cell: (item) => item.channels.join(", "),
-                    },
-                    {
-                      id: "status",
-                      header: "Status",
-                      cell: (item) => (
-                        <Badge variant="ghost" className="gap-1 px-0">
-                          <span
-                            className={`size-1.5 rounded-full ${item.enabled ? "bg-emerald-500" : "bg-muted-foreground"}`}
-                          />
-                          {item.enabled ? "Enabled" : "Disabled"}
-                        </Badge>
-                      ),
-                    },
-                  ]}
-                  rows={data.mappings}
-                  rowKey={(item) => item.action}
-                  caption="Notification event mappings"
-                  emptyMessage="No event mappings configured."
-                />
-              ) : (
-                <ZeroState
-                  title="No event mappings"
-                  body="Map an Authsome event to a template in the notification plugin configuration."
-                  illustration={<Bell className="size-6" />}
-                />
+          <Section
+            aria-label="Template list"
+            actions={
+              query.data && (
+                <>
+                  <Input
+                    aria-label="Search templates"
+                    placeholder="Search templates"
+                    value={search}
+                    onChange={(event) => setSearch(event.target.value)}
+                    className="min-w-40 flex-1 sm:w-64 sm:flex-none"
+                  />
+                  <select
+                    aria-label="Channel"
+                    className={`${fieldClass} max-w-36 sm:max-w-40`}
+                    value={channel}
+                    onChange={(event) => setChannel(event.target.value)}
+                  >
+                    <option value="all">All channels</option>
+                    {channels.map((item) => (
+                      <option key={item} value={item}>
+                        {item} ({countByChannel(item)})
+                      </option>
+                    ))}
+                  </select>
+                </>
               )
             }
-          </QueryBoundary>
+          >
+            <QueryBoundary title="Notifications" query={query}>
+              {(data) => {
+                const templates = (data.templates ?? []).filter(
+                  (item) =>
+                    (channel === "all" || item.channel === channel) &&
+                    `${item.name} ${item.slug}`
+                      .toLowerCase()
+                      .includes(search.toLowerCase())
+                )
+                return templates.length ? (
+                  <ResourceTable
+                    columns={columns}
+                    rows={templates}
+                    rowKey={(item) => item.id}
+                    caption="Notification templates"
+                    emptyMessage="No templates yet."
+                  />
+                ) : (
+                  <ZeroState
+                    title={
+                      search || channel !== "all"
+                        ? "No matching templates"
+                        : "No templates yet"
+                    }
+                    body={
+                      search || channel !== "all"
+                        ? "Try another name or channel."
+                        : "Create a template to define the content sent to recipients."
+                    }
+                    illustration={<FileText className="size-6" />}
+                    action={
+                      !(search || channel !== "all") && (
+                        <PageLink to="/notifications/templates/new" primary>
+                          Create template
+                        </PageLink>
+                      )
+                    }
+                  />
+                )
+              }}
+            </QueryBoundary>
+          </Section>
+        </TabsContent>
+        <TabsContent value="mappings" className="pt-2">
+          <Section aria-label="Event mapping list">
+            <QueryBoundary title="Notification mappings" query={mappings}>
+              {(data) =>
+                data.mappings?.length ? (
+                  <ResourceTable<Mapping>
+                    columns={[
+                      {
+                        id: "action",
+                        header: "Event",
+                        cell: (item) => (
+                          <span className="font-mono text-xs">
+                            {item.action}
+                          </span>
+                        ),
+                      },
+                      {
+                        id: "template",
+                        header: "Template",
+                        cell: (item) => item.template,
+                      },
+                      {
+                        id: "channels",
+                        header: "Channels",
+                        cell: (item) => item.channels.join(", "),
+                      },
+                      {
+                        id: "status",
+                        header: "Status",
+                        cell: (item) => (
+                          <Badge variant="ghost" className="gap-1 px-0">
+                            <span
+                              className={`size-1.5 rounded-full ${item.enabled ? "bg-emerald-500" : "bg-muted-foreground"}`}
+                            />
+                            {item.enabled ? "Enabled" : "Disabled"}
+                          </Badge>
+                        ),
+                      },
+                    ]}
+                    rows={data.mappings}
+                    rowKey={(item) => item.action}
+                    caption="Notification event mappings"
+                    emptyMessage="No event mappings configured."
+                  />
+                ) : (
+                  <ZeroState
+                    title="No event mappings"
+                    body="Map an Authsome event to a template in the notification plugin configuration."
+                    illustration={<Bell className="size-6" />}
+                  />
+                )
+              }
+            </QueryBoundary>
+          </Section>
         </TabsContent>
       </Tabs>
       <ConfirmDialog

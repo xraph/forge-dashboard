@@ -1,6 +1,5 @@
 import { useRef, useState } from "react"
 import {
-  Building2,
   MailPlus,
   Pencil,
   Trash2,
@@ -27,7 +26,7 @@ import {
 } from "@forge-go/dashboard-kit/components/native-select"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { ConfirmDialog } from "@forge-go/dashboard-kit/components/confirm-dialog"
-import { DescriptionList } from "../components/presentation"
+import { DescriptionList } from "@forge-go/dashboard-kit/components/detail-layout"
 import {
   CommandAlert,
   QueryBoundary,
@@ -218,21 +217,23 @@ export function OrgListPage() {
         There is no cursor, no limit and nothing here to page - a Next button
         would be a control for a server behaviour that does not exist.
       */}
-      <QueryBoundary title="Organizations" query={query} skeletonRows={5}>
-        {(data) => {
-          const rows = data.organizations ?? []
-          const caption = `${rows.length} ${rows.length === 1 ? "organization" : "organizations"}`
-          return (
-            <ResourceTable<OrgSummary>
-              columns={columns}
-              rows={rows}
-              rowKey={(org) => org.id}
-              caption={caption}
-              emptyMessage="No organizations yet."
-            />
-          )
-        }}
-      </QueryBoundary>
+      <Section aria-label="Organization list">
+        <QueryBoundary title="Organizations" query={query} skeletonRows={5}>
+          {(data) => {
+            const rows = data.organizations ?? []
+            const caption = `${rows.length} ${rows.length === 1 ? "organization" : "organizations"}`
+            return (
+              <ResourceTable<OrgSummary>
+                columns={columns}
+                rows={rows}
+                rowKey={(org) => org.id}
+                caption={caption}
+                emptyMessage="No organizations yet."
+              />
+            )
+          }}
+        </QueryBoundary>
+      </Section>
     </section>
   )
 }
@@ -416,194 +417,194 @@ function OrgMembers({ orgId }: { orgId: string }) {
   ]
 
   return (
-    <div className="flex min-w-0 flex-col gap-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <h3 className="text-sm font-semibold">Members</h3>
-          <p className="text-xs text-muted-foreground">
-            Add an existing user by email or ID, or invite someone new.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => {
-              addMember.reset()
-              setAdding(true)
-            }}
-          >
-            Add member
-          </Button>
-          <Button
-            size="sm"
-            onClick={() => {
-              createInvitation.reset()
-              setInviting(true)
-            }}
-          >
-            Create invitation
-          </Button>
-        </div>
-      </div>
-      <QueryBoundary title="Members" query={query} skeletonRows={3}>
-        {(data) => {
-          const members = data.members ?? []
-          const caption = `${members.length} ${members.length === 1 ? "member" : "members"}`
-          return members.length === 0 ? (
-            <ZeroState
-              title="No members yet"
-              body="Add an existing user or create an invitation to bring someone into this organization."
-              action={
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => {
-                    addMember.reset()
-                    setAdding(true)
-                  }}
-                >
-                  Add member
-                </Button>
-              }
-            />
-          ) : (
-            <>
-              <div className="grid min-w-0 gap-2 sm:hidden">
-                <p className="text-xs text-muted-foreground">{caption}</p>
-                {members.map((member) => (
-                  <div
-                    key={member.id}
-                    className="flex flex-wrap items-center justify-between gap-2 rounded-md border bg-card p-3"
-                  >
-                    <div className="min-w-0 space-y-1">
-                      <PluginLink
-                        to={`/users/${member.userId}`}
-                        className="block font-mono text-xs font-medium break-all underline-offset-4 hover:underline"
-                      >
-                        {member.userId}
-                      </PluginLink>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <RoleBadge role={member.role} />
-                        <span className="text-xs text-muted-foreground">
-                          Joined {formatTimestamp(member.createdAt)}
-                        </span>
-                      </div>
-                    </div>
-                    {removeAction(member)}
-                  </div>
-                ))}
-              </div>
-              <div className="hidden sm:block">
-                <ResourceTable<MemberSummary>
-                  columns={columns}
-                  rows={members}
-                  rowKey={(member) => member.id}
-                  caption={caption}
-                  emptyMessage="No members yet."
-                  rowActions={removeAction}
-                />
-              </div>
-            </>
-          )
-        }}
-      </QueryBoundary>
-
-      <h3 className="pt-2 text-sm font-semibold">Invitations</h3>
-      <QueryBoundary
-        title="Invitations"
-        query={invitationsQuery}
-        skeletonRows={2}
+    <div className="flex min-w-0 flex-col gap-4">
+      <Section
+        title="Members"
+        description="Add an existing user by email or ID, or invite someone new."
+        actions={
+          <>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                addMember.reset()
+                setAdding(true)
+              }}
+            >
+              Add member
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => {
+                createInvitation.reset()
+                setInviting(true)
+              }}
+            >
+              Create invitation
+            </Button>
+          </>
+        }
       >
-        {(data) => {
-          const invitations = data.invitations ?? []
-          if (invitations.length === 0)
-            return (
+        <QueryBoundary title="Members" query={query} skeletonRows={3}>
+          {(data) => {
+            const members = data.members ?? []
+            const caption = `${members.length} ${members.length === 1 ? "member" : "members"}`
+            return members.length === 0 ? (
               <ZeroState
-                title="No invitations yet"
-                body="Create an invitation for someone who needs access to this organization."
-                illustration={<MailPlus className="size-6 stroke-[1.5]" />}
+                title="No members yet"
+                body="Add an existing user or create an invitation to bring someone into this organization."
                 action={
                   <Button
                     size="sm"
                     variant="outline"
                     onClick={() => {
-                      createInvitation.reset()
-                      setInviting(true)
+                      addMember.reset()
+                      setAdding(true)
                     }}
                   >
-                    Create invitation
+                    Add member
                   </Button>
                 }
               />
-            )
-          const columns: Column<InvitationSummary>[] = [
-            {
-              id: "email",
-              header: "Email",
-              className: "font-medium",
-              cell: (inv) => inv.email,
-            },
-            {
-              id: "role",
-              header: "Role",
-              cell: (inv) => <RoleBadge role={inv.role} />,
-            },
-            {
-              id: "status",
-              header: "Status",
-              cell: (inv) => (
-                <Badge
-                  variant={inv.status === "pending" ? "secondary" : "outline"}
-                >
-                  {inv.status}
-                </Badge>
-              ),
-            },
-            {
-              id: "expiresAt",
-              header: "Expires",
-              cell: (inv) => formatTimestamp(inv.expiresAt),
-            },
-          ]
-          return (
-            <>
-              <div className="grid min-w-0 gap-2 sm:hidden">
-                {invitations.map((inv) => (
-                  <div
-                    key={inv.id}
-                    className="space-y-2 rounded-md border bg-card p-3 text-sm"
-                  >
-                    <div className="font-medium break-all">{inv.email}</div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <RoleBadge role={inv.role} />
-                      <Badge
-                        variant={
-                          inv.status === "pending" ? "secondary" : "outline"
-                        }
-                      >
-                        {inv.status}
-                      </Badge>
-                      <span className="text-xs text-muted-foreground">
-                        Expires {formatTimestamp(inv.expiresAt)}
-                      </span>
+            ) : (
+              <>
+                <div className="grid min-w-0 gap-2 p-4 sm:hidden">
+                  <p className="text-xs text-muted-foreground">{caption}</p>
+                  {members.map((member) => (
+                    <div
+                      key={member.id}
+                      className="flex flex-wrap items-center justify-between gap-2 rounded-md border bg-card p-3"
+                    >
+                      <div className="min-w-0 space-y-1">
+                        <PluginLink
+                          to={`/users/${member.userId}`}
+                          className="block font-mono text-xs font-medium break-all underline-offset-4 hover:underline"
+                        >
+                          {member.userId}
+                        </PluginLink>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <RoleBadge role={member.role} />
+                          <span className="text-xs text-muted-foreground">
+                            Joined {formatTimestamp(member.createdAt)}
+                          </span>
+                        </div>
+                      </div>
+                      {removeAction(member)}
                     </div>
-                  </div>
-                ))}
-              </div>
-              <div className="hidden sm:block">
-                <ResourceTable
-                  columns={columns}
-                  rows={invitations}
-                  rowKey={(inv) => inv.id}
-                  caption={`${invitations.length} ${invitations.length === 1 ? "invitation" : "invitations"}`}
-                  emptyMessage="No invitations yet."
+                  ))}
+                </div>
+                <div className="hidden sm:block">
+                  <ResourceTable<MemberSummary>
+                    columns={columns}
+                    rows={members}
+                    rowKey={(member) => member.id}
+                    caption={caption}
+                    emptyMessage="No members yet."
+                    rowActions={removeAction}
+                  />
+                </div>
+              </>
+            )
+          }}
+        </QueryBoundary>
+      </Section>
+
+      <Section title="Invitations">
+        <QueryBoundary
+          title="Invitations"
+          query={invitationsQuery}
+          skeletonRows={2}
+        >
+          {(data) => {
+            const invitations = data.invitations ?? []
+            if (invitations.length === 0)
+              return (
+                <ZeroState
+                  title="No invitations yet"
+                  body="Create an invitation for someone who needs access to this organization."
+                  illustration={<MailPlus className="size-6 stroke-[1.5]" />}
+                  action={
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        createInvitation.reset()
+                        setInviting(true)
+                      }}
+                    >
+                      Create invitation
+                    </Button>
+                  }
                 />
-              </div>
-            </>
-          )
-        }}
-      </QueryBoundary>
+              )
+            const columns: Column<InvitationSummary>[] = [
+              {
+                id: "email",
+                header: "Email",
+                className: "font-medium",
+                cell: (inv) => inv.email,
+              },
+              {
+                id: "role",
+                header: "Role",
+                cell: (inv) => <RoleBadge role={inv.role} />,
+              },
+              {
+                id: "status",
+                header: "Status",
+                cell: (inv) => (
+                  <Badge
+                    variant={inv.status === "pending" ? "secondary" : "outline"}
+                  >
+                    {inv.status}
+                  </Badge>
+                ),
+              },
+              {
+                id: "expiresAt",
+                header: "Expires",
+                cell: (inv) => formatTimestamp(inv.expiresAt),
+              },
+            ]
+            return (
+              <>
+                <div className="grid min-w-0 gap-2 p-4 sm:hidden">
+                  {invitations.map((inv) => (
+                    <div
+                      key={inv.id}
+                      className="space-y-2 rounded-md border bg-card p-3 text-sm"
+                    >
+                      <div className="font-medium break-all">{inv.email}</div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <RoleBadge role={inv.role} />
+                        <Badge
+                          variant={
+                            inv.status === "pending" ? "secondary" : "outline"
+                          }
+                        >
+                          {inv.status}
+                        </Badge>
+                        <span className="text-xs text-muted-foreground">
+                          Expires {formatTimestamp(inv.expiresAt)}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="hidden sm:block">
+                  <ResourceTable
+                    columns={columns}
+                    rows={invitations}
+                    rowKey={(inv) => inv.id}
+                    caption={`${invitations.length} ${invitations.length === 1 ? "invitation" : "invitations"}`}
+                    emptyMessage="No invitations yet."
+                  />
+                </div>
+              </>
+            )
+          }}
+        </QueryBoundary>
+      </Section>
 
       <Dialog open={adding} onOpenChange={(open) => !open && setAdding(false)}>
         <DialogContent>
@@ -869,7 +870,6 @@ function OrgTabs({ org, orgId }: { org: OrgDetail; orgId: string }) {
         <div className="grid min-w-0 gap-4 pt-2 @3xl/main:grid-cols-[minmax(0,1.4fr)_minmax(18rem,1fr)]">
           <Section inset title="Organization details">
             <DescriptionList
-              className="border-0 bg-transparent [&>div]:grid-cols-[7rem_minmax(0,1fr)] [&>div]:px-0"
               items={[
                 {
                   term: "Organization ID",
@@ -983,60 +983,54 @@ function OrgDetailBody({ orgId }: { orgId: string }) {
       <QueryBoundary title="Organization" query={query} skeletonRows={3}>
         {(org) => (
           <>
-            <div className="flex flex-wrap items-center gap-4 border-b pb-4">
-              <div
-                aria-hidden="true"
-                className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-lg border bg-muted/50 text-muted-foreground"
-              >
-                {org.logo ? (
-                  <img
-                    src={org.logo}
-                    alt=""
-                    className="size-full object-cover"
-                  />
-                ) : (
-                  <Building2 className="size-5" />
-                )}
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="text-[11px] font-medium tracking-[0.12em] text-muted-foreground uppercase">
-                  Organization
-                </div>
-                <h1 className="truncate text-xl font-semibold tracking-tight">
-                  {org.name}
-                </h1>
-                <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                  <span className="font-mono">{org.slug}</span>
+            <PageHeader
+              title={org.name}
+              meta={
+                <>
+                  {org.logo && (
+                    <img
+                      src={org.logo}
+                      alt=""
+                      className="size-5 rounded object-cover"
+                    />
+                  )}
+                  <span className="font-mono text-xs text-muted-foreground">
+                    {org.slug}
+                  </span>
                   <span aria-hidden="true">·</span>
-                  <span className="font-mono">{org.id}</span>
-                </div>
-              </div>
-              {!editing && (
-                <div className="flex flex-wrap items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setEditing(true)}
-                  >
-                    <Pencil className="size-3.5" />
-                    Edit
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-destructive hover:text-destructive"
-                    aria-label={`Delete ${org.name}`}
-                    onClick={() => {
-                      deleteOrg.reset()
-                      setDeleting(true)
-                    }}
-                  >
-                    <Trash2 className="size-3.5" />
-                    Delete
-                  </Button>
-                </div>
-              )}
-            </div>
+                  <span className="font-mono text-xs text-muted-foreground">
+                    {org.id}
+                  </span>
+                </>
+              }
+              actions={
+                !editing && (
+                  <>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setEditing(true)}
+                    >
+                      <Pencil className="size-3.5" />
+                      Edit
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-destructive hover:text-destructive"
+                      aria-label={`Delete ${org.name}`}
+                      onClick={() => {
+                        deleteOrg.reset()
+                        setDeleting(true)
+                      }}
+                    >
+                      <Trash2 className="size-3.5" />
+                      Delete
+                    </Button>
+                  </>
+                )
+              }
+            />
             <Dialog open={editing} onOpenChange={setEditing}>
               {editing && (
                 <EditOrgForm org={org} onDone={() => setEditing(false)} />
@@ -1129,47 +1123,55 @@ export function OrgCreatePage() {
   }
 
   return (
-    <section className="flex max-w-xl min-w-0 flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader title="New organization" />
-      <CommandAlert
-        error={create.error}
-        title="Could not create the organization"
-      />
-      <div className="flex min-w-0 flex-col gap-1.5">
-        <Label htmlFor="org-create-name">Name</Label>
-        <Input
-          id="org-create-name"
-          value={name}
-          onChange={(e) => onNameChange(e.target.value)}
-        />
-      </div>
-      <div className="flex min-w-0 flex-col gap-1.5">
-        <Label htmlFor="org-create-slug">Slug</Label>
-        <Input
-          id="org-create-slug"
-          value={slug}
-          onChange={(e) => onSlugChange(e.target.value)}
-        />
-        <p className="text-xs text-muted-foreground">
-          Lowercase letters, numbers and hyphens only. Filled in from the name
-          until you edit it.
-        </p>
-      </div>
-      <div className="flex min-w-0 flex-col gap-1.5">
-        <Label htmlFor="org-create-logo">Logo URL</Label>
-        <Input
-          id="org-create-logo"
-          value={logo}
-          onChange={(e) => setLogo(e.target.value)}
-        />
-      </div>
-      {createFieldsCount > 0 && <PluginSlot name="org.create.fields" />}
-      <Button
-        onClick={() => void submit()}
-        disabled={create.loading || name.trim() === "" || slug.trim() === ""}
-      >
-        {create.loading ? "Creating…" : "Create organization"}
-      </Button>
+      <Section title="Organization details" inset className="max-w-3xl">
+        <div className="flex min-w-0 flex-col gap-4">
+          <CommandAlert
+            error={create.error}
+            title="Could not create the organization"
+          />
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <Label htmlFor="org-create-name">Name</Label>
+            <Input
+              id="org-create-name"
+              value={name}
+              onChange={(e) => onNameChange(e.target.value)}
+            />
+          </div>
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <Label htmlFor="org-create-slug">Slug</Label>
+            <Input
+              id="org-create-slug"
+              value={slug}
+              onChange={(e) => onSlugChange(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">
+              Lowercase letters, numbers and hyphens only. Filled in from the
+              name until you edit it.
+            </p>
+          </div>
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <Label htmlFor="org-create-logo">Logo URL</Label>
+            <Input
+              id="org-create-logo"
+              value={logo}
+              onChange={(e) => setLogo(e.target.value)}
+            />
+          </div>
+          {createFieldsCount > 0 && <PluginSlot name="org.create.fields" />}
+          <div>
+            <Button
+              onClick={() => void submit()}
+              disabled={
+                create.loading || name.trim() === "" || slug.trim() === ""
+              }
+            >
+              {create.loading ? "Creating…" : "Create organization"}
+            </Button>
+          </div>
+        </div>
+      </Section>
     </section>
   )
 }

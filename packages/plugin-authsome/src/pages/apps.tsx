@@ -99,7 +99,6 @@ export function AuthAppsPage() {
 
             return (
               <ResourceTable<AppSummary>
-                appearance="flush"
                 columns={columns}
                 rows={apps}
                 rowKey={(a) => a.id}

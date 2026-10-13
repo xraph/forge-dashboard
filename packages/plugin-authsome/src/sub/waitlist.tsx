@@ -17,6 +17,7 @@ import {
   QueryBoundary,
 } from "@forge-go/dashboard-kit/components/query-boundary"
 import { ResourceTable, type Column } from "../components/presentation"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { StatGrid } from "@forge-go/dashboard-kit/components/stat-grid"
 import { formatTimestamp } from "@forge-go/dashboard-kit/lib/format"
 import { CursorPager, useCursorStack } from "../components/cursor-pager"
@@ -191,116 +192,121 @@ export function WaitlistPage() {
     <section className="flex min-w-0 flex-col gap-4">
       <PageHeader title="Waitlist" />
 
-      <FilterBar
-        search={{
-          value: searchInput,
-          onChange: setSearchInput,
-          label: "Search waitlist",
-          placeholder: "Search by email",
-        }}
-        filters={[
-          {
-            id: "status",
-            label: "Status",
-            value: status,
-            onChange: onStatusChange,
-            options: [
-              { label: "All", value: "" },
-              { label: "Pending", value: "pending" },
-              { label: "Approved", value: "approved" },
-              { label: "Rejected", value: "rejected" },
-            ],
-          },
-        ]}
-      />
+      <Section
+        aria-label="Waitlist entry list"
+        actions={
+          <FilterBar
+            search={{
+              value: searchInput,
+              onChange: setSearchInput,
+              label: "Search waitlist",
+              placeholder: "Search by email",
+            }}
+            filters={[
+              {
+                id: "status",
+                label: "Status",
+                value: status,
+                onChange: onStatusChange,
+                options: [
+                  { label: "All", value: "" },
+                  { label: "Pending", value: "pending" },
+                  { label: "Approved", value: "approved" },
+                  { label: "Rejected", value: "rejected" },
+                ],
+              },
+            ]}
+          />
+        }
+      >
+        <QueryBoundary title="Waitlist" query={list} skeletonRows={5}>
+          {(data) => {
+            const entries = data.entries ?? []
+            // The caption carries the live count on every render, independent
+            // of whether CursorPager has anything to navigate to.
+            const caption =
+              data.total !== undefined
+                ? `${entries.length} of ${data.total}`
+                : `${entries.length} shown`
 
-      <QueryBoundary title="Waitlist" query={list} skeletonRows={5}>
-        {(data) => {
-          const entries = data.entries ?? []
-          // The caption carries the live count on every render, independent
-          // of whether CursorPager has anything to navigate to.
-          const caption =
-            data.total !== undefined
-              ? `${entries.length} of ${data.total}`
-              : `${entries.length} shown`
-
-          return (
-            <>
-              <ResourceTable<EntrySummary>
-                columns={columns}
-                rows={entries}
-                rowKey={(entry) => entry.id}
-                caption={caption}
-                emptyMessage={
-                  search || status
-                    ? "No entries match this filter."
-                    : "No waitlist entries yet."
-                }
-                rowActions={(entry) => (
-                  <>
-                    {entry.status === "pending" && (
-                      <>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          aria-label={`Approve ${entry.email}`}
-                          onClick={() => {
-                            // Opening the dialog is the moment that matters:
-                            // one hook serves every row, so a failure or note
-                            // left over from a different entry must not
-                            // follow the operator here.
-                            approveCmd.reset()
-                            setNote("")
-                            setApproving(entry)
-                          }}
-                        >
-                          Approve
-                        </Button>
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          aria-label={`Reject ${entry.email}`}
-                          onClick={() => {
-                            rejectCmd.reset()
-                            setNote("")
-                            setRejecting(entry)
-                          }}
-                        >
-                          Reject
-                        </Button>
-                      </>
-                    )}
-                    {/*
+            return (
+              <>
+                <ResourceTable<EntrySummary>
+                  columns={columns}
+                  rows={entries}
+                  rowKey={(entry) => entry.id}
+                  caption={caption}
+                  emptyMessage={
+                    search || status
+                      ? "No entries match this filter."
+                      : "No waitlist entries yet."
+                  }
+                  rowActions={(entry) => (
+                    <>
+                      {entry.status === "pending" && (
+                        <>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            aria-label={`Approve ${entry.email}`}
+                            onClick={() => {
+                              // Opening the dialog is the moment that matters:
+                              // one hook serves every row, so a failure or note
+                              // left over from a different entry must not
+                              // follow the operator here.
+                              approveCmd.reset()
+                              setNote("")
+                              setApproving(entry)
+                            }}
+                          >
+                            Approve
+                          </Button>
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            aria-label={`Reject ${entry.email}`}
+                            onClick={() => {
+                              rejectCmd.reset()
+                              setNote("")
+                              setRejecting(entry)
+                            }}
+                          >
+                            Reject
+                          </Button>
+                        </>
+                      )}
+                      {/*
                       Delete is offered on every entry, pending or not. It is
                       how a mistake gets cleaned up, and it does not exist in
                       the legacy templ page at all.
                     */}
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      aria-label={`Delete ${entry.email}`}
-                      onClick={() => {
-                        deleteCmd.reset()
-                        setDeleting(entry)
-                      }}
-                    >
-                      Delete
-                    </Button>
-                  </>
-                )}
-              />
-              <CursorPager
-                shown={entries.length}
-                total={data.total}
-                nextCursor={entries.length > 0 ? data.nextCursor : undefined}
-                canGoBack={page.canGoBack}
-                onNext={page.next}
-                onPrevious={page.previous}
-              />
-            </>
-          )
-        }}
-      </QueryBoundary>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        aria-label={`Delete ${entry.email}`}
+                        onClick={() => {
+                          deleteCmd.reset()
+                          setDeleting(entry)
+                        }}
+                      >
+                        Delete
+                      </Button>
+                    </>
+                  )}
+                />
+                <CursorPager
+                  shown={entries.length}
+                  total={data.total}
+                  nextCursor={entries.length > 0 ? data.nextCursor : undefined}
+                  canGoBack={page.canGoBack}
+                  onNext={page.next}
+                  onPrevious={page.previous}
+                />
+              </>
+            )
+          }}
+        </QueryBoundary>
+      </Section>
 
       <ConfirmDialog
         open={approving !== null}

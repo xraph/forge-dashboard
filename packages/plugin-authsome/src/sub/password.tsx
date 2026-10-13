@@ -1,8 +1,9 @@
 import { defineSubPlugin, useQuery } from "@forge-go/dashboard-plugin"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
 import { Badge } from "@forge-go/dashboard-kit/components/badge"
-import { DescriptionList } from "../components/presentation"
+import { DescriptionList } from "@forge-go/dashboard-kit/components/detail-layout"
 import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { SETTINGS_INTENTS, settingsPanelFor } from "./settings-panel"
 
 /** `password.policy`'s answer shape, from handlers_password.go. */
@@ -37,46 +38,48 @@ export function PasswordPolicyPage({ params }: PluginPageProps) {
     <div className="flex min-w-0 flex-col gap-4">
       <QueryBoundary title="Password policy" query={query}>
         {(policy) => (
-          <DescriptionList
-            items={[
-              {
-                term: "Minimum password length",
-                value:
-                  policy.minLength > 0
-                    ? `${policy.minLength} characters`
-                    : // 0 means unset, not "empty passwords allowed". Saying so
-                      // in plain digits reads as the latter.
-                      "Engine default",
-              },
-              {
-                term: "Require special character",
-                value: (
-                  <Badge
-                    variant={policy.requireSpecial ? "outline" : "secondary"}
-                  >
-                    {policy.requireSpecial ? "Required" : "Optional"}
-                  </Badge>
-                ),
-              },
-              {
-                term: "Hash algorithm",
-                value: (
-                  <span className="flex items-center gap-1.5">
-                    <span>{policy.hashAlgorithm}</span>
-                    {/*
+          <Section aria-label="Password policy" inset>
+            <DescriptionList
+              items={[
+                {
+                  term: "Minimum password length",
+                  value:
+                    policy.minLength > 0
+                      ? `${policy.minLength} characters`
+                      : // 0 means unset, not "empty passwords allowed". Saying so
+                        // in plain digits reads as the latter.
+                        "Engine default",
+                },
+                {
+                  term: "Require special character",
+                  value: (
+                    <Badge
+                      variant={policy.requireSpecial ? "outline" : "secondary"}
+                    >
+                      {policy.requireSpecial ? "Required" : "Optional"}
+                    </Badge>
+                  ),
+                },
+                {
+                  term: "Hash algorithm",
+                  value: (
+                    <span className="flex items-center gap-1.5">
+                      <span>{policy.hashAlgorithm}</span>
+                      {/*
                       This is hardcoded server-side and never reads engine
                       config. Labelling it "in effect" would present a
                       constant as a live reading, which is how somebody ends
                       up making a decision on it.
                     */}
-                    <span className="text-xs text-muted-foreground">
-                      (as compiled)
+                      <span className="text-xs text-muted-foreground">
+                        (as compiled)
+                      </span>
                     </span>
-                  </span>
-                ),
-              },
-            ]}
-          />
+                  ),
+                },
+              ]}
+            />
+          </Section>
         )}
       </QueryBoundary>
       <PasswordSettingsPanel params={params} />

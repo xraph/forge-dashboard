@@ -163,7 +163,6 @@ export function AuthSessionsPage() {
 
             return (
               <ResourceTable<SessionSummary>
-                appearance="flush"
                 columns={columns}
                 rows={sessions}
                 rowKey={(s) => s.id}

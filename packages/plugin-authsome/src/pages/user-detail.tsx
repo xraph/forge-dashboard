@@ -126,7 +126,6 @@ function UserSessions({ userId }: { userId: string }) {
         const caption = `${sessions.length} ${sessions.length === 1 ? "session" : "sessions"}`
         return (
           <ResourceTable<SessionRow>
-            appearance="flush"
             columns={sessionColumns}
             rows={sessions}
             rowKey={(s) => s.id}
@@ -149,7 +148,6 @@ function UserDevices({ userId }: { userId: string }) {
         const caption = `${devices.length} ${devices.length === 1 ? "device" : "devices"}`
         return (
           <ResourceTable<DeviceRow>
-            appearance="flush"
             columns={deviceColumns}
             rows={devices}
             rowKey={(d) => d.id}

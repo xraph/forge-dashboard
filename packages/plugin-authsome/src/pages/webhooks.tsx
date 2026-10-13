@@ -295,7 +295,6 @@ export function AuthWebhooksPage() {
 
             return (
               <ResourceTable<WebhookSummary>
-                appearance="flush"
                 columns={columns}
                 rows={webhooks}
                 rowKey={(w) => w.id}

@@ -90,7 +90,6 @@ export function AuthOverviewPage() {
             const users = data.users ?? []
             return (
               <ResourceTable<UserSummary>
-                appearance="flush"
                 columns={columns}
                 rows={users}
                 rowKey={(u) => u.id}

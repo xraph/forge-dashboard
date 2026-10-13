@@ -203,7 +203,6 @@ export function AuthUsersPage() {
             return (
               <>
                 <ResourceTable<UserSummary>
-                  appearance="flush"
                   columns={columns}
                   rows={users}
                   rowKey={(u) => u.id}

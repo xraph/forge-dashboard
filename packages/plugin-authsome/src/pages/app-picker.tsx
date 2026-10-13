@@ -80,7 +80,6 @@ export function AuthAppPicker() {
 
             return (
               <ResourceTable<PickerApp>
-                appearance="flush"
                 columns={columns}
                 rows={apps}
                 rowKey={(app) => app.id}

@@ -245,7 +245,6 @@ function RoleDetailBody({ roleId }: { roleId: string }) {
                     </Section>
                     <Section title="Permissions">
                       <ResourceTable<PermissionRecord>
-                        appearance="flush"
                         columns={permissionColumns}
                         rows={permissions}
                         rowKey={(p) => p.id}

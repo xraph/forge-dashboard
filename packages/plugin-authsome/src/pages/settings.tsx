@@ -129,7 +129,6 @@ function SettingsDirectory({
         description="Settings registered by the installed authentication plugins."
       >
         <ResourceTable<NamespaceSummary>
-          appearance="flush"
           columns={columns}
           rows={namespaces}
           rowKey={(namespace) => namespace.name}

@@ -154,7 +154,6 @@ export function AuthDevicesPage() {
 
             return (
               <ResourceTable<DeviceSummary>
-                appearance="flush"
                 columns={columns}
                 rows={devices}
                 rowKey={(d) => d.id}

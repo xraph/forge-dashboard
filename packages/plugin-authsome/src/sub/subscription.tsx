@@ -10,7 +10,7 @@ import { Badge } from "@forge-go/dashboard-kit/components/badge"
 import { Button } from "@forge-go/dashboard-kit/components/button"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { ConfirmDialog } from "@forge-go/dashboard-kit/components/confirm-dialog"
-import { DescriptionList } from "../components/presentation"
+import { DescriptionList } from "@forge-go/dashboard-kit/components/detail-layout"
 import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import {
@@ -182,47 +182,49 @@ export function PlansPage() {
         plans.list takes no input and answers its whole collection, same as
         orgs.list. There is no cursor and nothing here to page.
       */}
-      <QueryBoundary title="Plans" query={query} skeletonRows={5}>
-        {(data) => {
-          const rows = data.plans ?? []
-          const caption = `${rows.length} ${rows.length === 1 ? "plan" : "plans"}`
-          return (
-            <ResourceTable<PlanSummary>
-              columns={columns}
-              rows={rows}
-              rowKey={(plan) => plan.id}
-              caption={caption}
-              emptyMessage="No plans yet."
-              rowActions={(plan) => {
-                if (plan.status === "active") {
-                  return (
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      aria-label={`Archive ${plan.name}`}
-                      onClick={() => openDialog(plan, "archive")}
-                    >
-                      Archive
-                    </Button>
-                  )
-                }
-                if (plan.status === "draft") {
-                  return (
-                    <Button
-                      size="sm"
-                      aria-label={`Activate ${plan.name}`}
-                      onClick={() => openDialog(plan, "activate")}
-                    >
-                      Activate
-                    </Button>
-                  )
-                }
-                return null
-              }}
-            />
-          )
-        }}
-      </QueryBoundary>
+      <Section aria-label="Plan list">
+        <QueryBoundary title="Plans" query={query} skeletonRows={5}>
+          {(data) => {
+            const rows = data.plans ?? []
+            const caption = `${rows.length} ${rows.length === 1 ? "plan" : "plans"}`
+            return (
+              <ResourceTable<PlanSummary>
+                columns={columns}
+                rows={rows}
+                rowKey={(plan) => plan.id}
+                caption={caption}
+                emptyMessage="No plans yet."
+                rowActions={(plan) => {
+                  if (plan.status === "active") {
+                    return (
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        aria-label={`Archive ${plan.name}`}
+                        onClick={() => openDialog(plan, "archive")}
+                      >
+                        Archive
+                      </Button>
+                    )
+                  }
+                  if (plan.status === "draft") {
+                    return (
+                      <Button
+                        size="sm"
+                        aria-label={`Activate ${plan.name}`}
+                        onClick={() => openDialog(plan, "activate")}
+                      >
+                        Activate
+                      </Button>
+                    )
+                  }
+                  return null
+                }}
+              />
+            )
+          }}
+        </QueryBoundary>
+      </Section>
 
       <ConfirmDialog
         open={target !== null}
@@ -292,101 +294,111 @@ function PlanDetailBody({ id }: { id: string }) {
                   <PageLink to={`/plans/${plan.id}/edit`}>Edit plan</PageLink>
                 }
               />
-              <DescriptionList
-                items={[
-                  {
-                    term: "Plan ID",
-                    value: <span className="font-mono text-xs">{plan.id}</span>,
-                  },
-                  {
-                    term: "Slug",
-                    value: (
-                      <span className="font-mono text-xs">{plan.slug}</span>
-                    ),
-                  },
-                  {
-                    term: "Currency",
-                    value: plan.currency ? (
-                      plan.currency.toUpperCase()
-                    ) : (
-                      <NoneCell label="currency" />
-                    ),
-                  },
-                  {
-                    term: "Status",
-                    value: <PlanStatusBadge status={plan.status} />,
-                  },
-                  {
-                    term: "Trial days",
-                    value: plan.trialDays ? (
-                      `${plan.trialDays}d`
-                    ) : (
-                      <NoneCell label="trial" />
-                    ),
-                  },
-                  {
-                    term: "Base price",
-                    value: plan.baseAmount
-                      ? `${formatMinorMoney(plan.baseAmount, plan.currency ?? "usd")} / ${plan.billingPeriod}`
-                      : "Free",
-                  },
-                  {
-                    term: "Description",
-                    value: plan.description ?? <NoneCell label="description" />,
-                  },
-                ]}
-              />
-              <ResourceTable<PlanFeature>
-                columns={columns}
-                rows={features}
-                rowKey={(feature) => feature.key}
-                caption={caption}
-                emptyMessage="No features on this plan."
-              />
-              {!!plan.tiers?.length && (
-                <ResourceTable<PriceTier>
-                  columns={[
+              <Section title="Details" inset>
+                <DescriptionList
+                  items={[
                     {
-                      id: "feature",
-                      header: "Feature",
-                      cell: (tier) => tier.featureKey,
+                      term: "Plan ID",
+                      value: (
+                        <span className="font-mono text-xs">{plan.id}</span>
+                      ),
                     },
                     {
-                      id: "type",
-                      header: "Tier type",
-                      cell: (tier) => tier.type,
+                      term: "Slug",
+                      value: (
+                        <span className="font-mono text-xs">{plan.slug}</span>
+                      ),
                     },
                     {
-                      id: "upTo",
-                      header: "Up to",
-                      cell: (tier) => tier.upTo || "Unlimited",
+                      term: "Currency",
+                      value: plan.currency ? (
+                        plan.currency.toUpperCase()
+                      ) : (
+                        <NoneCell label="currency" />
+                      ),
                     },
                     {
-                      id: "unit",
-                      header: "Unit amount",
-                      cell: (tier) =>
-                        formatMinorMoney(
-                          tier.unitAmount,
-                          plan.currency ?? "usd"
-                        ),
+                      term: "Status",
+                      value: <PlanStatusBadge status={plan.status} />,
                     },
                     {
-                      id: "flat",
-                      header: "Flat amount",
-                      cell: (tier) =>
-                        formatMinorMoney(
-                          tier.flatAmount,
-                          plan.currency ?? "usd"
-                        ),
+                      term: "Trial days",
+                      value: plan.trialDays ? (
+                        `${plan.trialDays}d`
+                      ) : (
+                        <NoneCell label="trial" />
+                      ),
+                    },
+                    {
+                      term: "Base price",
+                      value: plan.baseAmount
+                        ? `${formatMinorMoney(plan.baseAmount, plan.currency ?? "usd")} / ${plan.billingPeriod}`
+                        : "Free",
+                    },
+                    {
+                      term: "Description",
+                      value: plan.description ?? (
+                        <NoneCell label="description" />
+                      ),
                     },
                   ]}
-                  rows={plan.tiers}
-                  rowKey={(tier) =>
-                    `${tier.featureKey}-${tier.type}-${tier.upTo}-${tier.unitAmount}-${tier.flatAmount}`
-                  }
-                  caption={`${plan.tiers.length} pricing tiers`}
-                  emptyMessage="No pricing tiers."
                 />
+              </Section>
+              <Section title="Features">
+                <ResourceTable<PlanFeature>
+                  columns={columns}
+                  rows={features}
+                  rowKey={(feature) => feature.key}
+                  caption={caption}
+                  emptyMessage="No features on this plan."
+                />
+              </Section>
+              {!!plan.tiers?.length && (
+                <Section title="Pricing tiers">
+                  <ResourceTable<PriceTier>
+                    columns={[
+                      {
+                        id: "feature",
+                        header: "Feature",
+                        cell: (tier) => tier.featureKey,
+                      },
+                      {
+                        id: "type",
+                        header: "Tier type",
+                        cell: (tier) => tier.type,
+                      },
+                      {
+                        id: "upTo",
+                        header: "Up to",
+                        cell: (tier) => tier.upTo || "Unlimited",
+                      },
+                      {
+                        id: "unit",
+                        header: "Unit amount",
+                        cell: (tier) =>
+                          formatMinorMoney(
+                            tier.unitAmount,
+                            plan.currency ?? "usd"
+                          ),
+                      },
+                      {
+                        id: "flat",
+                        header: "Flat amount",
+                        cell: (tier) =>
+                          formatMinorMoney(
+                            tier.flatAmount,
+                            plan.currency ?? "usd"
+                          ),
+                      },
+                    ]}
+                    rows={plan.tiers}
+                    rowKey={(tier) =>
+                      `${tier.featureKey}-${tier.type}-${tier.upTo}-${tier.unitAmount}-${tier.flatAmount}`
+                    }
+                    caption={`${plan.tiers.length} pricing tiers`}
+                    emptyMessage="No pricing tiers."
+                  />
+                </Section>
               )}
             </>
           )
@@ -604,7 +616,11 @@ function SubscriptionOrgSummaryContent({
  */
 export function SubscriptionUserSection({ userId }: { userId?: string }) {
   if (!userId) return null
-  return <SubscriptionsForTenant tenantId={userId} />
+  return (
+    <Section inset title="Subscriptions">
+      <SubscriptionsForTenant tenantId={userId} />
+    </Section>
+  )
 }
 
 /* ------------------------------------------------------------ declaration */

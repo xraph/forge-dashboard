@@ -84,7 +84,6 @@ export function AuthSignupFormsPage() {
 
             return (
               <ResourceTable<FormConfigSummary>
-                appearance="flush"
                 columns={columns}
                 rows={formConfigs}
                 rowKey={(f) => f.id}

@@ -244,7 +244,6 @@ export function AuthEnvironmentsPage() {
 
             return (
               <ResourceTable<EnvSummary>
-                appearance="flush"
                 columns={columns}
                 rows={environments}
                 rowKey={(e) => e.id}

@@ -187,7 +187,6 @@ export function AuthRolesPage() {
 
             return (
               <ResourceTable<RoleSummary>
-                appearance="flush"
                 columns={columns}
                 rows={roles}
                 rowKey={(r) => r.id}

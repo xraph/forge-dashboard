@@ -12,7 +12,7 @@ import { Input } from "@forge-go/dashboard-kit/components/input"
 import { Label } from "@forge-go/dashboard-kit/components/label"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { ConfirmDialog } from "@forge-go/dashboard-kit/components/confirm-dialog"
-import { DescriptionList } from "../components/presentation"
+import { DescriptionList } from "@forge-go/dashboard-kit/components/detail-layout"
 import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import { TagList } from "@forge-go/dashboard-kit/components/tag-list"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
@@ -21,6 +21,7 @@ import {
   QueryBoundary,
 } from "@forge-go/dashboard-kit/components/query-boundary"
 import { ResourceTable, type Column } from "../components/presentation"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { formatTimestamp } from "@forge-go/dashboard-kit/lib/format"
 
 /**
@@ -229,40 +230,42 @@ export function APIKeyListPage() {
         apikeys.list takes no input at all and answers its whole collection.
         There is no cursor, no limit and nothing here to page.
       */}
-      <QueryBoundary title="API keys" query={query} skeletonRows={5}>
-        {(data) => {
-          const rows = data.apiKeys ?? []
-          const caption = `${rows.length} ${rows.length === 1 ? "API key" : "API keys"}`
-          return (
-            <ResourceTable<APIKeySummary>
-              columns={columns}
-              rows={rows}
-              rowKey={(key) => key.id}
-              caption={caption}
-              emptyMessage="No API keys yet."
-              rowActions={(key) =>
-                !key.revoked ? (
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    aria-label={`Revoke ${key.name}`}
-                    onClick={() => {
-                      // Reset at open, not at close: one hook serves every
-                      // row, so a failure left over from a different key's
-                      // revoke must not be attributed to one the operator has
-                      // not touched yet.
-                      revoke.reset()
-                      setRevoking(key)
-                    }}
-                  >
-                    Revoke
-                  </Button>
-                ) : null
-              }
-            />
-          )
-        }}
-      </QueryBoundary>
+      <Section aria-label="API key list">
+        <QueryBoundary title="API keys" query={query} skeletonRows={5}>
+          {(data) => {
+            const rows = data.apiKeys ?? []
+            const caption = `${rows.length} ${rows.length === 1 ? "API key" : "API keys"}`
+            return (
+              <ResourceTable<APIKeySummary>
+                columns={columns}
+                rows={rows}
+                rowKey={(key) => key.id}
+                caption={caption}
+                emptyMessage="No API keys yet."
+                rowActions={(key) =>
+                  !key.revoked ? (
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      aria-label={`Revoke ${key.name}`}
+                      onClick={() => {
+                        // Reset at open, not at close: one hook serves every
+                        // row, so a failure left over from a different key's
+                        // revoke must not be attributed to one the operator has
+                        // not touched yet.
+                        revoke.reset()
+                        setRevoking(key)
+                      }}
+                    >
+                      Revoke
+                    </Button>
+                  ) : null
+                }
+              />
+            )
+          }}
+        </QueryBoundary>
+      </Section>
 
       <ConfirmDialog
         open={revoking !== null}
@@ -300,77 +303,82 @@ function APIKeyDetailBody({ id }: { id: string }) {
         {(key) => (
           <>
             <PageHeader title={key.name} description={`${key.keyPrefix}...`} />
-            <DescriptionList
-              items={[
-                {
-                  term: "Key ID",
-                  value: <span className="font-mono text-xs">{key.id}</span>,
-                },
-                {
-                  term: "Prefix",
-                  value: (
-                    <span className="font-mono text-xs">
-                      {key.keyPrefix}...
-                    </span>
-                  ),
-                },
-                {
-                  term: "Public key",
-                  value: key.publicKey ? (
-                    <span className="flex min-w-0 flex-col gap-1">
-                      <CopyableValue value={key.publicKey} label="public key" />
-                      <span className="text-xs text-muted-foreground">
-                        Safe to share
+            <Section title="Details" inset>
+              <DescriptionList
+                items={[
+                  {
+                    term: "Key ID",
+                    value: <span className="font-mono text-xs">{key.id}</span>,
+                  },
+                  {
+                    term: "Prefix",
+                    value: (
+                      <span className="font-mono text-xs">
+                        {key.keyPrefix}...
                       </span>
-                    </span>
-                  ) : (
-                    <NoneCell label="public key" />
-                  ),
-                },
-                {
-                  term: "User",
-                  value: key.userId ? (
-                    <span className="font-mono text-xs">{key.userId}</span>
-                  ) : (
-                    <NoneCell label="user" />
-                  ),
-                },
-                {
-                  term: "App",
-                  value: key.appId ? (
-                    <span className="font-mono text-xs">{key.appId}</span>
-                  ) : (
-                    <NoneCell label="app" />
-                  ),
-                },
-                {
-                  term: "Environment",
-                  value: key.envId ? (
-                    <span className="font-mono text-xs">{key.envId}</span>
-                  ) : (
-                    <NoneCell label="environment" />
-                  ),
-                },
-                {
-                  term: "Scopes",
-                  value: <TagList values={key.scopes ?? []} label="scopes" />,
-                },
-                {
-                  term: "Status",
-                  value: <StatusBadge revoked={key.revoked} />,
-                },
-                {
-                  term: "Expires",
-                  value: <Timestamp value={key.expiresAt} label="expiry" />,
-                },
-                {
-                  term: "Last used",
-                  value: <LastUsedCell value={key.lastUsedAt} />,
-                },
-                { term: "Created", value: formatTimestamp(key.createdAt) },
-                { term: "Updated", value: formatTimestamp(key.updatedAt) },
-              ]}
-            />
+                    ),
+                  },
+                  {
+                    term: "Public key",
+                    value: key.publicKey ? (
+                      <span className="flex min-w-0 flex-col gap-1">
+                        <CopyableValue
+                          value={key.publicKey}
+                          label="public key"
+                        />
+                        <span className="text-xs text-muted-foreground">
+                          Safe to share
+                        </span>
+                      </span>
+                    ) : (
+                      <NoneCell label="public key" />
+                    ),
+                  },
+                  {
+                    term: "User",
+                    value: key.userId ? (
+                      <span className="font-mono text-xs">{key.userId}</span>
+                    ) : (
+                      <NoneCell label="user" />
+                    ),
+                  },
+                  {
+                    term: "App",
+                    value: key.appId ? (
+                      <span className="font-mono text-xs">{key.appId}</span>
+                    ) : (
+                      <NoneCell label="app" />
+                    ),
+                  },
+                  {
+                    term: "Environment",
+                    value: key.envId ? (
+                      <span className="font-mono text-xs">{key.envId}</span>
+                    ) : (
+                      <NoneCell label="environment" />
+                    ),
+                  },
+                  {
+                    term: "Scopes",
+                    value: <TagList values={key.scopes ?? []} label="scopes" />,
+                  },
+                  {
+                    term: "Status",
+                    value: <StatusBadge revoked={key.revoked} />,
+                  },
+                  {
+                    term: "Expires",
+                    value: <Timestamp value={key.expiresAt} label="expiry" />,
+                  },
+                  {
+                    term: "Last used",
+                    value: <LastUsedCell value={key.lastUsedAt} />,
+                  },
+                  { term: "Created", value: formatTimestamp(key.createdAt) },
+                  { term: "Updated", value: formatTimestamp(key.updatedAt) },
+                ]}
+              />
+            </Section>
           </>
         )}
       </QueryBoundary>
@@ -416,37 +424,38 @@ function RevealedKey({
   const [confirmingDismiss, setConfirmingDismiss] = useState(false)
 
   return (
-    <div className="flex min-w-0 flex-col gap-3 rounded-md border p-4">
-      <h2 className="text-sm font-medium">API key created</h2>
-      <p className="text-sm text-muted-foreground">
-        This is the only time you will see the full secret. Copy it now: the
-        server keeps only a hash and cannot show it to you again.
-      </p>
-      <CopyableValue value={created.secret} label="secret" />
+    <Section title="API key created" inset className="max-w-3xl">
+      <div className="flex min-w-0 flex-col gap-3">
+        <p className="text-sm text-muted-foreground">
+          This is the only time you will see the full secret. Copy it now: the
+          server keeps only a hash and cannot show it to you again.
+        </p>
+        <CopyableValue value={created.secret} label="secret" />
 
-      {detail.data?.publicKey && (
-        <div className="flex min-w-0 flex-col gap-1">
-          <span className="text-xs text-muted-foreground">
-            Public key (safe to share)
-          </span>
-          <CopyableValue value={detail.data.publicKey} label="public key" />
+        {detail.data?.publicKey && (
+          <div className="flex min-w-0 flex-col gap-1">
+            <span className="text-xs text-muted-foreground">
+              Public key (safe to share)
+            </span>
+            <CopyableValue value={detail.data.publicKey} label="public key" />
+          </div>
+        )}
+
+        <div>
+          <Button onClick={() => setConfirmingDismiss(true)}>Done</Button>
         </div>
-      )}
 
-      <div>
-        <Button onClick={() => setConfirmingDismiss(true)}>Done</Button>
+        <ConfirmDialog
+          open={confirmingDismiss}
+          onOpenChange={(open) => !open && setConfirmingDismiss(false)}
+          title="Close this panel?"
+          description="The secret cannot be recovered once you close this panel. If you lose it, the only way back is to create a new key."
+          confirmLabel="Close"
+          pending={false}
+          onConfirm={onDismissed}
+        />
       </div>
-
-      <ConfirmDialog
-        open={confirmingDismiss}
-        onOpenChange={(open) => !open && setConfirmingDismiss(false)}
-        title="Close this panel?"
-        description="The secret cannot be recovered once you close this panel. If you lose it, the only way back is to create a new key."
-        confirmLabel="Close"
-        pending={false}
-        onConfirm={onDismissed}
-      />
-    </div>
+    </Section>
   )
 }
 
@@ -482,7 +491,7 @@ export function APIKeyCreatePage() {
 
   if (revealed) {
     return (
-      <section className="flex max-w-xl min-w-0 flex-col gap-4">
+      <section className="flex min-w-0 flex-col gap-4">
         <PageHeader title="New API key" />
         <RevealedKey created={revealed} onDismissed={() => setRevealed(null)} />
       </section>
@@ -490,53 +499,64 @@ export function APIKeyCreatePage() {
   }
 
   return (
-    <section className="flex max-w-xl min-w-0 flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader title="New API key" />
-      <CommandAlert error={create.error} title="Could not create the API key" />
-      <div className="flex min-w-0 flex-col gap-1.5">
-        <Label htmlFor="apikey-create-name">Name</Label>
-        <Input
-          id="apikey-create-name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-        />
-      </div>
-      <div className="flex min-w-0 flex-col gap-1.5">
-        <Label htmlFor="apikey-create-user">User ID</Label>
-        <Input
-          id="apikey-create-user"
-          value={userId}
-          onChange={(e) => setUserId(e.target.value)}
-        />
-        {/*
-          There is no user-picker intent inside this sub-plugin's own
-          contributor, and reaching users.list through the host would be
-          exactly the widening hostIntents exists to prevent. A plain text
-          field with help text is worse UX and the honest shape of what this
-          sub-plugin may see.
-        */}
-        <p className="text-xs text-muted-foreground">
-          The user this key authenticates as. Find their id on the user's own
-          page; there is no picker here.
-        </p>
-      </div>
-      <div className="flex min-w-0 flex-col gap-1.5">
-        <Label htmlFor="apikey-create-scopes">Scopes</Label>
-        <Input
-          id="apikey-create-scopes"
-          value={scopes}
-          onChange={(e) => setScopes(e.target.value)}
-        />
-        <p className="text-xs text-muted-foreground">
-          Comma separated. Leave blank for none.
-        </p>
-      </div>
-      <Button
-        onClick={() => void submit()}
-        disabled={create.loading || name.trim() === "" || userId.trim() === ""}
-      >
-        {create.loading ? "Creating…" : "Create key"}
-      </Button>
+      <Section title="Key details" inset className="max-w-3xl">
+        <div className="flex min-w-0 flex-col gap-4">
+          <CommandAlert
+            error={create.error}
+            title="Could not create the API key"
+          />
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <Label htmlFor="apikey-create-name">Name</Label>
+            <Input
+              id="apikey-create-name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
+          </div>
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <Label htmlFor="apikey-create-user">User ID</Label>
+            <Input
+              id="apikey-create-user"
+              value={userId}
+              onChange={(e) => setUserId(e.target.value)}
+            />
+            {/*
+              There is no user-picker intent inside this sub-plugin's own
+              contributor, and reaching users.list through the host would be
+              exactly the widening hostIntents exists to prevent. A plain text
+              field with help text is worse UX and the honest shape of what this
+              sub-plugin may see.
+            */}
+            <p className="text-xs text-muted-foreground">
+              The user this key authenticates as. Find their id on the user's
+              own page; there is no picker here.
+            </p>
+          </div>
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <Label htmlFor="apikey-create-scopes">Scopes</Label>
+            <Input
+              id="apikey-create-scopes"
+              value={scopes}
+              onChange={(e) => setScopes(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">
+              Comma separated. Leave blank for none.
+            </p>
+          </div>
+          <div>
+            <Button
+              onClick={() => void submit()}
+              disabled={
+                create.loading || name.trim() === "" || userId.trim() === ""
+              }
+            >
+              {create.loading ? "Creating…" : "Create key"}
+            </Button>
+          </div>
+        </div>
+      </Section>
     </section>
   )
 }

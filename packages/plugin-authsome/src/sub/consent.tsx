@@ -17,6 +17,7 @@ import {
   QueryBoundary,
 } from "@forge-go/dashboard-kit/components/query-boundary"
 import { ResourceTable, type Column } from "../components/presentation"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { CursorPager, useCursorStack } from "../components/cursor-pager"
 
@@ -195,82 +196,87 @@ export function ConsentsPage() {
     <section className="flex min-w-0 flex-col gap-4">
       <PageHeader title="Consent" />
 
-      <FilterBar
-        search={{
-          value: searchInput,
-          onChange: setSearchInput,
-          label: "Search by user",
-          placeholder: "User ID",
-        }}
-        filters={[
-          {
-            id: "purpose",
-            label: "Purpose",
-            value: purpose,
-            options: purposeOptions,
-            onChange: (value) => {
-              setPurpose(value)
-              // Same handler, not a separate effect: a cursor left over from
-              // the previous filter points into a result set this query does
-              // not share.
-              page.reset()
-            },
-          },
-        ]}
-      />
-
-      <QueryBoundary title="Consent" query={list} skeletonRows={5}>
-        {(data) => {
-          const items = data.items ?? []
-          const caption = `${items.length} ${items.length === 1 ? "record" : "records"}`
-          return (
-            <>
-              <ResourceTable<ConsentRecord>
-                columns={columns}
-                rows={items}
-                rowKey={(r) => r.id}
-                caption={caption}
-                emptyMessage={
-                  userId || purpose
-                    ? "No consent records match this filter."
-                    : "No consent records yet."
-                }
-                rowActions={(r) =>
-                  // Revoke only makes sense against an active grant. A
-                  // record already revoked has nothing left to revoke.
-                  r.granted ? (
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      aria-label={`Revoke ${r.purpose} for ${r.userId}`}
-                      onClick={() => {
-                        // Reset at open, not at close: one hook serves every
-                        // row, so a failure left over from a different row's
-                        // revoke must not follow the operator to a row they
-                        // have not touched yet.
-                        revoke.reset()
-                        setRevoking(r)
-                      }}
-                    >
-                      Revoke
-                    </Button>
-                  ) : null
-                }
-              />
-              <CursorPager
-                shown={items.length}
-                // A zero-row page still carrying a nextCursor must not leave
-                // Next clickable next to a count that says there is nothing
-                // to see.
-                nextCursor={items.length > 0 ? data.nextCursor : undefined}
-                canGoBack={page.canGoBack}
-                onNext={page.next}
-                onPrevious={page.previous}
-              />
-            </>
-          )
-        }}
-      </QueryBoundary>
+      <Section
+        aria-label="Consent list"
+        actions={
+          <FilterBar
+            search={{
+              value: searchInput,
+              onChange: setSearchInput,
+              label: "Search by user",
+              placeholder: "User ID",
+            }}
+            filters={[
+              {
+                id: "purpose",
+                label: "Purpose",
+                value: purpose,
+                options: purposeOptions,
+                onChange: (value) => {
+                  setPurpose(value)
+                  // Same handler, not a separate effect: a cursor left over from
+                  // the previous filter points into a result set this query does
+                  // not share.
+                  page.reset()
+                },
+              },
+            ]}
+          />
+        }
+      >
+        <QueryBoundary title="Consent" query={list} skeletonRows={5}>
+          {(data) => {
+            const items = data.items ?? []
+            const caption = `${items.length} ${items.length === 1 ? "record" : "records"}`
+            return (
+              <>
+                <ResourceTable<ConsentRecord>
+                  columns={columns}
+                  rows={items}
+                  rowKey={(r) => r.id}
+                  caption={caption}
+                  emptyMessage={
+                    userId || purpose
+                      ? "No consent records match this filter."
+                      : "No consent records yet."
+                  }
+                  rowActions={(r) =>
+                    // Revoke only makes sense against an active grant. A
+                    // record already revoked has nothing left to revoke.
+                    r.granted ? (
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        aria-label={`Revoke ${r.purpose} for ${r.userId}`}
+                        onClick={() => {
+                          // Reset at open, not at close: one hook serves every
+                          // row, so a failure left over from a different row's
+                          // revoke must not follow the operator to a row they
+                          // have not touched yet.
+                          revoke.reset()
+                          setRevoking(r)
+                        }}
+                      >
+                        Revoke
+                      </Button>
+                    ) : null
+                  }
+                />
+                <CursorPager
+                  shown={items.length}
+                  // A zero-row page still carrying a nextCursor must not leave
+                  // Next clickable next to a count that says there is nothing
+                  // to see.
+                  nextCursor={items.length > 0 ? data.nextCursor : undefined}
+                  canGoBack={page.canGoBack}
+                  onNext={page.next}
+                  onPrevious={page.previous}
+                />
+              </>
+            )
+          }}
+        </QueryBoundary>
+      </Section>
 
       <ConfirmDialog
         open={revoking !== null}
@@ -324,8 +330,7 @@ export function ConsentUserSection({ userId }: { userId?: string }) {
   const caption = `${items.length} ${items.length === 1 ? "record" : "records"}`
 
   return (
-    <section className="flex min-w-0 flex-col gap-2">
-      <h3 className="text-sm font-medium">Consent</h3>
+    <Section title="Consent">
       <ResourceTable<ConsentRecord>
         columns={baseColumns()}
         rows={items}
@@ -333,7 +338,7 @@ export function ConsentUserSection({ userId }: { userId?: string }) {
         caption={caption}
         emptyMessage="No consent records."
       />
-    </section>
+    </Section>
   )
 }
 

@@ -83,7 +83,6 @@ export function AuthPluginsPage() {
             )
             return (
               <ResourceTable<InstalledPlugin>
-                appearance="flush"
                 columns={columns}
                 rows={filtered}
                 rowKey={(plugin) => plugin.name}

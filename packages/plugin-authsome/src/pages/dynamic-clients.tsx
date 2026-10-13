@@ -108,7 +108,6 @@ export function AuthDynamicClientsPage() {
               actions={<Badge variant="outline">active</Badge>}
             >
               <ResourceTable<DynamicSignupField>
-                appearance="flush"
                 columns={columns}
                 rows={fields}
                 rowKey={(f) => f.key}
