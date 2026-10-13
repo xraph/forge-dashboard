@@ -32,6 +32,7 @@ import { AuthUserCreatePage } from "../src/pages/user-create"
 import { AuthUserDetailPage } from "../src/pages/user-detail"
 import { AuthUsersPage } from "../src/pages/users"
 import { AuthWebhooksPage } from "../src/pages/webhooks"
+import { SETTINGS_INTENTS, settingsPanelFor } from "../src/sub/settings-panel"
 import { renderPage, stubClient } from "./harness"
 
 // Every core page, rendered with data the way its own test renders it, must
@@ -537,5 +538,81 @@ describe("core pages follow the shared layout", () => {
     )
     await screen.findByRole("button", { name: "Save changes" })
     expectLayout(container, ["Edit webhook"])
+  })
+
+  it("User detail with installed plugin sections follows the shared layout", async () => {
+    const { client } = stubClient({
+      "users.detail": USER,
+      "sessions.list": { sessions: [SESSION] },
+      "devices.list": { devices: [DEVICE] },
+    })
+    const sections = defineSubPlugin({
+      extension: "sections",
+      host: "authsome",
+      hostIntents: [],
+      contributions: {
+        "user.detail.sections": [
+          { id: "note", render: () => <p>Guest section</p> },
+        ],
+      },
+    })
+    const { container } = render(
+      <SubPluginProvider
+        entries={[{ subPlugin: sections, client, hostClient: client }]}
+      >
+        <PluginProvider client={client}>
+          <AuthUserDetailPage params={{ id: "usr_1" }} />
+        </PluginProvider>
+      </SubPluginProvider>
+    )
+    await h1()
+    await screen.findByText("Guest section")
+    await screen.findByText("10.0.0.1")
+    await screen.findByText("Firefox")
+    expect(
+      screen.getByRole("heading", { level: 3, name: "From installed plugins" })
+    ).toBeTruthy()
+    expectLayout(container, ["Details", "Sessions", "Devices", "Edit"])
+  })
+
+  it("Settings with an embedded sub settings panel follows the shared layout", async () => {
+    // A sub-plugin's panel is a tab inside the "Plugin settings" section, so
+    // its groups must not be sections of their own.
+    const host = stubClient({
+      "settings.namespaces": { namespaces: [] },
+      "settings.namespace": NAMESPACE,
+    })
+    const sub = defineSubPlugin({
+      extension: "password",
+      host: "authsome",
+      hostIntents: [...SETTINGS_INTENTS],
+      contributions: {
+        "settings.tabs": [
+          {
+            id: "password",
+            label: "Password",
+            render: settingsPanelFor("password"),
+          },
+        ],
+      },
+    })
+    const { container } = render(
+      <PluginProvider client={host.client}>
+        <SubPluginProvider
+          entries={[
+            {
+              subPlugin: sub,
+              client: stubClient({}).client,
+              hostClient: host.client,
+            },
+          ]}
+        >
+          <AuthSettingsPage />
+        </SubPluginProvider>
+      </PluginProvider>
+    )
+    await h1()
+    await screen.findByLabelText("Minimum length")
+    expectLayout(container, ["Configuration namespaces", "Plugin settings"])
   })
 })

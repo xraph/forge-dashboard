@@ -1,6 +1,11 @@
 import { PageLink } from "../components/presentation"
 import { useState } from "react"
-import { PluginSlot, useCommand, useQuery } from "@forge-go/dashboard-plugin"
+import {
+  PluginSlot,
+  useCommand,
+  useQuery,
+  useSlotCount,
+} from "@forge-go/dashboard-plugin"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
 import { Badge } from "@forge-go/dashboard-kit/components/badge"
 import { Button } from "@forge-go/dashboard-kit/components/button"
@@ -245,6 +250,7 @@ export function AuthUserDetailPage({ params }: PluginPageProps) {
 
 function UserDetailBody({ userId }: { userId: string }) {
   const query = useQuery<UserDetail>("users.detail", { id: userId })
+  const contributed = useSlotCount("user.detail.sections")
 
   return (
     <section className="flex min-w-0 flex-col gap-4">
@@ -332,11 +338,19 @@ function UserDetailBody({ userId }: { userId: string }) {
                   </Section>
                   {/*
                     Where the MFA, consent and social sub-plugins put their
-                    per-user panels. Each contribution brings its own titled
-                    section, so there is no heading of ours above them: a bare
-                    h2 would sit outside every section, and wrapping the slot
-                    in one would nest the contributions' sections inside it.
+                    per-user panels. The heading is conditional because
+                    PluginSlot renders nothing at all when nobody contributes,
+                    and a bare heading over nothing is worse than no heading.
+                    It is an h3, not an h2: contributions are not all kit
+                    sections yet, so an h2 here would sit outside every
+                    section, and a Section around the slot would nest the
+                    ones that are.
                   */}
+                  {contributed > 0 && (
+                    <h3 className="text-sm font-medium">
+                      From installed plugins
+                    </h3>
+                  )}
                   <PluginSlot name="user.detail.sections" params={{ userId }} />
                 </>
               }

@@ -63,6 +63,25 @@ describe("SettingsForm", () => {
     expect(screen.getByRole("heading", { name: "Policy" })).toBeTruthy()
   })
 
+  it("renders each group of a rows form as a region named after it", () => {
+    const { container } = render(
+      <SettingsForm fields={fields} onSave={() => {}} layout="rows" />
+    )
+    expect(screen.getByRole("region", { name: "Policy" })).toBeTruthy()
+    expect(container.querySelectorAll('[data-slot="section"]').length).toBe(1)
+  })
+
+  it("renders a nested rows form's groups as h3 subsections, not sections", () => {
+    const { container } = render(
+      <SettingsForm fields={fields} onSave={() => {}} layout="rows" nested />
+    )
+    expect(
+      screen.getByRole("heading", { level: 3, name: "Policy" })
+    ).toBeTruthy()
+    expect(screen.queryByRole("heading", { level: 2 })).toBeNull()
+    expect(container.querySelector('[data-slot="section"]')).toBeNull()
+  })
+
   it("keeps save disabled until something actually changes", () => {
     render(<SettingsForm fields={fields} onSave={() => {}} />)
     const save = screen.getByRole("button", {

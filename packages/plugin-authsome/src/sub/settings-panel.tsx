@@ -85,6 +85,10 @@ export function settingsPanelFor(
                 saving={update.loading}
                 onSave={(changed) => void save(changed)}
                 emptyMessage="This plugin has nothing to configure."
+                // Embedded (no routed `params`) means a tab in the settings
+                // page's "Plugin settings" section, so its groups must not
+                // be sections of their own.
+                nested={params === undefined}
               />
             )
           }}
