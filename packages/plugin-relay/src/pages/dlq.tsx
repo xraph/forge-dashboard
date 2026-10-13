@@ -30,6 +30,7 @@ import {
   ResourceTable,
   type Column,
 } from "@forge-go/dashboard-kit/components/resource-table"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { CursorPager, useCursorStack } from "../components/cursor-pager"
 import { describeStatus } from "../lib/format"
@@ -196,63 +197,69 @@ export function RelayDLQPage() {
           {notice}
         </p>
       )}
-      <FilterBar
-        search={{
-          value: tenant,
-          onChange: change(setTenant),
-          label: "Tenant",
-          placeholder: "Filter by tenant",
-        }}
-        filters={[
-          {
-            id: "replayed",
-            label: "Replayed",
-            value: replayedFilter,
-            onChange: change(setReplayedFilter),
-            options: [
-              { label: "All", value: "all" },
-              { label: "Not replayed", value: "not-replayed" },
-              { label: "Replayed", value: "replayed" },
-            ],
-          },
-        ]}
-      />
-      <QueryBoundary title="Dead letters" query={query} skeletonRows={6}>
-        {(data) => {
-          const rows = data.entries ?? []
-          return (
-            <div className="flex min-w-0 flex-col gap-3">
-              <ResourceTable<DLQEntrySummary>
-                columns={columns}
-                rows={rows}
-                rowKey={(r) => r.id}
-                caption={`${rows.length} ${rows.length === 1 ? "entry" : "entries"} on this page`}
-                emptyMessage={
-                  tenant.trim() || replayedFilter !== "all"
-                    ? "No dead letters match these filters."
-                    : "The dead letter queue is empty. Every delivery either arrived or is still being retried."
-                }
-                rowActions={(r) =>
-                  r.replayedAt ? null : (
-                    <IconButton
-                      variant="outline"
-                      onClick={() => openReplay(r)}
-                      label={`Replay ${r.eventType} to ${r.url}`}
-                    />
-                  )
-                }
-              />
-              <CursorPager
-                shown={rows.length}
-                nextCursor={data.nextCursor}
-                onNext={pager.next}
-                onPrevious={pager.previous}
-                canGoBack={pager.canGoBack}
-              />
-            </div>
-          )
-        }}
-      </QueryBoundary>
+      <Section
+        aria-label="Dead letter list"
+        actions={
+          <FilterBar
+            search={{
+              value: tenant,
+              onChange: change(setTenant),
+              label: "Tenant",
+              placeholder: "Filter by tenant",
+            }}
+            filters={[
+              {
+                id: "replayed",
+                label: "Replayed",
+                value: replayedFilter,
+                onChange: change(setReplayedFilter),
+                options: [
+                  { label: "All", value: "all" },
+                  { label: "Not replayed", value: "not-replayed" },
+                  { label: "Replayed", value: "replayed" },
+                ],
+              },
+            ]}
+          />
+        }
+      >
+        <QueryBoundary title="Dead letters" query={query} skeletonRows={6}>
+          {(data) => {
+            const rows = data.entries ?? []
+            return (
+              <div className="flex min-w-0 flex-col">
+                <ResourceTable<DLQEntrySummary>
+                  columns={columns}
+                  rows={rows}
+                  rowKey={(r) => r.id}
+                  caption={`${rows.length} ${rows.length === 1 ? "entry" : "entries"} on this page`}
+                  emptyMessage={
+                    tenant.trim() || replayedFilter !== "all"
+                      ? "No dead letters match these filters."
+                      : "The dead letter queue is empty. Every delivery either arrived or is still being retried."
+                  }
+                  rowActions={(r) =>
+                    r.replayedAt ? null : (
+                      <IconButton
+                        variant="outline"
+                        onClick={() => openReplay(r)}
+                        label={`Replay ${r.eventType} to ${r.url}`}
+                      />
+                    )
+                  }
+                />
+                <CursorPager
+                  shown={rows.length}
+                  nextCursor={data.nextCursor}
+                  onNext={pager.next}
+                  onPrevious={pager.previous}
+                  canGoBack={pager.canGoBack}
+                />
+              </div>
+            )
+          }}
+        </QueryBoundary>
+      </Section>
 
       <ReplayDialog
         entry={target}

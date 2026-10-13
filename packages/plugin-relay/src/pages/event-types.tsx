@@ -10,6 +10,7 @@ import {
   ResourceTable,
   type Column,
 } from "@forge-go/dashboard-kit/components/resource-table"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import type { EventTypeSummary } from "../types"
 
 const columns: Column<EventTypeSummary>[] = [
@@ -83,34 +84,40 @@ export function RelayEventTypesPage() {
           </PluginLink>
         }
       />
-      <FilterBar
-        filters={[
-          {
-            id: "show",
-            label: "Show",
-            value: show,
-            onChange: setShow,
-            options: [
-              { label: "Active", value: "active" },
-              { label: "Active and deprecated", value: "all" },
-            ],
-          },
-        ]}
-      />
-      <QueryBoundary title="Event types" query={query} skeletonRows={5}>
-        {(data) => {
-          const rows = data.types ?? []
-          return (
-            <ResourceTable<EventTypeSummary>
-              columns={columns}
-              rows={rows}
-              rowKey={(r) => r.name}
-              caption={`${rows.length} ${rows.length === 1 ? "type" : "types"}`}
-              emptyMessage="No event types yet. Register one before sending events of it."
-            />
-          )
-        }}
-      </QueryBoundary>
+      <Section
+        aria-label="Event type list"
+        actions={
+          <FilterBar
+            filters={[
+              {
+                id: "show",
+                label: "Show",
+                value: show,
+                onChange: setShow,
+                options: [
+                  { label: "Active", value: "active" },
+                  { label: "Active and deprecated", value: "all" },
+                ],
+              },
+            ]}
+          />
+        }
+      >
+        <QueryBoundary title="Event types" query={query} skeletonRows={5}>
+          {(data) => {
+            const rows = data.types ?? []
+            return (
+              <ResourceTable<EventTypeSummary>
+                columns={columns}
+                rows={rows}
+                rowKey={(r) => r.name}
+                caption={`${rows.length} ${rows.length === 1 ? "type" : "types"}`}
+                emptyMessage="No event types yet. Register one before sending events of it."
+              />
+            )
+          }}
+        </QueryBoundary>
+      </Section>
     </section>
   )
 }

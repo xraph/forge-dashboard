@@ -14,6 +14,7 @@ import {
   CommandAlert,
   QueryBoundary,
 } from "@forge-go/dashboard-kit/components/query-boundary"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { TagList } from "@forge-go/dashboard-kit/components/tag-list"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { JsonView } from "../components/json-view"
@@ -65,14 +66,8 @@ function EventTypeView({ name }: { name: string }) {
             />
             <DetailLayout
               main={
-                <div className="flex min-w-0 flex-col gap-4">
-                  <section
-                    aria-labelledby="schema-heading"
-                    className="flex min-w-0 flex-col gap-2"
-                  >
-                    <h2 id="schema-heading" className="text-sm font-medium">
-                      Schema
-                    </h2>
+                <>
+                  <Section title="Schema" inset>
                     {t.schema ? (
                       <JsonView value={t.schema} label="schema" />
                     ) : (
@@ -80,86 +75,87 @@ function EventTypeView({ name }: { name: string }) {
                         No schema. Any payload is accepted.
                       </p>
                     )}
-                  </section>
-                  <section
-                    aria-labelledby="example-heading"
-                    className="flex min-w-0 flex-col gap-2"
-                  >
-                    <h2 id="example-heading" className="text-sm font-medium">
-                      Example
-                    </h2>
+                  </Section>
+                  <Section title="Example" inset>
                     <JsonView value={t.example} label="example" />
-                  </section>
-                </div>
+                  </Section>
+                </>
               }
               aside={
-                <DescriptionList
-                  items={[
-                    {
-                      term: "State",
-                      value: t.deprecated ? (
-                        <Badge variant="secondary">Deprecated</Badge>
-                      ) : (
-                        <Badge variant="outline">Active</Badge>
-                      ),
-                    },
-                    {
-                      term: "Deprecated",
-                      value: (
-                        <Timestamp value={t.deprecatedAt} label="deprecation" />
-                      ),
-                    },
-                    {
-                      term: "Group",
-                      value: t.group || <NoneCell label="group" />,
-                    },
-                    {
-                      term: "Version",
-                      value: t.version || <NoneCell label="version" />,
-                    },
-                    {
-                      term: "Schema version",
-                      value: t.schemaVersion || (
-                        <NoneCell label="schema version" />
-                      ),
-                    },
-                    {
-                      term: "Event type ID",
-                      value: <span className="font-mono text-xs">{t.id}</span>,
-                    },
-                    {
-                      term: "App scope",
-                      value: t.scopeAppId ? (
-                        <span className="font-mono text-xs">
-                          {t.scopeAppId}
-                        </span>
-                      ) : (
-                        <NoneCell label="app scope" />
-                      ),
-                    },
-                    {
-                      term: "Metadata",
-                      value: (
-                        <TagList
-                          values={Object.entries(t.metadata ?? {}).map(
-                            ([k, v]) => `${k}: ${v}`
-                          )}
-                          label="metadata"
-                        />
-                      ),
-                    },
-                    {
-                      term: "Registered",
-                      value: (
-                        <Timestamp value={t.createdAt} label="registration" />
-                      ),
-                    },
-                    {
-                      term: "Updated",
-                      value: <Timestamp value={t.updatedAt} label="update" />,
-                    },
-                  ]}
-                />
+                <Section title="Details" inset>
+                  <DescriptionList
+                    items={[
+                      {
+                        term: "State",
+                        value: t.deprecated ? (
+                          <Badge variant="secondary">Deprecated</Badge>
+                        ) : (
+                          <Badge variant="outline">Active</Badge>
+                        ),
+                      },
+                      {
+                        term: "Deprecated",
+                        value: (
+                          <Timestamp
+                            value={t.deprecatedAt}
+                            label="deprecation"
+                          />
+                        ),
+                      },
+                      {
+                        term: "Group",
+                        value: t.group || <NoneCell label="group" />,
+                      },
+                      {
+                        term: "Version",
+                        value: t.version || <NoneCell label="version" />,
+                      },
+                      {
+                        term: "Schema version",
+                        value: t.schemaVersion || (
+                          <NoneCell label="schema version" />
+                        ),
+                      },
+                      {
+                        term: "Event type ID",
+                        value: (
+                          <span className="font-mono text-xs">{t.id}</span>
+                        ),
+                      },
+                      {
+                        term: "App scope",
+                        value: t.scopeAppId ? (
+                          <span className="font-mono text-xs">
+                            {t.scopeAppId}
+                          </span>
+                        ) : (
+                          <NoneCell label="app scope" />
+                        ),
+                      },
+                      {
+                        term: "Metadata",
+                        value: (
+                          <TagList
+                            values={Object.entries(t.metadata ?? {}).map(
+                              ([k, v]) => `${k}: ${v}`
+                            )}
+                            label="metadata"
+                          />
+                        ),
+                      },
+                      {
+                        term: "Registered",
+                        value: (
+                          <Timestamp value={t.createdAt} label="registration" />
+                        ),
+                      },
+                      {
+                        term: "Updated",
+                        value: <Timestamp value={t.updatedAt} label="update" />,
+                      },
+                    ]}
+                  />
+                </Section>
               }
             />
             <ConfirmDialog

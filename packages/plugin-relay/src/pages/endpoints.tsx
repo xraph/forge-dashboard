@@ -11,6 +11,7 @@ import {
   type Column,
 } from "@forge-go/dashboard-kit/components/resource-table"
 import { TagList } from "@forge-go/dashboard-kit/components/tag-list"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 
 /** One row of `endpoints.list`, from EndpointSummary in relay's contract. */
@@ -121,48 +122,54 @@ export function RelayEndpointsPage() {
           </PluginLink>
         }
       />
-      <FilterBar
-        search={{
-          value: tenant,
-          onChange: setTenant,
-          label: "Tenant",
-          placeholder: "Filter by tenant",
-        }}
-        filters={[
-          {
-            id: "state",
-            label: "State",
-            value: state,
-            onChange: (v) => setState(v as StateFilter),
-            options: [
-              { label: "All", value: "all" },
-              { label: "Enabled", value: "enabled" },
-              { label: "Disabled", value: "disabled" },
-            ],
-          },
-        ]}
-      />
-      <QueryBoundary title="Endpoints" query={query} skeletonRows={4}>
-        {(data) => {
-          // The Go handler never sends null here, but the page renders
-          // whatever the host hands it and must not throw on a missing array.
-          const endpoints = data.endpoints ?? []
-          return (
-            <ResourceTable<EndpointSummary>
-              columns={columns}
-              rows={endpoints}
-              rowKey={(r) => r.id}
-              // Convention 3: a live count, including at zero.
-              caption={`${endpoints.length} ${endpoints.length === 1 ? "endpoint" : "endpoints"}`}
-              emptyMessage={
-                filtered
-                  ? "No endpoints match these filters."
-                  : "No endpoints yet. Create one to start delivering webhooks."
-              }
-            />
-          )
-        }}
-      </QueryBoundary>
+      <Section
+        aria-label="Endpoint list"
+        actions={
+          <FilterBar
+            search={{
+              value: tenant,
+              onChange: setTenant,
+              label: "Tenant",
+              placeholder: "Filter by tenant",
+            }}
+            filters={[
+              {
+                id: "state",
+                label: "State",
+                value: state,
+                onChange: (v) => setState(v as StateFilter),
+                options: [
+                  { label: "All", value: "all" },
+                  { label: "Enabled", value: "enabled" },
+                  { label: "Disabled", value: "disabled" },
+                ],
+              },
+            ]}
+          />
+        }
+      >
+        <QueryBoundary title="Endpoints" query={query} skeletonRows={4}>
+          {(data) => {
+            // The Go handler never sends null here, but the page renders
+            // whatever the host hands it and must not throw on a missing array.
+            const endpoints = data.endpoints ?? []
+            return (
+              <ResourceTable<EndpointSummary>
+                columns={columns}
+                rows={endpoints}
+                rowKey={(r) => r.id}
+                // Convention 3: a live count, including at zero.
+                caption={`${endpoints.length} ${endpoints.length === 1 ? "endpoint" : "endpoints"}`}
+                emptyMessage={
+                  filtered
+                    ? "No endpoints match these filters."
+                    : "No endpoints yet. Create one to start delivering webhooks."
+                }
+              />
+            )
+          }}
+        </QueryBoundary>
+      </Section>
     </section>
   )
 }

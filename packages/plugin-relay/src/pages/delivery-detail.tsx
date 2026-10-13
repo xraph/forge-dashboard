@@ -7,6 +7,7 @@ import {
 import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { DeliveryStateBadge } from "../components/delivery-state"
 import { RetryTimeline } from "../components/retry-timeline"
@@ -46,13 +47,7 @@ function DeliveryDetailView({ id }: { id: string }) {
             />
             <DetailLayout
               main={
-                <section
-                  aria-labelledby="retry-heading"
-                  className="flex min-w-0 flex-col gap-4"
-                >
-                  <h2 id="retry-heading" className="text-sm font-medium">
-                    Retry sequence
-                  </h2>
+                <Section title="Retry sequence" inset>
                   <RetryTimeline
                     attempts={d.attempts ?? []}
                     state={d.state}
@@ -60,83 +55,94 @@ function DeliveryDetailView({ id }: { id: string }) {
                     nextAttemptAt={d.nextAttemptAt}
                     endpointEnabled={d.endpointEnabled}
                   />
-                </section>
+                </Section>
               }
               aside={
-                <DescriptionList
-                  items={[
-                    {
-                      term: "State",
-                      value: (
-                        <DeliveryStateBadge
-                          state={d.state}
-                          attemptCount={d.attemptCount}
-                        />
-                      ),
-                    },
-                    {
-                      term: "Last response",
-                      value:
-                        d.attemptCount === 0 ? (
-                          <NoneCell label="response yet" />
-                        ) : (
-                          describeStatus(d.lastStatusCode)
+                <Section title="Details" inset>
+                  <DescriptionList
+                    items={[
+                      {
+                        term: "State",
+                        value: (
+                          <DeliveryStateBadge
+                            state={d.state}
+                            attemptCount={d.attemptCount}
+                          />
                         ),
-                    },
-                    {
-                      term: "Attempts",
-                      value: (
-                        <span className="tabular-nums">
-                          {d.attemptCount} of {d.maxAttempts}
-                        </span>
-                      ),
-                    },
-                    {
-                      term: "Endpoint",
-                      value: d.endpointUrl ? (
-                        <PluginLink
-                          to={`/endpoints/${d.endpointId}`}
-                          className="break-all underline underline-offset-4"
-                        >
-                          {d.endpointUrl}
-                        </PluginLink>
-                      ) : (
-                        <NoneCell label="endpoint (deleted)" />
-                      ),
-                    },
-                    {
-                      term: "Event",
-                      value: (
-                        <PluginLink
-                          to={`/events/${d.eventId}`}
-                          className="font-mono text-xs underline underline-offset-4"
-                        >
-                          {d.eventId}
-                        </PluginLink>
-                      ),
-                    },
-                    {
-                      term: "Tenant",
-                      value: (
-                        <span className="font-mono text-xs">{d.tenantId}</span>
-                      ),
-                    },
-                    {
-                      term: "Delivery ID",
-                      value: <span className="font-mono text-xs">{d.id}</span>,
-                    },
-                    {
-                      term: "Created",
-                      value: <Timestamp value={d.createdAt} label="created" />,
-                    },
-                    {
-                      term: "Finished",
-                      value: (
-                        <Timestamp value={d.completedAt} label="finish time" />
-                      ),
-                    },
-                  ]}
-                />
+                      },
+                      {
+                        term: "Last response",
+                        value:
+                          d.attemptCount === 0 ? (
+                            <NoneCell label="response yet" />
+                          ) : (
+                            describeStatus(d.lastStatusCode)
+                          ),
+                      },
+                      {
+                        term: "Attempts",
+                        value: (
+                          <span className="tabular-nums">
+                            {d.attemptCount} of {d.maxAttempts}
+                          </span>
+                        ),
+                      },
+                      {
+                        term: "Endpoint",
+                        value: d.endpointUrl ? (
+                          <PluginLink
+                            to={`/endpoints/${d.endpointId}`}
+                            className="break-all underline underline-offset-4"
+                          >
+                            {d.endpointUrl}
+                          </PluginLink>
+                        ) : (
+                          <NoneCell label="endpoint (deleted)" />
+                        ),
+                      },
+                      {
+                        term: "Event",
+                        value: (
+                          <PluginLink
+                            to={`/events/${d.eventId}`}
+                            className="font-mono text-xs underline underline-offset-4"
+                          >
+                            {d.eventId}
+                          </PluginLink>
+                        ),
+                      },
+                      {
+                        term: "Tenant",
+                        value: (
+                          <span className="font-mono text-xs">
+                            {d.tenantId}
+                          </span>
+                        ),
+                      },
+                      {
+                        term: "Delivery ID",
+                        value: (
+                          <span className="font-mono text-xs">{d.id}</span>
+                        ),
+                      },
+                      {
+                        term: "Created",
+                        value: (
+                          <Timestamp value={d.createdAt} label="created" />
+                        ),
+                      },
+                      {
+                        term: "Finished",
+                        value: (
+                          <Timestamp
+                            value={d.completedAt}
+                            label="finish time"
+                          />
+                        ),
+                      },
+                    ]}
+                  />
+                </Section>
               }
             />
           </>

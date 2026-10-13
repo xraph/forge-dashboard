@@ -1,5 +1,6 @@
 import { useCommand, useNavigateTo } from "@forge-go/dashboard-plugin"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import {
   EndpointForm,
   emptyEndpointForm,
@@ -44,16 +45,18 @@ export function RelayEndpointCreatePage() {
         title="New endpoint"
         description="Relay generates a signing secret for it. Rotate it from the endpoint's page to see it."
       />
-      <EndpointForm
-        mode="create"
-        initial={emptyEndpointForm}
-        submitLabel="Create endpoint"
-        pendingLabel="Creating…"
-        pending={create.loading}
-        error={create.error}
-        errorTitle="Could not create the endpoint"
-        onSubmit={(p) => void submit(p)}
-      />
+      <Section aria-label="New endpoint" inset className="max-w-xl">
+        <EndpointForm
+          mode="create"
+          initial={emptyEndpointForm}
+          submitLabel="Create endpoint"
+          pendingLabel="Creating…"
+          pending={create.loading}
+          error={create.error}
+          errorTitle="Could not create the endpoint"
+          onSubmit={(p) => void submit(p)}
+        />
+      </Section>
     </section>
   )
 }

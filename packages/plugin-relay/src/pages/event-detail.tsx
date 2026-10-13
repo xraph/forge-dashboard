@@ -5,6 +5,7 @@ import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
 import { ResourceTable } from "@forge-go/dashboard-kit/components/resource-table"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { JsonView } from "../components/json-view"
 import type { DeliverySummary, EventDetail } from "../types"
@@ -35,77 +36,71 @@ function EventDetailView({ id }: { id: string }) {
                 title={e.type}
                 description={`Sent for tenant ${e.tenantId}`}
               />
-              <DescriptionList
-                items={[
-                  {
-                    term: "Type",
-                    value: (
-                      <PluginLink
-                        to={`/event-types/${encodeURIComponent(e.type)}`}
-                        className="underline underline-offset-4"
-                      >
-                        {e.type}
-                      </PluginLink>
-                    ),
-                  },
-                  {
-                    term: "Tenant",
-                    value: (
-                      <span className="font-mono text-xs">{e.tenantId}</span>
-                    ),
-                  },
-                  {
-                    term: "Event ID",
-                    value: <span className="font-mono text-xs">{e.id}</span>,
-                  },
-                  {
-                    term: "Idempotency key",
-                    value: e.idempotencyKey ? (
-                      <span className="font-mono text-xs">
-                        {e.idempotencyKey}
-                      </span>
-                    ) : (
-                      <NoneCell label="idempotency key" />
-                    ),
-                  },
-                  {
-                    term: "Sent",
-                    value: <Timestamp value={e.createdAt} label="sent" />,
-                  },
-                  {
-                    term: "App scope",
-                    value: e.scopeAppId ? (
-                      <span className="font-mono text-xs">{e.scopeAppId}</span>
-                    ) : (
-                      <NoneCell label="app scope" />
-                    ),
-                  },
-                  {
-                    term: "Org scope",
-                    value: e.scopeOrgId ? (
-                      <span className="font-mono text-xs">{e.scopeOrgId}</span>
-                    ) : (
-                      <NoneCell label="org scope" />
-                    ),
-                  },
-                ]}
-              />
-              <section
-                aria-labelledby="data-heading"
-                className="flex min-w-0 flex-col gap-2"
-              >
-                <h2 id="data-heading" className="text-sm font-medium">
-                  Payload
-                </h2>
+              <Section title="Details" inset>
+                <DescriptionList
+                  items={[
+                    {
+                      term: "Type",
+                      value: (
+                        <PluginLink
+                          to={`/event-types/${encodeURIComponent(e.type)}`}
+                          className="underline underline-offset-4"
+                        >
+                          {e.type}
+                        </PluginLink>
+                      ),
+                    },
+                    {
+                      term: "Tenant",
+                      value: (
+                        <span className="font-mono text-xs">{e.tenantId}</span>
+                      ),
+                    },
+                    {
+                      term: "Event ID",
+                      value: <span className="font-mono text-xs">{e.id}</span>,
+                    },
+                    {
+                      term: "Idempotency key",
+                      value: e.idempotencyKey ? (
+                        <span className="font-mono text-xs">
+                          {e.idempotencyKey}
+                        </span>
+                      ) : (
+                        <NoneCell label="idempotency key" />
+                      ),
+                    },
+                    {
+                      term: "Sent",
+                      value: <Timestamp value={e.createdAt} label="sent" />,
+                    },
+                    {
+                      term: "App scope",
+                      value: e.scopeAppId ? (
+                        <span className="font-mono text-xs">
+                          {e.scopeAppId}
+                        </span>
+                      ) : (
+                        <NoneCell label="app scope" />
+                      ),
+                    },
+                    {
+                      term: "Org scope",
+                      value: e.scopeOrgId ? (
+                        <span className="font-mono text-xs">
+                          {e.scopeOrgId}
+                        </span>
+                      ) : (
+                        <NoneCell label="org scope" />
+                      ),
+                    },
+                  ]}
+                />
+              </Section>
+              <Section title="Payload" inset>
                 <JsonView value={e.data} label="payload" />
-              </section>
-              <section
-                aria-labelledby="fanout-heading"
-                className="flex min-w-0 flex-col gap-2"
-              >
-                <h2 id="fanout-heading" className="text-sm font-medium">
-                  Deliveries
-                </h2>
+              </Section>
+              <Section title="Deliveries">
                 <ResourceTable<DeliverySummary>
                   columns={deliveryColumns}
                   rows={deliveries}
@@ -113,7 +108,7 @@ function EventDetailView({ id }: { id: string }) {
                   caption={`${deliveries.length} ${deliveries.length === 1 ? "delivery" : "deliveries"}`}
                   emptyMessage="No endpoint matched this event, so nothing was sent."
                 />
-              </section>
+              </Section>
             </>
           )
         }}

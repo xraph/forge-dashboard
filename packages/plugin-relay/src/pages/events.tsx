@@ -8,6 +8,7 @@ import {
   ResourceTable,
   type Column,
 } from "@forge-go/dashboard-kit/components/resource-table"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { CursorPager, useCursorStack } from "../components/cursor-pager"
 import type { EventSummary, EventsPage, EventTypeSummary } from "../types"
@@ -71,62 +72,68 @@ export function RelayEventsPage() {
           </PluginLink>
         }
       />
-      <FilterBar
-        search={{
-          value: tenant,
-          onChange: (v) => {
-            setTenant(v)
-            pager.reset()
-          },
-          label: "Tenant",
-          placeholder: "Filter by tenant",
-        }}
-        filters={[
-          {
-            id: "type",
-            label: "Type",
-            value: type,
-            onChange: (v) => {
-              setType(v)
-              pager.reset()
-            },
-            options: [
-              { label: "All", value: "all" },
-              ...(types.data?.types ?? []).map((t) => ({
-                label: t.name,
-                value: t.name,
-              })),
-            ],
-          },
-        ]}
-      />
-      <QueryBoundary title="Events" query={query} skeletonRows={8}>
-        {(data) => {
-          const rows = data.events ?? []
-          return (
-            <div className="flex min-w-0 flex-col gap-3">
-              <ResourceTable<EventSummary>
-                columns={columns}
-                rows={rows}
-                rowKey={(r) => r.id}
-                caption={`${rows.length} ${rows.length === 1 ? "event" : "events"} on this page`}
-                emptyMessage={
-                  tenant.trim() || type !== "all"
-                    ? "No events match these filters."
-                    : "No events yet. Send one to see it fan out."
-                }
-              />
-              <CursorPager
-                shown={rows.length}
-                nextCursor={data.nextCursor}
-                onNext={pager.next}
-                onPrevious={pager.previous}
-                canGoBack={pager.canGoBack}
-              />
-            </div>
-          )
-        }}
-      </QueryBoundary>
+      <Section
+        aria-label="Event list"
+        actions={
+          <FilterBar
+            search={{
+              value: tenant,
+              onChange: (v) => {
+                setTenant(v)
+                pager.reset()
+              },
+              label: "Tenant",
+              placeholder: "Filter by tenant",
+            }}
+            filters={[
+              {
+                id: "type",
+                label: "Type",
+                value: type,
+                onChange: (v) => {
+                  setType(v)
+                  pager.reset()
+                },
+                options: [
+                  { label: "All", value: "all" },
+                  ...(types.data?.types ?? []).map((t) => ({
+                    label: t.name,
+                    value: t.name,
+                  })),
+                ],
+              },
+            ]}
+          />
+        }
+      >
+        <QueryBoundary title="Events" query={query} skeletonRows={8}>
+          {(data) => {
+            const rows = data.events ?? []
+            return (
+              <div className="flex min-w-0 flex-col">
+                <ResourceTable<EventSummary>
+                  columns={columns}
+                  rows={rows}
+                  rowKey={(r) => r.id}
+                  caption={`${rows.length} ${rows.length === 1 ? "event" : "events"} on this page`}
+                  emptyMessage={
+                    tenant.trim() || type !== "all"
+                      ? "No events match these filters."
+                      : "No events yet. Send one to see it fan out."
+                  }
+                />
+                <CursorPager
+                  shown={rows.length}
+                  nextCursor={data.nextCursor}
+                  onNext={pager.next}
+                  onPrevious={pager.previous}
+                  canGoBack={pager.canGoBack}
+                />
+              </div>
+            )
+          }}
+        </QueryBoundary>
+      </Section>
     </section>
   )
 }

@@ -5,6 +5,7 @@ import { Input } from "@forge-go/dashboard-kit/components/input"
 import { Label } from "@forge-go/dashboard-kit/components/label"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { CommandAlert } from "@forge-go/dashboard-kit/components/query-boundary"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { Textarea } from "@forge-go/dashboard-kit/components/textarea"
 import type { Ack } from "../types"
 import { parsePayload } from "./event-send"
@@ -62,100 +63,102 @@ export function RelayEventTypeRegisterPage() {
         title="Register an event type"
         description="Registering a name that already exists replaces its definition."
       />
-      <form
-        className="flex max-w-xl min-w-0 flex-col gap-4"
-        onSubmit={submit}
-        noValidate
-      >
-        <CommandAlert
-          error={register.error}
-          title="Could not register the type"
-        />
-        <div className="flex min-w-0 flex-col gap-1.5">
-          <Label htmlFor={`${id}-name`}>Name</Label>
-          <Input
-            id={`${id}-name`}
-            className="font-mono"
-            placeholder="invoice.paid"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            aria-invalid={refused === "name" || undefined}
+      <Section aria-label="Event type" inset className="max-w-xl">
+        <form
+          className="flex min-w-0 flex-col gap-4"
+          onSubmit={submit}
+          noValidate
+        >
+          <CommandAlert
+            error={register.error}
+            title="Could not register the type"
           />
-          <span className="text-xs text-muted-foreground">
-            Dotted, so endpoints can subscribe with a pattern like invoice.*
-          </span>
-        </div>
-        <div className="flex min-w-0 flex-col gap-1.5">
-          <Label htmlFor={`${id}-description`}>Description</Label>
-          <Input
-            id={`${id}-description`}
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-          />
-        </div>
-        <div className="flex gap-4">
-          <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-            <Label htmlFor={`${id}-group`}>Group</Label>
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <Label htmlFor={`${id}-name`}>Name</Label>
             <Input
-              id={`${id}-group`}
-              value={group}
-              onChange={(e) => setGroup(e.target.value)}
+              id={`${id}-name`}
+              className="font-mono"
+              placeholder="invoice.paid"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              aria-invalid={refused === "name" || undefined}
             />
-          </div>
-          <div className="flex w-28 min-w-0 flex-col gap-1.5">
-            <Label htmlFor={`${id}-version`}>Version</Label>
-            <Input
-              id={`${id}-version`}
-              value={version}
-              onChange={(e) => setVersion(e.target.value)}
-            />
-          </div>
-        </div>
-        <div className="flex min-w-0 flex-col gap-1.5">
-          <Label htmlFor={`${id}-schema`}>JSON Schema</Label>
-          <Textarea
-            id={`${id}-schema`}
-            className="min-h-32 font-mono"
-            value={schema}
-            onChange={(e) => setSchema(e.target.value)}
-            aria-invalid={
-              Boolean(schemaError) || refused === "schema" || undefined
-            }
-            aria-describedby={`${id}-schema-help`}
-          />
-          <span
-            id={`${id}-schema-help`}
-            className={
-              schemaError
-                ? "text-xs font-medium text-destructive"
-                : "text-xs text-muted-foreground"
-            }
-          >
-            {schemaError ??
-              "Optional. Every event of this type is checked against it before it is stored."}
-          </span>
-        </div>
-        <div className="flex min-w-0 flex-col gap-1.5">
-          <Label htmlFor={`${id}-example`}>Example payload</Label>
-          <Textarea
-            id={`${id}-example`}
-            className="min-h-24 font-mono"
-            value={example}
-            onChange={(e) => setExample(e.target.value)}
-            aria-invalid={Boolean(parsedExample.error) || undefined}
-          />
-          {parsedExample.error && (
-            <span className="text-xs font-medium text-destructive">
-              {parsedExample.error}
+            <span className="text-xs text-muted-foreground">
+              Dotted, so endpoints can subscribe with a pattern like invoice.*
             </span>
-          )}
-        </div>
-        <div>
-          <Button type="submit" disabled={!ready || register.loading}>
-            {register.loading ? "Registering…" : "Register"}
-          </Button>
-        </div>
-      </form>
+          </div>
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <Label htmlFor={`${id}-description`}>Description</Label>
+            <Input
+              id={`${id}-description`}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+            />
+          </div>
+          <div className="flex gap-4">
+            <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+              <Label htmlFor={`${id}-group`}>Group</Label>
+              <Input
+                id={`${id}-group`}
+                value={group}
+                onChange={(e) => setGroup(e.target.value)}
+              />
+            </div>
+            <div className="flex w-28 min-w-0 flex-col gap-1.5">
+              <Label htmlFor={`${id}-version`}>Version</Label>
+              <Input
+                id={`${id}-version`}
+                value={version}
+                onChange={(e) => setVersion(e.target.value)}
+              />
+            </div>
+          </div>
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <Label htmlFor={`${id}-schema`}>JSON Schema</Label>
+            <Textarea
+              id={`${id}-schema`}
+              className="min-h-32 font-mono"
+              value={schema}
+              onChange={(e) => setSchema(e.target.value)}
+              aria-invalid={
+                Boolean(schemaError) || refused === "schema" || undefined
+              }
+              aria-describedby={`${id}-schema-help`}
+            />
+            <span
+              id={`${id}-schema-help`}
+              className={
+                schemaError
+                  ? "text-xs font-medium text-destructive"
+                  : "text-xs text-muted-foreground"
+              }
+            >
+              {schemaError ??
+                "Optional. Every event of this type is checked against it before it is stored."}
+            </span>
+          </div>
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <Label htmlFor={`${id}-example`}>Example payload</Label>
+            <Textarea
+              id={`${id}-example`}
+              className="min-h-24 font-mono"
+              value={example}
+              onChange={(e) => setExample(e.target.value)}
+              aria-invalid={Boolean(parsedExample.error) || undefined}
+            />
+            {parsedExample.error && (
+              <span className="text-xs font-medium text-destructive">
+                {parsedExample.error}
+              </span>
+            )}
+          </div>
+          <div>
+            <Button type="submit" disabled={!ready || register.loading}>
+              {register.loading ? "Registering…" : "Register"}
+            </Button>
+          </div>
+        </form>
+      </Section>
     </section>
   )
 }

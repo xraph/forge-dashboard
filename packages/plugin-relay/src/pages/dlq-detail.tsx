@@ -10,6 +10,7 @@ import {
 import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { JsonView } from "../components/json-view"
 import { describeStatus } from "../lib/format"
@@ -69,90 +70,91 @@ function DLQDetailView({ id }: { id: string }) {
             )}
             <DetailLayout
               main={
-                <section
-                  aria-labelledby="payload-heading"
-                  className="flex min-w-0 flex-col gap-2"
-                >
-                  <h2 id="payload-heading" className="text-sm font-medium">
-                    Payload
-                  </h2>
+                <Section title="Payload" inset>
                   <JsonView value={e.payload} label="payload" />
-                </section>
+                </Section>
               }
               aside={
-                <DescriptionList
-                  items={[
-                    {
-                      term: "Replayed",
-                      value: e.replayedAt ? (
-                        <Badge variant="secondary">
-                          <Timestamp value={e.replayedAt} label="replay time" />
-                        </Badge>
-                      ) : (
-                        <NoneCell label="replay yet" />
-                      ),
-                    },
-                    {
-                      term: "Last response",
-                      value: describeStatus(e.lastStatusCode),
-                    },
-                    {
-                      term: "Error",
-                      value: e.error ? (
-                        <span className="font-mono text-xs break-all">
-                          {e.error}
-                        </span>
-                      ) : (
-                        <NoneCell label="error recorded" />
-                      ),
-                    },
-                    {
-                      term: "Delivery",
-                      value: (
-                        <PluginLink
-                          to={`/deliveries/${e.deliveryId}`}
-                          className="font-mono text-xs underline underline-offset-4"
-                        >
-                          {e.deliveryId}
-                        </PluginLink>
-                      ),
-                    },
-                    {
-                      term: "Event",
-                      value: (
-                        <PluginLink
-                          to={`/events/${e.eventId}`}
-                          className="font-mono text-xs underline underline-offset-4"
-                        >
-                          {e.eventId}
-                        </PluginLink>
-                      ),
-                    },
-                    {
-                      term: "Endpoint",
-                      value: (
-                        <PluginLink
-                          to={`/endpoints/${e.endpointId}`}
-                          className="break-all underline underline-offset-4"
-                        >
-                          {e.url}
-                        </PluginLink>
-                      ),
-                    },
-                    {
-                      term: "Tenant",
-                      value: (
-                        <span className="font-mono text-xs">{e.tenantId}</span>
-                      ),
-                    },
-                    {
-                      term: "Failed",
-                      value: (
-                        <Timestamp value={e.failedAt} label="failure time" />
-                      ),
-                    },
-                  ]}
-                />
+                <Section title="Details" inset>
+                  <DescriptionList
+                    items={[
+                      {
+                        term: "Replayed",
+                        value: e.replayedAt ? (
+                          <Badge variant="secondary">
+                            <Timestamp
+                              value={e.replayedAt}
+                              label="replay time"
+                            />
+                          </Badge>
+                        ) : (
+                          <NoneCell label="replay yet" />
+                        ),
+                      },
+                      {
+                        term: "Last response",
+                        value: describeStatus(e.lastStatusCode),
+                      },
+                      {
+                        term: "Error",
+                        value: e.error ? (
+                          <span className="font-mono text-xs break-all">
+                            {e.error}
+                          </span>
+                        ) : (
+                          <NoneCell label="error recorded" />
+                        ),
+                      },
+                      {
+                        term: "Delivery",
+                        value: (
+                          <PluginLink
+                            to={`/deliveries/${e.deliveryId}`}
+                            className="font-mono text-xs underline underline-offset-4"
+                          >
+                            {e.deliveryId}
+                          </PluginLink>
+                        ),
+                      },
+                      {
+                        term: "Event",
+                        value: (
+                          <PluginLink
+                            to={`/events/${e.eventId}`}
+                            className="font-mono text-xs underline underline-offset-4"
+                          >
+                            {e.eventId}
+                          </PluginLink>
+                        ),
+                      },
+                      {
+                        term: "Endpoint",
+                        value: (
+                          <PluginLink
+                            to={`/endpoints/${e.endpointId}`}
+                            className="break-all underline underline-offset-4"
+                          >
+                            {e.url}
+                          </PluginLink>
+                        ),
+                      },
+                      {
+                        term: "Tenant",
+                        value: (
+                          <span className="font-mono text-xs">
+                            {e.tenantId}
+                          </span>
+                        ),
+                      },
+                      {
+                        term: "Failed",
+                        value: (
+                          <Timestamp value={e.failedAt} label="failure time" />
+                        ),
+                      },
+                    ]}
+                  />
+                </Section>
               }
             />
             <ReplayDialog

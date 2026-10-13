@@ -8,6 +8,7 @@ import {
   ResourceTable,
   type Column,
 } from "@forge-go/dashboard-kit/components/resource-table"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { cn } from "@forge-go/dashboard-kit/lib/utils"
 import { CursorPager, useCursorStack } from "../components/cursor-pager"
@@ -152,128 +153,131 @@ export function RelayDeliveriesPage() {
         title="Deliveries"
         description="Every webhook Relay has tried to send, newest first."
       />
-      <FilterBar
-        search={{
-          value: tenant,
-          onChange: change(setTenant),
-          label: "Tenant",
-          placeholder: "Filter by tenant",
-        }}
-        filters={[
-          {
-            id: "state",
-            label: "State",
-            value: state,
-            onChange: change(setState),
-            options: [
-              { label: "All", value: "all" },
-              { label: "Queued or retrying", value: "pending" },
-              { label: "Delivered", value: "delivered" },
-              { label: "Failed", value: "failed" },
-            ],
-          },
-          {
-            id: "status",
-            label: "Response",
-            value: status,
-            onChange: change(setStatus),
-            options: [
-              { label: "Any", value: "all" },
-              { label: "2xx", value: "2xx" },
-              { label: "4xx", value: "4xx" },
-              { label: "5xx", value: "5xx" },
-              { label: "No response", value: "none" },
-            ],
-          },
-          {
-            id: "endpoint",
-            label: "Endpoint",
-            value: endpoint,
-            onChange: change(setEndpoint),
-            options: [
-              { label: "All", value: "all" },
-              ...(endpoints.data?.endpoints ?? []).map((e) => ({
-                label: e.url,
-                value: e.id,
-              })),
-            ],
-          },
-          {
-            id: "eventType",
-            label: "Event type",
-            value: eventType,
-            onChange: change(setEventType),
-            options: [
-              { label: "All", value: "all" },
-              ...(types.data?.types ?? []).map((t) => ({
-                label: t.name,
-                value: t.name,
-              })),
-            ],
-          },
-          {
-            id: "window",
-            label: "Created",
-            value: created,
-            onChange: (v) => {
-              setCreated(v)
-              setFrom(
-                v === "all"
-                  ? undefined
-                  : new Date(Date.now() - WINDOWS[v]).toISOString()
-              )
-              pager.reset()
-            },
-            options: [
-              { label: "Any time", value: "all" },
-              { label: "Last hour", value: "hour" },
-              { label: "Last 24 hours", value: "day" },
-              { label: "Last 7 days", value: "week" },
-            ],
-          },
-        ]}
-      />
-      <QueryBoundary title="Deliveries" query={query} skeletonRows={8}>
-        {(data) => {
-          const rows = data.deliveries ?? []
-          return (
-            <div className="flex min-w-0 flex-col gap-3">
-              {!data.complete && (
-                // Only redis says this: it filters some fields in memory over
-                // a bounded window, and it stopped before the page filled.
-                <p
-                  role="status"
-                  className="rounded-md border px-3 py-2 text-sm"
-                >
-                  {rows.length === 0
-                    ? "Nothing found in the part of the log searched so far. Next searches further back."
-                    : "This page may be short: the search stopped before it filled. Next carries on from there."}
-                </p>
-              )}
-              <ResourceTable<DeliverySummary>
-                columns={deliveryColumns}
-                rows={rows}
-                rowKey={(r) => r.id}
-                caption={`${rows.length} ${rows.length === 1 ? "delivery" : "deliveries"} on this page`}
-                emptyMessage={
-                  !data.complete
-                    ? "None found yet."
-                    : filtered
-                      ? "No deliveries match these filters."
-                      : "Nothing has been sent yet. A delivery appears here when an event matches an endpoint."
-                }
-              />
-              <CursorPager
-                shown={rows.length}
-                nextCursor={data.nextCursor}
-                onNext={pager.next}
-                onPrevious={pager.previous}
-                canGoBack={pager.canGoBack}
-              />
-            </div>
-          )
-        }}
-      </QueryBoundary>
+      <Section
+        aria-label="Delivery log"
+        actions={
+          <FilterBar
+            search={{
+              value: tenant,
+              onChange: change(setTenant),
+              label: "Tenant",
+              placeholder: "Filter by tenant",
+            }}
+            filters={[
+              {
+                id: "state",
+                label: "State",
+                value: state,
+                onChange: change(setState),
+                options: [
+                  { label: "All", value: "all" },
+                  { label: "Queued or retrying", value: "pending" },
+                  { label: "Delivered", value: "delivered" },
+                  { label: "Failed", value: "failed" },
+                ],
+              },
+              {
+                id: "status",
+                label: "Response",
+                value: status,
+                onChange: change(setStatus),
+                options: [
+                  { label: "Any", value: "all" },
+                  { label: "2xx", value: "2xx" },
+                  { label: "4xx", value: "4xx" },
+                  { label: "5xx", value: "5xx" },
+                  { label: "No response", value: "none" },
+                ],
+              },
+              {
+                id: "endpoint",
+                label: "Endpoint",
+                value: endpoint,
+                onChange: change(setEndpoint),
+                options: [
+                  { label: "All", value: "all" },
+                  ...(endpoints.data?.endpoints ?? []).map((e) => ({
+                    label: e.url,
+                    value: e.id,
+                  })),
+                ],
+              },
+              {
+                id: "eventType",
+                label: "Event type",
+                value: eventType,
+                onChange: change(setEventType),
+                options: [
+                  { label: "All", value: "all" },
+                  ...(types.data?.types ?? []).map((t) => ({
+                    label: t.name,
+                    value: t.name,
+                  })),
+                ],
+              },
+              {
+                id: "window",
+                label: "Created",
+                value: created,
+                onChange: (v) => {
+                  setCreated(v)
+                  setFrom(
+                    v === "all"
+                      ? undefined
+                      : new Date(Date.now() - WINDOWS[v]).toISOString()
+                  )
+                  pager.reset()
+                },
+                options: [
+                  { label: "Any time", value: "all" },
+                  { label: "Last hour", value: "hour" },
+                  { label: "Last 24 hours", value: "day" },
+                  { label: "Last 7 days", value: "week" },
+                ],
+              },
+            ]}
+          />
+        }
+      >
+        <QueryBoundary title="Deliveries" query={query} skeletonRows={8}>
+          {(data) => {
+            const rows = data.deliveries ?? []
+            return (
+              <div className="flex min-w-0 flex-col">
+                {!data.complete && (
+                  // Only redis says this: it filters some fields in memory over
+                  // a bounded window, and it stopped before the page filled.
+                  <p role="status" className="border-b px-4 py-3 text-sm">
+                    {rows.length === 0
+                      ? "Nothing found in the part of the log searched so far. Next searches further back."
+                      : "This page may be short: the search stopped before it filled. Next carries on from there."}
+                  </p>
+                )}
+                <ResourceTable<DeliverySummary>
+                  columns={deliveryColumns}
+                  rows={rows}
+                  rowKey={(r) => r.id}
+                  caption={`${rows.length} ${rows.length === 1 ? "delivery" : "deliveries"} on this page`}
+                  emptyMessage={
+                    !data.complete
+                      ? "None found yet."
+                      : filtered
+                        ? "No deliveries match these filters."
+                        : "Nothing has been sent yet. A delivery appears here when an event matches an endpoint."
+                  }
+                />
+                <CursorPager
+                  shown={rows.length}
+                  nextCursor={data.nextCursor}
+                  onNext={pager.next}
+                  onPrevious={pager.previous}
+                  canGoBack={pager.canGoBack}
+                />
+              </div>
+            )
+          }}
+        </QueryBoundary>
+      </Section>
     </section>
   )
 }

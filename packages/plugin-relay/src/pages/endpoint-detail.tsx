@@ -15,6 +15,7 @@ import {
   CommandAlert,
   QueryBoundary,
 } from "@forge-go/dashboard-kit/components/query-boundary"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { TagList } from "@forge-go/dashboard-kit/components/tag-list"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import type { EndpointSummary } from "./endpoints"
@@ -202,137 +203,144 @@ function EndpointDetailView({ id }: { id: string }) {
             )}
             <DetailLayout
               main={
-                editing ? (
-                  <EndpointForm
-                    mode="edit"
-                    initial={formValues(ep)}
-                    submitLabel="Save"
-                    pendingLabel="Saving…"
-                    pending={update.loading}
-                    error={update.error}
-                    errorTitle="Could not save the endpoint"
-                    onSubmit={(p) => void save(p)}
-                    onCancel={() => setEditing(false)}
-                  />
-                ) : (
-                  <DescriptionList
-                    items={[
-                      {
-                        term: "ID",
-                        value: (
-                          <span className="font-mono text-xs">{ep.id}</span>
-                        ),
-                      },
-                      {
-                        term: "Tenant",
-                        value: (
-                          <span className="font-mono text-xs">
-                            {ep.tenantId}
-                          </span>
-                        ),
-                      },
-                      {
-                        term: "URL",
-                        value: (
-                          <span className="font-mono text-xs break-all">
-                            {ep.url}
-                          </span>
-                        ),
-                      },
-                      {
-                        term: "Description",
-                        value: ep.description ? (
-                          ep.description
-                        ) : (
-                          <NoneCell label="description" />
-                        ),
-                      },
-                      {
-                        term: "Event types",
-                        value: (
-                          <TagList values={ep.eventTypes} label="event types" />
-                        ),
-                      },
-                      {
-                        term: "State",
-                        value: (
-                          <Badge variant={ep.enabled ? "outline" : "secondary"}>
-                            {ep.enabled ? "Enabled" : "Disabled"}
-                          </Badge>
-                        ),
-                      },
-                      {
-                        term: "Signing",
-                        value: (
-                          <Badge
-                            variant={ep.signed ? "outline" : "destructive"}
-                          >
-                            {ep.signed ? "Signed" : "Unsigned"}
-                          </Badge>
-                        ),
-                      },
-                      {
-                        term: "Rate limit",
-                        value:
-                          ep.rateLimit > 0 ? (
-                            `${ep.rateLimit}/s`
-                          ) : (
-                            <NoneCell label="rate limit" />
+                <Section title="Details" inset>
+                  {editing ? (
+                    <EndpointForm
+                      mode="edit"
+                      initial={formValues(ep)}
+                      submitLabel="Save"
+                      pendingLabel="Saving…"
+                      pending={update.loading}
+                      error={update.error}
+                      errorTitle="Could not save the endpoint"
+                      onSubmit={(p) => void save(p)}
+                      onCancel={() => setEditing(false)}
+                    />
+                  ) : (
+                    <DescriptionList
+                      items={[
+                        {
+                          term: "ID",
+                          value: (
+                            <span className="font-mono text-xs">{ep.id}</span>
                           ),
-                      },
-                      {
-                        term: "Headers",
-                        value: (
-                          <TagList
-                            values={pairs(ep.headers)}
-                            label="custom headers"
-                          />
-                        ),
-                      },
-                      {
-                        term: "Metadata",
-                        value: (
-                          <TagList
-                            values={pairs(ep.metadata)}
-                            label="metadata"
-                          />
-                        ),
-                      },
-                      {
-                        term: "Created",
-                        value: (
-                          <Timestamp value={ep.createdAt} label="created" />
-                        ),
-                      },
-                      {
-                        term: "Updated",
-                        value: (
-                          <Timestamp value={ep.updatedAt} label="updated" />
-                        ),
-                      },
-                      {
-                        term: "App scope",
-                        value: ep.scopeAppId ? (
-                          <span className="font-mono text-xs">
-                            {ep.scopeAppId}
-                          </span>
-                        ) : (
-                          <NoneCell label="app scope" />
-                        ),
-                      },
-                      {
-                        term: "Org scope",
-                        value: ep.scopeOrgId ? (
-                          <span className="font-mono text-xs">
-                            {ep.scopeOrgId}
-                          </span>
-                        ) : (
-                          <NoneCell label="org scope" />
-                        ),
-                      },
-                    ]}
-                  />
-                )
+                        },
+                        {
+                          term: "Tenant",
+                          value: (
+                            <span className="font-mono text-xs">
+                              {ep.tenantId}
+                            </span>
+                          ),
+                        },
+                        {
+                          term: "URL",
+                          value: (
+                            <span className="font-mono text-xs break-all">
+                              {ep.url}
+                            </span>
+                          ),
+                        },
+                        {
+                          term: "Description",
+                          value: ep.description ? (
+                            ep.description
+                          ) : (
+                            <NoneCell label="description" />
+                          ),
+                        },
+                        {
+                          term: "Event types",
+                          value: (
+                            <TagList
+                              values={ep.eventTypes}
+                              label="event types"
+                            />
+                          ),
+                        },
+                        {
+                          term: "State",
+                          value: (
+                            <Badge
+                              variant={ep.enabled ? "outline" : "secondary"}
+                            >
+                              {ep.enabled ? "Enabled" : "Disabled"}
+                            </Badge>
+                          ),
+                        },
+                        {
+                          term: "Signing",
+                          value: (
+                            <Badge
+                              variant={ep.signed ? "outline" : "destructive"}
+                            >
+                              {ep.signed ? "Signed" : "Unsigned"}
+                            </Badge>
+                          ),
+                        },
+                        {
+                          term: "Rate limit",
+                          value:
+                            ep.rateLimit > 0 ? (
+                              `${ep.rateLimit}/s`
+                            ) : (
+                              <NoneCell label="rate limit" />
+                            ),
+                        },
+                        {
+                          term: "Headers",
+                          value: (
+                            <TagList
+                              values={pairs(ep.headers)}
+                              label="custom headers"
+                            />
+                          ),
+                        },
+                        {
+                          term: "Metadata",
+                          value: (
+                            <TagList
+                              values={pairs(ep.metadata)}
+                              label="metadata"
+                            />
+                          ),
+                        },
+                        {
+                          term: "Created",
+                          value: (
+                            <Timestamp value={ep.createdAt} label="created" />
+                          ),
+                        },
+                        {
+                          term: "Updated",
+                          value: (
+                            <Timestamp value={ep.updatedAt} label="updated" />
+                          ),
+                        },
+                        {
+                          term: "App scope",
+                          value: ep.scopeAppId ? (
+                            <span className="font-mono text-xs">
+                              {ep.scopeAppId}
+                            </span>
+                          ) : (
+                            <NoneCell label="app scope" />
+                          ),
+                        },
+                        {
+                          term: "Org scope",
+                          value: ep.scopeOrgId ? (
+                            <span className="font-mono text-xs">
+                              {ep.scopeOrgId}
+                            </span>
+                          ) : (
+                            <NoneCell label="org scope" />
+                          ),
+                        },
+                      ]}
+                    />
+                  )}
+                </Section>
               }
             />
           </>
