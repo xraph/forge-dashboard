@@ -5,6 +5,7 @@ import {
   DescriptionList,
   type DescriptionItem,
 } from "@forge-go/dashboard-kit/components/detail-layout"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { EmptyState } from "@forge-go/dashboard-kit/components/empty-state"
 import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 
@@ -39,8 +40,9 @@ function OpenMap({
   )
 
   return (
-    <section className="flex min-w-0 flex-col gap-2">
-      <h2 className="text-sm font-medium">{title}</h2>
+    // Flush when empty so the empty state meets the panel edges; inset when
+    // there are facts to list.
+    <Section title={title} inset={entries.length > 0}>
       {entries.length === 0 ? (
         <EmptyState title={`No ${title.toLowerCase()} configured.`} />
       ) : (
@@ -56,7 +58,7 @@ function OpenMap({
           }))}
         />
       )}
-    </section>
+    </Section>
   )
 }
 
@@ -72,28 +74,30 @@ export function StreamingConfigPage() {
       <QueryBoundary title="Configuration" query={query} skeletonRows={3}>
         {(config) => (
           <>
-            <DescriptionList
-              items={[
-                {
-                  term: "Backend",
-                  value: config.backendType || (
-                    <NoneCell label="backend type" />
-                  ),
-                },
-                {
-                  term: "Distributed",
-                  value: config.distributed ? "yes" : "no",
-                },
-                {
-                  term: "Node",
-                  value: config.nodeID ? (
-                    <span className="font-mono text-xs">{config.nodeID}</span>
-                  ) : (
-                    <NoneCell label="node ID" />
-                  ),
-                },
-              ]}
-            />
+            <Section title="Details" inset>
+              <DescriptionList
+                items={[
+                  {
+                    term: "Backend",
+                    value: config.backendType || (
+                      <NoneCell label="backend type" />
+                    ),
+                  },
+                  {
+                    term: "Distributed",
+                    value: config.distributed ? "yes" : "no",
+                  },
+                  {
+                    term: "Node",
+                    value: config.nodeID ? (
+                      <span className="font-mono text-xs">{config.nodeID}</span>
+                    ) : (
+                      <NoneCell label="node ID" />
+                    ),
+                  },
+                ]}
+              />
+            </Section>
             <OpenMap title="Features" values={config.features} />
             <OpenMap title="Limits" values={config.limits} />
             <OpenMap title="Timeouts" values={config.timeouts} />

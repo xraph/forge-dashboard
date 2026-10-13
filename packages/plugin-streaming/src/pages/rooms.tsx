@@ -15,6 +15,7 @@ import {
   ResourceTable,
   type Column,
 } from "@forge-go/dashboard-kit/components/resource-table"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { Switch } from "@forge-go/dashboard-kit/components/switch"
 import { formatTimestamp } from "@forge-go/dashboard-kit/lib/format"
 
@@ -120,34 +121,35 @@ function CreateRoomForm({ onDone }: { onDone: () => void }) {
   }
 
   return (
-    <div className="flex min-w-0 flex-col gap-3 rounded-md border p-4">
-      <CommandAlert error={create.error} title="Could not create the room" />
-      <div className="flex min-w-0 flex-col gap-1.5">
-        <Label htmlFor="room-name">Name</Label>
-        <Input
-          id="room-name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-        />
-      </div>
-      <div className="flex min-w-0 flex-col gap-1.5">
-        <Label htmlFor="room-description">Description</Label>
-        <Input
-          id="room-description"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-        />
-      </div>
-      <div className="flex min-w-0 flex-col gap-1.5">
-        <Label htmlFor="room-owner">Owner</Label>
-        <Input
-          id="room-owner"
-          value={owner}
-          onChange={(e) => setOwner(e.target.value)}
-        />
-      </div>
-      <div className="flex items-center gap-2">
-        {/*
+    <Section aria-label="New room" inset>
+      <div className="flex min-w-0 flex-col gap-3">
+        <CommandAlert error={create.error} title="Could not create the room" />
+        <div className="flex min-w-0 flex-col gap-1.5">
+          <Label htmlFor="room-name">Name</Label>
+          <Input
+            id="room-name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+          />
+        </div>
+        <div className="flex min-w-0 flex-col gap-1.5">
+          <Label htmlFor="room-description">Description</Label>
+          <Input
+            id="room-description"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+          />
+        </div>
+        <div className="flex min-w-0 flex-col gap-1.5">
+          <Label htmlFor="room-owner">Owner</Label>
+          <Input
+            id="room-owner"
+            value={owner}
+            onChange={(e) => setOwner(e.target.value)}
+          />
+        </div>
+        <div className="flex items-center gap-2">
+          {/*
           No `htmlFor` here: the Switch renders a visible span plus a hidden
           native checkbox sharing this id, and a `for`/`id` pairing would let
           the browser's native label association pick up that hidden input
@@ -155,26 +157,27 @@ function CreateRoomForm({ onDone }: { onDone: () => void }) {
           land on two elements. `aria-labelledby` targets the visible switch
           alone, the same pattern `SettingsForm` uses for its boolean fields.
         */}
-        <Label id="room-private-label">Private</Label>
-        <Switch
-          id="room-private"
-          aria-labelledby="room-private-label"
-          checked={isPrivate}
-          onCheckedChange={setPrivate}
-        />
+          <Label id="room-private-label">Private</Label>
+          <Switch
+            id="room-private"
+            aria-labelledby="room-private-label"
+            checked={isPrivate}
+            onCheckedChange={setPrivate}
+          />
+        </div>
+        <div className="flex gap-2">
+          <Button
+            onClick={() => void submit()}
+            disabled={create.loading || name.trim() === ""}
+          >
+            {create.loading ? "Creating…" : "Create room"}
+          </Button>
+          <Button variant="ghost" onClick={onDone} disabled={create.loading}>
+            Cancel
+          </Button>
+        </div>
       </div>
-      <div className="flex gap-2">
-        <Button
-          onClick={() => void submit()}
-          disabled={create.loading || name.trim() === ""}
-        >
-          {create.loading ? "Creating…" : "Create room"}
-        </Button>
-        <Button variant="ghost" onClick={onDone} disabled={create.loading}>
-          Cancel
-        </Button>
-      </div>
-    </div>
+    </Section>
   )
 }
 
@@ -203,38 +206,40 @@ export function StreamingRoomsPage() {
         }
       />
       {creating && <CreateRoomForm onDone={() => setCreating(false)} />}
-      <QueryBoundary title="Rooms" query={query} skeletonRows={4}>
-        {(data) => {
-          // The Go handler builds this slice itself so it is never null on
-          // the wire, but this page is rendered by a host that will hand it
-          // whatever the server said. A missing array must not throw inside
-          // a plugin's own render.
-          const rooms = data.rooms ?? []
-          return (
-            <ResourceTable<RoomInfo>
-              columns={columns}
-              rows={rooms}
-              rowKey={(r) => r.id}
-              caption={
-                rooms.length === 0
-                  ? undefined
-                  : `${rooms.length} ${rooms.length === 1 ? "room" : "rooms"}`
-              }
-              emptyMessage="No rooms yet."
-              rowActions={(room) => (
-                <IconButton
-                  variant="destructive"
-                  onClick={() => {
-                    remove.reset()
-                    setPendingDelete(room)
-                  }}
-                  label={`Delete ${room.name}`}
-                />
-              )}
-            />
-          )
-        }}
-      </QueryBoundary>
+      <Section aria-label="Room list">
+        <QueryBoundary title="Rooms" query={query} skeletonRows={4}>
+          {(data) => {
+            // The Go handler builds this slice itself so it is never null on
+            // the wire, but this page is rendered by a host that will hand it
+            // whatever the server said. A missing array must not throw inside
+            // a plugin's own render.
+            const rooms = data.rooms ?? []
+            return (
+              <ResourceTable<RoomInfo>
+                columns={columns}
+                rows={rooms}
+                rowKey={(r) => r.id}
+                caption={
+                  rooms.length === 0
+                    ? undefined
+                    : `${rooms.length} ${rooms.length === 1 ? "room" : "rooms"}`
+                }
+                emptyMessage="No rooms yet."
+                rowActions={(room) => (
+                  <IconButton
+                    variant="destructive"
+                    onClick={() => {
+                      remove.reset()
+                      setPendingDelete(room)
+                    }}
+                    label={`Delete ${room.name}`}
+                  />
+                )}
+              />
+            )
+          }}
+        </QueryBoundary>
+      </Section>
       <ConfirmDialog
         open={pendingDelete !== null}
         onOpenChange={(open) => !open && setPendingDelete(null)}

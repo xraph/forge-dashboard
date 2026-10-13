@@ -10,6 +10,7 @@ import {
   CommandAlert,
   QueryBoundary,
 } from "@forge-go/dashboard-kit/components/query-boundary"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import {
   ResourceTable,
   type Column,
@@ -104,46 +105,48 @@ export function StreamingConnectionsPage() {
   return (
     <section className="flex min-w-0 flex-col gap-4">
       <PageHeader title="Connections" />
-      <QueryBoundary title="Connections" query={query} skeletonRows={4}>
-        {(data) => {
-          const connections = data.connections ?? []
-          return (
-            <ResourceTable<ConnectionInfo>
-              columns={columns}
-              rows={connections}
-              rowKey={(c) => c.connID}
-              caption={
-                connections.length === 0
-                  ? undefined
-                  : `${connections.length} ${
-                      connections.length === 1 ? "connection" : "connections"
-                    }`
-              }
-              emptyMessage="No connections right now."
-              rowActions={(c) => (
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  aria-label={`Kick ${c.userID}`}
-                  // `kick` is one hook shared by every row in this table, so
-                  // whatever it was holding for the last connection acted on
-                  // (an error, in particular) is still there when this
-                  // handler runs. Reset here, at the moment the target
-                  // changes, not in the dialog's close handler - closing is
-                  // not the only way the dialog goes away, and it is what the
-                  // operator is about to look at that matters.
-                  onClick={() => {
-                    kick.reset()
-                    setPendingKick(c)
-                  }}
-                >
-                  Kick
-                </Button>
-              )}
-            />
-          )
-        }}
-      </QueryBoundary>
+      <Section aria-label="Connection list">
+        <QueryBoundary title="Connections" query={query} skeletonRows={4}>
+          {(data) => {
+            const connections = data.connections ?? []
+            return (
+              <ResourceTable<ConnectionInfo>
+                columns={columns}
+                rows={connections}
+                rowKey={(c) => c.connID}
+                caption={
+                  connections.length === 0
+                    ? undefined
+                    : `${connections.length} ${
+                        connections.length === 1 ? "connection" : "connections"
+                      }`
+                }
+                emptyMessage="No connections right now."
+                rowActions={(c) => (
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    aria-label={`Kick ${c.userID}`}
+                    // `kick` is one hook shared by every row in this table, so
+                    // whatever it was holding for the last connection acted on
+                    // (an error, in particular) is still there when this
+                    // handler runs. Reset here, at the moment the target
+                    // changes, not in the dialog's close handler - closing is
+                    // not the only way the dialog goes away, and it is what the
+                    // operator is about to look at that matters.
+                    onClick={() => {
+                      kick.reset()
+                      setPendingKick(c)
+                    }}
+                  >
+                    Kick
+                  </Button>
+                )}
+              />
+            )
+          }}
+        </QueryBoundary>
+      </Section>
       {/*
         This alert only ever shows once the dialog below has been dismissed:
         while the dialog is open, Base UI marks the rest of the page inert

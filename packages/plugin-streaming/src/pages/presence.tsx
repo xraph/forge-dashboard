@@ -13,6 +13,7 @@ import {
   NativeSelectOption,
 } from "@forge-go/dashboard-kit/components/native-select"
 import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { formatTimestamp } from "@forge-go/dashboard-kit/lib/format"
 import type { PresenceInfo, PresenceList } from "./overview"
 import type { CommandResult } from "./rooms"
@@ -111,24 +112,26 @@ export function StreamingPresencePage() {
         error={setPresence.error}
         title="Could not set the status"
       />
-      <QueryBoundary title="Presence" query={query} skeletonRows={4}>
-        {(data) => {
-          const presence = data.presence ?? []
-          return (
-            <ResourceTable<PresenceInfo>
-              columns={columns}
-              rows={presence}
-              rowKey={(p) => p.userID}
-              caption={
-                presence.length === 0
-                  ? undefined
-                  : `${presence.length} ${presence.length === 1 ? "person" : "people"}`
-              }
-              emptyMessage="No presence records."
-            />
-          )
-        }}
-      </QueryBoundary>
+      <Section aria-label="Presence list">
+        <QueryBoundary title="Presence" query={query} skeletonRows={4}>
+          {(data) => {
+            const presence = data.presence ?? []
+            return (
+              <ResourceTable<PresenceInfo>
+                columns={columns}
+                rows={presence}
+                rowKey={(p) => p.userID}
+                caption={
+                  presence.length === 0
+                    ? undefined
+                    : `${presence.length} ${presence.length === 1 ? "person" : "people"}`
+                }
+                emptyMessage="No presence records."
+              />
+            )
+          }}
+        </QueryBoundary>
+      </Section>
     </section>
   )
 }

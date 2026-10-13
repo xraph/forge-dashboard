@@ -14,6 +14,7 @@ import {
   CommandAlert,
   QueryBoundary,
 } from "@forge-go/dashboard-kit/components/query-boundary"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import {
   ResourceTable,
   type Column,
@@ -98,48 +99,52 @@ const moderationColumns: Column<ModerationEntry>[] = [
 function Members({ roomId }: { roomId: string }) {
   const query = useQuery<MembersList>("rooms.members", { id: roomId })
   return (
-    <QueryBoundary title="Members" query={query} skeletonRows={3}>
-      {(data) => {
-        const members = data.members ?? []
-        return (
-          <ResourceTable<MemberInfo>
-            columns={memberColumns}
-            rows={members}
-            rowKey={(m) => m.userID}
-            caption={
-              members.length === 0
-                ? undefined
-                : `${members.length} ${members.length === 1 ? "member" : "members"}`
-            }
-            emptyMessage="Nobody has joined this room."
-          />
-        )
-      }}
-    </QueryBoundary>
+    <Section title="Members">
+      <QueryBoundary title="Members" query={query} skeletonRows={3}>
+        {(data) => {
+          const members = data.members ?? []
+          return (
+            <ResourceTable<MemberInfo>
+              columns={memberColumns}
+              rows={members}
+              rowKey={(m) => m.userID}
+              caption={
+                members.length === 0
+                  ? undefined
+                  : `${members.length} ${members.length === 1 ? "member" : "members"}`
+              }
+              emptyMessage="Nobody has joined this room."
+            />
+          )
+        }}
+      </QueryBoundary>
+    </Section>
   )
 }
 
 function Moderation({ roomId }: { roomId: string }) {
   const query = useQuery<ModerationLog>("rooms.moderation", { id: roomId })
   return (
-    <QueryBoundary title="Moderation log" query={query} skeletonRows={3}>
-      {(data) => {
-        const entries = data.entries ?? []
-        return (
-          <ResourceTable<ModerationEntry>
-            columns={moderationColumns}
-            rows={entries}
-            rowKey={(e) => `${e.timestamp}:${e.actorID}:${e.targetID}`}
-            caption={
-              entries.length === 0
-                ? undefined
-                : `${entries.length} ${entries.length === 1 ? "entry" : "entries"}`
-            }
-            emptyMessage="Nothing has been moderated in this room."
-          />
-        )
-      }}
-    </QueryBoundary>
+    <Section title="Moderation log">
+      <QueryBoundary title="Moderation log" query={query} skeletonRows={3}>
+        {(data) => {
+          const entries = data.entries ?? []
+          return (
+            <ResourceTable<ModerationEntry>
+              columns={moderationColumns}
+              rows={entries}
+              rowKey={(e) => `${e.timestamp}:${e.actorID}:${e.targetID}`}
+              caption={
+                entries.length === 0
+                  ? undefined
+                  : `${entries.length} ${entries.length === 1 ? "entry" : "entries"}`
+              }
+              emptyMessage="Nothing has been moderated in this room."
+            />
+          )
+        }}
+      </QueryBoundary>
+    </Section>
   )
 }
 
@@ -156,32 +161,35 @@ function Composer({ roomId }: { roomId: string }) {
   }
 
   return (
-    <div className="flex min-w-0 flex-col gap-3 rounded-md border p-4">
-      <h2 className="text-sm font-medium">Send a message</h2>
-      <CommandAlert error={send.error} title="Could not send the message" />
-      <div className="flex min-w-0 flex-col gap-1.5">
-        <Label htmlFor="send-as">Send as</Label>
-        <Input
-          id="send-as"
-          value={userID}
-          onChange={(e) => setUserID(e.target.value)}
-        />
+    <Section title="Send a message" inset>
+      <div className="flex min-w-0 flex-col gap-3">
+        <CommandAlert error={send.error} title="Could not send the message" />
+        <div className="flex min-w-0 flex-col gap-1.5">
+          <Label htmlFor="send-as">Send as</Label>
+          <Input
+            id="send-as"
+            value={userID}
+            onChange={(e) => setUserID(e.target.value)}
+          />
+        </div>
+        <div className="flex min-w-0 flex-col gap-1.5">
+          <Label htmlFor="send-content">Message</Label>
+          <Input
+            id="send-content"
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+          />
+        </div>
+        <Button
+          onClick={() => void submit()}
+          disabled={
+            send.loading || content.trim() === "" || userID.trim() === ""
+          }
+        >
+          {send.loading ? "Sending…" : "Send"}
+        </Button>
       </div>
-      <div className="flex min-w-0 flex-col gap-1.5">
-        <Label htmlFor="send-content">Message</Label>
-        <Input
-          id="send-content"
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-        />
-      </div>
-      <Button
-        onClick={() => void submit()}
-        disabled={send.loading || content.trim() === "" || userID.trim() === ""}
-      >
-        {send.loading ? "Sending…" : "Send"}
-      </Button>
-    </div>
+    </Section>
   )
 }
 
@@ -214,35 +222,43 @@ function RoomDetail({ roomId }: { roomId: string }) {
             <DetailLayout
               main={
                 <>
-                  <DescriptionList
-                    items={[
-                      {
-                        term: "Owner",
-                        value: (
-                          <span className="font-mono text-xs">
-                            {room.owner}
-                          </span>
-                        ),
-                      },
-                      { term: "Members", value: room.members },
-                      {
-                        term: "Visibility",
-                        value: (
-                          <Badge
-                            variant={room.private ? "secondary" : "outline"}
-                          >
-                            {room.private ? "private" : "public"}
-                          </Badge>
-                        ),
-                      },
-                      {
-                        term: "Archived",
-                        value: room.archived ? "yes" : "no",
-                      },
-                      { term: "Created", value: formatTimestamp(room.created) },
-                      { term: "Updated", value: formatTimestamp(room.updated) },
-                    ]}
-                  />
+                  <Section title="Details" inset>
+                    <DescriptionList
+                      items={[
+                        {
+                          term: "Owner",
+                          value: (
+                            <span className="font-mono text-xs">
+                              {room.owner}
+                            </span>
+                          ),
+                        },
+                        { term: "Members", value: room.members },
+                        {
+                          term: "Visibility",
+                          value: (
+                            <Badge
+                              variant={room.private ? "secondary" : "outline"}
+                            >
+                              {room.private ? "private" : "public"}
+                            </Badge>
+                          ),
+                        },
+                        {
+                          term: "Archived",
+                          value: room.archived ? "yes" : "no",
+                        },
+                        {
+                          term: "Created",
+                          value: formatTimestamp(room.created),
+                        },
+                        {
+                          term: "Updated",
+                          value: formatTimestamp(room.updated),
+                        },
+                      ]}
+                    />
+                  </Section>
                   <Members roomId={roomId} />
                   <Moderation roomId={roomId} />
                 </>

@@ -1,6 +1,7 @@
 import { useQuery, usePoll } from "@forge-go/dashboard-plugin"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { StatGrid } from "@forge-go/dashboard-kit/components/stat-grid"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
 import { Badge } from "@forge-go/dashboard-kit/components/badge"
 import {
@@ -96,27 +97,29 @@ function OnlineUsers() {
   // around.
   usePoll(query.refetch)
   return (
-    <QueryBoundary title="Online users" query={query} skeletonRows={3}>
-      {(data) => {
-        const presence = data.presence ?? []
-        return (
-          <ResourceTable<PresenceInfo>
-            columns={presenceColumns}
-            rows={presence}
-            rowKey={(p) => p.userID}
-            // A live count, not a static title: this table's row count moves
-            // on its own as people connect and disconnect, the same
-            // convention every other table in this package follows.
-            caption={
-              presence.length === 0
-                ? undefined
-                : `${presence.length} ${presence.length === 1 ? "person" : "people"} online`
-            }
-            emptyMessage="Nobody is online."
-          />
-        )
-      }}
-    </QueryBoundary>
+    <Section aria-label="Online users">
+      <QueryBoundary title="Online users" query={query} skeletonRows={3}>
+        {(data) => {
+          const presence = data.presence ?? []
+          return (
+            <ResourceTable<PresenceInfo>
+              columns={presenceColumns}
+              rows={presence}
+              rowKey={(p) => p.userID}
+              // A live count, not a static title: this table's row count moves
+              // on its own as people connect and disconnect, the same
+              // convention every other table in this package follows.
+              caption={
+                presence.length === 0
+                  ? undefined
+                  : `${presence.length} ${presence.length === 1 ? "person" : "people"} online`
+              }
+              emptyMessage="Nobody is online."
+            />
+          )
+        }}
+      </QueryBoundary>
+    </Section>
   )
 }
 
