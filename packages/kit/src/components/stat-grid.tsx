@@ -12,10 +12,10 @@ export interface StatItem {
   value: string | number
   hint?: string
   /**
-   * Emphasis for the card: a coloured value and a ring (a tint over the
-   * cell in `StatGrid`), from the kit's own tone tokens. Defaults to `"default"`, which
-   * adds nothing. Reach for `"danger"` or `"warning"` only when the number is
-   * the thing to act on.
+   * Emphasis from the kit's tone tokens. In `StatGrid` it tints the cell and
+   * colours the value; on the standalone `Stat` card it draws a ring and
+   * colours the value. Defaults to `"default"`, which adds nothing. Reach for
+   * `"danger"` or `"warning"` only when the number is the thing to act on.
    */
   tone?: StatTone
 }
@@ -77,7 +77,7 @@ function StatCell({ label, value, hint, tone = "default" }: StatItem) {
         TONE_TINT[tone]
       )}
     >
-      <span className="truncate text-xs text-muted-foreground">{label}</span>
+      <span className="text-xs text-muted-foreground">{label}</span>
       <span
         data-slot="stat-value"
         className={cn(
@@ -102,13 +102,14 @@ const WIDE: Record<1 | 2 | 3 | 4, string> = {
 }
 
 /**
- * The column classes that leave no empty cell on the last row where the count
- * allows it: one row of up to four, else five or four across (five only past
- * `@5xl`), else three, else four with a short last row.
+ * The column classes (for a count of one or more) that leave no empty cell on
+ * the last row where the count allows it: one row of up to four, else five or
+ * four across (five only past `@5xl`), else three, else four with a short last
+ * row.
  */
 function columnsFor(count: number): string {
   const narrow = NARROW[count] ?? "grid-cols-2"
-  if (count >= 1 && count <= 4) {
+  if (count <= 4) {
     return cn(narrow, WIDE[count as 1 | 2 | 3 | 4])
   }
   if (count % 5 === 0) return cn(narrow, WIDE[4], "@5xl/main:grid-cols-5")
@@ -130,14 +131,16 @@ export interface StatGridProps {
  * past the clipping wrapper, so the outer edges vanish and the inner rules
  * meet the panel even when the last row is short.
  *
- * The `@xl/main`-style variants are container queries scoped to the host's
- * content wrapper. Render this outside it and the strip stays two across.
+ * The `@2xl/main` and `@5xl/main` variants are container queries scoped to the
+ * host's content wrapper. Render this outside it and the strip stays two
+ * across. An empty list draws nothing.
  */
 export function StatGrid({
   items,
   className,
   "aria-label": ariaLabel,
 }: StatGridProps) {
+  if (items.length === 0) return null
   return (
     <div
       data-slot="stat-grid"

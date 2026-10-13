@@ -17,10 +17,19 @@ export interface SectionProps {
 }
 
 /*
- * Flush content: a table meets the panel edges and anything that brings its
- * own frame (the empty state, QueryBoundary's error card) drops it, since the
- * panel already is one. The outer cells' padding is in section.css, which has
- * to beat density.css. Arbitrary variants here so Tailwind finds them.
+ * A panel is already a frame, so QueryBoundary's error card drops its own, in
+ * flush and inset content alike. Arbitrary variants here so Tailwind finds them.
+ */
+const UNFRAME_CARD = [
+  "[&_[data-slot=card]]:rounded-none",
+  "[&_[data-slot=card]]:shadow-none",
+  "[&_[data-slot=card]]:ring-0",
+]
+
+/*
+ * Flush content: a table meets the panel edges and the empty state drops its
+ * frame too. The outer cells' padding is in section.css, which has to beat
+ * density.css. The skeleton gets the padding that inset content already has.
  */
 const FLUSH = [
   "[&_caption]:px-4",
@@ -31,10 +40,11 @@ const FLUSH = [
   "[&_[data-slot=zero-state]]:border-0",
   "[&_[data-slot=zero-state]]:bg-transparent",
   "[&_[aria-busy=true][role=status]]:p-4",
-  "[&_[data-slot=card]]:rounded-none",
-  "[&_[data-slot=card]]:shadow-none",
-  "[&_[data-slot=card]]:ring-0",
+  ...UNFRAME_CARD,
 ].join(" ")
+
+// The card's own side padding would double the content's p-4.
+const INSET = ["p-4", ...UNFRAME_CARD, "[&_[data-slot=card]]:px-0"].join(" ")
 
 /**
  * The frame every block on a plugin page sits in: a bordered panel with a
@@ -70,7 +80,7 @@ export function Section({
           className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b px-4 py-3"
         >
           {(title || description) && (
-            <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+            <div className="flex min-w-0 flex-[1_1_12rem] flex-col gap-0.5">
               {title && (
                 <h2 id={headingId} className="text-sm font-medium">
                   {title}
@@ -91,7 +101,7 @@ export function Section({
       <div
         data-slot="section-content"
         data-inset={inset || undefined}
-        className={cn("min-w-0", inset ? "p-4" : FLUSH)}
+        className={cn("min-w-0", inset ? INSET : FLUSH)}
       >
         {children}
       </div>

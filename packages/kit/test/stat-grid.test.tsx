@@ -23,6 +23,12 @@ describe("StatGrid", () => {
     expect(value("Rooms").textContent).toBe("3")
   })
 
+  it("draws nothing for an empty list, not a framed sliver", () => {
+    const { container } = render(<StatGrid items={[]} />)
+    expect(container.querySelector("[data-slot=stat-grid]")).toBeNull()
+    expect(container.innerHTML).toBe("")
+  })
+
   it("renders a zero rather than treating it as missing", () => {
     render(<StatGrid items={[{ label: "Rooms", value: 0 }]} />)
     expect(value("Rooms").textContent).toBe("0")

@@ -130,7 +130,7 @@ describe("Conduit pages", () => {
     const meta = document.querySelector('[data-slot="page-header-meta"]')
     expect(meta?.textContent).toContain(snapshot.identity.instanceID)
   })
-  // Review Focus 5: the header stands before data arrives, with no meta.
+  // The header stands before data arrives, with no meta.
   it("shows the header with no meta while the overview is loading", () => {
     render(
       <PluginProvider

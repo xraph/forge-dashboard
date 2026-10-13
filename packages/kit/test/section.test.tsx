@@ -87,7 +87,7 @@ describe("Section", () => {
     ).toBeTruthy()
   })
 
-  // Review Focus 1: an empty table's own frame must not double the panel's.
+  // An empty table's own frame must not double the panel's.
   it("strips the frame from an empty table state in flush content", () => {
     render(
       <Section title="Streams">
@@ -105,7 +105,7 @@ describe("Section", () => {
     expect(classes(c)).toContain("[&_[data-slot=zero-state]]:rounded-none")
   })
 
-  // Review Focus 2: loading and error states sit inside the panel cleanly.
+  // Loading and error states sit inside the panel without a second frame.
   it("pads a loading skeleton and unframes an error card in flush content", () => {
     render(
       <Section title="Streams">
@@ -130,6 +130,51 @@ describe("Section", () => {
     expect(classes(c)).toContain("[&_[data-slot=card]]:rounded-none")
   })
 
+  // The title column needs a real basis: flex-1 starts at 0 and never lets the
+  // actions wrap below it, so a wide filter bar squeezes the description away.
+  it("gives the title column a basis so wide actions wrap below it", () => {
+    render(
+      <Section
+        title="Messages"
+        description="Everything sent this week"
+        actions={<button type="button">Filter</button>}
+      >
+        <p>body</p>
+      </Section>
+    )
+    const column = screen.getByRole("heading", { level: 2 })
+      .parentElement as HTMLElement
+    expect(classes(column)).toContain("flex-[1_1_12rem]")
+    expect(classes(column)).not.toContain("flex-1")
+  })
+
+  // An inset panel is still a panel: the error card drops its own ring.
+  it("unframes an error card in inset content too", () => {
+    render(
+      <Section title="Usage" inset>
+        <QueryBoundary
+          title="Usage"
+          query={
+            {
+              data: undefined,
+              loading: false,
+              error: { code: "TRANSPORT", message: "down" },
+              refetch: () => {},
+            } as never
+          }
+        >
+          {() => null}
+        </QueryBoundary>
+      </Section>
+    )
+    const c = content("Usage unavailable")
+    expect(classes(c)).toContain("[&_[data-slot=card]]:ring-0")
+    expect(classes(c)).toContain("[&_[data-slot=card]]:rounded-none")
+    expect(classes(c)).toContain("[&_[data-slot=card]]:shadow-none")
+    expect(classes(c)).toContain("[&_[data-slot=card]]:px-0")
+    expect(classes(c)).not.toContain("[&_[aria-busy=true][role=status]]:p-4")
+  })
+
   // The flush table padding lives in section.css and keys on data-inset.
   it("marks inset content so the flush table rules skip it", () => {
     render(
@@ -138,7 +183,6 @@ describe("Section", () => {
       </Section>
     )
     expect(content("body").getAttribute("data-inset")).toBe("true")
-    expect(classes(content("body"))).not.toContain("[&_td:first-child]:pl-4")
   })
 
   it("loads the stylesheet that aligns flush table cells", () => {
