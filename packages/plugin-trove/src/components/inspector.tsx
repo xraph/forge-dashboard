@@ -64,7 +64,7 @@ export function Inspector({
       {(data) => (
         <Section
           title={data.object.key}
-          className="h-full rounded-none border-0 [&_h2]:font-mono [&_h2]:text-xs [&_h2]:break-all"
+          className="min-h-full rounded-none border-0 [&_h2]:font-mono [&_h2]:text-xs [&_h2]:break-all"
           inset
         >
           <div className="flex min-w-0 flex-col gap-4">
