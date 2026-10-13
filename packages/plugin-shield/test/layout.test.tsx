@@ -75,6 +75,7 @@ it("Overview follows the shared layout", async () => {
     })
   )
   await screen.findByRole("heading", { level: 1 })
+  await screen.findByRole("group", { name: "Configuration summary" })
   await screen.findByText("block")
   expect(layoutViolations(container)).toEqual([])
 })
@@ -121,6 +122,7 @@ it("Policy detail follows the shared layout", async () => {
     }),
     { id: "pol_1" }
   )
+  await screen.findByRole("heading", { name: "Rules" })
   await screen.findByRole("button", { name: "Unassign" })
   expect(layoutViolations(container)).toEqual([])
 })
