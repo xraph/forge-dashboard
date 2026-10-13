@@ -222,6 +222,32 @@ const openapi: OpenAPISummary = {
   total: 1,
 }
 
+// The five field groups are sections, and Enabled sits after the last
+// Authentication control and before the submit button.
+function expectFormSections() {
+  for (const name of [
+    "Match",
+    "Upstreams",
+    "Rewriting",
+    "Rate limit",
+    "Authentication",
+  ]) {
+    expect(screen.getByRole("region", { name })).toBeTruthy()
+  }
+  const auth = screen.getByRole("region", { name: "Authentication" })
+  const enabled = screen.getByRole("checkbox", { name: "Enabled" })
+  const lastAuthControl = screen.getByRole("checkbox", {
+    name: "Set authentication for this route",
+  })
+  const submit = document.querySelector("button[type=submit]") as HTMLElement
+  expect(auth.contains(enabled)).toBe(true)
+  const following = Node.DOCUMENT_POSITION_FOLLOWING
+  expect(lastAuthControl.compareDocumentPosition(enabled) & following).toBe(
+    following
+  )
+  expect(enabled.compareDocumentPosition(submit) & following).toBe(following)
+}
+
 describe("Bastion pages follow the shared layout", () => {
   it("API explorer follows the shared layout", async () => {
     const { container } = renderPage(
@@ -277,7 +303,7 @@ describe("Bastion pages follow the shared layout", () => {
     await screen.findByLabelText("Path")
     expect(layoutViolations(container)).toEqual([])
     // The form's field groups are sections, not bare fieldsets.
-    expect(screen.getByRole("region", { name: "Match" })).toBeTruthy()
+    expectFormSections()
   })
 
   it("Route detail follows the shared layout", async () => {
@@ -299,7 +325,7 @@ describe("Bastion pages follow the shared layout", () => {
     )
     await screen.findByLabelText("Path")
     expect(layoutViolations(container)).toEqual([])
-    expect(screen.getByRole("region", { name: "Match" })).toBeTruthy()
+    expectFormSections()
   })
 
   it("Routes follows the shared layout", async () => {

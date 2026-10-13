@@ -406,12 +406,6 @@ export function RouteForm({
               manual route so it sorts above discovered ones.
             </p>
           </div>
-          <CheckField
-            id="route-enabled"
-            label="Enabled"
-            checked={v.enabled}
-            onChange={(on) => set("enabled", on)}
-          />
         </div>
       </Section>
 
@@ -426,6 +420,7 @@ export function RouteForm({
                 <Input
                   id={`target-url-${i}`}
                   className="font-mono"
+                  aria-invalid={field === "targets" || undefined}
                   value={t.url}
                   spellCheck={false}
                   autoComplete="off"
@@ -609,6 +604,12 @@ export function RouteForm({
             </div>
           ) : null}
           <FieldError show={field === "auth"} error={error} />
+          <CheckField
+            id="route-enabled"
+            label="Enabled"
+            checked={v.enabled}
+            onChange={(on) => set("enabled", on)}
+          />
           <div className="flex gap-2">
             <Button type="submit" disabled={pending}>
               {pending ? pendingLabel : submitLabel}
