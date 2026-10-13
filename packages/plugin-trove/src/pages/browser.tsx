@@ -106,7 +106,7 @@ const BrowserPage: ComponentType<PluginPageProps> = ({ params }) => {
         </ResizablePanel>
         <ResizableHandle withHandle />
         <ResizablePanel defaultSize="38" minSize="25">
-          <div className="h-full overflow-auto p-3">
+          <div className="h-full overflow-auto">
             {key !== "" ? (
               <Inspector
                 key={`${store}\n${bucket}\n${key}`}
@@ -133,7 +133,7 @@ const BrowserPage: ComponentType<PluginPageProps> = ({ params }) => {
                 )}
               </Inspector>
             ) : (
-              <p className="text-sm text-muted-foreground">
+              <p className="p-3 text-sm text-muted-foreground">
                 Select an object to see it here.
               </p>
             )}

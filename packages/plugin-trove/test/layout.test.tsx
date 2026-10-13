@@ -219,8 +219,9 @@ describe("trove pages follow the shared layout", () => {
     // The listing row and the inspector's section both carry the key.
     await screen.findByRole("link", { name: "readme.txt" })
     await screen.findByRole("heading", { level: 2, name: "readme.txt" })
-    // The object listing is the left half of a resizable workspace, not a
-    // section of the page, so its table stays outside a section.
+    // The resizable group is already the bordered frame around the listing,
+    // so a Section in the left pane would double-frame it. Its table stays
+    // outside a section.
     expect(
       layoutViolations(container, { allowTablesOutsideSections: true })
     ).toEqual([])
