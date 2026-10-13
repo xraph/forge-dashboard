@@ -4,6 +4,8 @@ import { PluginLink, useCommand, useQuery } from "@forge-go/dashboard-plugin"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
 import { Button } from "@forge-go/dashboard-kit/components/button"
 import { ConfirmDialog } from "@forge-go/dashboard-kit/components/confirm-dialog"
+import { DetailLayout } from "@forge-go/dashboard-kit/components/detail-layout"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { formatTimestamp } from "@forge-go/dashboard-kit/lib/format"
 import {
   CommandAlert,
@@ -103,8 +105,8 @@ function Posture({
   const keyName = info.encryption.keyId
 
   return (
-    <div className="flex min-w-0 flex-col gap-4 text-sm">
-      <section className="flex min-w-0 flex-col gap-1.5">
+    <div className="flex min-w-0 flex-col divide-y text-sm">
+      <section className="flex min-w-0 flex-col gap-1.5 px-4 py-3">
         <h3 className="font-medium">Encryption</h3>
         {plaintext + encrypted === 0 ? (
           <p>No credentials are stored.</p>
@@ -145,7 +147,7 @@ function Posture({
         )}
       </section>
 
-      <section className="flex min-w-0 flex-col gap-1.5">
+      <section className="flex min-w-0 flex-col gap-1.5 px-4 py-3">
         <h3 className="font-medium">REST API</h3>
         <p>
           {info.apiProtected
@@ -154,7 +156,7 @@ function Posture({
         </p>
       </section>
 
-      <section className="flex min-w-0 flex-col gap-1.5">
+      <section className="flex min-w-0 flex-col gap-1.5 px-4 py-3">
         <h3 className="font-medium">Fallback coverage</h3>
         {missing === 0 ? (
           <p>
@@ -184,7 +186,7 @@ function Posture({
         )}
       </section>
 
-      <section className="flex min-w-0 flex-col gap-1.5">
+      <section className="flex min-w-0 flex-col gap-1.5 px-4 py-3">
         <h3 className="font-medium">Providers</h3>
         <p>
           {data.providers.enabled} of {plural(data.providers.total, "provider")}{" "}
@@ -235,65 +237,60 @@ export const OverviewPage: ComponentType<PluginPageProps> = () => {
         title="Notifications"
         description="What Herald handed to providers, and how this install is protected."
       />
-      <div className="grid min-w-0 gap-4 @3xl/main:grid-cols-[2fr_1fr]">
-        <section
-          aria-labelledby="counts-heading"
-          className="flex min-w-0 flex-col gap-3"
-        >
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 id="counts-heading" className="text-sm font-medium">
-              Messages by status and channel
-            </h2>
-            <div className="flex gap-1" role="group" aria-label="Window">
-              {WINDOWS.map((w) => (
-                <Button
-                  key={w.value}
-                  size="sm"
-                  variant={w.value === range ? "secondary" : "ghost"}
-                  aria-pressed={w.value === range}
-                  onClick={() => setRange(w.value)}
-                >
-                  {w.label}
-                </Button>
-              ))}
-            </div>
-          </div>
-          <QueryBoundary title="Message counts" query={stats} skeletonRows={4}>
-            {(data) => <CountsTable data={data} />}
-          </QueryBoundary>
-          <p className="text-sm text-muted-foreground">
-            Accepted by provider means the provider took the message.{" "}
-            {NO_RECEIPTS}
-          </p>
-        </section>
-        <section
-          aria-labelledby="posture-heading"
-          className="flex min-w-0 flex-col gap-3"
-        >
-          <h2 id="posture-heading" className="text-sm font-medium">
-            Posture
-          </h2>
-          {/* Always mounted, text set later: a live region announces what changes inside it, not what arrives with it. */}
-          <p role="status" className="text-sm empty:sr-only">
-            {encrypt.data &&
-              `Encrypted ${plural(encrypt.data.valuesEncrypted, "value")} across ${plural(encrypt.data.providers, "provider")}.`}
-          </p>
-          <QueryBoundary title="Engine" query={info} skeletonRows={3}>
-            {(engineInfo) => (
-              <QueryBoundary title="Posture" query={stats} skeletonRows={3}>
-                {(data) => (
-                  <Posture
-                    info={engineInfo}
-                    data={data}
-                    encrypt={{ open: openConfirm }}
-                    templateCount={templates.data?.templates.length}
-                  />
-                )}
-              </QueryBoundary>
-            )}
-          </QueryBoundary>
-        </section>
-      </div>
+      <DetailLayout
+        main={
+          <Section
+            title="Messages by status and channel"
+            description={`Accepted by provider means the provider took the message. ${NO_RECEIPTS}`}
+            actions={
+              <div className="flex gap-1" role="group" aria-label="Window">
+                {WINDOWS.map((w) => (
+                  <Button
+                    key={w.value}
+                    size="sm"
+                    variant={w.value === range ? "secondary" : "ghost"}
+                    aria-pressed={w.value === range}
+                    onClick={() => setRange(w.value)}
+                  >
+                    {w.label}
+                  </Button>
+                ))}
+              </div>
+            }
+          >
+            <QueryBoundary
+              title="Message counts"
+              query={stats}
+              skeletonRows={4}
+            >
+              {(data) => <CountsTable data={data} />}
+            </QueryBoundary>
+          </Section>
+        }
+        aside={
+          <Section title="Posture">
+            {/* Always mounted, text set later: a live region announces what changes inside it, not what arrives with it. */}
+            <p role="status" className="px-4 pt-3 text-sm empty:sr-only">
+              {encrypt.data &&
+                `Encrypted ${plural(encrypt.data.valuesEncrypted, "value")} across ${plural(encrypt.data.providers, "provider")}.`}
+            </p>
+            <QueryBoundary title="Engine" query={info} skeletonRows={3}>
+              {(engineInfo) => (
+                <QueryBoundary title="Posture" query={stats} skeletonRows={3}>
+                  {(data) => (
+                    <Posture
+                      info={engineInfo}
+                      data={data}
+                      encrypt={{ open: openConfirm }}
+                      templateCount={templates.data?.templates.length}
+                    />
+                  )}
+                </QueryBoundary>
+              )}
+            </QueryBoundary>
+          </Section>
+        }
+      />
       <ConfirmDialog
         open={confirming}
         onOpenChange={(open) =>

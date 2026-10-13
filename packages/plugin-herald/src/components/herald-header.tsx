@@ -42,7 +42,7 @@ export function AppLine({ info }: { info: QueryState<EngineInfoResponse> }) {
   )
 }
 
-/** `meta` is a row of facts about the thing the page shows (a slug, a channel, badges), between the title and the app line. */
+/** `meta` is a row of facts about the thing the page shows (a slug, a channel, badges). It shares the page header's meta row with the app line, facts first. */
 export function HeraldHeader({
   title,
   description,
@@ -56,12 +56,16 @@ export function HeraldHeader({
 }) {
   const info = useEngineInfo()
   return (
-    <div className="flex min-w-0 flex-col gap-1">
-      <PageHeader title={title} description={description} actions={actions} />
-      {meta && (
-        <div className="flex flex-wrap items-center gap-2 text-sm">{meta}</div>
-      )}
-      <AppLine info={info} />
-    </div>
+    <PageHeader
+      title={title}
+      description={description}
+      actions={actions}
+      meta={
+        <>
+          {meta}
+          <AppLine info={info} />
+        </>
+      }
+    />
   )
 }

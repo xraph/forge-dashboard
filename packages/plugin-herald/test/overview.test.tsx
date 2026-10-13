@@ -258,6 +258,32 @@ describe("OverviewPage", () => {
     expect(await screen.findByText(/no auth middleware/)).toBeTruthy()
   })
 
+  it("frames counts and posture as sections", async () => {
+    renderPage(
+      OverviewPage,
+      stubClient({
+        "engine.info": engine({ apiProtected: false }),
+        "overview.stats": stats(),
+      })
+    )
+    expect(
+      await screen.findByRole("region", {
+        name: "Messages by status and channel",
+      })
+    ).toBeTruthy()
+    const posture = screen.getByRole("region", { name: "Posture" })
+    for (const topic of [
+      "Encryption",
+      "REST API",
+      "Fallback coverage",
+      "Providers",
+    ]) {
+      expect(
+        await within(posture).findByRole("heading", { level: 3, name: topic })
+      ).toBeTruthy()
+    }
+  })
+
   it("counts templates without a fallback and links to them", async () => {
     renderPage(
       OverviewPage,

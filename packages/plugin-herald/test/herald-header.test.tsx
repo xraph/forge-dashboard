@@ -63,4 +63,20 @@ describe("HeraldHeader", () => {
       slug.compareDocumentPosition(app) & Node.DOCUMENT_POSITION_FOLLOWING
     ).toBeTruthy()
   })
+
+  it("puts the meta row and the app line in the page header's meta", async () => {
+    renderPage(
+      () => (
+        <HeraldHeader
+          title="Receipt"
+          meta={<span className="font-mono text-xs">billing.receipt</span>}
+        />
+      ),
+      stubClient({ "engine.info": engine() })
+    )
+    const app = await screen.findByText("app_demo")
+    const meta = app.closest('[data-slot="page-header-meta"]')
+    expect(meta).toBeTruthy()
+    expect(meta?.textContent).toContain("billing.receipt")
+  })
 })
