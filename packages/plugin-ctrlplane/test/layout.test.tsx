@@ -1,5 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-import { cleanup, render, screen, waitFor } from "@testing-library/react"
+import {
+  cleanup,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react"
 import {
   PluginProvider,
   createScopedClient,
@@ -127,7 +133,7 @@ function answer(req: ContractEnvelopeRequest) {
       })
     case "health.summary":
       return success({
-        counts: { healthy: 1, unknown: 2 },
+        counts: { healthy: 1, unknown: 2, unhealthy: 3 },
         items: [
           {
             instance: {
@@ -306,6 +312,12 @@ describe("Ctrlplane pages follow the shared layout", () => {
     const { container } = mount(<HealthPage />)
     await screen.findByText("2/2 healthy")
     await screen.findByText("Billing")
+    const counts = await screen.findByRole("group", { name: "Health counts" })
+    const cell = (name: string) =>
+      within(counts).getByText(name).closest('[data-slot="stat"]')
+    expect(within(cell("Unhealthy") as HTMLElement).getByText("3")).toBeTruthy()
+    expect(cell("Unhealthy")?.getAttribute("data-tone")).toBe("danger")
+    expect(cell("Healthy")?.getAttribute("data-tone")).toBe("default")
     expect(layoutViolations(container)).toEqual([])
     expect(screen.getByRole("region", { name: "Workload health" })).toBeTruthy()
     expect(screen.getByRole("region", { name: "Instances" })).toBeTruthy()

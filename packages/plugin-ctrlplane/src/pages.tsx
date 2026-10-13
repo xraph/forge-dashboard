@@ -29,6 +29,7 @@ import {
   IconLink,
   CommandButton,
   Details,
+  FAILING_STATES,
   Fields,
   initialValues,
   JsonView,
@@ -1049,7 +1050,14 @@ export function HealthPage() {
             <StatGrid
               aria-label="Health counts"
               items={Object.entries(record(data.counts)).map(
-                ([key, value]) => ({ label: label(key), value: text(value) })
+                ([key, value]) => ({
+                  label: label(key),
+                  value: text(value),
+                  tone:
+                    FAILING_STATES.includes(key) && Number(value) > 0
+                      ? ("danger" as const)
+                      : ("default" as const),
+                })
               )}
             />
             <Section title="Instances">

@@ -159,12 +159,14 @@ export function JsonView({ value, title }: { value: unknown; title: string }) {
     </Suspense>
   )
 }
+/** States drawn as destructive: the badge variant and the counter tone. */
+export const FAILING_STATES = ["failed", "unhealthy", "offline", "error"]
 export function State({ value }: { value: unknown }) {
   const state = text(value)
   return (
     <Badge
       variant={
-        ["failed", "unhealthy", "offline", "error"].includes(state)
+        FAILING_STATES.includes(state)
           ? "destructive"
           : ["running", "active", "healthy", "succeeded", "verified"].includes(
                 state
