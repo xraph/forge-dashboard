@@ -12,7 +12,7 @@ import { Textarea } from "@forge-go/dashboard-kit/components/textarea"
 import { ConfirmDialog } from "@forge-go/dashboard-kit/components/confirm-dialog"
 import { CommandAlert } from "@forge-go/dashboard-kit/components/query-boundary"
 import { ZeroState } from "@forge-go/dashboard-kit/components/zero-state"
-import { Section } from "./components"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { DurableSession } from "./durable-session"
 import { DurableQueryPanel } from "./durable-query"
 import { DurableInput, encodedInput } from "./durable-input"
@@ -357,7 +357,10 @@ function Commands({
         ? "Request needs attention"
         : undefined
   return (
-    <Section title={target ? "Run commands" : "Start or signal a workflow"}>
+    <Section
+      title={target ? "Run commands" : "Start or signal a workflow"}
+      inset
+    >
       <div className="flex flex-wrap items-center gap-2">
         {submission ? (
           <Button size="sm" variant="outline" onClick={() => setOpen(true)}>

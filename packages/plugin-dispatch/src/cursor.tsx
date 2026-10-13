@@ -34,7 +34,7 @@ export function CursorPager({
 }) {
   return (
     <nav
-      aria-label="Cursor pages"
+      aria-label="Pagination"
       className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground"
     >
       <span>

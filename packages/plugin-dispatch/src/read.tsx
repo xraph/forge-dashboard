@@ -95,11 +95,14 @@ export function Read<T extends Snapshot>({
   title,
   query,
   intervalMs = null,
+  flush = false,
   children,
 }: {
   title: string
   query: QueryState<T>
   intervalMs?: number | null | ((data: T | undefined) => number | null)
+  /** Set when the read fills a flush Section: the stamp row and alert get the panel's side padding. */
+  flush?: boolean
   children: (data: T) => ReactNode
 }) {
   const interval =
@@ -108,9 +111,15 @@ export function Read<T extends Snapshot>({
     interval !== null ? <Poll query={query} intervalMs={interval} /> : null
   if (query.data !== undefined) {
     return (
-      <div className="flex min-w-0 flex-col gap-3" aria-busy={query.loading}>
+      <div className="flex min-w-0 flex-col gap-4" aria-busy={query.loading}>
         {polling}
-        <div className="flex flex-wrap items-center justify-between gap-2">
+        <div
+          className={
+            flush
+              ? "flex flex-wrap items-center justify-between gap-2 px-4 pt-3"
+              : "flex flex-wrap items-center justify-between gap-2"
+          }
+        >
           <LiveStamp
             asOf={query.data.asOf}
             stale={!!query.error}
@@ -125,7 +134,11 @@ export function Read<T extends Snapshot>({
             Refresh
           </Button>
         </div>
-        <CommandAlert title="Refresh failed" error={query.error} />
+        <CommandAlert
+          title="Refresh failed"
+          error={query.error}
+          className={flush ? "mx-4" : undefined}
+        />
         {children(query.data)}
       </div>
     )

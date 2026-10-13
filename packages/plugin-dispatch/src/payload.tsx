@@ -1,6 +1,5 @@
 import { lazy, Suspense } from "react"
 import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
-import { Section } from "./components"
 
 export type Payload =
   | { kind: "json"; json?: unknown; jsonText?: string }
@@ -14,7 +13,8 @@ export function PayloadView({
   label: string
 }) {
   return (
-    <Section title={label}>
+    <div className="flex min-w-0 flex-col gap-2">
+      <h3 className="text-sm font-medium">{label}</h3>
       {value.kind === "json" ? (
         typeof value.jsonText === "string" ? (
           <Suspense
@@ -40,6 +40,6 @@ export function PayloadView({
           {value.bytes.toLocaleString()} bytes · Not viewable as JSON
         </p>
       )}
-    </Section>
+    </div>
   )
 }

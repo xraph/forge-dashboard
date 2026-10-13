@@ -1,6 +1,7 @@
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
 import { Badge } from "@forge-go/dashboard-kit/components/badge"
 import { DetailLayout } from "@forge-go/dashboard-kit/components/detail-layout"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { HeartbeatBadge } from "../badges"
 import { Read, useDispatchQuery } from "../read"
 import {
@@ -10,7 +11,6 @@ import {
   ResourceLink,
   Resources,
   Rows,
-  Section,
   Stamp,
   Text,
 } from "../components"
@@ -26,11 +26,10 @@ export function WorkersPage() {
       <Read title="Workers" query={query} intervalMs={5_000}>
         {(data) =>
           data.enabled ? (
-            <>
-              <p className="text-xs text-muted-foreground">
-                Silent after {data.silentAfter?.text ?? "an unknown threshold"}.
-                Remote heartbeat intervals are not recorded.
-              </p>
+            <Section
+              aria-label="Worker list"
+              description={`Silent after ${data.silentAfter?.text ?? "an unknown threshold"}. Remote heartbeat intervals are not recorded.`}
+            >
               <Rows
                 title="workers"
                 rows={data.items}
@@ -101,7 +100,7 @@ export function WorkersPage() {
                   },
                 ]}
               />
-            </>
+            </Section>
           ) : (
             <Off
               title="Worker registry not configured"
@@ -118,7 +117,20 @@ export function WorkerDetailPage({ params }: PluginPageProps) {
     id: params.id ?? "",
   })
   return (
-    <Frame title="Worker">
+    <Frame
+      title="Worker"
+      meta={
+        query.data?.worker ? (
+          <>
+            <HeartbeatBadge status={query.data.worker.heartbeatStatus} />
+            {query.data.worker.isLeader && <Badge>Leader</Badge>}
+            {query.data.worker.self && (
+              <Badge variant="outline">This process</Badge>
+            )}
+          </>
+        ) : undefined
+      }
+    >
       <Read title="Worker" query={query} intervalMs={5_000}>
         {(data) =>
           !data.enabled || !data.worker ? (
@@ -130,14 +142,7 @@ export function WorkerDetailPage({ params }: PluginPageProps) {
             <DetailLayout
               main={
                 <>
-                  <Section title={data.worker.hostname ?? data.worker.id}>
-                    <div className="flex flex-wrap gap-2">
-                      <HeartbeatBadge status={data.worker.heartbeatStatus} />
-                      {data.worker.isLeader && <Badge>Leader</Badge>}
-                      {data.worker.self && (
-                        <Badge variant="outline">This process</Badge>
-                      )}
-                    </div>
+                  <Section title={data.worker.hostname ?? data.worker.id} inset>
                     <Facts
                       items={[
                         [
@@ -243,18 +248,18 @@ export function WorkerDetailPage({ params }: PluginPageProps) {
               }
               aside={
                 <>
-                  <Section title="Advertised capacity">
+                  <Section title="Advertised capacity" inset>
                     <Resources values={data.worker.capacity} />
                   </Section>
                   {data.resources.enabled && (
                     <>
-                      <Section title="Local capacity">
+                      <Section title="Local capacity" inset>
                         <Resources values={data.resources.capacity} />
                       </Section>
-                      <Section title="Free">
+                      <Section title="Free" inset>
                         <Resources values={data.resources.free} />
                       </Section>
-                      <Section title="Reclaimable">
+                      <Section title="Reclaimable" inset>
                         <Resources values={data.resources.reclaimable} />
                       </Section>
                     </>

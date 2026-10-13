@@ -3,6 +3,7 @@ import { PluginLink } from "@forge-go/dashboard-plugin"
 import { DetailLayout } from "@forge-go/dashboard-kit/components/detail-layout"
 import { Button } from "@forge-go/dashboard-kit/components/button"
 import { Badge } from "@forge-go/dashboard-kit/components/badge"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { CursorPager, useCursor } from "../cursor"
 import { JobStateBadge } from "../badges"
 import { Read, useDispatchQuery } from "../read"
@@ -11,8 +12,8 @@ import {
   Frame,
   ResourceLink,
   Rows,
-  Section,
   SettingValue,
+  Stack,
   Stamp,
   Text,
 } from "../components"
@@ -28,12 +29,18 @@ export function QueuesPage() {
     >
       <Read title="Queues" query={query} intervalMs={5_000}>
         {(data) => (
-          <>
-            <p className="text-xs text-muted-foreground">
-              Discovery covers local registrations
-              {data.workerDiscoveryEnabled ? " and current worker queues" : ""}.
-              Historical queue names remain valid job filters.
-            </p>
+          <Section
+            aria-label="Queue list"
+            description={
+              <>
+                Discovery covers local registrations
+                {data.workerDiscoveryEnabled
+                  ? " and current worker queues"
+                  : ""}
+                . Historical queue names remain valid job filters.
+              </>
+            }
+          >
             <Rows
               title="queues"
               rows={data.items}
@@ -84,7 +91,7 @@ export function QueuesPage() {
                 },
               ]}
             />
-          </>
+          </Section>
         )}
       </Read>
     </Frame>
@@ -99,7 +106,7 @@ function QueueJobs({ name }: { name: string }) {
   })
   return (
     <Section title="Jobs in this queue">
-      <Read title="Queue jobs" query={query} intervalMs={5_000}>
+      <Read title="Queue jobs" query={query} intervalMs={5_000} flush>
         {(data) => (
           <>
             <Rows
@@ -181,33 +188,35 @@ export function QueueDetailPage({ params }: PluginPageProps) {
           <DetailLayout
             main={<QueueJobs name={data.name} />}
             aside={
-              <Section title="This process">
-                <Facts
-                  items={[
-                    ["Polled here", data.polledByThisProcess ? "Yes" : "No"],
-                    [
-                      "Active count",
-                      <Text
-                        value={data.localActiveCount}
-                        label="local active count"
-                      />,
-                    ],
-                    ["Total stored jobs", data.total.toLocaleString()],
-                  ]}
-                />
-                {data.localSettings ? (
-                  <SettingValue value={data.localSettings} />
-                ) : (
-                  <p className="text-sm text-muted-foreground">
-                    No local queue limits are registered.
-                  </p>
-                )}
-                <PluginLink
-                  to={"/jobs?queue=" + encodeURIComponent(data.name)}
-                  className="text-sm text-primary"
-                >
-                  Open jobs with queue filter
-                </PluginLink>
+              <Section title="This process" inset>
+                <Stack>
+                  <Facts
+                    items={[
+                      ["Polled here", data.polledByThisProcess ? "Yes" : "No"],
+                      [
+                        "Active count",
+                        <Text
+                          value={data.localActiveCount}
+                          label="local active count"
+                        />,
+                      ],
+                      ["Total stored jobs", data.total.toLocaleString()],
+                    ]}
+                  />
+                  {data.localSettings ? (
+                    <SettingValue value={data.localSettings} />
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      No local queue limits are registered.
+                    </p>
+                  )}
+                  <PluginLink
+                    to={"/jobs?queue=" + encodeURIComponent(data.name)}
+                    className="text-sm text-primary"
+                  >
+                    Open jobs with queue filter
+                  </PluginLink>
+                </Stack>
               </Section>
             }
           />

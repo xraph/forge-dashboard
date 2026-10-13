@@ -17,6 +17,7 @@ export function DurableTable<T>({
   refresh,
   filtered = false,
   reset = paging.reset,
+  flush = false,
 }: {
   title: string
   data: DurablePage<T>
@@ -27,17 +28,26 @@ export function DurableTable<T>({
   refresh: () => void
   filtered?: boolean
   reset?: () => void
+  /** Set when the table fills a flush Section: the notes get the panel's side padding. */
+  flush?: boolean
 }) {
+  const note = flush
+    ? "px-4 py-2 text-xs text-muted-foreground"
+    : "text-xs text-muted-foreground"
   return (
-    <div className="flex min-w-0 flex-col gap-2">
-      <p className="text-xs text-muted-foreground" role="status">
+    <div
+      className={
+        flush ? "flex min-w-0 flex-col" : "flex min-w-0 flex-col gap-2"
+      }
+    >
+      <p className={note} role="status">
         {data.items.length === 0 ? `0 ${title} shown · ` : ""}Total unavailable
         · {data.observation.replaceAll("_", " ")}
         {data.revision ? ` · Revision ${data.revision}` : ""}
         {data.high_water ? ` · High water ${data.high_water}` : ""}
       </p>
       {data.restricted && (
-        <p role="status" className="text-xs text-muted-foreground">
+        <p role="status" className={note}>
           Some linked runs are restricted. This view covers authorized records
           only.
         </p>
@@ -80,28 +90,35 @@ export function DurablePageRead<T extends { asOf: string }>({
   query,
   paging,
   intervalMs = null,
+  flush = false,
   children,
 }: {
   title: string
   query: QueryState<T>
   paging: ReturnType<typeof useCursor>
   intervalMs?: number | null
+  flush?: boolean
   children: (data: T) => ReactNode
 }) {
+  const restart = paging.page > 1 && (
+    <Button
+      size="xs"
+      variant="ghost"
+      disabled={query.loading}
+      onClick={paging.reset}
+    >
+      Restart pagination
+    </Button>
+  )
   return (
     <>
-      <Read title={title} query={query} intervalMs={intervalMs}>
+      <Read title={title} query={query} intervalMs={intervalMs} flush={flush}>
         {children}
       </Read>
-      {paging.page > 1 && (
-        <Button
-          size="xs"
-          variant="ghost"
-          disabled={query.loading}
-          onClick={paging.reset}
-        >
-          Restart pagination
-        </Button>
+      {flush && restart ? (
+        <div className="border-t px-4 py-2">{restart}</div>
+      ) : (
+        restart
       )}
     </>
   )

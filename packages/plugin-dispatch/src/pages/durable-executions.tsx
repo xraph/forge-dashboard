@@ -5,7 +5,8 @@ import { PluginLink } from "@forge-go/dashboard-plugin"
 import { Button } from "@forge-go/dashboard-kit/components/button"
 import { Input } from "@forge-go/dashboard-kit/components/input"
 import { Badge } from "@forge-go/dashboard-kit/components/badge"
-import { Frame, Section, Stamp } from "../components"
+import { Section } from "@forge-go/dashboard-kit/components/section"
+import { Frame, Stack, Stamp } from "../components"
 import { useDurableCursor } from "../durable-cursor"
 import { useDurableRead } from "../durable-read"
 import { DurablePageRead, DurableTable } from "../durable-table"
@@ -36,94 +37,96 @@ export function DurableExecutionsPage() {
       title="Durable executions"
       description="Inspect persisted runs in an authorized namespace. Checkpoint workflows have separate state."
     >
-      <Section title="Namespace access">
-        <form
-          className="flex flex-wrap items-end gap-2"
-          onSubmit={(event) => {
-            event.preventDefault()
-            const form = new FormData(event.currentTarget)
-            const value = String(form.get("namespace") ?? "")
-            setInvalidNamespace(!validIdentifier(value))
-            if (validIdentifier(value)) setNamespace(value)
-          }}
-        >
-          <label className="flex min-w-0 flex-col gap-1 text-xs">
-            Namespace
-            <Input
-              name="namespace"
-              aria-label="Namespace"
-              key={namespace}
-              defaultValue={namespace}
-              placeholder="Enter exact namespace"
-              className="h-8 w-56 max-w-full"
-              required
-            />
-          </label>
-          <Button size="sm" variant="outline" type="submit">
-            Inspect namespace
-          </Button>
-          <p className="text-xs text-muted-foreground">
-            Discovery does not grant execution access.
-          </p>
-        </form>
-        {invalidNamespace && (
-          <p role="alert" className="text-xs text-destructive">
-            Enter a valid namespace without surrounding whitespace, within 512
-            UTF-8 bytes.
-          </p>
-        )}
-        <details open={!namespace} className="text-xs">
-          <summary className="cursor-pointer rounded-sm py-1 text-muted-foreground focus-visible:outline-2 focus-visible:outline-ring">
-            Browse namespace catalog
-            {discovery.data && !discovery.data.complete
-              ? " · Discovery incomplete"
-              : ""}
-          </summary>
-          <DurablePageRead
-            title="Namespace discovery"
-            query={discovery}
-            paging={discoveryPaging}
+      <Section title="Namespace access" inset>
+        <Stack>
+          <form
+            className="flex flex-wrap items-end gap-2"
+            onSubmit={(event) => {
+              event.preventDefault()
+              const form = new FormData(event.currentTarget)
+              const value = String(form.get("namespace") ?? "")
+              setInvalidNamespace(!validIdentifier(value))
+              if (validIdentifier(value)) setNamespace(value)
+            }}
           >
-            {(data) => (
-              <DurableTable
-                title="namespaces"
-                data={data}
-                paging={discoveryPaging}
-                loading={discovery.loading}
-                refresh={discovery.refetch}
-                rowKey={(row) => row.namespace}
-                columns={[
-                  {
-                    id: "namespace",
-                    header: "Namespace",
-                    cell: (row) => (
-                      <Button
-                        size="xs"
-                        variant={
-                          namespace === row.namespace ? "secondary" : "ghost"
-                        }
-                        onClick={() => setNamespace(row.namespace)}
-                      >
-                        <span className="font-mono text-xs">
-                          {row.namespace}
-                        </span>
-                      </Button>
-                    ),
-                  },
-                  {
-                    id: "ownership",
-                    header: "Ownership",
-                    cell: (row) => (
-                      <span className="text-xs">
-                        {row.app_id} / {row.tenant_id}
-                      </span>
-                    ),
-                  },
-                ]}
+            <label className="flex min-w-0 flex-col gap-1 text-xs">
+              Namespace
+              <Input
+                name="namespace"
+                aria-label="Namespace"
+                key={namespace}
+                defaultValue={namespace}
+                placeholder="Enter exact namespace"
+                className="h-8 w-56 max-w-full"
+                required
               />
-            )}
-          </DurablePageRead>
-        </details>
+            </label>
+            <Button size="sm" variant="outline" type="submit">
+              Inspect namespace
+            </Button>
+            <p className="text-xs text-muted-foreground">
+              Discovery does not grant execution access.
+            </p>
+          </form>
+          {invalidNamespace && (
+            <p role="alert" className="text-xs text-destructive">
+              Enter a valid namespace without surrounding whitespace, within 512
+              UTF-8 bytes.
+            </p>
+          )}
+          <details open={!namespace} className="text-xs">
+            <summary className="cursor-pointer rounded-sm py-1 text-muted-foreground focus-visible:outline-2 focus-visible:outline-ring">
+              Browse namespace catalog
+              {discovery.data && !discovery.data.complete
+                ? " · Discovery incomplete"
+                : ""}
+            </summary>
+            <DurablePageRead
+              title="Namespace discovery"
+              query={discovery}
+              paging={discoveryPaging}
+            >
+              {(data) => (
+                <DurableTable
+                  title="namespaces"
+                  data={data}
+                  paging={discoveryPaging}
+                  loading={discovery.loading}
+                  refresh={discovery.refetch}
+                  rowKey={(row) => row.namespace}
+                  columns={[
+                    {
+                      id: "namespace",
+                      header: "Namespace",
+                      cell: (row) => (
+                        <Button
+                          size="xs"
+                          variant={
+                            namespace === row.namespace ? "secondary" : "ghost"
+                          }
+                          onClick={() => setNamespace(row.namespace)}
+                        >
+                          <span className="font-mono text-xs">
+                            {row.namespace}
+                          </span>
+                        </Button>
+                      ),
+                    },
+                    {
+                      id: "ownership",
+                      header: "Ownership",
+                      cell: (row) => (
+                        <span className="text-xs">
+                          {row.app_id} / {row.tenant_id}
+                        </span>
+                      ),
+                    },
+                  ]}
+                />
+              )}
+            </DurablePageRead>
+          </details>
+        </Stack>
       </Section>
       {namespace && (
         <>
@@ -143,35 +146,40 @@ function ExecutionList({ namespace }: { namespace: string }) {
   )
   const filtered = Object.values(filters).some(Boolean)
   return (
-    <Section title={`Executions in ${namespace}`}>
-      <div className="flex flex-wrap items-end gap-2">
-        {Object.keys(blank).map((key) => (
-          <label key={key} className="flex min-w-0 flex-col gap-1 text-xs">
-            {filterLabels[key as keyof typeof filterLabels]}
-            <Input
-              className="h-8 w-40 max-w-full"
-              aria-label={`Filter ${filterLabels[key as keyof typeof filterLabels]}`}
-              value={filters[key as keyof typeof blank]}
-              onChange={(event) =>
-                setFilters({ ...filters, [key]: event.target.value })
-              }
-            />
-          </label>
-        ))}
-        <Button
-          size="sm"
-          variant="ghost"
-          disabled={!filtered}
-          onClick={() => setFilters(blank)}
-        >
-          Clear filters
-        </Button>
-      </div>
+    <Section
+      title={`Executions in ${namespace}`}
+      actions={
+        <div className="flex flex-wrap items-end gap-2">
+          {Object.keys(blank).map((key) => (
+            <label key={key} className="flex min-w-0 flex-col gap-1 text-xs">
+              {filterLabels[key as keyof typeof filterLabels]}
+              <Input
+                className="h-8 w-40 max-w-full"
+                aria-label={`Filter ${filterLabels[key as keyof typeof filterLabels]}`}
+                value={filters[key as keyof typeof blank]}
+                onChange={(event) =>
+                  setFilters({ ...filters, [key]: event.target.value })
+                }
+              />
+            </label>
+          ))}
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={!filtered}
+            onClick={() => setFilters(blank)}
+          >
+            Clear filters
+          </Button>
+        </div>
+      }
+    >
       <DurablePageRead
         paging={paging}
         title="Durable executions"
         query={query}
         intervalMs={paging.cursor ? null : 10_000}
+        flush
       >
         {(data) => (
           <DurableTable
@@ -182,6 +190,7 @@ function ExecutionList({ namespace }: { namespace: string }) {
             refresh={query.refetch}
             filtered={filtered}
             reset={() => setFilters(blank)}
+            flush
             rowKey={runPath}
             columns={[
               {
@@ -249,7 +258,7 @@ function ExecutionList({ namespace }: { namespace: string }) {
           />
         )}
       </DurablePageRead>
-      <p className="text-xs text-muted-foreground">
+      <p className="border-t px-4 py-3 text-xs text-muted-foreground">
         Newest creation first. Live polling every 10 seconds on the first page;
         continuation pages retain their cursor. Polling pauses in hidden tabs.
       </p>

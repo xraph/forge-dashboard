@@ -1,12 +1,14 @@
 import { DurableRunControls } from "../durable-commands"
 import { useState } from "react"
+import type { ReactNode } from "react"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
 import { PluginLink } from "@forge-go/dashboard-plugin"
 import { ZeroState } from "@forge-go/dashboard-kit/components/zero-state"
 import { Badge } from "@forge-go/dashboard-kit/components/badge"
 import { Button } from "@forge-go/dashboard-kit/components/button"
 import { Input } from "@forge-go/dashboard-kit/components/input"
-import { Frame, Section, Facts, Stamp, Text } from "../components"
+import { Section } from "@forge-go/dashboard-kit/components/section"
+import { Frame, Facts, Stamp, Text } from "../components"
 import { useDurableCursor } from "../durable-cursor"
 import { Read } from "../read"
 import { DurablePayloadPanel } from "../durable-payload"
@@ -57,6 +59,26 @@ export function DurableExecutionPage({ params }: PluginPageProps) {
   }
   return <ExecutionDetail key={runPath(target)} target={target} />
 }
+function RunMeta({ data }: { data: DurableDetail }) {
+  return (
+    <>
+      <Badge variant={data.state === "failed" ? "destructive" : "outline"}>
+        {displayState(data.state)}
+      </Badge>
+      <span>
+        Build <span className="font-mono break-all">{data.build_id}</span>
+      </span>
+      <span>
+        Revision <span className="font-mono">{data.revision}</span>
+      </span>
+      <span>
+        Run <span className="font-mono">{data.run_number}</span> · Retry{" "}
+        <span className="font-mono">{data.retry_attempt}</span>
+      </span>
+      <span>Runtime {data.runtime}</span>
+    </>
+  )
+}
 function ExecutionDetail({ target }: { target: RunKey }) {
   const query = useDurableRead<DurableDetail>("durable.execution", {
     ...target,
@@ -66,6 +88,7 @@ function ExecutionDetail({ target }: { target: RunKey }) {
     <Frame
       title={target.workflow_id || "Durable execution"}
       description={`${target.namespace} / ${target.run_id}`}
+      meta={query.data ? <RunMeta data={query.data} /> : undefined}
       actions={
         <PluginLink
           to="/durable"
@@ -79,95 +102,78 @@ function ExecutionDetail({ target }: { target: RunKey }) {
       <Read title="Durable execution" query={query} intervalMs={10_000}>
         {(data) => (
           <>
-            <div className="flex flex-wrap items-center gap-3 text-xs">
-              <Badge
-                variant={data.state === "failed" ? "destructive" : "outline"}
-              >
-                {displayState(data.state)}
-              </Badge>
-              <span>
-                Build{" "}
-                <span className="font-mono break-all">{data.build_id}</span>
-              </span>
-              <span>
-                Revision <span className="font-mono">{data.revision}</span>
-              </span>
-              <span>
-                Run <span className="font-mono">{data.run_number}</span> · Retry{" "}
-                <span className="font-mono">{data.retry_attempt}</span>
-              </span>
-              <span>Runtime {data.runtime}</span>
-            </div>
             <p className="text-xs text-muted-foreground">
               {data.runtime === "unavailable"
                 ? "Historical build runtime is unavailable. Persisted metadata remains inspectable."
                 : "Runtime availability is reported for this exact namespace and build."}{" "}
               Polls every 10 seconds while visible.
             </p>
-            <details className="text-xs">
-              <summary className="cursor-pointer rounded-sm py-1 text-muted-foreground focus-visible:outline-2 focus-visible:outline-ring">
-                Execution metadata and run links
-              </summary>
-              <div className="grid min-w-0 gap-3 sm:grid-cols-2">
-                <Facts
-                  items={[
-                    [
-                      "Namespace",
-                      <span className="font-mono text-xs break-all">
-                        {data.namespace}
-                      </span>,
-                    ],
-                    ["Workflow type", data.workflow_type],
-                    [
-                      "Last sequence",
-                      <span className="font-mono text-xs">
-                        {data.last_sequence}
-                      </span>,
-                    ],
-                    [
-                      "Created",
-                      <Stamp value={data.created_at} label="creation time" />,
-                    ],
-                    [
-                      "Updated",
-                      <Stamp value={data.updated_at} label="update time" />,
-                    ],
-                  ]}
-                />
-                <Facts
-                  items={[
-                    [
-                      "Run deadline",
-                      <Stamp
-                        value={data.run_deadline_at}
-                        label="run deadline"
-                      />,
-                    ],
-                    [
-                      "Execution deadline",
-                      <Stamp
-                        value={data.execution_deadline_at}
-                        label="execution deadline"
-                      />,
-                    ],
-                    [
-                      "Run available",
-                      <Stamp
-                        value={data.run_available_at}
-                        label="run availability"
-                      />,
-                    ],
-                    ...data.links.map(
-                      (link) =>
-                        [displayState(link.kind), identity(link)] as [
-                          string,
-                          React.ReactNode,
-                        ]
-                    ),
-                  ]}
-                />
-              </div>
-            </details>
+            <Section aria-label="Execution metadata" inset>
+              <details className="text-xs">
+                <summary className="cursor-pointer rounded-sm py-1 text-muted-foreground focus-visible:outline-2 focus-visible:outline-ring">
+                  Execution metadata and run links
+                </summary>
+                <div className="grid min-w-0 gap-3 sm:grid-cols-2">
+                  <Facts
+                    items={[
+                      [
+                        "Namespace",
+                        <span className="font-mono text-xs break-all">
+                          {data.namespace}
+                        </span>,
+                      ],
+                      ["Workflow type", data.workflow_type],
+                      [
+                        "Last sequence",
+                        <span className="font-mono text-xs">
+                          {data.last_sequence}
+                        </span>,
+                      ],
+                      [
+                        "Created",
+                        <Stamp value={data.created_at} label="creation time" />,
+                      ],
+                      [
+                        "Updated",
+                        <Stamp value={data.updated_at} label="update time" />,
+                      ],
+                    ]}
+                  />
+                  <Facts
+                    items={[
+                      [
+                        "Run deadline",
+                        <Stamp
+                          value={data.run_deadline_at}
+                          label="run deadline"
+                        />,
+                      ],
+                      [
+                        "Execution deadline",
+                        <Stamp
+                          value={data.execution_deadline_at}
+                          label="execution deadline"
+                        />,
+                      ],
+                      [
+                        "Run available",
+                        <Stamp
+                          value={data.run_available_at}
+                          label="run availability"
+                        />,
+                      ],
+                      ...data.links.map(
+                        (link) =>
+                          [displayState(link.kind), identity(link)] as [
+                            string,
+                            React.ReactNode,
+                          ]
+                      ),
+                    ]}
+                  />
+                </div>
+              </details>
+            </Section>
             {data.links_restricted && (
               <p role="status" className="text-xs text-muted-foreground">
                 Some run links are restricted. Linked details check access
@@ -280,6 +286,7 @@ function Paged<T>({
   rowKey,
   filters = {},
   reset,
+  actions,
 }: {
   target: RunKey
   kind: string
@@ -288,6 +295,7 @@ function Paged<T>({
   rowKey: (row: T) => string
   filters?: Record<string, string>
   reset?: () => void
+  actions?: ReactNode
 }) {
   const paging = useDurableCursor(JSON.stringify({ target, kind, filters }))
   const query = useDurableRead<DurablePage<T>>(`durable.${kind}`, {
@@ -297,12 +305,13 @@ function Paged<T>({
     cursor: paging.cursor ?? "",
   })
   return (
-    <Section title={title}>
+    <Section title={title} actions={actions}>
       <DurablePageRead
         paging={paging}
         title={title}
         query={query}
         intervalMs={paging.cursor ? null : 10_000}
+        flush
       >
         {(data) => (
           <DurableTable
@@ -315,6 +324,7 @@ function Paged<T>({
             refresh={query.refetch}
             filtered={Object.values(filters).some(Boolean)}
             reset={reset}
+            flush
           />
         )}
       </DurablePageRead>
@@ -440,77 +450,75 @@ function TaskState({ task }: { task: DurableTask }) {
 function Tasks({ target }: { target: RunKey }) {
   const [kind, setKind] = useState("")
   return (
-    <>
-      <label className="flex max-w-48 min-w-0 flex-col gap-1 text-xs">
-        Task kind
-        <Input
-          className="h-8"
-          value={kind}
-          onChange={(event) => setKind(event.target.value)}
-        />
-      </label>
-      <Paged<DurableTask>
-        target={target}
-        kind="tasks"
-        title="tasks"
-        filters={{ kind }}
-        reset={() => setKind("")}
-        rowKey={(row) => row.id}
-        columns={[
-          {
-            id: "id",
-            header: "Task / kind",
-            cell: (row) => (
-              <span className="font-mono text-xs break-all">
-                {row.id}
-                <br />
-                {row.kind}
-              </span>
-            ),
-          },
-          {
-            id: "state",
-            header: "State",
-            cell: (row) => <TaskState task={row} />,
-          },
-          {
-            id: "attempt",
-            header: "Attempt / version",
-            cell: (row) => (
-              <span className="font-mono text-xs">
-                {row.attempt} / {row.version}
-              </span>
-            ),
-          },
-          {
-            id: "available",
-            header: "Available",
-            cell: (row) => (
-              <Stamp value={row.available_at} label="task availability" />
-            ),
-          },
-          {
-            id: "lease",
-            header: "Lease until",
-            cell: (row) => (
-              <Stamp value={row.lease_until} label="lease expiry" />
-            ),
-          },
-          {
-            id: "deadline",
-            header: "Deadline",
-            cell: (row) => (
-              <Stamp value={row.deadline_at} label="task deadline" />
-            ),
-          },
-          {
-            id: "heartbeat",
-            header: "Heartbeat",
-            cell: (row) => <Stamp value={row.heartbeat_at} label="heartbeat" />,
-          },
-        ]}
-      />
-    </>
+    <Paged<DurableTask>
+      target={target}
+      actions={
+        <label className="flex max-w-48 min-w-0 flex-col gap-1 text-xs">
+          Task kind
+          <Input
+            className="h-8"
+            value={kind}
+            onChange={(event) => setKind(event.target.value)}
+          />
+        </label>
+      }
+      kind="tasks"
+      title="tasks"
+      filters={{ kind }}
+      reset={() => setKind("")}
+      rowKey={(row) => row.id}
+      columns={[
+        {
+          id: "id",
+          header: "Task / kind",
+          cell: (row) => (
+            <span className="font-mono text-xs break-all">
+              {row.id}
+              <br />
+              {row.kind}
+            </span>
+          ),
+        },
+        {
+          id: "state",
+          header: "State",
+          cell: (row) => <TaskState task={row} />,
+        },
+        {
+          id: "attempt",
+          header: "Attempt / version",
+          cell: (row) => (
+            <span className="font-mono text-xs">
+              {row.attempt} / {row.version}
+            </span>
+          ),
+        },
+        {
+          id: "available",
+          header: "Available",
+          cell: (row) => (
+            <Stamp value={row.available_at} label="task availability" />
+          ),
+        },
+        {
+          id: "lease",
+          header: "Lease until",
+          cell: (row) => <Stamp value={row.lease_until} label="lease expiry" />,
+        },
+        {
+          id: "deadline",
+          header: "Deadline",
+          cell: (row) => (
+            <Stamp value={row.deadline_at} label="task deadline" />
+          ),
+        },
+        {
+          id: "heartbeat",
+          header: "Heartbeat",
+          cell: (row) => <Stamp value={row.heartbeat_at} label="heartbeat" />,
+        },
+      ]}
+    />
   )
 }
 function Deliveries({ target, kind }: { target: RunKey; kind: string }) {
@@ -533,14 +541,15 @@ function Deliveries({ target, kind }: { target: RunKey; kind: string }) {
         title="Source delivery"
         query={query}
         intervalMs={paging.cursor ? null : 10_000}
+        flush
       >
         {(data) => (
           <>
-            <p className="text-xs">
+            <p className="px-4 text-xs">
               Pending {data.pending} (includes blocked {data.blocked}). Blocked
               sources need repair and do not automatically retry.
             </p>
-            <p className="text-xs text-muted-foreground">
+            <p className="px-4 text-xs text-muted-foreground">
               Sink accepted means verified persisted source acceptance.{" "}
               {kind === "hooks"
                 ? `Webhook endpoint delivery: ${data.remote_delivery}.`
@@ -553,6 +562,7 @@ function Deliveries({ target, kind }: { target: RunKey; kind: string }) {
               paging={paging}
               loading={query.loading}
               refresh={query.refetch}
+              flush
               rowKey={(row) => row.id}
               columns={[
                 {

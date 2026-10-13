@@ -1,8 +1,19 @@
 import { PluginLink } from "@forge-go/dashboard-plugin"
-import { Stat } from "@forge-go/dashboard-kit/components/stat-grid"
+import { Section } from "@forge-go/dashboard-kit/components/section"
+import { StatGrid } from "@forge-go/dashboard-kit/components/stat-grid"
+import type { RenderStatLink } from "@forge-go/dashboard-kit/components/stat-grid"
 import { Read, useDispatchQuery } from "../read"
-import { Facts, Frame, ResourceLink, Section } from "../components"
+import { Facts, Frame, ResourceLink } from "../components"
 import type { OverviewSummary } from "../contract"
+
+const renderLink: RenderStatLink = (href, cell) => (
+  <PluginLink
+    to={href}
+    className="grid outline-none hover:bg-muted/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+  >
+    {cell}
+  </PluginLink>
+)
 
 export function OverviewPage() {
   const query = useDispatchQuery<OverviewSummary>("overview.summary")
@@ -15,44 +26,36 @@ export function OverviewPage() {
         {(data) => (
           <>
             <Section title="Jobs">
-              <div className="grid min-w-0 grid-cols-2 gap-2 @xl/main:grid-cols-3 @5xl/main:grid-cols-6">
-                {Object.entries(data.jobs.counts).map(([state, count]) => (
-                  <PluginLink
-                    key={state}
-                    to={"/jobs?states=" + state}
-                    className="rounded-xl focus-visible:outline-2 focus-visible:outline-ring"
-                  >
-                    <Stat
-                      label={state}
-                      value={count}
-                      tone={
-                        state === "failed" && count > 0 ? "danger" : "default"
-                      }
-                    />
-                  </PluginLink>
-                ))}
-              </div>
+              <StatGrid
+                items={Object.entries(data.jobs.counts).map(
+                  ([state, count]) => ({
+                    label: state,
+                    value: count,
+                    tone:
+                      state === "failed" && count > 0
+                        ? ("danger" as const)
+                        : ("default" as const),
+                    href: "/jobs?states=" + state,
+                  })
+                )}
+                renderLink={renderLink}
+              />
             </Section>
             <Section title="Workflows">
-              <div className="grid min-w-0 grid-cols-1 gap-2 @xl/main:grid-cols-3">
-                {Object.entries(data.runs).map(([state, count]) => (
-                  <PluginLink
-                    key={state}
-                    to={"/workflows?state=" + state}
-                    className="rounded-xl focus-visible:outline-2 focus-visible:outline-ring"
-                  >
-                    <Stat
-                      label={state}
-                      value={count}
-                      tone={
-                        state === "failed" && count > 0 ? "danger" : "default"
-                      }
-                    />
-                  </PluginLink>
-                ))}
-              </div>
+              <StatGrid
+                items={Object.entries(data.runs).map(([state, count]) => ({
+                  label: state,
+                  value: count,
+                  tone:
+                    state === "failed" && count > 0
+                      ? ("danger" as const)
+                      : ("default" as const),
+                  href: "/workflows?state=" + state,
+                }))}
+                renderLink={renderLink}
+              />
             </Section>
-            <Section title="Operations">
+            <Section title="Operations" inset>
               <Facts
                 items={[
                   [

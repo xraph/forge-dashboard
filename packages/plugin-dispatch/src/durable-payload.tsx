@@ -3,7 +3,8 @@ import { ContractError, usePluginClient } from "@forge-go/dashboard-plugin"
 import { Button } from "@forge-go/dashboard-kit/components/button"
 import { CommandAlert } from "@forge-go/dashboard-kit/components/query-boundary"
 import { PayloadView } from "./payload"
-import { Section, Text } from "./components"
+import { Section } from "@forge-go/dashboard-kit/components/section"
+import { Stack, Text } from "./components"
 import type { DurablePayload, RunKey } from "./durable-types"
 
 export function decodePayload(value: string) {
@@ -62,47 +63,50 @@ export function DurablePayloadPanel({ target }: { target: RunKey }) {
     }
   }
   return (
-    <Section title="Protected payload">
-      <div className="flex flex-wrap items-center gap-2">
-        <p className="text-xs text-muted-foreground">
-          Each reveal requires payload permission and durable audit acceptance.
-        </p>
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={state.loading}
-          onClick={
-            state.data
-              ? () => {
-                  request.current?.abort()
-                  setState({ loading: false, owner: client })
-                }
-              : reveal
-          }
-        >
-          {state.loading
-            ? "Revealing…"
-            : state.data
-              ? "Hide payload"
-              : "Reveal payload"}
-        </Button>
-      </div>
-      <CommandAlert title="Payload remains restricted" error={state.error} />
-      {state.data && (
-        <>
+    <Section title="Protected payload" inset>
+      <Stack>
+        <div className="flex flex-wrap items-center gap-2">
           <p className="text-xs text-muted-foreground">
-            Revealed at revision{" "}
-            <span className="font-mono">{state.data.revision}</span>
+            Each reveal requires payload permission and durable audit
+            acceptance.
           </p>
-          {(["input", "output"] as const).map((field) => (
-            <PayloadBytes
-              key={field}
-              label={field}
-              value={state.data![field]}
-            />
-          ))}
-        </>
-      )}
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={state.loading}
+            onClick={
+              state.data
+                ? () => {
+                    request.current?.abort()
+                    setState({ loading: false, owner: client })
+                  }
+                : reveal
+            }
+          >
+            {state.loading
+              ? "Revealing…"
+              : state.data
+                ? "Hide payload"
+                : "Reveal payload"}
+          </Button>
+        </div>
+        <CommandAlert title="Payload remains restricted" error={state.error} />
+        {state.data && (
+          <>
+            <p className="text-xs text-muted-foreground">
+              Revealed at revision{" "}
+              <span className="font-mono">{state.data.revision}</span>
+            </p>
+            {(["input", "output"] as const).map((field) => (
+              <PayloadBytes
+                key={field}
+                label={field}
+                value={state.data![field]}
+              />
+            ))}
+          </>
+        )}
+      </Stack>
     </Section>
   )
 }

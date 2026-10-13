@@ -13,33 +13,30 @@ export function Frame({
   title,
   children,
   description = "Operator-wide view. Scope filters do not change access.",
+  meta,
   actions,
 }: {
   title: string
   children: ReactNode
   description?: string
+  meta?: ReactNode
   actions?: ReactNode
 }) {
   return (
-    <div className="flex min-w-0 flex-col gap-3">
-      <PageHeader title={title} description={description} actions={actions} />
+    <div className="flex min-w-0 flex-col gap-4">
+      <PageHeader
+        title={title}
+        description={description}
+        meta={meta}
+        actions={actions}
+      />
       {children}
     </div>
   )
 }
-export function Section({
-  title,
-  children,
-}: {
-  title: string
-  children: ReactNode
-}) {
-  return (
-    <section className="flex min-w-0 flex-col gap-2">
-      <h2 className="text-sm font-medium">{title}</h2>
-      {children}
-    </section>
-  )
+/** Spaces the blocks of an inset Section, whose content has padding but no gap. */
+export function Stack({ children }: { children: ReactNode }) {
+  return <div className="flex min-w-0 flex-col gap-3">{children}</div>
 }
 export function ResourceLink({
   kind,

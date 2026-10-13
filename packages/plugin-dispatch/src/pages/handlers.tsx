@@ -1,14 +1,15 @@
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
 import { PluginLink } from "@forge-go/dashboard-plugin"
 import { DetailLayout } from "@forge-go/dashboard-kit/components/detail-layout"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { Read, useDispatchQuery } from "../read"
 import {
   Facts,
   Frame,
   Resources,
   Rows,
-  Section,
   SettingValue,
+  Stack,
   Text,
 } from "../components"
 import type { HandlerDetail, HandlerRow } from "../contract"
@@ -23,47 +24,49 @@ export function HandlersPage() {
     >
       <Read title="Handlers" query={query} intervalMs={30_000}>
         {(data) => (
-          <Rows
-            title="handlers"
-            rows={data.items}
-            rowKey={(row) => row.kind + ":" + row.name}
-            refresh={query.refetch}
-            columns={[
-              {
-                id: "name",
-                header: "Name",
-                cell: (row) => (
-                  <PluginLink
-                    to={`/handlers/${row.kind === "job" ? "jobs" : "workflows"}/${encodeURIComponent(row.name)}`}
-                    className="font-medium text-primary hover:underline"
-                  >
-                    {row.name}
-                  </PluginLink>
-                ),
-              },
-              { id: "kind", header: "Kind", cell: (row) => row.kind },
-              {
-                id: "versions",
-                header: "Versions",
-                cell: (row) => (
-                  <Text
-                    value={row.versions.join(", ")}
-                    label="workflow versions"
-                  />
-                ),
-              },
-              {
-                id: "inputs",
-                header: "Inputs",
-                cell: (row) =>
-                  row.kind === "job" ? (
-                    row.inputCount
-                  ) : (
-                    <Text value={null} label="declared artifact inputs" />
+          <Section aria-label="Handler list">
+            <Rows
+              title="handlers"
+              rows={data.items}
+              rowKey={(row) => row.kind + ":" + row.name}
+              refresh={query.refetch}
+              columns={[
+                {
+                  id: "name",
+                  header: "Name",
+                  cell: (row) => (
+                    <PluginLink
+                      to={`/handlers/${row.kind === "job" ? "jobs" : "workflows"}/${encodeURIComponent(row.name)}`}
+                      className="font-medium text-primary hover:underline"
+                    >
+                      {row.name}
+                    </PluginLink>
                   ),
-              },
-            ]}
-          />
+                },
+                { id: "kind", header: "Kind", cell: (row) => row.kind },
+                {
+                  id: "versions",
+                  header: "Versions",
+                  cell: (row) => (
+                    <Text
+                      value={row.versions.join(", ")}
+                      label="workflow versions"
+                    />
+                  ),
+                },
+                {
+                  id: "inputs",
+                  header: "Inputs",
+                  cell: (row) =>
+                    row.kind === "job" ? (
+                      row.inputCount
+                    ) : (
+                      <Text value={null} label="declared artifact inputs" />
+                    ),
+                },
+              ]}
+            />
+          </Section>
         )}
       </Read>
     </Frame>
@@ -87,26 +90,28 @@ function HandlerDetailPage({
           <DetailLayout
             main={
               <>
-                <Section title="Registration">
-                  <Facts
-                    items={[
-                      ["Name", data.name],
-                      ["Kind", data.kind],
-                      [
-                        "Versions",
-                        <Text
-                          value={data.versions.join(", ")}
-                          label="workflow versions"
-                        />,
-                      ],
-                    ]}
-                  />
-                  <PluginLink
-                    to={`/${kind === "job" ? "jobs" : "workflows"}?namePrefix=${encodeURIComponent(data.name)}`}
-                    className="text-sm text-primary hover:underline"
-                  >
-                    Browse matching {kind === "job" ? "jobs" : "runs"}
-                  </PluginLink>
+                <Section title="Registration" inset>
+                  <Stack>
+                    <Facts
+                      items={[
+                        ["Name", data.name],
+                        ["Kind", data.kind],
+                        [
+                          "Versions",
+                          <Text
+                            value={data.versions.join(", ")}
+                            label="workflow versions"
+                          />,
+                        ],
+                      ]}
+                    />
+                    <PluginLink
+                      to={`/${kind === "job" ? "jobs" : "workflows"}?namePrefix=${encodeURIComponent(data.name)}`}
+                      className="text-sm text-primary hover:underline"
+                    >
+                      Browse matching {kind === "job" ? "jobs" : "runs"}
+                    </PluginLink>
+                  </Stack>
                 </Section>
                 {data.job && (
                   <>
@@ -143,7 +148,7 @@ function HandlerDetailPage({
                         ]}
                       />
                     </Section>
-                    <Section title="Execution policy">
+                    <Section title="Execution policy" inset>
                       <SettingValue value={data.job.execution} />
                     </Section>
                   </>
@@ -153,13 +158,13 @@ function HandlerDetailPage({
             aside={
               data.job ? (
                 <>
-                  <Section title="Resources requested">
+                  <Section title="Resources requested" inset>
                     <Resources values={data.job.resources} />
                   </Section>
-                  <Section title="Resource limits">
+                  <Section title="Resource limits" inset>
                     <Resources values={data.job.resourceLimits} />
                   </Section>
-                  <Section title="Lease and class">
+                  <Section title="Lease and class" inset>
                     <Facts
                       items={[
                         [

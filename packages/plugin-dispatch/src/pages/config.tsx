@@ -1,11 +1,6 @@
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { Read, useDispatchQuery } from "../read"
-import {
-  Facts,
-  Frame,
-  ResourceLink,
-  Section,
-  SettingValue,
-} from "../components"
+import { Facts, Frame, ResourceLink, SettingValue } from "../components"
 import type { EngineConfig } from "../contract"
 export function EnginePage() {
   const query = useDispatchQuery<EngineConfig>("engine.config")
@@ -17,34 +12,39 @@ export function EnginePage() {
       <Read title="Engine configuration" query={query}>
         {(data) => (
           <>
-            <Facts
-              items={[
-                ["Worker", <ResourceLink kind="workers" id={data.workerId} />],
-                ["Scratch root", data.scratchRoot || "Not configured"],
-                [
-                  "Wake notifier",
-                  data.wakeNotifierSupported ? "Supported" : "Not supported",
-                ],
-              ]}
-            />
+            <Section aria-label="Process details" inset>
+              <Facts
+                items={[
+                  [
+                    "Worker",
+                    <ResourceLink kind="workers" id={data.workerId} />,
+                  ],
+                  ["Scratch root", data.scratchRoot || "Not configured"],
+                  [
+                    "Wake notifier",
+                    data.wakeNotifierSupported ? "Supported" : "Not supported",
+                  ],
+                ]}
+              />
+            </Section>
             <div className="grid min-w-0 gap-4 @3xl/main:grid-cols-2">
-              <Section title="Pool and polling">
+              <Section title="Pool and polling" inset>
                 <SettingValue value={data.pool} />
               </Section>
-              <Section title="Cron scheduler">
+              <Section title="Cron scheduler" inset>
                 <SettingValue value={data.scheduler} />
               </Section>
-              <Section title="Queues">
+              <Section title="Queues" inset>
                 <SettingValue value={data.queues} />
               </Section>
-              <Section title="Execution">
-                <p className="text-xs text-muted-foreground">
-                  Requested operating-system limits describe configuration. They
-                  do not prove enforcement.
-                </p>
+              <Section
+                title="Execution"
+                description="Requested operating-system limits describe configuration. They do not prove enforcement."
+                inset
+              >
                 <SettingValue value={data.executors} />
               </Section>
-              <Section title="Resources">
+              <Section title="Resources" inset>
                 <Facts
                   items={[
                     ["Enabled", data.resources.enabled ? "Yes" : "No"],
@@ -74,7 +74,7 @@ export function EnginePage() {
                   ]}
                 />
               </Section>
-              <Section title="Artifacts">
+              <Section title="Artifacts" inset>
                 <SettingValue value={data.artifacts} />
               </Section>
             </div>

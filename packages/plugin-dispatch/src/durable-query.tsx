@@ -11,8 +11,9 @@ import type { DurableInputValue } from "./durable-input"
 import { ZeroState } from "@forge-go/dashboard-kit/components/zero-state"
 import { CommandAlert } from "@forge-go/dashboard-kit/components/query-boundary"
 import { DurableSession } from "./durable-session"
-import { Section } from "./components"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { PayloadView } from "./payload"
+import { Stack } from "./components"
 import { outputBytes, outputText, validIdentifier } from "./durable-bytes"
 import type { DurableQueryResult, RunKey } from "./durable-types"
 
@@ -127,67 +128,69 @@ function QueryState({
     }
   }
   return (
-    <Section title="Workflow query">
-      <div className="flex flex-wrap items-end gap-2">
-        <label className="flex min-w-0 flex-col gap-1 text-xs">
-          Query name
-          <Input
-            className="h-8 w-48 max-w-full"
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-          />
-        </label>
-        <Button
-          size="sm"
-          variant="outline"
-          disabled={
-            !allowed ||
-            !validIdentifier(name, 200) ||
-            state.loading ||
-            input.loading ||
-            !!input.error
-          }
-          onClick={run}
-        >
-          {state.loading ? "Querying…" : "Run query"}
-        </Button>
-        <Button size="sm" variant="ghost" onClick={clear}>
-          Clear query
-        </Button>
-        <p className="text-xs text-muted-foreground">
-          Manual, audited read. Hidden results are discarded.
-        </p>
-      </div>
-      <details
-        className="text-xs"
-        onToggle={(event) => {
-          if (!event.currentTarget.open) {
-            setInputEpoch((value) => value + 1)
-            setInput({ text: "" })
-          }
-        }}
-      >
-        <summary className="cursor-pointer py-1">Query input</summary>
-        <DurableInput
-          key={inputEpoch}
-          label="Query input text"
-          value={input}
-          onChange={setInput}
-          disabled={state.loading}
-        />
-      </details>
-      <CommandAlert title="Query unavailable" error={state.error} />
-      {state.data && (
-        <>
-          <p className="text-xs">
-            Observed revision{" "}
-            <span className="font-mono">{state.data.revision}</span>, last
-            sequence{" "}
-            <span className="font-mono">{state.data.last_sequence}</span>.
+    <Section title="Workflow query" inset>
+      <Stack>
+        <div className="flex flex-wrap items-end gap-2">
+          <label className="flex min-w-0 flex-col gap-1 text-xs">
+            Query name
+            <Input
+              className="h-8 w-48 max-w-full"
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+            />
+          </label>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={
+              !allowed ||
+              !validIdentifier(name, 200) ||
+              state.loading ||
+              input.loading ||
+              !!input.error
+            }
+            onClick={run}
+          >
+            {state.loading ? "Querying…" : "Run query"}
+          </Button>
+          <Button size="sm" variant="ghost" onClick={clear}>
+            Clear query
+          </Button>
+          <p className="text-xs text-muted-foreground">
+            Manual, audited read. Hidden results are discarded.
           </p>
-          <QueryBytes value={state.data.output} />
-        </>
-      )}
+        </div>
+        <details
+          className="text-xs"
+          onToggle={(event) => {
+            if (!event.currentTarget.open) {
+              setInputEpoch((value) => value + 1)
+              setInput({ text: "" })
+            }
+          }}
+        >
+          <summary className="cursor-pointer py-1">Query input</summary>
+          <DurableInput
+            key={inputEpoch}
+            label="Query input text"
+            value={input}
+            onChange={setInput}
+            disabled={state.loading}
+          />
+        </details>
+        <CommandAlert title="Query unavailable" error={state.error} />
+        {state.data && (
+          <>
+            <p className="text-xs">
+              Observed revision{" "}
+              <span className="font-mono">{state.data.revision}</span>, last
+              sequence{" "}
+              <span className="font-mono">{state.data.last_sequence}</span>.
+            </p>
+            <QueryBytes value={state.data.output} />
+          </>
+        )}
+      </Stack>
     </Section>
   )
 }
