@@ -7,6 +7,7 @@ import {
 } from "@forge-go/dashboard-kit/components/native-select"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { RelationGraph } from "../components/relation-graph"
 import { relationGraphPath } from "../components/relation-graph-path"
 import type { RelationExpansion } from "../components/relation-graph"
@@ -64,7 +65,7 @@ function View({
     ? `The engine's walk reaches ${subject} this way:`
     : `Warden's default walk reaches ${subject} this way:`
   return (
-    <div className="flex min-w-0 flex-col gap-3">
+    <div className="flex min-w-0 flex-col gap-3 p-4">
       <div className="flex min-w-0 flex-col gap-1 text-sm text-muted-foreground">
         {stop && <p>{stop}</p>}
         <p>{ALWAYS}</p>
@@ -146,47 +147,56 @@ export function WardenRelationGraphPage({ params }: PluginPageProps) {
         }
       />
 
-      <div className="flex items-center gap-1.5">
-        <Label
-          htmlFor="relation-graph-namespace"
-          className="text-xs text-muted-foreground"
+      <Section
+        title="Reachable tuples"
+        actions={
+          <div className="flex items-center gap-1.5">
+            <Label
+              htmlFor="relation-graph-namespace"
+              className="shrink-0 text-xs whitespace-nowrap text-muted-foreground"
+            >
+              Namespace
+            </Label>
+            <NativeSelect
+              id="relation-graph-namespace"
+              value={namespace}
+              onChange={(e) =>
+                navigate(
+                  relationGraphPath({
+                    objectType,
+                    objectId,
+                    relation,
+                    subject: asked
+                      ? { type: subjectType, id: subjectId }
+                      : undefined,
+                    namespace: e.target.value,
+                  })
+                )
+              }
+            >
+              {options.map((o) => (
+                <NativeSelectOption key={o.value} value={o.value}>
+                  {o.label}
+                </NativeSelectOption>
+              ))}
+            </NativeSelect>
+          </div>
+        }
+      >
+        <QueryBoundary
+          title="Relation graph"
+          query={expansion}
+          skeletonRows={5}
         >
-          Namespace
-        </Label>
-        <NativeSelect
-          id="relation-graph-namespace"
-          value={namespace}
-          onChange={(e) =>
-            navigate(
-              relationGraphPath({
-                objectType,
-                objectId,
-                relation,
-                subject: asked
-                  ? { type: subjectType, id: subjectId }
-                  : undefined,
-                namespace: e.target.value,
-              })
-            )
-          }
-        >
-          {options.map((o) => (
-            <NativeSelectOption key={o.value} value={o.value}>
-              {o.label}
-            </NativeSelectOption>
-          ))}
-        </NativeSelect>
-      </div>
-
-      <QueryBoundary title="Relation graph" query={expansion} skeletonRows={5}>
-        {(data) => (
-          <View
-            expansion={data}
-            root={root}
-            subject={asked ? `${subjectType}:${subjectId}` : null}
-          />
-        )}
-      </QueryBoundary>
+          {(data) => (
+            <View
+              expansion={data}
+              root={root}
+              subject={asked ? `${subjectType}:${subjectId}` : null}
+            />
+          )}
+        </QueryBoundary>
+      </Section>
     </section>
   )
 }

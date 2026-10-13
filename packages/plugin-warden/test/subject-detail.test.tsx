@@ -210,7 +210,10 @@ describe("WardenSubjectDetailPage header", () => {
       level: 1,
       name: "user:alice",
     })
-    expect(title.className).toContain("font-mono")
+    // The kit page header sets the title; the mono face rides on the header.
+    expect(title.closest('[data-slot="page-header"]')?.className).toContain(
+      "[&_h1]:font-mono"
+    )
     expect(
       await screen.findByText(
         "Namespace /: roles and policies depend on it. Assignments, relations and recent checks cover every namespace."

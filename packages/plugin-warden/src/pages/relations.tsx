@@ -21,6 +21,7 @@ import {
   NativeSelect,
   NativeSelectOption,
 } from "@forge-go/dashboard-kit/components/native-select"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import {
   NamespaceCell,
@@ -468,135 +469,147 @@ export function WardenRelationsPage() {
         actions={<Button onClick={openCreate}>New relation</Button>}
       />
 
-      <div className="flex min-w-0 flex-col gap-1 text-sm text-muted-foreground">
-        <p>
-          A relation tuple reads object#relation@subject. Tuples cannot be
-          edited, only created and deleted, because the store has no update. To
-          change one, delete it and write another.
-        </p>
-        {/* Tuples cascade at check time: every tuple lookup a check makes
-            gets AncestorNamespaces(checkNamespace), in the direct check, the
-            expression evaluator and the graph walker (warden engine.go
-            evaluateReBAC, TestReBAC_NamespaceCascade). The list filter is an
-            exact match, so the listing under a namespace leaves out tuples
-            that are in scope there. Both halves have to be said. */}
-        <p>
-          A tuple is in scope for checks in its own namespace and in every
-          namespace below it, the same way roles and policies are. Filtering by
-          namespace shows only the tuples stored in exactly that namespace, so
-          tuples stored in a parent namespace are not listed under it, although
-          they are in scope there too.
-        </p>
-      </div>
-
-      <details onToggle={(e) => setPickingGraph(e.currentTarget.open)}>
-        <summary className="cursor-pointer text-sm font-medium">
-          Draw a relation graph
-        </summary>
-        {pickingGraph && <GraphPicker />}
-      </details>
-
-      <FilterBar filters={[namespace.filterConfig]} />
-
-      <div
-        role="group"
-        aria-label="Filter by tuple part"
-        className="grid min-w-0 grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6"
+      {/* Tuples cascade at check time: every tuple lookup a check makes
+          gets AncestorNamespaces(checkNamespace), in the direct check, the
+          expression evaluator and the graph walker (warden engine.go
+          evaluateReBAC, TestReBAC_NamespaceCascade). The list filter is an
+          exact match, so the listing under a namespace leaves out tuples
+          that are in scope there. Both halves have to be said. */}
+      <Section
+        aria-label="Relation list"
+        description={
+          <span className="flex flex-col gap-1">
+            <span>
+              A relation tuple reads object#relation@subject. Tuples cannot be
+              edited, only created and deleted, because the store has no update.
+              To change one, delete it and write another.
+            </span>
+            <span>
+              A tuple is in scope for checks in its own namespace and in every
+              namespace below it, the same way roles and policies are. Filtering
+              by namespace shows only the tuples stored in exactly that
+              namespace, so tuples stored in a parent namespace are not listed
+              under it, although they are in scope there too.
+            </span>
+          </span>
+        }
       >
-        {(Object.keys(EMPTY_PARTS) as (keyof Parts)[]).map((part) => (
-          <PartInput
-            key={part}
-            idPrefix="relation-filter"
-            part={part}
-            parts={filters}
-            onChange={setFilter}
-          />
-        ))}
-      </div>
+        <details
+          className="border-b px-4 py-3"
+          onToggle={(e) => setPickingGraph(e.currentTarget.open)}
+        >
+          <summary className="cursor-pointer text-sm font-medium">
+            Draw a relation graph
+          </summary>
+          {pickingGraph && <GraphPicker />}
+        </details>
 
-      <QueryBoundary title="Relations" query={list} skeletonRows={5}>
-        {(data) => {
-          const rows = data.items ?? []
-          // The server's total, never rows.length: rows is one page.
-          const caption = `${data.total} ${data.total === 1 ? "relation" : "relations"}`
-          const anyMarked = rows.some((r) => r.undeclared)
-          const withheld = data.marksWithheld === true
-          return (
-            <>
-              {/* Only when this page shows a mark. Checks do not consult
-                  declarations: the direct check, the expression evaluator
-                  and the graph walker read stored tuples as they are
-                  (warden engine.go evaluateReBAC, dsl/eval.go,
-                  graph_walker.go); the expression evaluator reads a
-                  resource type's permissions only, never its relations or
-                  allowed subjects. So a marked tuple still counts. The mark
-                  is judged from the tuple's own namespace only, the write
-                  check's rule. A check in a child namespace can read the
-                  tuple under that namespace's resource type, which this
-                  mark does not judge. */}
-              {anyMarked && (
-                <p className="text-sm text-muted-foreground">
-                  Undeclared marks a tuple its resource type does not declare.
-                  The resource type is the one that governs the object type from
-                  the tuple's own namespace, the rule the write check uses, and
-                  the reason shown is why that check would refuse the tuple now.
-                  Checks do not consult the resource type's relations or allowed
-                  subjects, so warden still evaluates a marked tuple. To clear a
-                  mark, delete the tuple or declare it on the resource type.
-                </p>
-              )}
-              {/* Without read on warden:resourcetype the server checks no
-                  row, so an unmarked row here says nothing about whether
-                  the tuple conforms. Silence would read as "all conform".
-                  An empty page has no relations to speak of. */}
-              {withheld && rows.length > 0 && (
-                <p className="text-sm text-muted-foreground">
-                  These relations were not checked against their resource types,
-                  because you cannot read resource types. A relation shown here
-                  may still break its resource type.
-                </p>
-              )}
-              <ResourceTable<RelationSummary>
-                columns={columns}
-                rows={rows}
-                rowKey={(r) => r.id}
-                caption={caption}
-                emptyMessage={emptyListMessage(
-                  "relations",
-                  filterPattern(filters),
-                  namespace.value
+        <FilterBar
+          className="border-b px-4 py-3"
+          filters={[namespace.filterConfig]}
+        />
+
+        <div
+          role="group"
+          aria-label="Filter by tuple part"
+          className="grid min-w-0 grid-cols-2 gap-3 border-b p-4 md:grid-cols-3 lg:grid-cols-6"
+        >
+          {(Object.keys(EMPTY_PARTS) as (keyof Parts)[]).map((part) => (
+            <PartInput
+              key={part}
+              idPrefix="relation-filter"
+              part={part}
+              parts={filters}
+              onChange={setFilter}
+            />
+          ))}
+        </div>
+
+        <QueryBoundary title="Relations" query={list} skeletonRows={5}>
+          {(data) => {
+            const rows = data.items ?? []
+            // The server's total, never rows.length: rows is one page.
+            const caption = `${data.total} ${data.total === 1 ? "relation" : "relations"}`
+            const anyMarked = rows.some((r) => r.undeclared)
+            const withheld = data.marksWithheld === true
+            return (
+              <>
+                {/* Only when this page shows a mark. Checks do not consult
+                    declarations: the direct check, the expression evaluator
+                    and the graph walker read stored tuples as they are
+                    (warden engine.go evaluateReBAC, dsl/eval.go,
+                    graph_walker.go); the expression evaluator reads a
+                    resource type's permissions only, never its relations or
+                    allowed subjects. So a marked tuple still counts. The mark
+                    is judged from the tuple's own namespace only, the write
+                    check's rule. A check in a child namespace can read the
+                    tuple under that namespace's resource type, which this
+                    mark does not judge. */}
+                {anyMarked && (
+                  <p className="border-b px-4 py-3 text-sm text-muted-foreground">
+                    Undeclared marks a tuple its resource type does not declare.
+                    The resource type is the one that governs the object type
+                    from the tuple's own namespace, the rule the write check
+                    uses, and the reason shown is why that check would refuse
+                    the tuple now. Checks do not consult the resource type's
+                    relations or allowed subjects, so warden still evaluates a
+                    marked tuple. To clear a mark, delete the tuple or declare
+                    it on the resource type.
+                  </p>
                 )}
-                pagination={{ page, pageSize: data.limit, total: data.total }}
-                onPageChange={setPage}
-                rowActions={(r) => (
-                  <>
-                    <PluginLink
-                      to={relationGraphPath({
-                        objectType: r.objectType,
-                        objectId: r.objectId,
-                        relation: r.relation,
-                        namespace: r.namespacePath,
-                      })}
-                      aria-label={`Graph ${r.objectType}:${r.objectId}#${r.relation}`}
-                      className="text-sm underline underline-offset-4"
-                    >
-                      Graph
-                    </PluginLink>
-                    <IconButton
-                      variant="destructive"
-                      onClick={() => {
-                        remove.reset()
-                        setDeleting(r)
-                      }}
-                      label={`Delete ${tupleString(r)}`}
-                    />
-                  </>
+                {/* Without read on warden:resourcetype the server checks no
+                    row, so an unmarked row here says nothing about whether
+                    the tuple conforms. Silence would read as "all conform".
+                    An empty page has no relations to speak of. */}
+                {withheld && rows.length > 0 && (
+                  <p className="border-b px-4 py-3 text-sm text-muted-foreground">
+                    These relations were not checked against their resource
+                    types, because you cannot read resource types. A relation
+                    shown here may still break its resource type.
+                  </p>
                 )}
-              />
-            </>
-          )
-        }}
-      </QueryBoundary>
+                <ResourceTable<RelationSummary>
+                  columns={columns}
+                  rows={rows}
+                  rowKey={(r) => r.id}
+                  caption={caption}
+                  emptyMessage={emptyListMessage(
+                    "relations",
+                    filterPattern(filters),
+                    namespace.value
+                  )}
+                  pagination={{ page, pageSize: data.limit, total: data.total }}
+                  onPageChange={setPage}
+                  rowActions={(r) => (
+                    <>
+                      <PluginLink
+                        to={relationGraphPath({
+                          objectType: r.objectType,
+                          objectId: r.objectId,
+                          relation: r.relation,
+                          namespace: r.namespacePath,
+                        })}
+                        aria-label={`Graph ${r.objectType}:${r.objectId}#${r.relation}`}
+                        className="text-sm underline underline-offset-4"
+                      >
+                        Graph
+                      </PluginLink>
+                      <IconButton
+                        variant="destructive"
+                        onClick={() => {
+                          remove.reset()
+                          setDeleting(r)
+                        }}
+                        label={`Delete ${tupleString(r)}`}
+                      />
+                    </>
+                  )}
+                />
+              </>
+            )
+          }}
+        </QueryBoundary>
+      </Section>
 
       {/* Both errors live inside their dialog. Base UI marks everything
           outside an open dialog inert and aria-hidden, so an alert on the

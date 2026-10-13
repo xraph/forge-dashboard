@@ -5,11 +5,13 @@ import { Badge } from "@forge-go/dashboard-kit/components/badge"
 import { Input } from "@forge-go/dashboard-kit/components/input"
 import { Label } from "@forge-go/dashboard-kit/components/label"
 import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
+import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
 import {
   ResourceTable,
   type Column,
 } from "@forge-go/dashboard-kit/components/resource-table"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import {
   checkColumns,
@@ -117,6 +119,10 @@ const SUBJECT_LIST_CAP = 200
 const RECENT_CHECKS = 10
 
 const NOTE = "text-sm text-muted-foreground"
+/** A note under a table, ruled off inside its panel. */
+const FOOT = `border-t px-4 py-3 ${NOTE}`
+/** A note above a table, ruled off inside its panel. */
+const HEAD = `border-b px-4 py-3 ${NOTE}`
 const LINK = "underline underline-offset-4"
 const SLUG = "font-mono text-xs"
 
@@ -185,38 +191,42 @@ function SubjectAccess({ kind, id }: { kind: string; id: string }) {
 
   return (
     <section className="flex min-w-0 flex-col gap-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <h1 className="font-mono text-lg font-medium">{`${kind}:${id}`}</h1>
-        <div className="flex flex-wrap items-end gap-3">
-          <form onSubmit={submit} className="flex min-w-0 flex-col gap-1.5">
-            <Label htmlFor={inputId}>Namespace</Label>
-            <Input
-              id={inputId}
-              className="font-mono text-xs"
-              list={listId}
-              placeholder="/"
-              value={draft}
-              onChange={(e) => {
-                const next = e.target.value
-                setDraft(next)
-                // Picking a suggestion applies it at once. Typing does not:
-                // "acme/en" on the way to "acme/eng" is not a namespace, and
-                // asking about it would show the server's refusal.
-                if (suggestions.includes(next)) apply(next)
-              }}
-              onBlur={() => apply(draft)}
-            />
-            <datalist id={listId}>
-              {suggestions.map((ns) => (
-                <option key={ns} value={ns} />
-              ))}
-            </datalist>
-          </form>
-          <PluginLink to="/playground" className={`text-sm ${LINK}`}>
-            Open the playground
-          </PluginLink>
-        </div>
-      </div>
+      <PageHeader
+        title={`${kind}:${id}`}
+        className="[&_h1]:font-mono [&_h1]:text-base"
+        meta={<Badge variant="outline">{kind}</Badge>}
+        actions={
+          <div className="flex flex-wrap items-end gap-3">
+            <form onSubmit={submit} className="flex min-w-0 flex-col gap-1.5">
+              <Label htmlFor={inputId}>Namespace</Label>
+              <Input
+                id={inputId}
+                className="font-mono text-xs"
+                list={listId}
+                placeholder="/"
+                value={draft}
+                onChange={(e) => {
+                  const next = e.target.value
+                  setDraft(next)
+                  // Picking a suggestion applies it at once. Typing does not:
+                  // "acme/en" on the way to "acme/eng" is not a namespace, and
+                  // asking about it would show the server's refusal.
+                  if (suggestions.includes(next)) apply(next)
+                }}
+                onBlur={() => apply(draft)}
+              />
+              <datalist id={listId}>
+                {suggestions.map((ns) => (
+                  <option key={ns} value={ns} />
+                ))}
+              </datalist>
+            </form>
+            <PluginLink to="/playground" className={`text-sm ${LINK}`}>
+              Open the playground
+            </PluginLink>
+          </div>
+        }
+      />
 
       <QueryBoundary title="Subject access" query={detail} skeletonRows={4}>
         {(data) => {
@@ -264,7 +274,7 @@ function SubjectAccess({ kind, id }: { kind: string; id: string }) {
   )
 }
 
-/** A section heading with the withheld sentence in place of its content. */
+/** A section titled by its heading, with the withheld sentence in place of its content. */
 function WithheldNotice({
   heading,
   section,
@@ -273,15 +283,10 @@ function WithheldNotice({
   section: WithheldSection
 }) {
   return (
-    <section className="flex min-w-0 flex-col gap-3">
-      <Heading>{heading}</Heading>
+    <Section title={heading} inset>
       <p className={NOTE}>{withheldSentence(section)}</p>
-    </section>
+    </Section>
   )
-}
-
-function Heading({ children }: { children: string }) {
-  return <h2 className="text-sm font-medium">{children}</h2>
 }
 
 /** Mono chips, as the role and permission pages draw a permission name. */
@@ -373,8 +378,7 @@ function RolesSection({
     },
   ]
   return (
-    <section className="flex min-w-0 flex-col gap-3">
-      <Heading>{`Roles at ${at}`}</Heading>
+    <Section title={`Roles at ${at}`}>
       <ResourceTable<SubjectRole>
         columns={columns}
         rows={roles}
@@ -384,14 +388,14 @@ function RolesSection({
         }
         emptyMessage={`No role reaches this subject at ${at}. Assignments for a single resource, in another namespace, or already expired are listed below.`}
       />
-      <p className={NOTE}>
+      <p className={FOOT}>
         {`Roles assigned for one resource only ${
           assignmentsTruncated
             ? "are among the assignments"
             : "are listed under assignments"
         }. They grant only for checks on that resource.`}
       </p>
-    </section>
+    </Section>
   )
 }
 
@@ -446,8 +450,7 @@ function AssignmentsSection({
     },
   ]
   return (
-    <section className="flex min-w-0 flex-col gap-3">
-      <Heading>Assignments</Heading>
+    <Section title="Assignments">
       <ResourceTable<SubjectAssignment>
         columns={columns}
         rows={rows}
@@ -460,17 +463,17 @@ function AssignmentsSection({
         emptyMessage="This subject has no assignments in any namespace."
       />
       {rows.some((a) => a.expired) && (
-        <p className={NOTE}>
+        <p className={FOOT}>
           An expired assignment grants nothing. It stays listed until
           maintenance removes it.
         </p>
       )}
       {truncated && (
         <p
-          className={NOTE}
+          className={FOOT}
         >{`Showing the first ${SUBJECT_LIST_CAP} assignments.`}</p>
       )}
-    </section>
+    </Section>
   )
 }
 
@@ -524,8 +527,7 @@ function RelationsSection({
     },
   ]
   return (
-    <section className="flex min-w-0 flex-col gap-3">
-      <Heading>Relations</Heading>
+    <Section title="Relations">
       <ResourceTable<SubjectRelation>
         columns={columns}
         rows={rows}
@@ -538,11 +540,11 @@ function RelationsSection({
         emptyMessage="No relation tuple has this subject as its subject."
       />
       {rebacOff ? (
-        <p className={NOTE}>
+        <p className={FOOT}>
           Relation checks are off, so no relation grants anything.
         </p>
       ) : (
-        <p className={NOTE}>
+        <p className={FOOT}>
           Direct relation tuples only. A relation reached through a group, a
           parent object or a resource type's permission expression is found by
           the check itself; try it in the playground.
@@ -550,10 +552,10 @@ function RelationsSection({
       )}
       {truncated && (
         <p
-          className={NOTE}
+          className={FOOT}
         >{`Showing the first ${SUBJECT_LIST_CAP} relations.`}</p>
       )}
-    </section>
+    </Section>
   )
 }
 
@@ -616,14 +618,13 @@ function PoliciesSection({
     },
   ]
   return (
-    <section className="flex min-w-0 flex-col gap-3">
-      <Heading>{heading}</Heading>
+    <Section title={heading}>
       {abacOff && (
-        <p className={NOTE}>
+        <p className={HEAD}>
           Policy evaluation is off, so no policy applies to any check.
         </p>
       )}
-      <p className={NOTE}>
+      <p className={HEAD}>
         A policy that selects this subject only through a role it holds for one
         resource selects it only on checks for that resource, and is not listed
         here.
@@ -640,13 +641,13 @@ function PoliciesSection({
       {/* With policy evaluation off no policy applies, so saying their
           conditions decide would contradict the note above. */}
       {!abacOff && (
-        <p className={NOTE}>
+        <p className={FOOT}>
           {
             "Selecting is not applying. Each policy's actions, resources, window and conditions decide whether it applies to a given check."
           }
         </p>
       )}
-    </section>
+    </Section>
   )
 }
 
@@ -657,13 +658,14 @@ function RecentChecksSection({ kind, id }: { kind: string; id: string }) {
     limit: RECENT_CHECKS,
   })
   return (
-    <section className="flex min-w-0 flex-col gap-3">
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <Heading>Recent checks</Heading>
+    <Section
+      title="Recent checks"
+      actions={
         <PluginLink to="/check-log" className={`text-sm ${LINK}`}>
           Open the check log
         </PluginLink>
-      </div>
+      }
+    >
       <QueryBoundary title="Recent checks" query={checks} skeletonRows={3}>
         {(data) => {
           // The check log filter reads an empty kind as any kind, so keep only
@@ -686,6 +688,6 @@ function RecentChecksSection({ kind, id }: { kind: string; id: string }) {
           )
         }}
       </QueryBoundary>
-    </section>
+    </Section>
   )
 }

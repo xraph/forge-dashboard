@@ -27,6 +27,7 @@ import {
   ResourceTable,
   type Column,
 } from "@forge-go/dashboard-kit/components/resource-table"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { ZeroState } from "@forge-go/dashboard-kit/components/zero-state"
 import { NamespaceCell } from "../components/namespace-filter"
@@ -139,71 +140,75 @@ export function WardenPermissionDetailPage({ params }: PluginPageProps) {
 
           <DetailLayout
             aside={
-              <div className="flex min-w-0 flex-col gap-3">
-                <DescriptionList
-                  items={[
-                    {
-                      // The pair a check matches on. The name is only a label,
-                      // so these two decide whether a check finds this
-                      // permission at all.
-                      term: "Resource",
-                      value: (
-                        <span className="font-mono text-xs">
-                          {permission.resource}
-                        </span>
-                      ),
-                    },
-                    {
-                      term: "Action",
-                      value: (
-                        <span className="font-mono text-xs">
-                          {permission.action}
-                        </span>
-                      ),
-                    },
-                    {
-                      term: "Namespace",
-                      value: <NamespaceCell path={permission.namespacePath} />,
-                    },
-                    {
-                      term: "Description",
-                      value: permission.description || (
-                        <NoneCell label="description" />
-                      ),
-                    },
-                    {
-                      term: "Flags",
-                      value: permission.isSystem ? (
-                        <Badge variant="destructive">system</Badge>
-                      ) : (
-                        <NoneCell label="flags" />
-                      ),
-                    },
-                    {
-                      term: "Created",
-                      value: (
-                        <Timestamp
-                          value={permission.createdAt}
-                          label="creation time"
-                        />
-                      ),
-                    },
-                    {
-                      term: "Updated",
-                      value: (
-                        <Timestamp
-                          value={permission.updatedAt}
-                          label="updated at"
-                        />
-                      ),
-                    },
-                  ]}
-                />
-                <p className="text-xs text-muted-foreground">
-                  A check matches on resource and action, never on the
-                  permission&apos;s name or namespace.
-                </p>
-              </div>
+              <Section title="Details" inset>
+                <div className="flex min-w-0 flex-col gap-3">
+                  <DescriptionList
+                    items={[
+                      {
+                        // The pair a check matches on. The name is only a label,
+                        // so these two decide whether a check finds this
+                        // permission at all.
+                        term: "Resource",
+                        value: (
+                          <span className="font-mono text-xs">
+                            {permission.resource}
+                          </span>
+                        ),
+                      },
+                      {
+                        term: "Action",
+                        value: (
+                          <span className="font-mono text-xs">
+                            {permission.action}
+                          </span>
+                        ),
+                      },
+                      {
+                        term: "Namespace",
+                        value: (
+                          <NamespaceCell path={permission.namespacePath} />
+                        ),
+                      },
+                      {
+                        term: "Description",
+                        value: permission.description || (
+                          <NoneCell label="description" />
+                        ),
+                      },
+                      {
+                        term: "Flags",
+                        value: permission.isSystem ? (
+                          <Badge variant="destructive">system</Badge>
+                        ) : (
+                          <NoneCell label="flags" />
+                        ),
+                      },
+                      {
+                        term: "Created",
+                        value: (
+                          <Timestamp
+                            value={permission.createdAt}
+                            label="creation time"
+                          />
+                        ),
+                      },
+                      {
+                        term: "Updated",
+                        value: (
+                          <Timestamp
+                            value={permission.updatedAt}
+                            label="updated at"
+                          />
+                        ),
+                      },
+                    ]}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    A check matches on resource and action, never on the
+                    permission&apos;s name or namespace.
+                  </p>
+                </div>
+              </Section>
             }
             main={
               edit.editing ? (
@@ -276,45 +281,47 @@ function DescriptionForm({
   }
 
   return (
-    <div className="flex min-w-0 flex-col gap-4 rounded-md border p-4">
-      <p className="text-sm text-muted-foreground">
-        Only the description can change. Resource and action decide what this
-        permission means, so to change either, delete it and create another.
-        Checks never read the description, so saving it changes no one&apos;s
-        access.
-      </p>
-      <div className="flex min-w-0 flex-col gap-1.5">
-        <Label htmlFor="permission-edit-description">Description</Label>
-        <Input
-          id="permission-edit-description"
-          ref={inputRef}
-          aria-describedby="permission-edit-description-hint"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-        />
-        <p
-          id="permission-edit-description-hint"
-          className="text-xs text-muted-foreground"
-        >
-          Leave it empty to remove the description.
+    <Section title="Edit description" inset>
+      <div className="flex min-w-0 flex-col gap-4">
+        <p className="text-sm text-muted-foreground">
+          Only the description can change. Resource and action decide what this
+          permission means, so to change either, delete it and create another.
+          Checks never read the description, so saving it changes no one&apos;s
+          access.
         </p>
+        <div className="flex min-w-0 flex-col gap-1.5">
+          <Label htmlFor="permission-edit-description">Description</Label>
+          <Input
+            id="permission-edit-description"
+            ref={inputRef}
+            aria-describedby="permission-edit-description-hint"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+          />
+          <p
+            id="permission-edit-description-hint"
+            className="text-xs text-muted-foreground"
+          >
+            Leave it empty to remove the description.
+          </p>
+        </div>
+        <CommandAlert
+          error={update.error}
+          title="Could not save the description"
+        />
+        <div className="flex gap-2">
+          <Button
+            onClick={() => void submit()}
+            disabled={update.loading || !dirty}
+          >
+            {update.loading ? "Saving…" : "Save description"}
+          </Button>
+          <Button variant="ghost" onClick={onDone} disabled={update.loading}>
+            Cancel
+          </Button>
+        </div>
       </div>
-      <CommandAlert
-        error={update.error}
-        title="Could not save the description"
-      />
-      <div className="flex gap-2">
-        <Button
-          onClick={() => void submit()}
-          disabled={update.loading || !dirty}
-        >
-          {update.loading ? "Saving…" : "Save description"}
-        </Button>
-        <Button variant="ghost" onClick={onDone} disabled={update.loading}>
-          Cancel
-        </Button>
-      </div>
-    </div>
+    </Section>
   )
 }
 
@@ -369,7 +376,7 @@ function GrantedByTable({ roles }: { roles: RoleSummary[] }) {
     },
   ]
   return (
-    <div className="flex min-w-0 flex-col gap-2">
+    <Section title="Roles">
       <ResourceTable<RoleSummary>
         columns={columns}
         rows={roles}
@@ -385,12 +392,12 @@ function GrantedByTable({ roles }: { roles: RoleSummary[] }) {
           </PluginLink>
         )}
       />
-      <p className="text-xs text-muted-foreground">
+      <p className="border-t px-4 py-3 text-xs text-muted-foreground">
         A role can also grant this permission&apos;s check without attaching it:
         through a parent role, a wildcard permission such as document:*, or
         another permission with the same resource and action under another name
         or in another namespace. This list does not show those roles.
       </p>
-    </div>
+    </Section>
   )
 }

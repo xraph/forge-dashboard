@@ -23,6 +23,7 @@ import {
   ResourceTable,
   type Column,
 } from "@forge-go/dashboard-kit/components/resource-table"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { NamespaceCell } from "../components/namespace-filter"
 import { useEditToggle } from "../components/use-edit-toggle"
@@ -177,66 +178,70 @@ export function WardenRoleDetailPage({ params }: PluginPageProps) {
 
           <DetailLayout
             aside={
-              <DescriptionList
-                items={[
-                  {
-                    term: "Slug",
-                    value: (
-                      <span className="font-mono text-xs">{role.slug}</span>
-                    ),
-                  },
-                  {
-                    term: "Namespace",
-                    value: <NamespaceCell path={role.namespacePath} />,
-                  },
-                  {
-                    term: "Description",
-                    value: role.description || <NoneCell label="description" />,
-                  },
-                  {
-                    term: "Inherits from",
-                    value: role.parentSlug ? (
-                      <span className="font-mono text-xs">
-                        {role.parentSlug}
-                      </span>
-                    ) : (
-                      <NoneCell label="parent role" />
-                    ),
-                  },
-                  {
-                    term: "Member cap",
-                    value: role.maxMembers
-                      ? String(role.maxMembers)
-                      : "Unlimited",
-                  },
-                  {
-                    term: "Default role",
-                    value: role.isDefault ? "Yes" : "No",
-                  },
-                  {
-                    term: "Created by",
-                    value: role.createdBy ? (
-                      <span className="font-mono text-xs">
-                        {role.createdBy}
-                      </span>
-                    ) : (
-                      <NoneCell label="creator" />
-                    ),
-                  },
-                  {
-                    term: "Created",
-                    value: (
-                      <Timestamp value={role.createdAt} label="created at" />
-                    ),
-                  },
-                  {
-                    term: "Updated",
-                    value: (
-                      <Timestamp value={role.updatedAt} label="updated at" />
-                    ),
-                  },
-                ]}
-              />
+              <Section title="Details" inset>
+                <DescriptionList
+                  items={[
+                    {
+                      term: "Slug",
+                      value: (
+                        <span className="font-mono text-xs">{role.slug}</span>
+                      ),
+                    },
+                    {
+                      term: "Namespace",
+                      value: <NamespaceCell path={role.namespacePath} />,
+                    },
+                    {
+                      term: "Description",
+                      value: role.description || (
+                        <NoneCell label="description" />
+                      ),
+                    },
+                    {
+                      term: "Inherits from",
+                      value: role.parentSlug ? (
+                        <span className="font-mono text-xs">
+                          {role.parentSlug}
+                        </span>
+                      ) : (
+                        <NoneCell label="parent role" />
+                      ),
+                    },
+                    {
+                      term: "Member cap",
+                      value: role.maxMembers
+                        ? String(role.maxMembers)
+                        : "Unlimited",
+                    },
+                    {
+                      term: "Default role",
+                      value: role.isDefault ? "Yes" : "No",
+                    },
+                    {
+                      term: "Created by",
+                      value: role.createdBy ? (
+                        <span className="font-mono text-xs">
+                          {role.createdBy}
+                        </span>
+                      ) : (
+                        <NoneCell label="creator" />
+                      ),
+                    },
+                    {
+                      term: "Created",
+                      value: (
+                        <Timestamp value={role.createdAt} label="created at" />
+                      ),
+                    },
+                    {
+                      term: "Updated",
+                      value: (
+                        <Timestamp value={role.updatedAt} label="updated at" />
+                      ),
+                    },
+                  ]}
+                />
+              </Section>
             }
             main={
               edit.editing ? (
@@ -330,30 +335,32 @@ function GrantsTable({
     },
   ]
   return (
-    <ResourceTable<PermissionSummary>
-      columns={columns}
-      rows={grants}
-      rowKey={(p) => p.id}
-      caption={`${grants.length} ${grants.length === 1 ? "permission" : "permissions"}`}
-      emptyMessage="This role grants nothing."
-      rowActions={(p) => (
-        <>
-          <PluginLink
-            to={`/permissions/${p.id}`}
-            className="text-sm underline underline-offset-4"
-          >
-            Details
-          </PluginLink>
-          {!role.isSystem && (
-            <IconButton
-              variant="destructive"
-              onClick={() => onRevoke(p)}
-              label={`Revoke ${p.name}`}
-            />
-          )}
-        </>
-      )}
-    />
+    <Section title="Permissions">
+      <ResourceTable<PermissionSummary>
+        columns={columns}
+        rows={grants}
+        rowKey={(p) => p.id}
+        caption={`${grants.length} ${grants.length === 1 ? "permission" : "permissions"}`}
+        emptyMessage="This role grants nothing."
+        rowActions={(p) => (
+          <>
+            <PluginLink
+              to={`/permissions/${p.id}`}
+              className="text-sm underline underline-offset-4"
+            >
+              Details
+            </PluginLink>
+            {!role.isSystem && (
+              <IconButton
+                variant="destructive"
+                onClick={() => onRevoke(p)}
+                label={`Revoke ${p.name}`}
+              />
+            )}
+          </>
+        )}
+      />
+    </Section>
   )
 }
 
@@ -396,21 +403,23 @@ function ChildrenTable({ role }: { role: RoleDetail }) {
     },
   ]
   return (
-    <ResourceTable<RoleSummary>
-      columns={columns}
-      rows={children}
-      rowKey={(r) => r.id}
-      caption={`${children.length} ${children.length === 1 ? "child role" : "child roles"}`}
-      emptyMessage="Nothing inherits from this role."
-      rowActions={(r) => (
-        <PluginLink
-          to={`/roles/${r.id}`}
-          className="text-sm underline underline-offset-4"
-        >
-          Details
-        </PluginLink>
-      )}
-    />
+    <Section title="Child roles">
+      <ResourceTable<RoleSummary>
+        columns={columns}
+        rows={children}
+        rowKey={(r) => r.id}
+        caption={`${children.length} ${children.length === 1 ? "child role" : "child roles"}`}
+        emptyMessage="Nothing inherits from this role."
+        rowActions={(r) => (
+          <PluginLink
+            to={`/roles/${r.id}`}
+            className="text-sm underline underline-offset-4"
+          >
+            Details
+          </PluginLink>
+        )}
+      />
+    </Section>
   )
 }
 
@@ -576,95 +585,100 @@ function EditForm({ role, onDone }: { role: RoleDetail; onDone: () => void }) {
   }
 
   return (
-    <div className="flex min-w-0 flex-col gap-4 rounded-md border p-4">
-      <p className="text-sm text-muted-foreground">
-        The slug and namespace cannot change. Only what you change is saved.
-      </p>
-
-      <div className="flex min-w-0 flex-col gap-1.5">
-        <Label htmlFor="role-edit-name">Name</Label>
-        <Input
-          id="role-edit-name"
-          ref={nameRef}
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-        />
-      </div>
-      <div className="flex min-w-0 flex-col gap-1.5">
-        <Label htmlFor="role-edit-description">Description</Label>
-        <Input
-          id="role-edit-description"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-        />
-      </div>
-      <div className="flex min-w-0 flex-col gap-1.5">
-        <Label htmlFor="role-edit-parent">Inherits from</Label>
-        <Input
-          id="role-edit-parent"
-          className="font-mono text-xs"
-          placeholder="reader"
-          aria-describedby="role-edit-parent-hint"
-          value={parentSlug}
-          onChange={(e) => setParentSlug(e.target.value)}
-        />
-        <p id="role-edit-parent-hint" className="text-xs text-muted-foreground">
-          The slug of another role in this namespace. Leave it empty for no
-          parent.
-        </p>
-      </div>
-      <div className="flex min-w-0 flex-col gap-1.5">
-        <Label htmlFor="role-edit-cap">Member cap</Label>
-        <Input
-          id="role-edit-cap"
-          inputMode="numeric"
-          placeholder="Unlimited"
-          aria-invalid={capInvalid || undefined}
-          aria-describedby="role-edit-cap-hint"
-          value={cap}
-          onChange={(e) => setCap(e.target.value)}
-        />
-        <p id="role-edit-cap-hint" className="text-xs text-muted-foreground">
-          Leave it empty for no limit. Clearing a cap you had removes it. The
-          cap is checked when a subject is assigned here or through
-          warden&apos;s REST API; warden&apos;s bootstrap admin assignment skips
-          it. You can&apos;t lower it below the number of subjects who hold the
-          role now.
-        </p>
-      </div>
-      <div className="flex items-center gap-2">
-        <input
-          id="role-edit-default"
-          type="checkbox"
-          className="size-4"
-          checked={isDefault}
-          onChange={(e) => setIsDefault(e.target.checked)}
-        />
-        <Label htmlFor="role-edit-default">Default role</Label>
-      </div>
-
-      {nameBlank && (
-        <p className="text-sm text-muted-foreground">A role needs a name.</p>
-      )}
-      {capInvalid && (
+    <Section title="Edit role" inset>
+      <div className="flex min-w-0 flex-col gap-4">
         <p className="text-sm text-muted-foreground">
-          The member cap is a whole number, or empty for no limit.
+          The slug and namespace cannot change. Only what you change is saved.
         </p>
-      )}
-      <CommandAlert error={update.error} title="Could not save the role" />
 
-      <div className="flex gap-2">
-        <Button
-          onClick={() => void submit()}
-          disabled={update.loading || !dirty || nameBlank || capInvalid}
-        >
-          {update.loading ? "Saving…" : "Save changes"}
-        </Button>
-        <Button variant="ghost" onClick={onDone} disabled={update.loading}>
-          Cancel
-        </Button>
+        <div className="flex min-w-0 flex-col gap-1.5">
+          <Label htmlFor="role-edit-name">Name</Label>
+          <Input
+            id="role-edit-name"
+            ref={nameRef}
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+          />
+        </div>
+        <div className="flex min-w-0 flex-col gap-1.5">
+          <Label htmlFor="role-edit-description">Description</Label>
+          <Input
+            id="role-edit-description"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+          />
+        </div>
+        <div className="flex min-w-0 flex-col gap-1.5">
+          <Label htmlFor="role-edit-parent">Inherits from</Label>
+          <Input
+            id="role-edit-parent"
+            className="font-mono text-xs"
+            placeholder="reader"
+            aria-describedby="role-edit-parent-hint"
+            value={parentSlug}
+            onChange={(e) => setParentSlug(e.target.value)}
+          />
+          <p
+            id="role-edit-parent-hint"
+            className="text-xs text-muted-foreground"
+          >
+            The slug of another role in this namespace. Leave it empty for no
+            parent.
+          </p>
+        </div>
+        <div className="flex min-w-0 flex-col gap-1.5">
+          <Label htmlFor="role-edit-cap">Member cap</Label>
+          <Input
+            id="role-edit-cap"
+            inputMode="numeric"
+            placeholder="Unlimited"
+            aria-invalid={capInvalid || undefined}
+            aria-describedby="role-edit-cap-hint"
+            value={cap}
+            onChange={(e) => setCap(e.target.value)}
+          />
+          <p id="role-edit-cap-hint" className="text-xs text-muted-foreground">
+            Leave it empty for no limit. Clearing a cap you had removes it. The
+            cap is checked when a subject is assigned here or through
+            warden&apos;s REST API; warden&apos;s bootstrap admin assignment
+            skips it. You can&apos;t lower it below the number of subjects who
+            hold the role now.
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <input
+            id="role-edit-default"
+            type="checkbox"
+            className="size-4"
+            checked={isDefault}
+            onChange={(e) => setIsDefault(e.target.checked)}
+          />
+          <Label htmlFor="role-edit-default">Default role</Label>
+        </div>
+
+        {nameBlank && (
+          <p className="text-sm text-muted-foreground">A role needs a name.</p>
+        )}
+        {capInvalid && (
+          <p className="text-sm text-muted-foreground">
+            The member cap is a whole number, or empty for no limit.
+          </p>
+        )}
+        <CommandAlert error={update.error} title="Could not save the role" />
+
+        <div className="flex gap-2">
+          <Button
+            onClick={() => void submit()}
+            disabled={update.loading || !dirty || nameBlank || capInvalid}
+          >
+            {update.loading ? "Saving…" : "Save changes"}
+          </Button>
+          <Button variant="ghost" onClick={onDone} disabled={update.loading}>
+            Cancel
+          </Button>
+        </div>
       </div>
-    </div>
+    </Section>
   )
 }
 

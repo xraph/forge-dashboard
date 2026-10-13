@@ -20,6 +20,7 @@ import {
   ResourceTable,
   type Column,
 } from "@forge-go/dashboard-kit/components/resource-table"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { Textarea } from "@forge-go/dashboard-kit/components/textarea"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import {
@@ -351,78 +352,83 @@ function BatchSection({
   ]
 
   return (
-    <details className="flex min-w-0 flex-col gap-3">
-      <summary className="cursor-pointer text-sm font-medium">
-        Run a batch
-      </summary>
-      <form className="mt-3 flex min-w-0 flex-col gap-3" onSubmit={submit}>
-        <div className="flex min-w-0 flex-col gap-1.5">
-          <Label htmlFor={`${id}-lines`}>Checks, one per line</Label>
-          <Textarea
-            id={`${id}-lines`}
-            className="font-mono text-xs"
-            spellCheck={false}
-            placeholder="user:alice read document:readme"
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-          />
-          <p className="text-xs text-muted-foreground">
-            Each line is kind:id action type[:id]. Every line runs at the
-            namespace above.
-          </p>
-        </div>
-        {problem && (
-          <p role="alert" className="text-sm text-destructive">
-            {problem}
-          </p>
-        )}
-        <CommandAlert error={refusal} title="Could not run the batch." />
-        <div>
-          <Button type="submit" disabled={text.trim() === "" || query.loading}>
-            Run batch
-          </Button>
-        </div>
-      </form>
+    <Section aria-label="Batch" inset>
+      <details className="flex min-w-0 flex-col gap-3">
+        <summary className="cursor-pointer text-sm font-medium">
+          Run a batch
+        </summary>
+        <form className="mt-3 flex min-w-0 flex-col gap-3" onSubmit={submit}>
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <Label htmlFor={`${id}-lines`}>Checks, one per line</Label>
+            <Textarea
+              id={`${id}-lines`}
+              className="font-mono text-xs"
+              spellCheck={false}
+              placeholder="user:alice read document:readme"
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">
+              Each line is kind:id action type[:id]. Every line runs at the
+              namespace above.
+            </p>
+          </div>
+          {problem && (
+            <p role="alert" className="text-sm text-destructive">
+              {problem}
+            </p>
+          )}
+          <CommandAlert error={refusal} title="Could not run the batch." />
+          <div>
+            <Button
+              type="submit"
+              disabled={text.trim() === "" || query.loading}
+            >
+              Run batch
+            </Button>
+          </div>
+        </form>
 
-      {run !== null && !refusal && (
-        <QueryBoundary title="Batch result" query={query} skeletonRows={3}>
-          {(data) => {
-            const results = data.results ?? []
-            const rows: BatchRow[] = run.lines.map((line, i) => ({
-              ...line,
-              result: results[i],
-            }))
-            return (
-              <div className="flex min-w-0 flex-col gap-3">
-                {stale && (
-                  <p className="text-sm text-muted-foreground">
-                    The lines or namespace have changed since this run. Run the
-                    batch again to check them.
-                  </p>
-                )}
-                <ResourceTable<BatchRow>
-                  columns={columns}
-                  rows={rows}
-                  rowKey={(r) => String(r.n)}
-                  caption={`${rows.length} ${rows.length === 1 ? "check" : "checks"}`}
-                  emptyMessage="The batch returned no results."
-                  rowActions={(r) => (
-                    <IconButton
-                      type="button"
-                      variant="outline"
-                      onClick={() => onOpen(r.item)}
-                      label={`Open in builder, line ${r.n}`}
-                    />
+        {run !== null && !refusal && (
+          <QueryBoundary title="Batch result" query={query} skeletonRows={3}>
+            {(data) => {
+              const results = data.results ?? []
+              const rows: BatchRow[] = run.lines.map((line, i) => ({
+                ...line,
+                result: results[i],
+              }))
+              return (
+                <div className="flex min-w-0 flex-col gap-3">
+                  {stale && (
+                    <p className="text-sm text-muted-foreground">
+                      The lines or namespace have changed since this run. Run
+                      the batch again to check them.
+                    </p>
                   )}
-                />
-              </div>
-            )
-          }}
-        </QueryBoundary>
-      )}
+                  <ResourceTable<BatchRow>
+                    columns={columns}
+                    rows={rows}
+                    rowKey={(r) => String(r.n)}
+                    caption={`${rows.length} ${rows.length === 1 ? "check" : "checks"}`}
+                    emptyMessage="The batch returned no results."
+                    rowActions={(r) => (
+                      <IconButton
+                        type="button"
+                        variant="outline"
+                        onClick={() => onOpen(r.item)}
+                        label={`Open in builder, line ${r.n}`}
+                      />
+                    )}
+                  />
+                </div>
+              )
+            }}
+          </QueryBoundary>
+        )}
 
-      <p className="text-xs text-muted-foreground">{DRY_RUN_NOTE}</p>
-    </details>
+        <p className="text-xs text-muted-foreground">{DRY_RUN_NOTE}</p>
+      </details>
+    </Section>
   )
 }
 
@@ -693,141 +699,143 @@ function Playground({ checkId }: { checkId: string | undefined }) {
       )}
 
       <div className="grid min-w-0 gap-4 md:grid-cols-[minmax(0,24rem)_minmax(0,1fr)]">
-        <form className="flex min-w-0 flex-col gap-3" onSubmit={run}>
-          <div className="flex min-w-0 flex-col gap-1.5">
-            <Label htmlFor={`${ids}-subject-kind`}>Subject kind</Label>
-            <NativeSelect
-              id={`${ids}-subject-kind`}
-              value={draft.subjectKind}
-              onChange={(e) => edit({ subjectKind: e.target.value })}
-            >
-              {CHECK_SUBJECT_KINDS.map((kind) => (
-                <NativeSelectOption key={kind} value={kind}>
-                  {kind}
-                </NativeSelectOption>
-              ))}
-              {extraKind !== null && (
-                <NativeSelectOption value={extraKind}>
-                  {extraKind === "" ? NO_KIND : extraKind}
-                </NativeSelectOption>
-              )}
-            </NativeSelect>
-          </div>
-          <div className="flex min-w-0 flex-col gap-1.5">
-            <Label htmlFor={`${ids}-subject-id`}>Subject id</Label>
-            <Input
-              id={`${ids}-subject-id`}
-              className="font-mono text-xs"
-              aria-required
-              value={draft.subjectId}
-              onChange={(e) => edit({ subjectId: e.target.value })}
-            />
-            {/* A subject with no kind has no page: the route cannot carry one. */}
-            {draft.subjectKind !== "" && draft.subjectId !== "" && (
-              <PluginLink
-                to={subjectPath(draft.subjectKind, draft.subjectId)}
-                className="text-sm underline underline-offset-4"
+        <Section aria-label="Check builder" inset>
+          <form className="flex min-w-0 flex-col gap-3" onSubmit={run}>
+            <div className="flex min-w-0 flex-col gap-1.5">
+              <Label htmlFor={`${ids}-subject-kind`}>Subject kind</Label>
+              <NativeSelect
+                id={`${ids}-subject-kind`}
+                value={draft.subjectKind}
+                onChange={(e) => edit({ subjectKind: e.target.value })}
               >
-                View this subject
-              </PluginLink>
-            )}
-          </div>
-          <div className="flex min-w-0 flex-col gap-1.5">
-            <Label htmlFor={`${ids}-action`}>Action</Label>
-            <Input
-              id={`${ids}-action`}
-              className="font-mono text-xs"
-              aria-required
-              value={draft.action}
-              onChange={(e) => edit({ action: e.target.value })}
-            />
-          </div>
-          <div className="flex min-w-0 flex-col gap-1.5">
-            <Label htmlFor={`${ids}-resource-type`}>Resource type</Label>
-            <Input
-              id={`${ids}-resource-type`}
-              className="font-mono text-xs"
-              aria-required
-              value={draft.resourceType}
-              onChange={(e) => edit({ resourceType: e.target.value })}
-            />
-          </div>
-          <div className="flex min-w-0 flex-col gap-1.5">
-            <Label htmlFor={`${ids}-resource-id`}>Resource id</Label>
-            <Input
-              id={`${ids}-resource-id`}
-              className="font-mono text-xs"
-              value={draft.resourceId}
-              onChange={(e) => edit({ resourceId: e.target.value })}
-            />
-          </div>
-          <div className="flex min-w-0 flex-col gap-1.5">
-            <Label htmlFor={`${ids}-namespace`}>Namespace</Label>
-            <Input
-              id={`${ids}-namespace`}
-              className="font-mono text-xs"
-              list={listId}
-              placeholder="/"
-              value={draft.namespacePath}
-              onChange={(e) => edit({ namespacePath: e.target.value })}
-            />
-            <datalist id={listId}>
-              {suggestions.map((ns) => (
-                <option key={ns} value={ns === "" ? "/" : ns} />
-              ))}
-            </datalist>
-          </div>
-
-          <details
-            open={attributesOpen}
-            onToggle={(e) => setAttributesOpen(e.currentTarget.open)}
-            className="flex min-w-0 flex-col gap-3"
-          >
-            <summary className="cursor-pointer text-sm font-medium">
-              attributes and context
-            </summary>
-            <div className="mt-3 flex min-w-0 flex-col gap-3">
-              {JSON_FIELDS.map(({ key, label }) => {
-                const message = jsonErrors[key]
-                const fieldId = `${ids}-${key}`
-                return (
-                  <div key={key} className="flex min-w-0 flex-col gap-1.5">
-                    <Label htmlFor={fieldId}>{label}</Label>
-                    <Textarea
-                      id={fieldId}
-                      className="font-mono text-xs"
-                      spellCheck={false}
-                      value={draft[key]}
-                      aria-invalid={message ? true : undefined}
-                      aria-describedby={
-                        message ? `${fieldId}-error` : undefined
-                      }
-                      onChange={(e) => editJson(key, e.target.value)}
-                    />
-                    {message && (
-                      <p
-                        id={`${fieldId}-error`}
-                        className="text-xs text-destructive"
-                      >
-                        {message}
-                      </p>
-                    )}
-                  </div>
-                )
-              })}
+                {CHECK_SUBJECT_KINDS.map((kind) => (
+                  <NativeSelectOption key={kind} value={kind}>
+                    {kind}
+                  </NativeSelectOption>
+                ))}
+                {extraKind !== null && (
+                  <NativeSelectOption value={extraKind}>
+                    {extraKind === "" ? NO_KIND : extraKind}
+                  </NativeSelectOption>
+                )}
+              </NativeSelect>
             </div>
-          </details>
+            <div className="flex min-w-0 flex-col gap-1.5">
+              <Label htmlFor={`${ids}-subject-id`}>Subject id</Label>
+              <Input
+                id={`${ids}-subject-id`}
+                className="font-mono text-xs"
+                aria-required
+                value={draft.subjectId}
+                onChange={(e) => edit({ subjectId: e.target.value })}
+              />
+              {/* A subject with no kind has no page: the route cannot carry one. */}
+              {draft.subjectKind !== "" && draft.subjectId !== "" && (
+                <PluginLink
+                  to={subjectPath(draft.subjectKind, draft.subjectId)}
+                  className="text-sm underline underline-offset-4"
+                >
+                  View this subject
+                </PluginLink>
+              )}
+            </div>
+            <div className="flex min-w-0 flex-col gap-1.5">
+              <Label htmlFor={`${ids}-action`}>Action</Label>
+              <Input
+                id={`${ids}-action`}
+                className="font-mono text-xs"
+                aria-required
+                value={draft.action}
+                onChange={(e) => edit({ action: e.target.value })}
+              />
+            </div>
+            <div className="flex min-w-0 flex-col gap-1.5">
+              <Label htmlFor={`${ids}-resource-type`}>Resource type</Label>
+              <Input
+                id={`${ids}-resource-type`}
+                className="font-mono text-xs"
+                aria-required
+                value={draft.resourceType}
+                onChange={(e) => edit({ resourceType: e.target.value })}
+              />
+            </div>
+            <div className="flex min-w-0 flex-col gap-1.5">
+              <Label htmlFor={`${ids}-resource-id`}>Resource id</Label>
+              <Input
+                id={`${ids}-resource-id`}
+                className="font-mono text-xs"
+                value={draft.resourceId}
+                onChange={(e) => edit({ resourceId: e.target.value })}
+              />
+            </div>
+            <div className="flex min-w-0 flex-col gap-1.5">
+              <Label htmlFor={`${ids}-namespace`}>Namespace</Label>
+              <Input
+                id={`${ids}-namespace`}
+                className="font-mono text-xs"
+                list={listId}
+                placeholder="/"
+                value={draft.namespacePath}
+                onChange={(e) => edit({ namespacePath: e.target.value })}
+              />
+              <datalist id={listId}>
+                {suggestions.map((ns) => (
+                  <option key={ns} value={ns === "" ? "/" : ns} />
+                ))}
+              </datalist>
+            </div>
 
-          <CommandAlert error={refusal} title="Could not run the check." />
+            <details
+              open={attributesOpen}
+              onToggle={(e) => setAttributesOpen(e.currentTarget.open)}
+              className="flex min-w-0 flex-col gap-3"
+            >
+              <summary className="cursor-pointer text-sm font-medium">
+                attributes and context
+              </summary>
+              <div className="mt-3 flex min-w-0 flex-col gap-3">
+                {JSON_FIELDS.map(({ key, label }) => {
+                  const message = jsonErrors[key]
+                  const fieldId = `${ids}-${key}`
+                  return (
+                    <div key={key} className="flex min-w-0 flex-col gap-1.5">
+                      <Label htmlFor={fieldId}>{label}</Label>
+                      <Textarea
+                        id={fieldId}
+                        className="font-mono text-xs"
+                        spellCheck={false}
+                        value={draft[key]}
+                        aria-invalid={message ? true : undefined}
+                        aria-describedby={
+                          message ? `${fieldId}-error` : undefined
+                        }
+                        onChange={(e) => editJson(key, e.target.value)}
+                      />
+                      {message && (
+                        <p
+                          id={`${fieldId}-error`}
+                          className="text-xs text-destructive"
+                        >
+                          {message}
+                        </p>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            </details>
 
-          <div>
-            <Button type="submit" disabled={!canRun || query.loading}>
-              Run
-            </Button>
-          </div>
-        </form>
+            <CommandAlert error={refusal} title="Could not run the check." />
 
-        <div>
+            <div>
+              <Button type="submit" disabled={!canRun || query.loading}>
+                Run
+              </Button>
+            </div>
+          </form>
+        </Section>
+
+        <Section title="Result" inset>
           {submitted === null || refusal ? (
             <p className="text-sm text-muted-foreground">
               Run a check to see its verdict and what each model did.
@@ -839,7 +847,7 @@ function Playground({ checkId }: { checkId: string | undefined }) {
               )}
             </QueryBoundary>
           )}
-        </div>
+        </Section>
       </div>
 
       <BatchSection

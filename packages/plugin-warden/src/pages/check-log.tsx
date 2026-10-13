@@ -16,6 +16,7 @@ import {
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
 import { ResourceTable } from "@forge-go/dashboard-kit/components/resource-table"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { formatTimestamp } from "@forge-go/dashboard-kit/lib/format"
 import {
@@ -206,160 +207,169 @@ export function WardenCheckLogPage() {
     <section className="flex min-w-0 flex-col gap-4">
       <PageHeader title="Check log" />
 
-      <FilterBar
-        filters={[
-          namespace.filterConfig,
-          {
-            id: "decision",
-            label: "Decision",
-            value: decision,
-            options: [
-              { label: "Any decision", value: "" },
-              ...DECISIONS.map((d) => ({ label: d, value: d })),
-            ],
-            onChange: (next) => {
-              setDecision(next)
-              setPage(1)
-            },
-          },
-          {
-            id: "cached",
-            label: "Cached",
-            value: cached,
-            options: [
-              { label: "Any", value: "" },
-              { label: "Cached", value: "cached" },
-              { label: "Not cached", value: "evaluated" },
-            ],
-            onChange: (next) => {
-              setCached(next as "" | "cached" | "evaluated")
-              setPage(1)
-            },
-          },
-          {
-            id: "window",
-            label: "Time",
-            value: timeWindow,
-            options: [
-              { label: "Any time", value: "" },
-              ...(Object.keys(WINDOWS) as WindowKey[]).map((key) => ({
-                label: WINDOWS[key].label,
-                value: key,
-              })),
-            ],
-            onChange: chooseWindow,
-          },
-        ]}
-      />
+      <Section
+        aria-label="Check list"
+        description="Checks cannot be filtered by the rule that decided them yet."
+        actions={
+          <FilterBar
+            filters={[
+              namespace.filterConfig,
+              {
+                id: "decision",
+                label: "Decision",
+                value: decision,
+                options: [
+                  { label: "Any decision", value: "" },
+                  ...DECISIONS.map((d) => ({ label: d, value: d })),
+                ],
+                onChange: (next) => {
+                  setDecision(next)
+                  setPage(1)
+                },
+              },
+              {
+                id: "cached",
+                label: "Cached",
+                value: cached,
+                options: [
+                  { label: "Any", value: "" },
+                  { label: "Cached", value: "cached" },
+                  { label: "Not cached", value: "evaluated" },
+                ],
+                onChange: (next) => {
+                  setCached(next as "" | "cached" | "evaluated")
+                  setPage(1)
+                },
+              },
+              {
+                id: "window",
+                label: "Time",
+                value: timeWindow,
+                options: [
+                  { label: "Any time", value: "" },
+                  ...(Object.keys(WINDOWS) as WindowKey[]).map((key) => ({
+                    label: WINDOWS[key].label,
+                    value: key,
+                  })),
+                ],
+                onChange: chooseWindow,
+              },
+            ]}
+          />
+        }
+      >
+        <form
+          className="flex flex-wrap items-end gap-3 border-b p-4"
+          onSubmit={apply}
+        >
+          <span className="flex min-w-0 flex-col gap-1.5">
+            <Label htmlFor="check-log-subject-kind">Subject kind</Label>
+            <NativeSelect
+              id="check-log-subject-kind"
+              value={draft.subjectKind}
+              onChange={(e) =>
+                setDraft((d) => ({ ...d, subjectKind: e.target.value }))
+              }
+            >
+              <NativeSelectOption value="">Any kind</NativeSelectOption>
+              {CHECK_SUBJECT_KINDS.map((kind) => (
+                <NativeSelectOption key={kind} value={kind}>
+                  {kind}
+                </NativeSelectOption>
+              ))}
+            </NativeSelect>
+          </span>
+          <span className="flex min-w-0 flex-col gap-1.5">
+            <Label htmlFor="check-log-subject-id">Subject id</Label>
+            <Input
+              id="check-log-subject-id"
+              className="font-mono text-xs"
+              value={draft.subjectId}
+              onChange={(e) =>
+                setDraft((d) => ({ ...d, subjectId: e.target.value }))
+              }
+            />
+          </span>
+          <span className="flex min-w-0 flex-col gap-1.5">
+            <Label htmlFor="check-log-action">Action</Label>
+            <Input
+              id="check-log-action"
+              className="font-mono text-xs"
+              value={draft.action}
+              onChange={(e) =>
+                setDraft((d) => ({ ...d, action: e.target.value }))
+              }
+            />
+          </span>
+          <span className="flex min-w-0 flex-col gap-1.5">
+            <Label htmlFor="check-log-resource-type">Resource type</Label>
+            <Input
+              id="check-log-resource-type"
+              className="font-mono text-xs"
+              value={draft.resourceType}
+              onChange={(e) =>
+                setDraft((d) => ({ ...d, resourceType: e.target.value }))
+              }
+            />
+          </span>
+          <span className="flex min-w-0 flex-col gap-1.5">
+            <Label htmlFor="check-log-resource-id">Resource id</Label>
+            <Input
+              id="check-log-resource-id"
+              className="font-mono text-xs"
+              value={draft.resourceId}
+              onChange={(e) =>
+                setDraft((d) => ({ ...d, resourceId: e.target.value }))
+              }
+            />
+          </span>
+          <Button type="submit">Apply</Button>
+          <IconButton
+            type="button"
+            variant="outline"
+            onClick={clear}
+            label="Clear"
+          />
+        </form>
 
-      <form className="flex flex-wrap items-end gap-3" onSubmit={apply}>
-        <span className="flex min-w-0 flex-col gap-1.5">
-          <Label htmlFor="check-log-subject-kind">Subject kind</Label>
-          <NativeSelect
-            id="check-log-subject-kind"
-            value={draft.subjectKind}
-            onChange={(e) =>
-              setDraft((d) => ({ ...d, subjectKind: e.target.value }))
-            }
-          >
-            <NativeSelectOption value="">Any kind</NativeSelectOption>
-            {CHECK_SUBJECT_KINDS.map((kind) => (
-              <NativeSelectOption key={kind} value={kind}>
-                {kind}
-              </NativeSelectOption>
-            ))}
-          </NativeSelect>
-        </span>
-        <span className="flex min-w-0 flex-col gap-1.5">
-          <Label htmlFor="check-log-subject-id">Subject id</Label>
-          <Input
-            id="check-log-subject-id"
-            className="font-mono text-xs"
-            value={draft.subjectId}
-            onChange={(e) =>
-              setDraft((d) => ({ ...d, subjectId: e.target.value }))
-            }
-          />
-        </span>
-        <span className="flex min-w-0 flex-col gap-1.5">
-          <Label htmlFor="check-log-action">Action</Label>
-          <Input
-            id="check-log-action"
-            className="font-mono text-xs"
-            value={draft.action}
-            onChange={(e) =>
-              setDraft((d) => ({ ...d, action: e.target.value }))
-            }
-          />
-        </span>
-        <span className="flex min-w-0 flex-col gap-1.5">
-          <Label htmlFor="check-log-resource-type">Resource type</Label>
-          <Input
-            id="check-log-resource-type"
-            className="font-mono text-xs"
-            value={draft.resourceType}
-            onChange={(e) =>
-              setDraft((d) => ({ ...d, resourceType: e.target.value }))
-            }
-          />
-        </span>
-        <span className="flex min-w-0 flex-col gap-1.5">
-          <Label htmlFor="check-log-resource-id">Resource id</Label>
-          <Input
-            id="check-log-resource-id"
-            className="font-mono text-xs"
-            value={draft.resourceId}
-            onChange={(e) =>
-              setDraft((d) => ({ ...d, resourceId: e.target.value }))
-            }
-          />
-        </span>
-        <Button type="submit">Apply</Button>
-        <IconButton
-          type="button"
-          variant="outline"
-          onClick={clear}
-          label="Clear"
-        />
-      </form>
-
-      <p className="text-sm text-muted-foreground">
-        Checks cannot be filtered by the rule that decided them yet.
-      </p>
-
-      <QueryBoundary title="Check log" query={list} skeletonRows={5}>
-        {(data) => {
-          const rows = data.items ?? []
-          // The server's total, never rows.length: rows is one page.
-          const caption =
-            after === undefined
-              ? checks(data.total)
-              : `${checks(data.total)} since ${formatTimestamp(after)}`
-          return (
-            <div className="flex min-w-0 flex-col gap-4">
-              {loggingOff && (
-                <Alert>
-                  <AlertDescription>
-                    {data.total > 0
-                      ? "Check logging is off on this server, so it records no checks. These rows were written by a server with logging on, or before logging was turned off."
-                      : "Check logging is off on this server, so it records no checks."}
-                  </AlertDescription>
-                </Alert>
-              )}
-              {data.notRecorded && <LossLine loss={data.notRecorded} />}
-              <ResourceTable<CheckSummary>
-                columns={columns}
-                rows={rows}
-                rowKey={(c) => c.id}
-                caption={caption}
-                emptyMessage={emptyMessage()}
-                pagination={{ page, pageSize: PAGE_SIZE, total: data.total }}
-                onPageChange={setPage}
-              />
-            </div>
-          )
-        }}
-      </QueryBoundary>
+        <QueryBoundary title="Check log" query={list} skeletonRows={5}>
+          {(data) => {
+            const rows = data.items ?? []
+            // The server's total, never rows.length: rows is one page.
+            const caption =
+              after === undefined
+                ? checks(data.total)
+                : `${checks(data.total)} since ${formatTimestamp(after)}`
+            return (
+              <div className="flex min-w-0 flex-col">
+                {(loggingOff || data.notRecorded) && (
+                  <div className="flex min-w-0 flex-col gap-3 border-b p-4">
+                    {loggingOff && (
+                      <Alert>
+                        <AlertDescription>
+                          {data.total > 0
+                            ? "Check logging is off on this server, so it records no checks. These rows were written by a server with logging on, or before logging was turned off."
+                            : "Check logging is off on this server, so it records no checks."}
+                        </AlertDescription>
+                      </Alert>
+                    )}
+                    {data.notRecorded && <LossLine loss={data.notRecorded} />}
+                  </div>
+                )}
+                <ResourceTable<CheckSummary>
+                  columns={columns}
+                  rows={rows}
+                  rowKey={(c) => c.id}
+                  caption={caption}
+                  emptyMessage={emptyMessage()}
+                  pagination={{ page, pageSize: PAGE_SIZE, total: data.total }}
+                  onPageChange={setPage}
+                />
+              </div>
+            )
+          }}
+        </QueryBoundary>
+      </Section>
     </section>
   )
 }

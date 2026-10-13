@@ -25,6 +25,7 @@ import {
   NativeSelectOption,
 } from "@forge-go/dashboard-kit/components/native-select"
 import { CommandAlert } from "@forge-go/dashboard-kit/components/query-boundary"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { Textarea } from "@forge-go/dashboard-kit/components/textarea"
 import { XIcon } from "@forge-go/dashboard-kit/icons"
 import { cn } from "@forge-go/dashboard-kit/lib/utils"
@@ -1015,379 +1016,383 @@ export function PolicyEditor({
   const rows = state.conditions
 
   const main = (
-    <section
-      aria-label="Rule editor"
-      className="flex min-w-0 flex-col gap-3 rounded-md border p-4"
-    >
-      <div className="flex min-w-0 flex-col gap-1">
-        <div
-          role="group"
-          aria-label="Effect"
-          className="flex items-center gap-1"
-        >
-          <Button
-            type="button"
-            size="sm"
-            variant={isAllow ? "secondary" : "ghost"}
-            aria-pressed={isAllow}
-            className="text-base font-medium text-foreground"
-            onClick={() => edit({ effect: "allow" })}
+    <Section aria-label="Rule editor" inset>
+      <div className="flex min-w-0 flex-col gap-3">
+        <div className="flex min-w-0 flex-col gap-1">
+          <div
+            role="group"
+            aria-label="Effect"
+            className="flex items-center gap-1"
           >
-            Allow
-          </Button>
-          {/* Colour means "this overrides", so only a chosen Deny carries it.
-              Anything but exactly "allow" is a deny, so it reads as one. */}
-          <Button
-            type="button"
-            size="sm"
-            variant={isAllow ? "ghost" : "secondary"}
-            aria-pressed={!isAllow}
-            className={cn(
-              "text-base font-medium",
-              isAllow ? "text-foreground" : "text-destructive"
-            )}
-            onClick={() => edit({ effect: "deny" })}
-          >
-            Deny
-          </Button>
-        </div>
-        {fieldIssues.effect?.map((m) => (
-          <Issue key={m} part="effect">
-            {m}
-          </Issue>
-        ))}
-      </div>
-
-      <dl className="grid min-w-0 grid-cols-[6rem_minmax(0,1fr)] items-baseline gap-x-4 gap-y-3 text-sm">
-        <dt className={LABEL}>subject</dt>
-        <dd data-row="subject" className="flex min-w-0 flex-col gap-1.5">
-          <RemovableChips
-            values={state.subjects.map((s) =>
-              !s.kind && !s.id && !s.role ? "empty matcher" : subjectText(s)
-            )}
-            anyWord="anyone"
-            noun="subject"
-            onRemove={(i) =>
-              edit({ subjects: state.subjects.filter((_, j) => j !== i) })
-            }
-          />
-          <span className="flex flex-wrap items-center gap-1.5">
-            <NativeSelect
-              aria-label="New subject kind"
-              size="sm"
-              value={kind}
-              onChange={(e) => {
-                setKind(e.target.value)
-                setSubjectRefused(false)
-              }}
-            >
-              <NativeSelectOption value="">any kind</NativeSelectOption>
-              {SUBJECT_KINDS.map((k) => (
-                <NativeSelectOption key={k} value={k}>
-                  {k}
-                </NativeSelectOption>
-              ))}
-            </NativeSelect>
-            <Input
-              aria-label="New subject id"
-              placeholder="id"
-              className="h-7 w-32 font-mono text-xs"
-              value={subjectId}
-              onChange={(e) => {
-                setSubjectId(e.target.value)
-                setSubjectRefused(false)
-              }}
-            />
-            <Input
-              aria-label="New subject role"
-              placeholder="role"
-              className="h-7 w-32 font-mono text-xs"
-              value={subjectRole}
-              onChange={(e) => {
-                setSubjectRole(e.target.value)
-                setSubjectRefused(false)
-              }}
-            />
-            <IconButton
+            <Button
               type="button"
-              variant="outline"
-              onClick={addSubject}
-              label="Add subject"
+              size="sm"
+              variant={isAllow ? "secondary" : "ghost"}
+              aria-pressed={isAllow}
+              className="text-base font-medium text-foreground"
+              onClick={() => edit({ effect: "allow" })}
+            >
+              Allow
+            </Button>
+            {/* Colour means "this overrides", so only a chosen Deny carries it.
+              Anything but exactly "allow" is a deny, so it reads as one. */}
+            <Button
+              type="button"
+              size="sm"
+              variant={isAllow ? "ghost" : "secondary"}
+              aria-pressed={!isAllow}
+              className={cn(
+                "text-base font-medium",
+                isAllow ? "text-foreground" : "text-destructive"
+              )}
+              onClick={() => edit({ effect: "deny" })}
+            >
+              Deny
+            </Button>
+          </div>
+          {fieldIssues.effect?.map((m) => (
+            <Issue key={m} part="effect">
+              {m}
+            </Issue>
+          ))}
+        </div>
+
+        <dl className="grid min-w-0 grid-cols-[6rem_minmax(0,1fr)] items-baseline gap-x-4 gap-y-3 text-sm">
+          <dt className={LABEL}>subject</dt>
+          <dd data-row="subject" className="flex min-w-0 flex-col gap-1.5">
+            <RemovableChips
+              values={state.subjects.map((s) =>
+                !s.kind && !s.id && !s.role ? "empty matcher" : subjectText(s)
+              )}
+              anyWord="anyone"
+              noun="subject"
+              onRemove={(i) =>
+                edit({ subjects: state.subjects.filter((_, j) => j !== i) })
+              }
             />
-          </span>
-          {subjectRefused && <Issue part="new-subject">{EMPTY_SUBJECT}</Issue>}
-          {fieldIssues.subjects?.map((m) => (
-            <Issue key={m} part="subjects">
-              {m}
-            </Issue>
-          ))}
-        </dd>
-
-        <dt className={LABEL}>action</dt>
-        <dd data-row="action" className="flex min-w-0 flex-col gap-1.5">
-          <RemovableChips
-            values={state.actions}
-            anyWord="any action"
-            noun="action"
-            onRemove={(i) =>
-              edit({ actions: state.actions.filter((_, j) => j !== i) })
-            }
-          />
-          <AddEntry
-            noun="action"
-            placeholder="action"
-            onAdd={(v) => edit({ actions: [...state.actions, v] })}
-          />
-          {fieldIssues.actions?.map((m) => (
-            <Issue key={m} part="actions">
-              {m}
-            </Issue>
-          ))}
-        </dd>
-
-        <dt className={LABEL}>resource</dt>
-        <dd data-row="resource" className="flex min-w-0 flex-col gap-1.5">
-          <RemovableChips
-            values={state.resources}
-            anyWord="any resource"
-            noun="resource"
-            onRemove={(i) =>
-              edit({ resources: state.resources.filter((_, j) => j !== i) })
-            }
-          />
-          <AddEntry
-            noun="resource"
-            placeholder="resource"
-            onAdd={(v) => edit({ resources: [...state.resources, v] })}
-          />
-          {fieldIssues.resources?.map((m) => (
-            <Issue key={m} part="resources">
-              {m}
-            </Issue>
-          ))}
-        </dd>
-
-        {rows.map((r, i) => {
-          const n = i + 1
-          const issues = conditionIssues[i]
-          const known = r.operator in OPERATOR_WORDS
-          return (
-            <Fragment key={r.key}>
-              <dt className={cn(LABEL, i > 0 && "text-right")}>
-                {i === 0 ? "when" : "and"}
-              </dt>
-              <dd
-                data-condition={i}
-                data-invalid={issues ? "true" : undefined}
-                className="flex min-w-0 flex-col gap-1.5"
+            <span className="flex flex-wrap items-center gap-1.5">
+              <NativeSelect
+                aria-label="New subject kind"
+                size="sm"
+                value={kind}
+                onChange={(e) => {
+                  setKind(e.target.value)
+                  setSubjectRefused(false)
+                }}
               >
-                <span className="flex flex-wrap items-center gap-2">
-                  <Input
-                    aria-label={`Condition ${n} field`}
-                    aria-invalid={issues ? true : undefined}
-                    placeholder="field"
-                    className="h-7 w-44 font-mono text-xs"
-                    value={r.field}
-                    onChange={(e) => editRow(i, { field: e.target.value })}
-                  />
-                  <NativeSelect
-                    aria-label={`Condition ${n} operator`}
-                    size="sm"
-                    value={r.operator}
-                    onChange={(e) => setOperator(i, e.target.value)}
-                  >
-                    {/* A stored operator warden does not know still shows,
-                        so the select never claims a row says something it
-                        does not. The server marks the row. */}
-                    {!known && (
-                      <NativeSelectOption value={r.operator}>
-                        {r.operator}
-                      </NativeSelectOption>
-                    )}
-                    {Object.entries(OPERATOR_WORDS).map(([op, words]) => (
-                      <NativeSelectOption key={op} value={op}>
-                        {words}
-                      </NativeSelectOption>
-                    ))}
-                  </NativeSelect>
-                  <ValueInput
-                    row={r}
-                    n={n}
-                    onChange={(next) => editRow(i, next)}
-                  />
-                  <IconButton
-                    type="button"
-                    variant="ghost"
-                    onClick={() =>
-                      edit({
-                        conditions: state.conditions.filter((_, j) => j !== i),
-                      })
-                    }
-                    label={`Remove condition ${n}`}
-                  />
-                </span>
-                {issues?.map((m) => (
-                  <Issue key={m} part={`condition-${i}`}>
-                    {m}
-                  </Issue>
+                <NativeSelectOption value="">any kind</NativeSelectOption>
+                {SUBJECT_KINDS.map((k) => (
+                  <NativeSelectOption key={k} value={k}>
+                    {k}
+                  </NativeSelectOption>
                 ))}
-              </dd>
-            </Fragment>
-          )
-        })}
-        <dt className={LABEL}>
-          {/* The cell stays in the grid; only its word is for screen readers
-              once the rows above carry when and and. */}
-          {rows.length === 0 ? (
-            "when"
-          ) : (
-            <span className="sr-only">more conditions</span>
-          )}
-        </dt>
-        <dd>
-          <span className="flex min-w-0 flex-col gap-1">
-            <span>
+              </NativeSelect>
+              <Input
+                aria-label="New subject id"
+                placeholder="id"
+                className="h-7 w-32 font-mono text-xs"
+                value={subjectId}
+                onChange={(e) => {
+                  setSubjectId(e.target.value)
+                  setSubjectRefused(false)
+                }}
+              />
+              <Input
+                aria-label="New subject role"
+                placeholder="role"
+                className="h-7 w-32 font-mono text-xs"
+                value={subjectRole}
+                onChange={(e) => {
+                  setSubjectRole(e.target.value)
+                  setSubjectRefused(false)
+                }}
+              />
               <IconButton
                 type="button"
                 variant="outline"
-                onClick={() =>
-                  edit({
-                    conditions: [
-                      ...state.conditions,
-                      {
-                        key: nextRowKey++,
-                        field: "",
-                        operator: "eq",
-                        items: [],
-                        text: "",
-                      },
-                    ],
-                  })
-                }
-                label="Add condition"
+                onClick={addSubject}
+                label="Add subject"
               />
             </span>
-            {rows.length === 0 && (
-              <Muted>no conditions, so it applies whenever it matches</Muted>
+            {subjectRefused && (
+              <Issue part="new-subject">{EMPTY_SUBJECT}</Issue>
             )}
-          </span>
-        </dd>
+            {fieldIssues.subjects?.map((m) => (
+              <Issue key={m} part="subjects">
+                {m}
+              </Issue>
+            ))}
+          </dd>
 
-        <dt className={LABEL}>in effect</dt>
-        <dd data-row="window" className="flex min-w-0 flex-col gap-1.5">
-          <span className="flex flex-wrap items-center gap-2">
-            <Muted>from</Muted>
-            <Input
-              aria-label="In effect from"
-              aria-invalid={fieldIssues.window ? true : undefined}
-              placeholder="no start"
-              className="h-7 w-56 font-mono text-xs"
-              value={state.notBefore}
-              onChange={(e) => edit({ notBefore: e.target.value })}
+          <dt className={LABEL}>action</dt>
+          <dd data-row="action" className="flex min-w-0 flex-col gap-1.5">
+            <RemovableChips
+              values={state.actions}
+              anyWord="any action"
+              noun="action"
+              onRemove={(i) =>
+                edit({ actions: state.actions.filter((_, j) => j !== i) })
+              }
             />
-            <IconButton
-              type="button"
-              variant="ghost"
-              disabled={state.notBefore === ""}
-              onClick={() => edit({ notBefore: "" })}
-              label="Clear start"
+            <AddEntry
+              noun="action"
+              placeholder="action"
+              onAdd={(v) => edit({ actions: [...state.actions, v] })}
             />
-          </span>
-          <span className="flex flex-wrap items-center gap-2">
-            <Muted>until</Muted>
-            <Input
-              aria-label="In effect until"
-              aria-invalid={fieldIssues.window ? true : undefined}
-              placeholder="no end"
-              className="h-7 w-56 font-mono text-xs"
-              value={state.notAfter}
-              onChange={(e) => edit({ notAfter: e.target.value })}
-            />
-            <IconButton
-              type="button"
-              variant="ghost"
-              disabled={state.notAfter === ""}
-              onClick={() => edit({ notAfter: "" })}
-              label="Clear end"
-            />
-          </span>
-          <span className="text-xs text-muted-foreground">
-            RFC3339, like 2026-06-01T09:00:00Z. An empty bound is no bound.
-          </span>
-          {fieldIssues.window?.map((m) => (
-            <Issue key={m} part="window">
-              {m}
-            </Issue>
-          ))}
-        </dd>
+            {fieldIssues.actions?.map((m) => (
+              <Issue key={m} part="actions">
+                {m}
+              </Issue>
+            ))}
+          </dd>
 
-        <dt className={LABEL}>emits</dt>
-        <dd data-row="emits" className="flex min-w-0 flex-col gap-1.5">
-          <RemovableChips
-            values={state.obligations}
-            anyWord="nothing"
-            noun="obligation"
-            onRemove={(i) =>
-              edit({ obligations: state.obligations.filter((_, j) => j !== i) })
-            }
-          />
-          <AddEntry
-            noun="obligation"
-            placeholder="obligation"
-            onAdd={(v) => edit({ obligations: [...state.obligations, v] })}
-          />
-          {fieldIssues.obligations?.map((m) => (
-            <Issue key={m} part="obligations">
-              {m}
-            </Issue>
-          ))}
-        </dd>
-      </dl>
-    </section>
+          <dt className={LABEL}>resource</dt>
+          <dd data-row="resource" className="flex min-w-0 flex-col gap-1.5">
+            <RemovableChips
+              values={state.resources}
+              anyWord="any resource"
+              noun="resource"
+              onRemove={(i) =>
+                edit({ resources: state.resources.filter((_, j) => j !== i) })
+              }
+            />
+            <AddEntry
+              noun="resource"
+              placeholder="resource"
+              onAdd={(v) => edit({ resources: [...state.resources, v] })}
+            />
+            {fieldIssues.resources?.map((m) => (
+              <Issue key={m} part="resources">
+                {m}
+              </Issue>
+            ))}
+          </dd>
+
+          {rows.map((r, i) => {
+            const n = i + 1
+            const issues = conditionIssues[i]
+            const known = r.operator in OPERATOR_WORDS
+            return (
+              <Fragment key={r.key}>
+                <dt className={cn(LABEL, i > 0 && "text-right")}>
+                  {i === 0 ? "when" : "and"}
+                </dt>
+                <dd
+                  data-condition={i}
+                  data-invalid={issues ? "true" : undefined}
+                  className="flex min-w-0 flex-col gap-1.5"
+                >
+                  <span className="flex flex-wrap items-center gap-2">
+                    <Input
+                      aria-label={`Condition ${n} field`}
+                      aria-invalid={issues ? true : undefined}
+                      placeholder="field"
+                      className="h-7 w-44 font-mono text-xs"
+                      value={r.field}
+                      onChange={(e) => editRow(i, { field: e.target.value })}
+                    />
+                    <NativeSelect
+                      aria-label={`Condition ${n} operator`}
+                      size="sm"
+                      value={r.operator}
+                      onChange={(e) => setOperator(i, e.target.value)}
+                    >
+                      {/* A stored operator warden does not know still shows,
+                        so the select never claims a row says something it
+                        does not. The server marks the row. */}
+                      {!known && (
+                        <NativeSelectOption value={r.operator}>
+                          {r.operator}
+                        </NativeSelectOption>
+                      )}
+                      {Object.entries(OPERATOR_WORDS).map(([op, words]) => (
+                        <NativeSelectOption key={op} value={op}>
+                          {words}
+                        </NativeSelectOption>
+                      ))}
+                    </NativeSelect>
+                    <ValueInput
+                      row={r}
+                      n={n}
+                      onChange={(next) => editRow(i, next)}
+                    />
+                    <IconButton
+                      type="button"
+                      variant="ghost"
+                      onClick={() =>
+                        edit({
+                          conditions: state.conditions.filter(
+                            (_, j) => j !== i
+                          ),
+                        })
+                      }
+                      label={`Remove condition ${n}`}
+                    />
+                  </span>
+                  {issues?.map((m) => (
+                    <Issue key={m} part={`condition-${i}`}>
+                      {m}
+                    </Issue>
+                  ))}
+                </dd>
+              </Fragment>
+            )
+          })}
+          <dt className={LABEL}>
+            {/* The cell stays in the grid; only its word is for screen readers
+              once the rows above carry when and and. */}
+            {rows.length === 0 ? (
+              "when"
+            ) : (
+              <span className="sr-only">more conditions</span>
+            )}
+          </dt>
+          <dd>
+            <span className="flex min-w-0 flex-col gap-1">
+              <span>
+                <IconButton
+                  type="button"
+                  variant="outline"
+                  onClick={() =>
+                    edit({
+                      conditions: [
+                        ...state.conditions,
+                        {
+                          key: nextRowKey++,
+                          field: "",
+                          operator: "eq",
+                          items: [],
+                          text: "",
+                        },
+                      ],
+                    })
+                  }
+                  label="Add condition"
+                />
+              </span>
+              {rows.length === 0 && (
+                <Muted>no conditions, so it applies whenever it matches</Muted>
+              )}
+            </span>
+          </dd>
+
+          <dt className={LABEL}>in effect</dt>
+          <dd data-row="window" className="flex min-w-0 flex-col gap-1.5">
+            <span className="flex flex-wrap items-center gap-2">
+              <Muted>from</Muted>
+              <Input
+                aria-label="In effect from"
+                aria-invalid={fieldIssues.window ? true : undefined}
+                placeholder="no start"
+                className="h-7 w-56 font-mono text-xs"
+                value={state.notBefore}
+                onChange={(e) => edit({ notBefore: e.target.value })}
+              />
+              <IconButton
+                type="button"
+                variant="ghost"
+                disabled={state.notBefore === ""}
+                onClick={() => edit({ notBefore: "" })}
+                label="Clear start"
+              />
+            </span>
+            <span className="flex flex-wrap items-center gap-2">
+              <Muted>until</Muted>
+              <Input
+                aria-label="In effect until"
+                aria-invalid={fieldIssues.window ? true : undefined}
+                placeholder="no end"
+                className="h-7 w-56 font-mono text-xs"
+                value={state.notAfter}
+                onChange={(e) => edit({ notAfter: e.target.value })}
+              />
+              <IconButton
+                type="button"
+                variant="ghost"
+                disabled={state.notAfter === ""}
+                onClick={() => edit({ notAfter: "" })}
+                label="Clear end"
+              />
+            </span>
+            <span className="text-xs text-muted-foreground">
+              RFC3339, like 2026-06-01T09:00:00Z. An empty bound is no bound.
+            </span>
+            {fieldIssues.window?.map((m) => (
+              <Issue key={m} part="window">
+                {m}
+              </Issue>
+            ))}
+          </dd>
+
+          <dt className={LABEL}>emits</dt>
+          <dd data-row="emits" className="flex min-w-0 flex-col gap-1.5">
+            <RemovableChips
+              values={state.obligations}
+              anyWord="nothing"
+              noun="obligation"
+              onRemove={(i) =>
+                edit({
+                  obligations: state.obligations.filter((_, j) => j !== i),
+                })
+              }
+            />
+            <AddEntry
+              noun="obligation"
+              placeholder="obligation"
+              onAdd={(v) => edit({ obligations: [...state.obligations, v] })}
+            />
+            {fieldIssues.obligations?.map((m) => (
+              <Issue key={m} part="obligations">
+                {m}
+              </Issue>
+            ))}
+          </dd>
+        </dl>
+      </div>
+    </Section>
   )
 
   const aside = (
-    <section
-      aria-label="Details"
-      className="flex min-w-0 flex-col gap-4 text-sm"
-    >
-      <span className="flex min-w-0 flex-col gap-1.5">
-        <Label htmlFor="policy-edit-name">Name</Label>
-        <Input
-          id="policy-edit-name"
-          aria-invalid={fieldIssues.name ? true : undefined}
-          value={state.name}
-          onChange={(e) => edit({ name: e.target.value })}
-        />
-        {fieldIssues.name?.map((m) => (
-          <Issue key={m} part="name">
-            {m}
-          </Issue>
-        ))}
-      </span>
-      <span className="flex min-w-0 flex-col gap-1.5">
-        <Label htmlFor="policy-edit-description">Description</Label>
-        <Textarea
-          id="policy-edit-description"
-          value={state.description}
-          onChange={(e) => edit({ description: e.target.value })}
-        />
-      </span>
-      <span className="flex min-w-0 flex-col gap-1.5">
-        <Label htmlFor="policy-edit-priority">Priority</Label>
-        <Input
-          id="policy-edit-priority"
-          type="number"
-          inputMode="numeric"
-          aria-invalid={priorityBad ? true : undefined}
-          className="w-32 tabular-nums"
-          value={state.priority}
-          onChange={(e) => edit({ priority: e.target.value })}
-        />
-        <span className="text-xs text-muted-foreground">{PRIORITY_HELP}</span>
-        {priorityBad && <Issue part="priority">{PRIORITY_NOT_WHOLE}</Issue>}
-      </span>
-    </section>
+    <Section title="Details" inset>
+      <div className="flex min-w-0 flex-col gap-4 text-sm">
+        <span className="flex min-w-0 flex-col gap-1.5">
+          <Label htmlFor="policy-edit-name">Name</Label>
+          <Input
+            id="policy-edit-name"
+            aria-invalid={fieldIssues.name ? true : undefined}
+            value={state.name}
+            onChange={(e) => edit({ name: e.target.value })}
+          />
+          {fieldIssues.name?.map((m) => (
+            <Issue key={m} part="name">
+              {m}
+            </Issue>
+          ))}
+        </span>
+        <span className="flex min-w-0 flex-col gap-1.5">
+          <Label htmlFor="policy-edit-description">Description</Label>
+          <Textarea
+            id="policy-edit-description"
+            value={state.description}
+            onChange={(e) => edit({ description: e.target.value })}
+          />
+        </span>
+        <span className="flex min-w-0 flex-col gap-1.5">
+          <Label htmlFor="policy-edit-priority">Priority</Label>
+          <Input
+            id="policy-edit-priority"
+            type="number"
+            inputMode="numeric"
+            aria-invalid={priorityBad ? true : undefined}
+            className="w-32 tabular-nums"
+            value={state.priority}
+            onChange={(e) => edit({ priority: e.target.value })}
+          />
+          <span className="text-xs text-muted-foreground">{PRIORITY_HELP}</span>
+          {priorityBad && <Issue part="priority">{PRIORITY_NOT_WHOLE}</Issue>}
+        </span>
+      </div>
+    </Section>
   )
 
   return (

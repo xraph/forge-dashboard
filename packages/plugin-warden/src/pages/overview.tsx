@@ -2,6 +2,7 @@ import { PluginLink, useQuery } from "@forge-go/dashboard-plugin"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
 import { ResourceTable } from "@forge-go/dashboard-kit/components/resource-table"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { StatGrid } from "@forge-go/dashboard-kit/components/stat-grid"
 import { checkColumns, type CheckSummary } from "../components/check-log"
 
@@ -43,31 +44,33 @@ export function WardenOverviewPage() {
         )}
       </QueryBoundary>
 
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className="text-sm font-medium">Recent checks</h2>
-        <PluginLink
-          to="/check-log"
-          className="text-sm underline underline-offset-4"
-        >
-          View the check log
-        </PluginLink>
-      </div>
-
-      <QueryBoundary title="Recent checks" query={recent} skeletonRows={5}>
-        {(data) => {
-          const checks = data.checks ?? []
-          const caption = `${checks.length} ${checks.length === 1 ? "check" : "checks"}`
-          return (
-            <ResourceTable<CheckSummary>
-              columns={columns}
-              rows={checks}
-              rowKey={(c) => c.id}
-              caption={caption}
-              emptyMessage="No checks are in the log."
-            />
-          )
-        }}
-      </QueryBoundary>
+      <Section
+        title="Recent checks"
+        actions={
+          <PluginLink
+            to="/check-log"
+            className="text-sm underline underline-offset-4"
+          >
+            View the check log
+          </PluginLink>
+        }
+      >
+        <QueryBoundary title="Recent checks" query={recent} skeletonRows={5}>
+          {(data) => {
+            const checks = data.checks ?? []
+            const caption = `${checks.length} ${checks.length === 1 ? "check" : "checks"}`
+            return (
+              <ResourceTable<CheckSummary>
+                columns={columns}
+                rows={checks}
+                rowKey={(c) => c.id}
+                caption={caption}
+                emptyMessage="No checks are in the log."
+              />
+            )
+          }}
+        </QueryBoundary>
+      </Section>
     </section>
   )
 }

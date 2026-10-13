@@ -19,6 +19,7 @@ import {
   type Column,
 } from "@forge-go/dashboard-kit/components/resource-table"
 import { TagList } from "@forge-go/dashboard-kit/components/tag-list"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { TriangleAlertIcon } from "@forge-go/dashboard-kit/icons"
 import { NamespaceCell } from "../components/namespace-filter"
@@ -453,50 +454,57 @@ export function WardenResourceTypeDetailPage({ params }: PluginPageProps) {
 
             <DetailLayout
               aside={
-                <DescriptionList
-                  items={[
-                    {
-                      term: "Namespace",
-                      value: <NamespaceCell path={rt.namespacePath} />,
-                    },
-                    {
-                      term: "Description",
-                      value: rt.description || <NoneCell label="description" />,
-                    },
-                    {
-                      term: "Created by",
-                      value: rt.createdBy ? (
-                        <span className="font-mono text-xs">
-                          {rt.createdBy}
-                        </span>
-                      ) : (
-                        <NoneCell label="creator" />
-                      ),
-                    },
-                    {
-                      term: "Updated by",
-                      value: rt.updatedBy ? (
-                        <span className="font-mono text-xs">
-                          {rt.updatedBy}
-                        </span>
-                      ) : (
-                        <NoneCell label="updater" />
-                      ),
-                    },
-                    {
-                      term: "Created",
-                      value: (
-                        <Timestamp value={rt.createdAt} label="creation time" />
-                      ),
-                    },
-                    {
-                      term: "Updated",
-                      value: (
-                        <Timestamp value={rt.updatedAt} label="updated at" />
-                      ),
-                    },
-                  ]}
-                />
+                <Section title="Details" inset>
+                  <DescriptionList
+                    items={[
+                      {
+                        term: "Namespace",
+                        value: <NamespaceCell path={rt.namespacePath} />,
+                      },
+                      {
+                        term: "Description",
+                        value: rt.description || (
+                          <NoneCell label="description" />
+                        ),
+                      },
+                      {
+                        term: "Created by",
+                        value: rt.createdBy ? (
+                          <span className="font-mono text-xs">
+                            {rt.createdBy}
+                          </span>
+                        ) : (
+                          <NoneCell label="creator" />
+                        ),
+                      },
+                      {
+                        term: "Updated by",
+                        value: rt.updatedBy ? (
+                          <span className="font-mono text-xs">
+                            {rt.updatedBy}
+                          </span>
+                        ) : (
+                          <NoneCell label="updater" />
+                        ),
+                      },
+                      {
+                        term: "Created",
+                        value: (
+                          <Timestamp
+                            value={rt.createdAt}
+                            label="creation time"
+                          />
+                        ),
+                      },
+                      {
+                        term: "Updated",
+                        value: (
+                          <Timestamp value={rt.updatedAt} label="updated at" />
+                        ),
+                      },
+                    ]}
+                  />
+                </Section>
               }
               main={
                 editing ? (
@@ -543,7 +551,7 @@ function RelationsTable({ relations }: { relations: RelationDef[] }) {
     },
   ]
   return (
-    <div className="flex min-w-0 flex-col gap-2">
+    <Section title="Relations">
       <ResourceTable<RelationDef>
         columns={columns}
         rows={relations}
@@ -557,14 +565,14 @@ function RelationsTable({ relations }: { relations: RelationDef[] }) {
           and the evaluator resolves a name by raw tuple lookup (dsl/eval.go),
           so a tuple stored before the declaration changed, or written
           straight to the store, still counts as written. */}
-      <p className="text-xs text-muted-foreground">
+      <p className="border-t px-4 py-3 text-xs text-muted-foreground">
         The dashboard, the REST API and a schema apply refuse a new tuple these
         declarations do not allow. They govern tuples of this type in its
         namespace and below, unless a namespace closer to the tuple declares a
         type of the same name. A check still matches every stored tuple as
         written, including one stored before a declaration changed.
       </p>
-    </div>
+    </Section>
   )
 }
 
@@ -595,13 +603,15 @@ function PermissionsTable({
     },
   ]
   return (
-    <ResourceTable<PermissionDef>
-      columns={columns}
-      rows={permissions}
-      rowKey={(p) => p.name}
-      caption={`${permissions.length} ${permissions.length === 1 ? "permission" : "permissions"}`}
-      emptyMessage="This type declares no permissions."
-    />
+    <Section title="Permissions">
+      <ResourceTable<PermissionDef>
+        columns={columns}
+        rows={permissions}
+        rowKey={(p) => p.name}
+        caption={`${permissions.length} ${permissions.length === 1 ? "permission" : "permissions"}`}
+        emptyMessage="This type declares no permissions."
+      />
+    </Section>
   )
 }
 
@@ -812,251 +822,257 @@ function EditForm({
   const orphans = diagnostics.filter((d) => !submittedNames.has(d.permission))
 
   return (
-    <div className="flex min-w-0 flex-col gap-4 rounded-md border p-4">
-      <p className="text-sm text-muted-foreground">
-        The name and namespace cannot change, because tuples name a type by its
-        name. Only what you change is saved. A list you leave alone stays as it
-        is, and removing every row of one clears it.
-      </p>
-
-      <div className="flex min-w-0 flex-col gap-1.5">
-        <label
-          htmlFor="resource-type-edit-description"
-          className="text-sm font-medium"
-        >
-          Description
-        </label>
-        <Input
-          id="resource-type-edit-description"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-        />
-      </div>
-
-      <fieldset className="flex min-w-0 flex-col gap-2">
-        <legend className="text-sm font-medium">Relations</legend>
-        <p className="text-xs text-muted-foreground">
-          Each relation lists the subject types it allows, separated by commas.
-          A userset is written group#member. Leave the list empty to allow any
-          subject type.
+    <Section title="Edit resource type" inset>
+      <div className="flex min-w-0 flex-col gap-4">
+        <p className="text-sm text-muted-foreground">
+          The name and namespace cannot change, because tuples name a type by
+          its name. Only what you change is saved. A list you leave alone stays
+          as it is, and removing every row of one clears it.
         </p>
-        {relationRows.map((row, i) => (
-          <div
-            key={row.key}
-            role="group"
-            aria-label={`Relation ${i + 1}`}
-            className="flex gap-2"
+
+        <div className="flex min-w-0 flex-col gap-1.5">
+          <label
+            htmlFor="resource-type-edit-description"
+            className="text-sm font-medium"
           >
-            <Input
-              aria-label={`Relation ${i + 1} name`}
-              className="w-40 font-mono text-xs"
-              placeholder="viewer"
-              value={row.name}
-              onChange={(e) =>
-                setRelationRows((rows) =>
-                  rows.map((r) =>
-                    r.key === row.key ? { ...r, name: e.target.value } : r
-                  )
-                )
-              }
-            />
-            <Input
-              aria-label={`Relation ${i + 1} subject types`}
-              className="flex-1 font-mono text-xs"
-              // An empty list allows any subject type, so a blank field says
-              // that rather than showing an example list it does not hold.
-              placeholder="Any subject type"
-              value={row.subjects}
-              onChange={(e) =>
-                setRelationRows((rows) =>
-                  rows.map((r) =>
-                    r.key === row.key ? { ...r, subjects: e.target.value } : r
-                  )
-                )
-              }
-            />
-            <IconButton
-              variant="ghost"
-              onClick={() =>
-                setRelationRows((rows) => rows.filter((r) => r.key !== row.key))
-              }
-              label={`Remove relation ${i + 1}`}
-            />
-          </div>
-        ))}
-        <div>
-          <IconButton
-            variant="outline"
-            onClick={() =>
-              setRelationRows((rows) => [
-                ...rows,
-                { key: nextKey(), name: "", subjects: "" },
-              ])
-            }
-            label="Add relation"
+            Description
+          </label>
+          <Input
+            id="resource-type-edit-description"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
           />
         </div>
-      </fieldset>
 
-      <fieldset className="flex min-w-0 flex-col gap-2">
-        <legend className="text-sm font-medium">Permissions</legend>
-        <p className="text-xs text-muted-foreground">
-          An expression combines relations with or, and, not, and parentheses,
-          and follows a relation onto another type with parent-&gt;read.
-        </p>
-        {permissionRows.map((row, i) => {
-          const sent = attempt[row.key]
-          const rowDiagnostics = sent
-            ? diagnostics.filter((d) => d.permission === sent.name)
-            : []
-          const describedBy =
-            rowDiagnostics.length > 0
-              ? `permission-${row.key}-problems`
-              : undefined
-          return (
+        <fieldset className="flex min-w-0 flex-col gap-2">
+          <legend className="text-sm font-medium">Relations</legend>
+          <p className="text-xs text-muted-foreground">
+            Each relation lists the subject types it allows, separated by
+            commas. A userset is written group#member. Leave the list empty to
+            allow any subject type.
+          </p>
+          {relationRows.map((row, i) => (
             <div
               key={row.key}
               role="group"
-              aria-label={`Permission ${i + 1}`}
-              className="flex min-w-0 flex-col gap-1.5"
+              aria-label={`Relation ${i + 1}`}
+              className="flex gap-2"
             >
-              <div className="flex gap-2">
-                <Input
-                  aria-label={`Permission ${i + 1} name`}
-                  className="w-40 font-mono text-xs"
-                  placeholder="read"
-                  value={row.name}
-                  onChange={(e) =>
-                    setPermissionRows((rows) =>
-                      rows.map((p) =>
-                        p.key === row.key ? { ...p, name: e.target.value } : p
+              <Input
+                aria-label={`Relation ${i + 1} name`}
+                className="w-40 font-mono text-xs"
+                placeholder="viewer"
+                value={row.name}
+                onChange={(e) =>
+                  setRelationRows((rows) =>
+                    rows.map((r) =>
+                      r.key === row.key ? { ...r, name: e.target.value } : r
+                    )
+                  )
+                }
+              />
+              <Input
+                aria-label={`Relation ${i + 1} subject types`}
+                className="flex-1 font-mono text-xs"
+                // An empty list allows any subject type, so a blank field says
+                // that rather than showing an example list it does not hold.
+                placeholder="Any subject type"
+                value={row.subjects}
+                onChange={(e) =>
+                  setRelationRows((rows) =>
+                    rows.map((r) =>
+                      r.key === row.key ? { ...r, subjects: e.target.value } : r
+                    )
+                  )
+                }
+              />
+              <IconButton
+                variant="ghost"
+                onClick={() =>
+                  setRelationRows((rows) =>
+                    rows.filter((r) => r.key !== row.key)
+                  )
+                }
+                label={`Remove relation ${i + 1}`}
+              />
+            </div>
+          ))}
+          <div>
+            <IconButton
+              variant="outline"
+              onClick={() =>
+                setRelationRows((rows) => [
+                  ...rows,
+                  { key: nextKey(), name: "", subjects: "" },
+                ])
+              }
+              label="Add relation"
+            />
+          </div>
+        </fieldset>
+
+        <fieldset className="flex min-w-0 flex-col gap-2">
+          <legend className="text-sm font-medium">Permissions</legend>
+          <p className="text-xs text-muted-foreground">
+            An expression combines relations with or, and, not, and parentheses,
+            and follows a relation onto another type with parent-&gt;read.
+          </p>
+          {permissionRows.map((row, i) => {
+            const sent = attempt[row.key]
+            const rowDiagnostics = sent
+              ? diagnostics.filter((d) => d.permission === sent.name)
+              : []
+            const describedBy =
+              rowDiagnostics.length > 0
+                ? `permission-${row.key}-problems`
+                : undefined
+            return (
+              <div
+                key={row.key}
+                role="group"
+                aria-label={`Permission ${i + 1}`}
+                className="flex min-w-0 flex-col gap-1.5"
+              >
+                <div className="flex gap-2">
+                  <Input
+                    aria-label={`Permission ${i + 1} name`}
+                    className="w-40 font-mono text-xs"
+                    placeholder="read"
+                    value={row.name}
+                    onChange={(e) =>
+                      setPermissionRows((rows) =>
+                        rows.map((p) =>
+                          p.key === row.key ? { ...p, name: e.target.value } : p
+                        )
                       )
-                    )
-                  }
-                />
-                <Input
-                  aria-label={`Permission ${i + 1} expression`}
-                  aria-invalid={rowDiagnostics.length > 0 || undefined}
-                  aria-describedby={describedBy}
-                  className="flex-1 font-mono text-xs"
-                  placeholder="viewer or editor"
-                  value={row.expression}
-                  onChange={(e) =>
-                    setPermissionRows((rows) =>
-                      rows.map((p) =>
-                        p.key === row.key
-                          ? { ...p, expression: e.target.value }
-                          : p
+                    }
+                  />
+                  <Input
+                    aria-label={`Permission ${i + 1} expression`}
+                    aria-invalid={rowDiagnostics.length > 0 || undefined}
+                    aria-describedby={describedBy}
+                    className="flex-1 font-mono text-xs"
+                    placeholder="viewer or editor"
+                    value={row.expression}
+                    onChange={(e) =>
+                      setPermissionRows((rows) =>
+                        rows.map((p) =>
+                          p.key === row.key
+                            ? { ...p, expression: e.target.value }
+                            : p
+                        )
                       )
-                    )
-                  }
-                />
-                <IconButton
-                  variant="ghost"
-                  onClick={() =>
-                    setPermissionRows((rows) =>
-                      rows.filter((p) => p.key !== row.key)
-                    )
-                  }
-                  label={`Remove permission ${i + 1}`}
-                />
-              </div>
-              {/* The diagnostic sits against the expression that failed, not
+                    }
+                  />
+                  <IconButton
+                    variant="ghost"
+                    onClick={() =>
+                      setPermissionRows((rows) =>
+                        rows.filter((p) => p.key !== row.key)
+                      )
+                    }
+                    label={`Remove permission ${i + 1}`}
+                  />
+                </div>
+                {/* The diagnostic sits against the expression that failed, not
                   in a banner: the whole value of having it is knowing which
                   expression, and where in it. */}
-              {rowDiagnostics.length > 0 && (
-                <div
-                  id={describedBy}
-                  className="flex min-w-0 flex-col gap-1 text-xs text-destructive"
-                >
-                  {rowDiagnostics.map((d, n) => {
-                    const where = locationOf(d)
-                    // The pointer is only true while the text still is what
-                    // was sent, and only for a one-line expression.
-                    const pointer =
-                      sent &&
-                      d.line === 1 &&
-                      d.col >= 1 &&
-                      row.expression.trim() === sent.expression
-                    return (
-                      <div key={n} className="flex min-w-0 flex-col gap-0.5">
-                        <p>{where ? `At ${where}: ${d.message}` : d.message}</p>
-                        {pointer && (
-                          <pre aria-hidden className="font-mono">
-                            {`${sent.expression}\n${" ".repeat(d.col - 1)}^`}
-                          </pre>
-                        )}
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
-            </div>
-          )
-        })}
-        <div>
-          <IconButton
-            variant="outline"
-            onClick={() =>
-              setPermissionRows((rows) => [
-                ...rows,
-                { key: nextKey(), name: "", expression: "" },
-              ])
-            }
-            label="Add permission"
-          />
-        </div>
-      </fieldset>
-
-      {orphans.length > 0 && (
-        <ul className="flex min-w-0 flex-col gap-1 text-xs text-destructive">
-          {orphans.map((d, n) => {
-            const where = locationOf(d)
-            return (
-              <li key={n}>
-                {`${d.permission}${where ? `, ${where}` : ""}: ${d.message}`}
-              </li>
+                {rowDiagnostics.length > 0 && (
+                  <div
+                    id={describedBy}
+                    className="flex min-w-0 flex-col gap-1 text-xs text-destructive"
+                  >
+                    {rowDiagnostics.map((d, n) => {
+                      const where = locationOf(d)
+                      // The pointer is only true while the text still is what
+                      // was sent, and only for a one-line expression.
+                      const pointer =
+                        sent &&
+                        d.line === 1 &&
+                        d.col >= 1 &&
+                        row.expression.trim() === sent.expression
+                      return (
+                        <div key={n} className="flex min-w-0 flex-col gap-0.5">
+                          <p>
+                            {where ? `At ${where}: ${d.message}` : d.message}
+                          </p>
+                          {pointer && (
+                            <pre aria-hidden className="font-mono">
+                              {`${sent.expression}\n${" ".repeat(d.col - 1)}^`}
+                            </pre>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
             )
           })}
-        </ul>
-      )}
+          <div>
+            <IconButton
+              variant="outline"
+              onClick={() =>
+                setPermissionRows((rows) => [
+                  ...rows,
+                  { key: nextKey(), name: "", expression: "" },
+                ])
+              }
+              label="Add permission"
+            />
+          </div>
+        </fieldset>
 
-      {unnamed && (
-        <p className="text-sm text-muted-foreground">
-          Every relation and permission needs a name.
-        </p>
-      )}
+        {orphans.length > 0 && (
+          <ul className="flex min-w-0 flex-col gap-1 text-xs text-destructive">
+            {orphans.map((d, n) => {
+              const where = locationOf(d)
+              return (
+                <li key={n}>
+                  {`${d.permission}${where ? `, ${where}` : ""}: ${d.message}`}
+                </li>
+              )
+            })}
+          </ul>
+        )}
 
-      {/* With diagnostics the message is already on the rows, so this says
+        {unnamed && (
+          <p className="text-sm text-muted-foreground">
+            Every relation and permission needs a name.
+          </p>
+        )}
+
+        {/* With diagnostics the message is already on the rows, so this says
           only that the save did not happen. Repeating the server's sentence
           here would say each problem twice. Any other refusal has no row to
           sit on and shows in full. */}
-      {diagnostics.length > 0 ? (
-        <p role="alert" className="text-sm text-destructive">
-          {`Not saved. The server refused ${
-            diagnostics.length === 1
-              ? "an expression"
-              : `${diagnostics.length} expressions`
-          }. Each problem is marked where it is.`}
-        </p>
-      ) : (
-        <CommandAlert
-          error={update.error}
-          title="Could not save the resource type"
-        />
-      )}
+        {diagnostics.length > 0 ? (
+          <p role="alert" className="text-sm text-destructive">
+            {`Not saved. The server refused ${
+              diagnostics.length === 1
+                ? "an expression"
+                : `${diagnostics.length} expressions`
+            }. Each problem is marked where it is.`}
+          </p>
+        ) : (
+          <CommandAlert
+            error={update.error}
+            title="Could not save the resource type"
+          />
+        )}
 
-      <div className="flex gap-2">
-        <Button
-          onClick={() => void submit()}
-          disabled={update.loading || !dirty || unnamed}
-        >
-          {update.loading ? "Saving…" : "Save changes"}
-        </Button>
-        <Button variant="ghost" onClick={onDone} disabled={update.loading}>
-          Cancel
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            onClick={() => void submit()}
+            disabled={update.loading || !dirty || unnamed}
+          >
+            {update.loading ? "Saving…" : "Save changes"}
+          </Button>
+          <Button variant="ghost" onClick={onDone} disabled={update.loading}>
+            Cancel
+          </Button>
+        </div>
       </div>
-    </div>
+    </Section>
   )
 }

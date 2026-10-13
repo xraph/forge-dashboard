@@ -1,6 +1,7 @@
 import { Fragment, type ReactNode } from "react"
 import { Badge } from "@forge-go/dashboard-kit/components/badge"
 import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { cn } from "@forge-go/dashboard-kit/lib/utils"
 import type { PolicySummary } from "../pages/policies"
 
@@ -358,118 +359,117 @@ export function PolicyRule({
   const hasEmptyMatcher = subjects.some((s) => !s.kind && !s.id && !s.role)
 
   return (
-    <section
-      aria-label="Rule"
-      data-dimmed={dimmed ? "true" : "false"}
-      className={cn(
-        "flex min-w-0 flex-col gap-3 rounded-md border p-4",
-        dimmed && "opacity-60"
-      )}
-    >
-      {/* Anything but exactly "allow" is a deny to the evaluator, so it reads
-          as one here too. */}
-      <h2
-        className={cn(
-          "text-base font-medium",
-          isAllow ? "text-foreground" : "text-destructive"
-        )}
+    <Section aria-label="Rule" className={cn(dimmed && "opacity-60")} inset>
+      <div
+        data-dimmed={dimmed ? "true" : "false"}
+        className="flex min-w-0 flex-col gap-3"
       >
-        {isAllow ? "Allow" : "Deny"}
-      </h2>
-      <dl className="grid min-w-0 grid-cols-[6rem_minmax(0,1fr)] items-baseline gap-x-4 gap-y-2 text-sm">
-        <dt className={LABEL}>subject</dt>
-        <dd data-row="subject">
-          <Matchers
-            unrestricted={policy.subjectsUnrestricted}
-            anyWord="anyone"
-            chips={subjects.map(subjectText)}
-            note={
-              hasEmptyMatcher
-                ? "One of its subject matchers is empty, which matches every subject."
-                : null
-            }
-          />
-        </dd>
+        {/* Anything but exactly "allow" is a deny to the evaluator, so it reads
+          as one here too. The heading is the block's own, inside its panel,
+          because only this heading carries the destructive colour. */}
+        <h2
+          className={cn(
+            "text-base font-medium",
+            isAllow ? "text-foreground" : "text-destructive"
+          )}
+        >
+          {isAllow ? "Allow" : "Deny"}
+        </h2>
+        <dl className="grid min-w-0 grid-cols-[6rem_minmax(0,1fr)] items-baseline gap-x-4 gap-y-2 text-sm">
+          <dt className={LABEL}>subject</dt>
+          <dd data-row="subject">
+            <Matchers
+              unrestricted={policy.subjectsUnrestricted}
+              anyWord="anyone"
+              chips={subjects.map(subjectText)}
+              note={
+                hasEmptyMatcher
+                  ? "One of its subject matchers is empty, which matches every subject."
+                  : null
+              }
+            />
+          </dd>
 
-        <dt className={LABEL}>action</dt>
-        <dd data-row="action">
-          <Matchers
-            unrestricted={policy.actionsUnrestricted}
-            anyWord="any action"
-            chips={actions}
-            note={wildcardNote(actions, "action")}
-          />
-        </dd>
+          <dt className={LABEL}>action</dt>
+          <dd data-row="action">
+            <Matchers
+              unrestricted={policy.actionsUnrestricted}
+              anyWord="any action"
+              chips={actions}
+              note={wildcardNote(actions, "action")}
+            />
+          </dd>
 
-        <dt className={LABEL}>resource</dt>
-        <dd data-row="resource">
-          <Matchers
-            unrestricted={policy.resourcesUnrestricted}
-            anyWord="any resource"
-            chips={resources}
-            note={wildcardNote(resources, "resource")}
-          />
-        </dd>
+          <dt className={LABEL}>resource</dt>
+          <dd data-row="resource">
+            <Matchers
+              unrestricted={policy.resourcesUnrestricted}
+              anyWord="any resource"
+              chips={resources}
+              note={wildcardNote(resources, "resource")}
+            />
+          </dd>
 
-        {conditions.map((c, i) => {
-          const note = conditionNote(c.problem, c.reason, c.field)
-          const deciding = policy.decidingCondition === i
-          return (
-            <Fragment key={c.id || i}>
-              <dt className={cn(LABEL, i > 0 && "text-right")}>
-                {i === 0 ? "when" : "and"}
-              </dt>
-              <dd
-                data-condition={i}
-                data-deciding={deciding ? "true" : undefined}
-                className={cn(
-                  deciding && "-ml-2 border-l-2 border-foreground pl-2"
-                )}
-              >
-                <span className="flex flex-wrap items-baseline gap-x-2">
-                  <span className="font-mono text-xs">
-                    {fieldText(c.field)}
-                  </span>
-                  <span>{OPERATOR_WORDS[c.operator] ?? c.operator}</span>
-                  {!NO_VALUE.has(c.operator) && <ValueText value={c.value} />}
-                  {deciding && (
-                    <span className="text-xs text-muted-foreground">
-                      condition {i + 1}
-                    </span>
+          {conditions.map((c, i) => {
+            const note = conditionNote(c.problem, c.reason, c.field)
+            const deciding = policy.decidingCondition === i
+            return (
+              <Fragment key={c.id || i}>
+                <dt className={cn(LABEL, i > 0 && "text-right")}>
+                  {i === 0 ? "when" : "and"}
+                </dt>
+                <dd
+                  data-condition={i}
+                  data-deciding={deciding ? "true" : undefined}
+                  className={cn(
+                    deciding && "-ml-2 border-l-2 border-foreground pl-2"
                   )}
+                >
+                  <span className="flex flex-wrap items-baseline gap-x-2">
+                    <span className="font-mono text-xs">
+                      {fieldText(c.field)}
+                    </span>
+                    <span>{OPERATOR_WORDS[c.operator] ?? c.operator}</span>
+                    {!NO_VALUE.has(c.operator) && <ValueText value={c.value} />}
+                    {deciding && (
+                      <span className="text-xs text-muted-foreground">
+                        condition {i + 1}
+                      </span>
+                    )}
+                  </span>
+                  {note && <Note>{note}</Note>}
+                </dd>
+              </Fragment>
+            )
+          })}
+
+          {inEffect && (
+            <>
+              <dt className={LABEL}>in effect</dt>
+              <dd data-row="window">{inEffect}</dd>
+            </>
+          )}
+
+          {obligations.length > 0 && (
+            <>
+              <dt className={LABEL}>emits</dt>
+              <dd data-row="emits">
+                <span className="flex flex-wrap gap-1.5">
+                  {obligations.map((o, i) => (
+                    <Badge
+                      key={`${i}-${o}`}
+                      variant="outline"
+                      className="font-mono text-xs"
+                    >
+                      {o}
+                    </Badge>
+                  ))}
                 </span>
-                {note && <Note>{note}</Note>}
               </dd>
-            </Fragment>
-          )
-        })}
-
-        {inEffect && (
-          <>
-            <dt className={LABEL}>in effect</dt>
-            <dd data-row="window">{inEffect}</dd>
-          </>
-        )}
-
-        {obligations.length > 0 && (
-          <>
-            <dt className={LABEL}>emits</dt>
-            <dd data-row="emits">
-              <span className="flex flex-wrap gap-1.5">
-                {obligations.map((o, i) => (
-                  <Badge
-                    key={`${i}-${o}`}
-                    variant="outline"
-                    className="font-mono text-xs"
-                  >
-                    {o}
-                  </Badge>
-                ))}
-              </span>
-            </dd>
-          </>
-        )}
-      </dl>
-    </section>
+            </>
+          )}
+        </dl>
+      </div>
+    </Section>
   )
 }

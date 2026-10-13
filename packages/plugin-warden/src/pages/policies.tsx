@@ -28,6 +28,7 @@ import {
   ResourceTable,
   type Column,
 } from "@forge-go/dashboard-kit/components/resource-table"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import {
   NamespaceCell,
@@ -389,78 +390,77 @@ export function WardenPoliciesPage() {
         </Alert>
       )}
 
-      <p className="text-sm text-muted-foreground">
-        A policy allows or denies a check when its subjects, actions, resources
-        and conditions match. The status column says what each one will actually
-        do, and nothing shows for a policy that is active and behaves as
-        written.
-      </p>
-
-      <FilterBar
-        search={{
-          value: search,
-          onChange: (v) => {
-            setSearch(v)
-            setPage(1)
-          },
-          placeholder: "Search by name",
-          label: "Search policies",
-        }}
-        filters={[
-          namespace.filterConfig,
-          {
-            id: "effect",
-            label: "Effect",
-            value: effect,
-            options: [
-              { label: "Any effect", value: "" },
-              ...EFFECTS.map((e) => ({ label: e, value: e })),
-            ],
-            onChange: (v) => {
-              setEffect(v)
-              setPage(1)
-            },
-          },
-          {
-            id: "active",
-            label: "Active",
-            value: active,
-            options: [
-              { label: "Any", value: "" },
-              { label: "Active", value: "true" },
-              { label: "Inactive", value: "false" },
-            ],
-            onChange: (v) => {
-              setActive(v as ActiveFilter)
-              setPage(1)
-            },
-          },
-        ]}
-      />
-
-      <QueryBoundary title="Policies" query={list} skeletonRows={5}>
-        {(data) => {
-          const rows = data.items ?? []
-          // The server's total, never rows.length: rows is one page.
-          const caption = `${data.total} ${data.total === 1 ? "policy" : "policies"}`
-          return (
-            <ResourceTable<PolicySummary>
-              columns={columns}
-              rows={rows}
-              rowKey={(p) => p.id}
-              caption={caption}
-              emptyMessage={emptyMessage(
-                trimmedSearch,
-                namespace.value,
-                effect,
-                active
-              )}
-              pagination={{ page, pageSize: data.limit, total: data.total }}
-              onPageChange={setPage}
-            />
-          )
-        }}
-      </QueryBoundary>
+      <Section
+        aria-label="Policy list"
+        description="A policy allows or denies a check when its subjects, actions, resources and conditions match. The status column says what each one will actually do, and nothing shows for a policy that is active and behaves as written."
+        actions={
+          <FilterBar
+            search={{
+              value: search,
+              onChange: (v) => {
+                setSearch(v)
+                setPage(1)
+              },
+              placeholder: "Search by name",
+              label: "Search policies",
+            }}
+            filters={[
+              namespace.filterConfig,
+              {
+                id: "effect",
+                label: "Effect",
+                value: effect,
+                options: [
+                  { label: "Any effect", value: "" },
+                  ...EFFECTS.map((e) => ({ label: e, value: e })),
+                ],
+                onChange: (v) => {
+                  setEffect(v)
+                  setPage(1)
+                },
+              },
+              {
+                id: "active",
+                label: "Active",
+                value: active,
+                options: [
+                  { label: "Any", value: "" },
+                  { label: "Active", value: "true" },
+                  { label: "Inactive", value: "false" },
+                ],
+                onChange: (v) => {
+                  setActive(v as ActiveFilter)
+                  setPage(1)
+                },
+              },
+            ]}
+          />
+        }
+      >
+        <QueryBoundary title="Policies" query={list} skeletonRows={5}>
+          {(data) => {
+            const rows = data.items ?? []
+            // The server's total, never rows.length: rows is one page.
+            const caption = `${data.total} ${data.total === 1 ? "policy" : "policies"}`
+            return (
+              <ResourceTable<PolicySummary>
+                columns={columns}
+                rows={rows}
+                rowKey={(p) => p.id}
+                caption={caption}
+                emptyMessage={emptyMessage(
+                  trimmedSearch,
+                  namespace.value,
+                  effect,
+                  active
+                )}
+                pagination={{ page, pageSize: data.limit, total: data.total }}
+                onPageChange={setPage}
+              />
+            )
+          }}
+        </QueryBoundary>
+      </Section>
 
       {/* The error lives inside the dialog. Base UI marks everything outside
           an open dialog inert and aria-hidden, so an alert on the page body

@@ -11,6 +11,7 @@ import {
   CommandAlert,
   QueryBoundary,
 } from "@forge-go/dashboard-kit/components/query-boundary"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 
 export interface ConfigDetail {
   maxGraphDepth: number
@@ -138,35 +139,31 @@ function clearSummary(r: { scope: string }): string {
  */
 function PluginList({ names }: { names: string[] }) {
   return (
-    <section
-      aria-labelledby="warden-config-plugins"
-      className="flex min-w-0 flex-col gap-2"
+    <Section
+      title="Plugins"
+      description={
+        names.length === 0
+          ? undefined
+          : "The plugins in the engine's registry, including any warden registers on its own."
+      }
+      inset
     >
-      <h2 id="warden-config-plugins" className="text-sm font-medium">
-        Plugins
-      </h2>
       {names.length === 0 ? (
         <p className="text-sm text-muted-foreground">
           No authorization plugins are registered.
         </p>
       ) : (
-        <>
-          <p className="text-sm text-muted-foreground">
-            The plugins in the engine's registry, including any warden registers
-            on its own.
-          </p>
-          <ul className="flex flex-wrap gap-2">
-            {names.map((name, i) => (
-              <li key={`${i}:${name}`}>
-                <Badge variant="outline" className="font-mono">
-                  {name}
-                </Badge>
-              </li>
-            ))}
-          </ul>
-        </>
+        <ul className="flex flex-wrap gap-2">
+          {names.map((name, i) => (
+            <li key={`${i}:${name}`}>
+              <Badge variant="outline" className="font-mono">
+                {name}
+              </Badge>
+            </li>
+          ))}
+        </ul>
       )}
-    </section>
+    </Section>
   )
 }
 
@@ -261,56 +258,67 @@ export function WardenConfigPage() {
               </Alert>
             )}
 
-            <p className="text-sm text-muted-foreground">
-              Warden reads its configuration from Forge config, so this page is
-              read-only. Change these values where the engine is configured and
-              restart it.
-            </p>
+            <Section
+              title="Settings"
+              description="Warden reads its configuration from Forge config, so this page is read-only. Change these values where the engine is configured and restart it."
+              inset
+            >
+              <div className="flex min-w-0 flex-col gap-4">
+                <div className="flex gap-2">
+                  <ModelBadge label="RBAC" on={c.rbacEnabled} />
+                  <ModelBadge label="ABAC" on={c.abacEnabled} />
+                  <ModelBadge label="ReBAC" on={c.rebacEnabled} />
+                </div>
 
-            <div className="flex gap-2">
-              <ModelBadge label="RBAC" on={c.rbacEnabled} />
-              <ModelBadge label="ABAC" on={c.abacEnabled} />
-              <ModelBadge label="ReBAC" on={c.rebacEnabled} />
-            </div>
-
-            <DescriptionList
-              items={[
-                { term: "Graph depth limit", value: String(c.maxGraphDepth) },
-                {
-                  term: "Graph visit budget",
-                  value: String(c.maxGraphVisited),
-                },
-                { term: "Graph fanout limit", value: String(c.maxGraphFanout) },
-                { term: "Batch check limit", value: String(c.maxBatchChecks) },
-                {
-                  term: "Decision cache",
-                  value:
-                    c.cacheTtlSeconds > 0
-                      ? `${c.cacheTtlSeconds}s, up to ${c.cacheMaxSize} entries`
-                      : "Off",
-                },
-                {
-                  term: "Tenant required",
-                  value: c.requireTenant ? "Yes" : "No",
-                },
-                {
-                  term: "Evaluate all models",
-                  value: c.evaluateAllModels ? "Yes" : "No",
-                },
-                {
-                  term: "Check log queue",
-                  value: `${c.checkLogQueueSize} entries`,
-                },
-                {
-                  term: "Check log retention",
-                  value: retentionText(c),
-                },
-                {
-                  term: "Maintenance interval",
-                  value: intervalText(c),
-                },
-              ]}
-            />
+                <DescriptionList
+                  items={[
+                    {
+                      term: "Graph depth limit",
+                      value: String(c.maxGraphDepth),
+                    },
+                    {
+                      term: "Graph visit budget",
+                      value: String(c.maxGraphVisited),
+                    },
+                    {
+                      term: "Graph fanout limit",
+                      value: String(c.maxGraphFanout),
+                    },
+                    {
+                      term: "Batch check limit",
+                      value: String(c.maxBatchChecks),
+                    },
+                    {
+                      term: "Decision cache",
+                      value:
+                        c.cacheTtlSeconds > 0
+                          ? `${c.cacheTtlSeconds}s, up to ${c.cacheMaxSize} entries`
+                          : "Off",
+                    },
+                    {
+                      term: "Tenant required",
+                      value: c.requireTenant ? "Yes" : "No",
+                    },
+                    {
+                      term: "Evaluate all models",
+                      value: c.evaluateAllModels ? "Yes" : "No",
+                    },
+                    {
+                      term: "Check log queue",
+                      value: `${c.checkLogQueueSize} entries`,
+                    },
+                    {
+                      term: "Check log retention",
+                      value: retentionText(c),
+                    },
+                    {
+                      term: "Maintenance interval",
+                      value: intervalText(c),
+                    },
+                  ]}
+                />
+              </div>
+            </Section>
 
             {c.plugins && <PluginList names={c.plugins} />}
           </div>

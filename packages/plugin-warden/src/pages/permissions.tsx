@@ -17,6 +17,7 @@ import {
   ResourceTable,
   type Column,
 } from "@forge-go/dashboard-kit/components/resource-table"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import {
   NamespaceCell,
@@ -90,7 +91,11 @@ function CreatePermissionForm({
   }
 
   return (
-    <div className="flex min-w-0 flex-col gap-3 rounded-md border p-4">
+    <div
+      role="group"
+      aria-label="New permission"
+      className="flex min-w-0 flex-col gap-3 border-b p-4"
+    >
       <CommandAlert
         error={create.error}
         title="Could not create the permission"
@@ -256,107 +261,115 @@ export function WardenPermissionsPage() {
         }
       />
 
-      <FilterBar
-        search={{
-          value: search,
-          onChange: (v) => {
-            setSearch(v)
-            setPage(1)
-          },
-          placeholder: "Search by name",
-          label: "Search permissions",
-        }}
-        filters={[namespace.filterConfig]}
-      />
-
-      <form className="flex flex-wrap items-end gap-3" onSubmit={apply}>
-        <span className="flex min-w-0 flex-col gap-1.5">
-          <Label htmlFor="permissions-filter-resource">
-            Filter by resource
-          </Label>
-          <Input
-            id="permissions-filter-resource"
-            className="font-mono text-xs"
-            placeholder="exact match"
-            value={draft.resource}
-            onChange={(e) =>
-              setDraft((d) => ({ ...d, resource: e.target.value }))
-            }
+      <Section
+        aria-label="Permission list"
+        actions={
+          <FilterBar
+            search={{
+              value: search,
+              onChange: (v) => {
+                setSearch(v)
+                setPage(1)
+              },
+              placeholder: "Search by name",
+              label: "Search permissions",
+            }}
+            filters={[namespace.filterConfig]}
           />
-        </span>
-        <span className="flex min-w-0 flex-col gap-1.5">
-          <Label htmlFor="permissions-filter-action">Filter by action</Label>
-          <Input
-            id="permissions-filter-action"
-            className="font-mono text-xs"
-            placeholder="exact match"
-            value={draft.action}
-            onChange={(e) =>
-              setDraft((d) => ({ ...d, action: e.target.value }))
-            }
-          />
-        </span>
-        <Button type="submit">Apply</Button>
-        <IconButton
-          type="button"
-          variant="outline"
-          onClick={clear}
-          label="Clear"
-        />
-      </form>
-
-      {creating && (
-        <CreatePermissionForm
-          namespacePath={namespace.value === "all" ? "" : namespace.value}
-          onDone={() => setCreating(false)}
-        />
-      )}
-
-      <QueryBoundary title="Permissions" query={list} skeletonRows={5}>
-        {(data) => {
-          const rows = data.items ?? []
-          // Counts data.total, never rows.length: rows.length would say
-          // "25 permissions" on page one of sixty.
-          const caption = `${data.total} ${data.total === 1 ? "permission" : "permissions"}`
-          return (
-            <ResourceTable<PermissionSummary>
-              columns={columns}
-              rows={rows}
-              rowKey={(p) => p.id}
-              caption={caption}
-              emptyMessage={emptyMessage()}
-              pagination={{ page, pageSize: data.limit, total: data.total }}
-              onPageChange={setPage}
-              rowActions={(p) => (
-                <>
-                  <PluginLink
-                    to={`/permissions/${p.id}`}
-                    className="text-sm underline underline-offset-4"
-                  >
-                    Details
-                  </PluginLink>
-                  {/* No delete on a system permission: the contract refuses
-                      it, so offering the button would promise a rejection. */}
-                  {!p.isSystem && (
-                    <IconButton
-                      variant="destructive"
-                      onClick={() => {
-                        // Reset at open, not at close: the operator is about
-                        // to read whatever this dialog shows for THIS
-                        // permission, so a failure from a previous row must
-                        // not be attributed to one they have not touched.
-                        remove.reset()
-                        setDeleting(p)
-                      }}
-                      label={`Delete ${p.name}`}
-                    />
-                  )}
-                </>
-              )}
+        }
+      >
+        <form
+          className="flex flex-wrap items-end gap-3 border-b p-4"
+          onSubmit={apply}
+        >
+          <span className="flex min-w-0 flex-col gap-1.5">
+            <Label htmlFor="permissions-filter-resource">
+              Filter by resource
+            </Label>
+            <Input
+              id="permissions-filter-resource"
+              className="font-mono text-xs"
+              placeholder="exact match"
+              value={draft.resource}
+              onChange={(e) =>
+                setDraft((d) => ({ ...d, resource: e.target.value }))
+              }
             />
-          )
-        }}
-      </QueryBoundary>
+          </span>
+          <span className="flex min-w-0 flex-col gap-1.5">
+            <Label htmlFor="permissions-filter-action">Filter by action</Label>
+            <Input
+              id="permissions-filter-action"
+              className="font-mono text-xs"
+              placeholder="exact match"
+              value={draft.action}
+              onChange={(e) =>
+                setDraft((d) => ({ ...d, action: e.target.value }))
+              }
+            />
+          </span>
+          <Button type="submit">Apply</Button>
+          <IconButton
+            type="button"
+            variant="outline"
+            onClick={clear}
+            label="Clear"
+          />
+        </form>
+
+        {creating && (
+          <CreatePermissionForm
+            namespacePath={namespace.value === "all" ? "" : namespace.value}
+            onDone={() => setCreating(false)}
+          />
+        )}
+
+        <QueryBoundary title="Permissions" query={list} skeletonRows={5}>
+          {(data) => {
+            const rows = data.items ?? []
+            // Counts data.total, never rows.length: rows.length would say
+            // "25 permissions" on page one of sixty.
+            const caption = `${data.total} ${data.total === 1 ? "permission" : "permissions"}`
+            return (
+              <ResourceTable<PermissionSummary>
+                columns={columns}
+                rows={rows}
+                rowKey={(p) => p.id}
+                caption={caption}
+                emptyMessage={emptyMessage()}
+                pagination={{ page, pageSize: data.limit, total: data.total }}
+                onPageChange={setPage}
+                rowActions={(p) => (
+                  <>
+                    <PluginLink
+                      to={`/permissions/${p.id}`}
+                      className="text-sm underline underline-offset-4"
+                    >
+                      Details
+                    </PluginLink>
+                    {/* No delete on a system permission: the contract refuses
+                        it, so offering the button would promise a rejection. */}
+                    {!p.isSystem && (
+                      <IconButton
+                        variant="destructive"
+                        onClick={() => {
+                          // Reset at open, not at close: the operator is about
+                          // to read whatever this dialog shows for THIS
+                          // permission, so a failure from a previous row must
+                          // not be attributed to one they have not touched.
+                          remove.reset()
+                          setDeleting(p)
+                        }}
+                        label={`Delete ${p.name}`}
+                      />
+                    )}
+                  </>
+                )}
+              />
+            )
+          }}
+        </QueryBoundary>
+      </Section>
 
       {/* The error lives inside the dialog. Base UI marks everything
           outside an open dialog inert and aria-hidden, so an alert on the

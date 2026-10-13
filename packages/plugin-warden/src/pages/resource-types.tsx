@@ -15,6 +15,7 @@ import {
   ResourceTable,
   type Column,
 } from "@forge-go/dashboard-kit/components/resource-table"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { SchemaGraph } from "../components/schema-graph"
 import {
@@ -191,77 +192,79 @@ export function WardenResourceTypesPage() {
         actions={<Button onClick={openCreate}>New resource type</Button>}
       />
 
-      <p className="text-sm text-muted-foreground">
-        A resource type declares the relations an object can have and the
-        permissions derived from them. Tuples name a type by its name, so a type
-        cannot be renamed once it exists.
-      </p>
-
       {/* The graph is not searched: the server filters it by namespace only. */}
-      <FilterBar
-        search={
-          view === "table"
-            ? {
-                value: search,
-                onChange: (v) => {
-                  setSearch(v)
-                  setPage(1)
-                },
-                placeholder: "Search by name",
-                label: "Search resource types",
-              }
-            : undefined
+      <Section
+        aria-label="Resource type list"
+        description="A resource type declares the relations an object can have and the permissions derived from them. Tuples name a type by its name, so a type cannot be renamed once it exists."
+        actions={
+          <FilterBar
+            search={
+              view === "table"
+                ? {
+                    value: search,
+                    onChange: (v) => {
+                      setSearch(v)
+                      setPage(1)
+                    },
+                    placeholder: "Search by name",
+                    label: "Search resource types",
+                  }
+                : undefined
+            }
+            filters={[namespace.filterConfig]}
+            actions={<ViewSwitch view={view} onChange={setView} />}
+          />
         }
-        filters={[namespace.filterConfig]}
-        actions={<ViewSwitch view={view} onChange={setView} />}
-      />
-
-      {view === "graph" ? (
-        <SchemaGraph namespace={namespace.value} param={namespace.param} />
-      ) : (
-        <QueryBoundary title="Resource types" query={list} skeletonRows={5}>
-          {(data) => {
-            const rows = data.items ?? []
-            // The server's total, never rows.length: rows is one page.
-            const caption = `${data.total} ${data.total === 1 ? "resource type" : "resource types"}`
-            return (
-              <ResourceTable<ResourceTypeSummary>
-                columns={columns}
-                rows={rows}
-                rowKey={(r) => r.id}
-                caption={caption}
-                emptyMessage={emptyListMessage(
-                  "resource types",
-                  trimmedSearch,
-                  namespace.value
-                )}
-                pagination={{ page, pageSize: data.limit, total: data.total }}
-                onPageChange={setPage}
-                rowActions={(r) => (
-                  <>
-                    <PluginLink
-                      to={`/resource-types/${r.id}`}
-                      className="text-sm underline underline-offset-4"
-                    >
-                      Details
-                    </PluginLink>
-                    <IconButton
-                      variant="destructive"
-                      onClick={() => {
-                        // Reset at open, not at close: the operator is about
-                        // to read whatever this dialog shows for THIS type.
-                        remove.reset()
-                        setDeleting(r)
-                      }}
-                      label={`Delete ${r.name}`}
-                    />
-                  </>
-                )}
-              />
-            )
-          }}
-        </QueryBoundary>
-      )}
+      >
+        {view === "graph" ? (
+          <div className="p-4">
+            <SchemaGraph namespace={namespace.value} param={namespace.param} />
+          </div>
+        ) : (
+          <QueryBoundary title="Resource types" query={list} skeletonRows={5}>
+            {(data) => {
+              const rows = data.items ?? []
+              // The server's total, never rows.length: rows is one page.
+              const caption = `${data.total} ${data.total === 1 ? "resource type" : "resource types"}`
+              return (
+                <ResourceTable<ResourceTypeSummary>
+                  columns={columns}
+                  rows={rows}
+                  rowKey={(r) => r.id}
+                  caption={caption}
+                  emptyMessage={emptyListMessage(
+                    "resource types",
+                    trimmedSearch,
+                    namespace.value
+                  )}
+                  pagination={{ page, pageSize: data.limit, total: data.total }}
+                  onPageChange={setPage}
+                  rowActions={(r) => (
+                    <>
+                      <PluginLink
+                        to={`/resource-types/${r.id}`}
+                        className="text-sm underline underline-offset-4"
+                      >
+                        Details
+                      </PluginLink>
+                      <IconButton
+                        variant="destructive"
+                        onClick={() => {
+                          // Reset at open, not at close: the operator is about
+                          // to read whatever this dialog shows for THIS type.
+                          remove.reset()
+                          setDeleting(r)
+                        }}
+                        label={`Delete ${r.name}`}
+                      />
+                    </>
+                  )}
+                />
+              )
+            }}
+          </QueryBoundary>
+        )}
+      </Section>
 
       {/* Both errors live inside their dialog. Base UI marks everything
           outside an open dialog inert and aria-hidden, so an alert on the

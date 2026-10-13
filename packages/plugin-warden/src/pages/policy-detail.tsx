@@ -22,6 +22,7 @@ import {
   CommandAlert,
   QueryBoundary,
 } from "@forge-go/dashboard-kit/components/query-boundary"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { ZeroState } from "@forge-go/dashboard-kit/components/zero-state"
 import { NamespaceCell } from "../components/namespace-filter"
@@ -412,71 +413,73 @@ export function WardenPolicyDetailPage({
 
             <DetailLayout
               aside={
-                <DescriptionList
-                  items={[
-                    {
-                      term: "Priority",
-                      value: (
-                        <span className="flex min-w-0 flex-col gap-0.5">
-                          <span className="tabular-nums">
-                            {policy.priority}
+                <Section title="Details" inset>
+                  <DescriptionList
+                    items={[
+                      {
+                        term: "Priority",
+                        value: (
+                          <span className="flex min-w-0 flex-col gap-0.5">
+                            <span className="tabular-nums">
+                              {policy.priority}
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              {PRIORITY_HELP}
+                            </span>
                           </span>
-                          <span className="text-xs text-muted-foreground">
-                            {PRIORITY_HELP}
+                        ),
+                      },
+                      {
+                        term: "Version",
+                        value: (
+                          <span className="tabular-nums">{policy.version}</span>
+                        ),
+                      },
+                      {
+                        term: "Namespace",
+                        value: <NamespaceCell path={policy.namespacePath} />,
+                      },
+                      {
+                        term: "Created by",
+                        value: policy.createdBy ? (
+                          <span className="font-mono text-xs">
+                            {policy.createdBy}
                           </span>
-                        </span>
-                      ),
-                    },
-                    {
-                      term: "Version",
-                      value: (
-                        <span className="tabular-nums">{policy.version}</span>
-                      ),
-                    },
-                    {
-                      term: "Namespace",
-                      value: <NamespaceCell path={policy.namespacePath} />,
-                    },
-                    {
-                      term: "Created by",
-                      value: policy.createdBy ? (
-                        <span className="font-mono text-xs">
-                          {policy.createdBy}
-                        </span>
-                      ) : (
-                        <NoneCell label="creator" />
-                      ),
-                    },
-                    {
-                      term: "Updated by",
-                      value: policy.updatedBy ? (
-                        <span className="font-mono text-xs">
-                          {policy.updatedBy}
-                        </span>
-                      ) : (
-                        <NoneCell label="updater" />
-                      ),
-                    },
-                    {
-                      term: "Created",
-                      value: (
-                        <Timestamp
-                          value={policy.createdAt}
-                          label="creation time"
-                        />
-                      ),
-                    },
-                    {
-                      term: "Updated",
-                      value: (
-                        <Timestamp
-                          value={policy.updatedAt}
-                          label="updated at"
-                        />
-                      ),
-                    },
-                  ]}
-                />
+                        ) : (
+                          <NoneCell label="creator" />
+                        ),
+                      },
+                      {
+                        term: "Updated by",
+                        value: policy.updatedBy ? (
+                          <span className="font-mono text-xs">
+                            {policy.updatedBy}
+                          </span>
+                        ) : (
+                          <NoneCell label="updater" />
+                        ),
+                      },
+                      {
+                        term: "Created",
+                        value: (
+                          <Timestamp
+                            value={policy.createdAt}
+                            label="creation time"
+                          />
+                        ),
+                      },
+                      {
+                        term: "Updated",
+                        value: (
+                          <Timestamp
+                            value={policy.updatedAt}
+                            label="updated at"
+                          />
+                        ),
+                      },
+                    ]}
+                  />
+                </Section>
               }
               main={
                 <div className="flex min-w-0 flex-col gap-3">

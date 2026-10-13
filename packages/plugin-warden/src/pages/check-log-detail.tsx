@@ -9,6 +9,7 @@ import {
 import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import {
   CheckRequestLine,
@@ -81,10 +82,10 @@ function Match({ match }: { match: CheckMatch }) {
 /** A labelled row, term in a lowercase column of fixed width so rows align. */
 function Row({ term, children }: { term: string; children: ReactNode }) {
   return (
-    <dl className="grid min-w-0 grid-cols-[8rem_minmax(0,1fr)] items-baseline gap-x-4 text-sm">
-      <dt className="text-muted-foreground">{term}</dt>
-      <dd>{children}</dd>
-    </dl>
+    <DescriptionList
+      className="grid-cols-[8rem_minmax(0,1fr)] items-baseline"
+      items={[{ term, value: children }]}
+    />
   )
 }
 
@@ -110,144 +111,156 @@ export function WardenCheckLogDetailPage({ params }: PluginPageProps) {
 
         return (
           <section className="flex min-w-0 flex-col gap-4">
-            <div className="flex min-w-0 flex-col gap-2">
-              <PageHeader title="Check" />
-              <p className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-sm">
-                <CheckRequestLine check={check} />
-                <span className="text-muted-foreground">
-                  in <NamespaceCell path={check.namespacePath} />
-                </span>
-              </p>
-              {/*
-                On every check, an error included: replaying one that failed is
-                how an operator sees whether the failure persists.
-              */}
-              <PluginLink
-                to={`/playground/check/${check.id}`}
-                className="text-sm underline underline-offset-4"
-              >
-                Open in playground
-              </PluginLink>
-            </div>
+            {/*
+              On every check, an error included: replaying one that failed is
+              how an operator sees whether the failure persists.
+            */}
+            <PageHeader
+              title="Check"
+              meta={
+                <p className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                  <CheckRequestLine check={check} />
+                  <span className="text-muted-foreground">
+                    in <NamespaceCell path={check.namespacePath} />
+                  </span>
+                </p>
+              }
+              actions={
+                <PluginLink
+                  to={`/playground/check/${check.id}`}
+                  className="text-sm underline underline-offset-4"
+                >
+                  Open in playground
+                </PluginLink>
+              }
+            />
 
             <DetailLayout
               main={
-                <>
-                  <Row term="decision">
-                    <span className="flex min-w-0 flex-col gap-1">
-                      <span className="flex flex-wrap items-center gap-2">
-                        <Badge variant={decisionVariant(check.decision)}>
-                          {check.decision}
-                        </Badge>
-                        {!failed && check.reason && (
-                          <span className="text-muted-foreground">
-                            {check.reason}
-                          </span>
-                        )}
-                        {failed && (
-                          <span className="text-destructive">
-                            {check.error || <NoneCell label="error" />}
-                          </span>
-                        )}
-                      </span>
-                      {failed && (
-                        <span className="text-muted-foreground">
-                          The check failed with this error, so no decision was
-                          returned.
-                        </span>
-                      )}
-                    </span>
-                  </Row>
-
-                  {!failed && check.cached && (
-                    <p className="text-sm text-muted-foreground">
-                      Served from the result cache. The engine reused a decision
-                      made earlier and evaluated no rule for this check.
-                    </p>
-                  )}
-
-                  {!failed && matches.length > 0 && (
-                    <div className="flex min-w-0 flex-col gap-2">
-                      <Row term="decided by">
-                        <ul className="flex min-w-0 flex-col gap-1">
-                          {matches.map((m, i) => (
-                            <Match
-                              key={`${i}-${m.source}-${m.ruleId ?? ""}`}
-                              match={m}
-                            />
-                          ))}
-                        </ul>
-                      </Row>
-                      {linked && (
-                        <p className="text-xs text-muted-foreground">
-                          Each link opens the rule as it is now, which may have
-                          changed or been deleted since this check ran.
-                        </p>
-                      )}
-                    </div>
-                  )}
-                  {!failed && matches.length === 0 && (
-                    <p className="text-sm text-muted-foreground">
-                      No rule is recorded for this decision.
-                    </p>
-                  )}
-
-                  {!failed && obligations.length > 0 && (
-                    <Row term="emits">
-                      <span className="flex flex-wrap gap-1.5">
-                        {obligations.map((o, i) => (
-                          <Badge
-                            key={`${i}-${o}`}
-                            variant="outline"
-                            className="font-mono text-xs"
-                          >
-                            {o}
+                <Section title="Decision" inset>
+                  <div className="flex min-w-0 flex-col gap-3">
+                    <Row term="decision">
+                      <span className="flex min-w-0 flex-col gap-1">
+                        <span className="flex flex-wrap items-center gap-2">
+                          <Badge variant={decisionVariant(check.decision)}>
+                            {check.decision}
                           </Badge>
-                        ))}
+                          {!failed && check.reason && (
+                            <span className="text-muted-foreground">
+                              {check.reason}
+                            </span>
+                          )}
+                          {failed && (
+                            <span className="text-destructive">
+                              {check.error || <NoneCell label="error" />}
+                            </span>
+                          )}
+                        </span>
+                        {failed && (
+                          <span className="text-muted-foreground">
+                            The check failed with this error, so no decision was
+                            returned.
+                          </span>
+                        )}
                       </span>
                     </Row>
-                  )}
 
-                  {!failed && (
-                    <Row
-                      term={check.cached ? "lookup time" : "evaluation time"}
-                    >
-                      <span className="tabular-nums">
-                        {formatEvalTime(check.evalTimeNs)}
-                      </span>
-                    </Row>
-                  )}
-                </>
+                    {!failed && check.cached && (
+                      <p className="text-sm text-muted-foreground">
+                        Served from the result cache. The engine reused a
+                        decision made earlier and evaluated no rule for this
+                        check.
+                      </p>
+                    )}
+
+                    {!failed && matches.length > 0 && (
+                      <div className="flex min-w-0 flex-col gap-2">
+                        <Row term="decided by">
+                          <ul className="flex min-w-0 flex-col gap-1">
+                            {matches.map((m, i) => (
+                              <Match
+                                key={`${i}-${m.source}-${m.ruleId ?? ""}`}
+                                match={m}
+                              />
+                            ))}
+                          </ul>
+                        </Row>
+                        {linked && (
+                          <p className="text-xs text-muted-foreground">
+                            Each link opens the rule as it is now, which may
+                            have changed or been deleted since this check ran.
+                          </p>
+                        )}
+                      </div>
+                    )}
+                    {!failed && matches.length === 0 && (
+                      <p className="text-sm text-muted-foreground">
+                        No rule is recorded for this decision.
+                      </p>
+                    )}
+
+                    {!failed && obligations.length > 0 && (
+                      <Row term="emits">
+                        <span className="flex flex-wrap gap-1.5">
+                          {obligations.map((o, i) => (
+                            <Badge
+                              key={`${i}-${o}`}
+                              variant="outline"
+                              className="font-mono text-xs"
+                            >
+                              {o}
+                            </Badge>
+                          ))}
+                        </span>
+                      </Row>
+                    )}
+
+                    {!failed && (
+                      <Row
+                        term={check.cached ? "lookup time" : "evaluation time"}
+                      >
+                        <span className="tabular-nums">
+                          {formatEvalTime(check.evalTimeNs)}
+                        </span>
+                      </Row>
+                    )}
+                  </div>
+                </Section>
               }
               aside={
-                <DescriptionList
-                  items={[
-                    { term: "Check id", value: mono(check.id, "check id") },
-                    {
-                      term: "Namespace",
-                      value: <NamespaceCell path={check.namespacePath} />,
-                    },
-                    { term: "App id", value: mono(check.appId, "app id") },
-                    {
-                      term: "Request IP",
-                      value: mono(check.requestIp, "request ip"),
-                    },
-                    {
-                      term: "Request id",
-                      value: mono(check.requestId, "request id"),
-                    },
-                    {
-                      term: "Trace id",
-                      value: mono(check.traceId, "trace id"),
-                    },
-                    {
-                      term: "When",
-                      value: (
-                        <Timestamp value={check.createdAt} label="checked at" />
-                      ),
-                    },
-                  ]}
-                />
+                <Section title="Details" inset>
+                  <DescriptionList
+                    items={[
+                      { term: "Check id", value: mono(check.id, "check id") },
+                      {
+                        term: "Namespace",
+                        value: <NamespaceCell path={check.namespacePath} />,
+                      },
+                      { term: "App id", value: mono(check.appId, "app id") },
+                      {
+                        term: "Request IP",
+                        value: mono(check.requestIp, "request ip"),
+                      },
+                      {
+                        term: "Request id",
+                        value: mono(check.requestId, "request id"),
+                      },
+                      {
+                        term: "Trace id",
+                        value: mono(check.traceId, "trace id"),
+                      },
+                      {
+                        term: "When",
+                        value: (
+                          <Timestamp
+                            value={check.createdAt}
+                            label="checked at"
+                          />
+                        ),
+                      },
+                    ]}
+                  />
+                </Section>
               }
             />
           </section>

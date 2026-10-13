@@ -10,6 +10,7 @@ import {
   CommandAlert,
   QueryBoundary,
 } from "@forge-go/dashboard-kit/components/query-boundary"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { Switch } from "@forge-go/dashboard-kit/components/switch"
 import SchemaEditor from "../components/schema-editor"
 import type { SchemaDiagnostic } from "../components/schema-editor"
@@ -364,123 +365,125 @@ export function WardenSchemaPage() {
               title="Could not load the current schema"
             />
 
-            <div className="flex min-w-0 flex-col gap-1">
-              <div className="flex items-center gap-2">
-                <Label id="schema-prune-label">
-                  Delete roles, permissions, policies and resource types this
-                  source does not declare
-                </Label>
-                <Switch
-                  id="schema-prune"
-                  aria-labelledby="schema-prune-label"
-                  checked={prune}
-                  onCheckedChange={setPrune}
-                />
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Only namespaces this source names, including by an empty
-                namespace block, are pruned.
-              </p>
-            </div>
-
-            <SchemaEditor
-              key={editorKey}
-              label="Warden schema source"
-              initial={loaded}
-              onChange={setText}
-              diagnostics={diagnostics}
-            />
-
-            <div>
-              <Button onClick={() => void runPlan()} disabled={busy}>
-                {planning ? "Planning…" : "Plan"}
-              </Button>
-            </div>
-
-            <section
-              aria-label="Plan result"
-              className="flex min-w-0 flex-col gap-3"
-            >
-              <CommandAlert
-                error={planError}
-                title="Could not plan the schema"
-              />
-
-              {planned === null ? (
-                !planError && (
-                  <p className="text-sm text-muted-foreground">
-                    Plan the source to see what applying it would change.
+            <Section title="Source" inset>
+              <div className="flex min-w-0 flex-col gap-4">
+                <div className="flex min-w-0 flex-col gap-1">
+                  <div className="flex items-center gap-2">
+                    <Label id="schema-prune-label">
+                      Delete roles, permissions, policies and resource types
+                      this source does not declare
+                    </Label>
+                    <Switch
+                      id="schema-prune"
+                      aria-labelledby="schema-prune-label"
+                      checked={prune}
+                      onCheckedChange={setPrune}
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Only namespaces this source names, including by an empty
+                    namespace block, are pruned.
                   </p>
-                )
-              ) : (
-                <>
-                  {!current && (
-                    <p role="status" className="text-sm font-medium">
-                      {planned.source !== text
-                        ? "The source has changed since this plan. Plan again before applying."
-                        : "The prune setting has changed since this plan. Plan again before applying."}
-                    </p>
-                  )}
-                  {!planned.plan.valid ? (
-                    <ul className="flex max-h-72 min-w-0 flex-col gap-1 overflow-auto text-sm text-destructive">
-                      {planned.plan.diagnostics.map((d, i) => (
-                        <li key={`${i}:${d.line}:${d.col}:${d.message}`}>
-                          {`Line ${d.line}, column ${d.col}: ${d.message}`}
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <>
-                      {changesOf(planned.plan) === 0 && (
-                        <p className="text-sm">
-                          Applying this changes nothing.
-                        </p>
-                      )}
-                      <PlanSection
-                        title="Will create"
-                        lines={planned.plan.created}
-                      />
-                      <PlanSection
-                        title="Will change"
-                        lines={planned.plan.updated}
-                      />
-                      <PlanSection
-                        title="Will delete"
-                        lines={planned.plan.deleted}
-                      />
-                      <p className="text-sm text-muted-foreground tabular-nums">
-                        {planned.plan.noOps} unchanged
-                      </p>
-                    </>
-                  )}
-                </>
-              )}
-              <div>
-                <Button onClick={openApply} disabled={!canApply || busy}>
-                  Apply
-                </Button>
+                </div>
+
+                <SchemaEditor
+                  key={editorKey}
+                  label="Warden schema source"
+                  initial={loaded}
+                  onChange={setText}
+                  diagnostics={diagnostics}
+                />
+
+                <div>
+                  <Button onClick={() => void runPlan()} disabled={busy}>
+                    {planning ? "Planning…" : "Plan"}
+                  </Button>
+                </div>
               </div>
-            </section>
+            </Section>
+
+            <Section title="Plan result" inset>
+              <div className="flex min-w-0 flex-col gap-3">
+                <CommandAlert
+                  error={planError}
+                  title="Could not plan the schema"
+                />
+
+                {planned === null ? (
+                  !planError && (
+                    <p className="text-sm text-muted-foreground">
+                      Plan the source to see what applying it would change.
+                    </p>
+                  )
+                ) : (
+                  <>
+                    {!current && (
+                      <p role="status" className="text-sm font-medium">
+                        {planned.source !== text
+                          ? "The source has changed since this plan. Plan again before applying."
+                          : "The prune setting has changed since this plan. Plan again before applying."}
+                      </p>
+                    )}
+                    {!planned.plan.valid ? (
+                      <ul className="flex max-h-72 min-w-0 flex-col gap-1 overflow-auto text-sm text-destructive">
+                        {planned.plan.diagnostics.map((d, i) => (
+                          <li key={`${i}:${d.line}:${d.col}:${d.message}`}>
+                            {`Line ${d.line}, column ${d.col}: ${d.message}`}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <>
+                        {changesOf(planned.plan) === 0 && (
+                          <p className="text-sm">
+                            Applying this changes nothing.
+                          </p>
+                        )}
+                        <PlanSection
+                          title="Will create"
+                          lines={planned.plan.created}
+                        />
+                        <PlanSection
+                          title="Will change"
+                          lines={planned.plan.updated}
+                        />
+                        <PlanSection
+                          title="Will delete"
+                          lines={planned.plan.deleted}
+                        />
+                        <p className="text-sm text-muted-foreground tabular-nums">
+                          {planned.plan.noOps} unchanged
+                        </p>
+                      </>
+                    )}
+                  </>
+                )}
+                <div>
+                  <Button onClick={openApply} disabled={!canApply || busy}>
+                    Apply
+                  </Button>
+                </div>
+              </div>
+            </Section>
 
             {applied && (
-              <section
-                aria-label="Apply result"
-                className="flex min-w-0 flex-col gap-2"
-              >
-                <p role="status" className="text-sm font-medium">
-                  {`Applied: ${applied.created.length} created, ${applied.updated.length} changed, ${applied.deleted.length} deleted.`}
-                </p>
-                <Lines
-                  lines={[
-                    ...applied.created,
-                    ...applied.updated,
-                    ...applied.deleted,
-                  ]}
-                />
-                {applied.diverged && (
-                  <p className="text-sm">{divergedSentence(applied)}</p>
-                )}
-              </section>
+              <Section title="Apply result" inset>
+                <div className="flex min-w-0 flex-col gap-2">
+                  <p role="status" className="text-sm font-medium">
+                    {`Applied: ${applied.created.length} created, ${applied.updated.length} changed, ${applied.deleted.length} deleted.`}
+                  </p>
+                  <Lines
+                    lines={[
+                      ...applied.created,
+                      ...applied.updated,
+                      ...applied.deleted,
+                    ]}
+                  />
+                  {applied.diverged && (
+                    <p className="text-sm">{divergedSentence(applied)}</p>
+                  )}
+                </div>
+              </Section>
             )}
           </>
         )}

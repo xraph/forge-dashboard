@@ -26,6 +26,7 @@ import {
   ResourceTable,
   type Column,
 } from "@forge-go/dashboard-kit/components/resource-table"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import {
   NamespaceCell,
@@ -248,7 +249,7 @@ function RoleSelect({
 function RoleFilterNote({ roles }: { roles: QueryState<RolesList> }) {
   if (roles.error) {
     return (
-      <p className="text-sm text-destructive">
+      <p className="border-b px-4 py-3 text-sm text-destructive">
         The role filter could not load roles: {roles.error.message}
       </p>
     )
@@ -257,7 +258,7 @@ function RoleFilterNote({ roles }: { roles: QueryState<RolesList> }) {
   const total = roles.data?.total ?? 0
   if (total > shown) {
     return (
-      <p className="text-sm text-muted-foreground">
+      <p className="border-b px-4 py-3 text-sm text-muted-foreground">
         The role filter offers {shown} of the {total} roles.
       </p>
     )
@@ -297,8 +298,8 @@ function ExpiringList({
     `${windowHours} hours`
 
   return (
-    <div className="flex min-w-0 flex-col gap-2">
-      <p className="text-sm text-muted-foreground">
+    <div className="flex min-w-0 flex-col">
+      <p className="border-b px-4 py-3 text-sm text-muted-foreground">
         Assignments that expire within the next {window}, in every namespace of
         this tenant, earliest expiry first. Assignments that have already
         expired but are still stored are listed too, ahead of the rest: they
@@ -313,7 +314,7 @@ function ExpiringList({
           // stopped there, so a full page is the only sign it may have.
           const cut = rows.length >= EXPIRING_LIMIT
           return (
-            <div className="flex min-w-0 flex-col gap-2">
+            <div className="flex min-w-0 flex-col">
               <ResourceTable<AssignmentSummary>
                 columns={columns}
                 rows={rows}
@@ -325,7 +326,7 @@ function ExpiringList({
                 rowActions={rowActions}
               />
               {cut && (
-                <p className="text-sm text-muted-foreground">
+                <p className="border-t px-4 py-3 text-sm text-muted-foreground">
                   Warden stopped at {EXPIRING_LIMIT} assignments, the most this
                   list asks for, so there may be more. The list is sorted by
                   expiry, so a missing assignment expires no earlier than the
@@ -578,132 +579,136 @@ export function WardenAssignmentsPage() {
         actions={<Button onClick={openCreate}>New assignment</Button>}
       />
 
-      <p className="text-sm text-muted-foreground">
-        Assignments cannot be edited, only created and deleted, because the
-        store has no update. To change one, delete it and create another. An
-        expired assignment grants nothing but stays listed until it is deleted.
-        To renew an expired assignment, delete it first: the store refuses the
-        same binding as a duplicate while the expired row exists.
-      </p>
-
-      {view === "expiring" ? (
-        <>
-          <FilterBar
-            filters={[
-              viewFilter,
-              {
-                id: "within",
-                label: "Within",
-                value: String(windowHours),
-                options: EXPIRING_WINDOWS.map((w) => ({
-                  label: w.label,
-                  value: String(w.hours),
-                })),
-                onChange: (next) => setWindowHours(Number(next)),
-              },
-            ]}
-          />
+      <Section
+        aria-label="Assignment list"
+        description="Assignments cannot be edited, only created and deleted, because the store has no update. To change one, delete it and create another. An expired assignment grants nothing but stays listed until it is deleted. To renew an expired assignment, delete it first: the store refuses the same binding as a duplicate while the expired row exists."
+        actions={
+          view === "expiring" ? (
+            <FilterBar
+              filters={[
+                viewFilter,
+                {
+                  id: "within",
+                  label: "Within",
+                  value: String(windowHours),
+                  options: EXPIRING_WINDOWS.map((w) => ({
+                    label: w.label,
+                    value: String(w.hours),
+                  })),
+                  onChange: (next) => setWindowHours(Number(next)),
+                },
+              ]}
+            />
+          ) : (
+            <FilterBar
+              filters={[
+                viewFilter,
+                namespace.filterConfig,
+                {
+                  id: "subjectKind",
+                  label: "Subject kind",
+                  value: subjectKind,
+                  options: [
+                    { label: "Any kind", value: "" },
+                    ...SUBJECT_KINDS.map((kind) => ({
+                      label: kind,
+                      value: kind,
+                    })),
+                  ],
+                  onChange: (next) => {
+                    setSubjectKind(next)
+                    setPage(1)
+                  },
+                },
+                {
+                  id: "role",
+                  label: "Role",
+                  value: roleId,
+                  options: [
+                    { label: "Any role", value: "" },
+                    ...(roles.data?.items ?? []).map((r) => ({
+                      label: roleOptionLabel(r),
+                      value: r.id,
+                    })),
+                  ],
+                  onChange: (next) => {
+                    setRoleId(next)
+                    setPage(1)
+                  },
+                },
+              ]}
+            />
+          )
+        }
+      >
+        {view === "expiring" ? (
           <ExpiringList
             windowHours={windowHours}
             columns={expiringColumns}
             rowActions={deleteAction}
           />
-        </>
-      ) : (
-        <>
-          <FilterBar
-            filters={[
-              viewFilter,
-              namespace.filterConfig,
-              {
-                id: "subjectKind",
-                label: "Subject kind",
-                value: subjectKind,
-                options: [
-                  { label: "Any kind", value: "" },
-                  ...SUBJECT_KINDS.map((kind) => ({
-                    label: kind,
-                    value: kind,
-                  })),
-                ],
-                onChange: (next) => {
-                  setSubjectKind(next)
-                  setPage(1)
-                },
-              },
-              {
-                id: "role",
-                label: "Role",
-                value: roleId,
-                options: [
-                  { label: "Any role", value: "" },
-                  ...(roles.data?.items ?? []).map((r) => ({
-                    label: roleOptionLabel(r),
-                    value: r.id,
-                  })),
-                ],
-                onChange: (next) => {
-                  setRoleId(next)
-                  setPage(1)
-                },
-              },
-            ]}
-          />
-          <RoleFilterNote roles={roles} />
+        ) : (
+          <>
+            <RoleFilterNote roles={roles} />
 
-          <form
-            className="flex flex-wrap items-end gap-3"
-            onSubmit={applySubjectId}
-          >
-            <span className="flex min-w-0 flex-col gap-1.5">
-              <Label htmlFor="assignments-filter-subject-id">
-                Filter by subject id
-              </Label>
-              <Input
-                id="assignments-filter-subject-id"
-                className="font-mono text-xs"
-                placeholder="exact match"
-                value={subjectIdDraft}
-                onChange={(e) => setSubjectIdDraft(e.target.value)}
-              />
-            </span>
-            <Button type="submit">Apply</Button>
-            <IconButton
-              type="button"
-              variant="outline"
-              onClick={clearSubjectId}
-              label="Clear"
-            />
-          </form>
-
-          <QueryBoundary title="Assignments" query={list} skeletonRows={5}>
-            {(data) => {
-              const rows = data.items ?? []
-              // The server's total, never rows.length: rows is one page.
-              const caption = `${data.total} ${data.total === 1 ? "assignment" : "assignments"}`
-              return (
-                <ResourceTable<AssignmentSummary>
-                  columns={columns}
-                  rows={rows}
-                  rowKey={(a) => a.id}
-                  caption={caption}
-                  emptyMessage={
-                    // The shared message knows only the namespace. With another
-                    // filter on, "No assignments yet" would say nothing exists
-                    // when the filter is what hid it.
-                    filtered
-                      ? "No assignments match these filters."
-                      : emptyListMessage("assignments", "", namespace.value)
-                  }
-                  pagination={{ page, pageSize: data.limit, total: data.total }}
-                  onPageChange={setPage}
-                  rowActions={deleteAction}
+            <form
+              className="flex flex-wrap items-end gap-3 border-b p-4"
+              onSubmit={applySubjectId}
+            >
+              <span className="flex min-w-0 flex-col gap-1.5">
+                <Label htmlFor="assignments-filter-subject-id">
+                  Filter by subject id
+                </Label>
+                <Input
+                  id="assignments-filter-subject-id"
+                  className="font-mono text-xs"
+                  placeholder="exact match"
+                  value={subjectIdDraft}
+                  onChange={(e) => setSubjectIdDraft(e.target.value)}
                 />
-              )
-            }}
-          </QueryBoundary>
-        </>
-      )}
+              </span>
+              <Button type="submit">Apply</Button>
+              <IconButton
+                type="button"
+                variant="outline"
+                onClick={clearSubjectId}
+                label="Clear"
+              />
+            </form>
+
+            <QueryBoundary title="Assignments" query={list} skeletonRows={5}>
+              {(data) => {
+                const rows = data.items ?? []
+                // The server's total, never rows.length: rows is one page.
+                const caption = `${data.total} ${data.total === 1 ? "assignment" : "assignments"}`
+                return (
+                  <ResourceTable<AssignmentSummary>
+                    columns={columns}
+                    rows={rows}
+                    rowKey={(a) => a.id}
+                    caption={caption}
+                    emptyMessage={
+                      // The shared message knows only the namespace. With another
+                      // filter on, "No assignments yet" would say nothing exists
+                      // when the filter is what hid it.
+                      filtered
+                        ? "No assignments match these filters."
+                        : emptyListMessage("assignments", "", namespace.value)
+                    }
+                    pagination={{
+                      page,
+                      pageSize: data.limit,
+                      total: data.total,
+                    }}
+                    onPageChange={setPage}
+                    rowActions={deleteAction}
+                  />
+                )
+              }}
+            </QueryBoundary>
+          </>
+        )}
+      </Section>
 
       {/* Both errors live inside their dialog. Base UI marks everything
           outside an open dialog inert and aria-hidden, so an alert on the

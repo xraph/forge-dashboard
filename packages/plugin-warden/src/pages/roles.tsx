@@ -17,6 +17,7 @@ import {
   ResourceTable,
   type Column,
 } from "@forge-go/dashboard-kit/components/resource-table"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import {
   NamespaceCell,
@@ -84,7 +85,11 @@ function CreateRoleForm({
   }
 
   return (
-    <div className="flex min-w-0 flex-col gap-3 rounded-md border p-4">
+    <div
+      role="group"
+      aria-label="New role"
+      className="flex min-w-0 flex-col gap-3 border-b p-4"
+    >
       <CommandAlert error={create.error} title="Could not create the role" />
       <p className="text-sm text-muted-foreground">
         Creating in {namespacePath === "" ? "the tenant root" : namespacePath}.
@@ -222,69 +227,78 @@ export function WardenRolesPage() {
         }
       />
 
-      <FilterBar
-        search={{
-          value: search,
-          onChange: (v) => {
-            setSearch(v)
-            setPage(1)
-          },
-          placeholder: "Search by name",
-          label: "Search roles",
-        }}
-        filters={[namespace.filterConfig]}
-      />
+      <Section
+        aria-label="Role list"
+        actions={
+          <FilterBar
+            search={{
+              value: search,
+              onChange: (v) => {
+                setSearch(v)
+                setPage(1)
+              },
+              placeholder: "Search by name",
+              label: "Search roles",
+            }}
+            filters={[namespace.filterConfig]}
+          />
+        }
+      >
+        {creating && (
+          <CreateRoleForm
+            namespacePath={namespace.value === "all" ? "" : namespace.value}
+            onDone={() => setCreating(false)}
+          />
+        )}
 
-      {creating && (
-        <CreateRoleForm
-          namespacePath={namespace.value === "all" ? "" : namespace.value}
-          onDone={() => setCreating(false)}
-        />
-      )}
-
-      <QueryBoundary title="Roles" query={list} skeletonRows={5}>
-        {(data) => {
-          const rows = data.items ?? []
-          const caption = `${data.total} ${data.total === 1 ? "role" : "roles"}`
-          return (
-            <ResourceTable<RoleSummary>
-              columns={columns}
-              rows={rows}
-              rowKey={(r) => r.id}
-              caption={caption}
-              emptyMessage={emptyListMessage("roles", search, namespace.value)}
-              pagination={{ page, pageSize: data.limit, total: data.total }}
-              onPageChange={setPage}
-              rowActions={(r) => (
-                <>
-                  <PluginLink
-                    to={`/roles/${r.id}`}
-                    className="text-sm underline underline-offset-4"
-                  >
-                    Details
-                  </PluginLink>
-                  {/* No delete on a system role: the contract refuses it,
-                      so the button would promise a rejection. */}
-                  {!r.isSystem && (
-                    <IconButton
-                      variant="destructive"
-                      onClick={() => {
-                        // Reset at open, not at close: the operator is
-                        // about to read whatever this dialog shows for THIS
-                        // role, so a failure from a previous row must not
-                        // be attributed to one they have not touched.
-                        remove.reset()
-                        setDeleting(r)
-                      }}
-                      label={`Delete ${r.name}`}
-                    />
-                  )}
-                </>
-              )}
-            />
-          )
-        }}
-      </QueryBoundary>
+        <QueryBoundary title="Roles" query={list} skeletonRows={5}>
+          {(data) => {
+            const rows = data.items ?? []
+            const caption = `${data.total} ${data.total === 1 ? "role" : "roles"}`
+            return (
+              <ResourceTable<RoleSummary>
+                columns={columns}
+                rows={rows}
+                rowKey={(r) => r.id}
+                caption={caption}
+                emptyMessage={emptyListMessage(
+                  "roles",
+                  search,
+                  namespace.value
+                )}
+                pagination={{ page, pageSize: data.limit, total: data.total }}
+                onPageChange={setPage}
+                rowActions={(r) => (
+                  <>
+                    <PluginLink
+                      to={`/roles/${r.id}`}
+                      className="text-sm underline underline-offset-4"
+                    >
+                      Details
+                    </PluginLink>
+                    {/* No delete on a system role: the contract refuses it,
+                        so the button would promise a rejection. */}
+                    {!r.isSystem && (
+                      <IconButton
+                        variant="destructive"
+                        onClick={() => {
+                          // Reset at open, not at close: the operator is
+                          // about to read whatever this dialog shows for THIS
+                          // role, so a failure from a previous row must not
+                          // be attributed to one they have not touched.
+                          remove.reset()
+                          setDeleting(r)
+                        }}
+                        label={`Delete ${r.name}`}
+                      />
+                    )}
+                  </>
+                )}
+              />
+            )
+          }}
+        </QueryBoundary>
+      </Section>
 
       {/* The error lives inside the dialog. Base UI marks everything
           outside an open dialog inert and aria-hidden, so an alert on the
