@@ -125,7 +125,10 @@ export function Pager({
   onChange: (offset: number) => void
 }) {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+    <nav
+      aria-label="Pagination"
+      className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground"
+    >
       <span>
         {page.total === 0
           ? "0 records"
@@ -145,7 +148,7 @@ export function Pager({
           onClick={() => onChange(page.offset + page.limit)}
         />
       </div>
-    </div>
+    </nav>
   )
 }
 export function Value({

@@ -20,6 +20,7 @@ import {
   CommandAlert,
   QueryBoundary,
 } from "@forge-go/dashboard-kit/components/query-boundary"
+import { Section } from "@forge-go/dashboard-kit/components/section"
 import { Textarea } from "@forge-go/dashboard-kit/components/textarea"
 import { ZeroState } from "@forge-go/dashboard-kit/components/zero-state"
 import { Plus, Trash2 } from "@forge-go/dashboard-kit/icons"
@@ -534,7 +535,7 @@ export function EditorForm({
   return (
     <form
       onSubmit={(event) => void submit(event)}
-      className="grid min-w-0 gap-2"
+      className="grid min-w-0 gap-4"
     >
       <CommandAlert error={error} title="Could not save configuration" />
       {errors && (
@@ -549,42 +550,46 @@ export function EditorForm({
           ))}
         </ul>
       )}
-      <div className="grid min-w-0 gap-2 rounded-md border p-2.5 sm:grid-cols-2">
-        <div className="grid min-w-0 gap-1.5">
-          <Label htmlFor="shield-name">Name *</Label>
-          <Input
-            id="shield-name"
-            className="h-8 text-xs"
-            required
-            maxLength={128}
-            value={String(draft.name ?? "")}
-            disabled={!!initial}
-            onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-          />
+      <Section aria-label="Basics" inset>
+        <div className="grid min-w-0 gap-2 sm:grid-cols-2">
+          <div className="grid min-w-0 gap-1.5">
+            <Label htmlFor="shield-name">Name *</Label>
+            <Input
+              id="shield-name"
+              className="h-8 text-xs"
+              required
+              maxLength={128}
+              value={String(draft.name ?? "")}
+              disabled={!!initial}
+              onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <input
+              id="shield-enabled"
+              type="checkbox"
+              checked={draft.enabled === true}
+              onChange={(e) =>
+                setDraft({ ...draft, enabled: e.target.checked })
+              }
+            />
+            <Label htmlFor="shield-enabled">Enabled</Label>
+          </div>
+          <div className="col-span-full grid gap-1.5">
+            <Label htmlFor="shield-description">Description</Label>
+            <Textarea
+              id="shield-description"
+              className="min-h-12"
+              rows={2}
+              maxLength={4096}
+              value={String(draft.description ?? "")}
+              onChange={(e) =>
+                setDraft({ ...draft, description: e.target.value })
+              }
+            />
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <input
-            id="shield-enabled"
-            type="checkbox"
-            checked={draft.enabled === true}
-            onChange={(e) => setDraft({ ...draft, enabled: e.target.checked })}
-          />
-          <Label htmlFor="shield-enabled">Enabled</Label>
-        </div>
-        <div className="col-span-full grid gap-1.5">
-          <Label htmlFor="shield-description">Description</Label>
-          <Textarea
-            id="shield-description"
-            className="min-h-12"
-            rows={2}
-            maxLength={4096}
-            value={String(draft.description ?? "")}
-            onChange={(e) =>
-              setDraft({ ...draft, description: e.target.value })
-            }
-          />
-        </div>
-      </div>
+      </Section>
       {collection === "policies" && (
         <p className="text-xs text-muted-foreground">
           Scope: {capabilities.scope.policy_level ?? "app"}{" "}
@@ -594,32 +599,40 @@ export function EditorForm({
           . The server assigns this scope.
         </p>
       )}
-      <div className="grid min-w-0 gap-2 sm:grid-cols-2">
-        {schema.map((field) => (
-          <FieldControl
-            key={field.key}
-            field={field}
-            value={draft[field.key]}
-            onChange={(v) => setDraft((old) => ({ ...old, [field.key]: v }))}
-            onValidity={validity}
-            fieldPath={field.key}
-          />
-        ))}
-      </div>
-      <details className="rounded-md border p-2.5">
-        <summary className="cursor-pointer text-sm font-medium">
-          Metadata JSON
-        </summary>
-        <div className="mt-2">
-          <JsonField
-            field={{ key: "metadata", label: "metadata", type: "json" }}
-            value={draft.metadata}
-            onChange={(v) => setDraft((old) => ({ ...old, metadata: v }))}
-            onValidity={validity}
-            fieldPath="metadata"
-          />
-        </div>
-      </details>
+      {schema.length > 0 && (
+        <Section aria-label="Configuration fields" inset>
+          <div className="grid min-w-0 gap-2 sm:grid-cols-2">
+            {schema.map((field) => (
+              <FieldControl
+                key={field.key}
+                field={field}
+                value={draft[field.key]}
+                onChange={(v) =>
+                  setDraft((old) => ({ ...old, [field.key]: v }))
+                }
+                onValidity={validity}
+                fieldPath={field.key}
+              />
+            ))}
+          </div>
+        </Section>
+      )}
+      <Section aria-label="Metadata JSON" inset>
+        <details>
+          <summary className="cursor-pointer text-sm font-medium">
+            Metadata JSON
+          </summary>
+          <div className="mt-2">
+            <JsonField
+              field={{ key: "metadata", label: "metadata", type: "json" }}
+              value={draft.metadata}
+              onChange={(v) => setDraft((old) => ({ ...old, metadata: v }))}
+              onValidity={validity}
+              fieldPath="metadata"
+            />
+          </div>
+        </details>
+      </Section>
       <div className="sticky bottom-0 flex flex-wrap items-center justify-end gap-2 border-t bg-background/95 py-2">
         <span className="mr-auto text-xs text-muted-foreground">
           Saving stores configuration. Evaluation remains unavailable.
@@ -689,7 +702,7 @@ export default function EditorPage({
       />
     )
   return (
-    <section className="flex min-w-0 flex-col gap-2">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader title={`${id ? "Edit" : "New"} ${singular(collection)}`} />
       <CoverageNotice />
       <QueryBoundary title="Editor permissions" query={caps}>

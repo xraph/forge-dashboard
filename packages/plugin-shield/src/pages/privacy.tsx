@@ -8,6 +8,8 @@ import {
   QueryBoundary,
 } from "@forge-go/dashboard-kit/components/query-boundary"
 import { ResourceTable } from "@forge-go/dashboard-kit/components/resource-table"
+import { Section } from "@forge-go/dashboard-kit/components/section"
+import { StatGrid } from "@forge-go/dashboard-kit/components/stat-grid"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import {
   CoverageNotice,
@@ -58,7 +60,7 @@ export function PrivacyPage() {
     }
   }
   return (
-    <section className="flex min-w-0 flex-col gap-3">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="PII vault"
         description="Metadata for the authorized tenant. Encrypted and decrypted values are never returned."
@@ -93,74 +95,70 @@ export function PrivacyPage() {
         {(page) => (
           <>
             {page.by_type && (
-              <div
-                className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-md border px-3 py-2 text-xs"
+              <StatGrid
                 aria-label="PII type totals"
-              >
-                <span className="font-medium">
-                  {page.total} tokens · {page.distinct_types} types
-                </span>
-                {Object.entries(page.by_type)
-                  .sort(([a], [b]) => a.localeCompare(b))
-                  .map(([type, count]) => (
-                    <span key={type}>
-                      <span className="text-muted-foreground">{type}</span>{" "}
-                      {count}
-                    </span>
-                  ))}
-              </div>
-            )}
-            {page.items.length ? (
-              <ResourceTable
-                emptyMessage="No records in this scope."
-                rows={page.items}
-                rowKey={(r) => r.id}
-                columns={[
-                  {
-                    id: "id",
-                    header: "Token",
-                    className: "font-mono text-xs",
-                    cell: (r) => r.id,
-                  },
-                  {
-                    id: "pii_type",
-                    header: "Type",
-                    cell: (r) => String(r.pii_type),
-                  },
-                  {
-                    id: "placeholder",
-                    header: "Placeholder",
-                    cell: (r) => String(r.placeholder),
-                  },
-                  {
-                    id: "scan_id",
-                    header: "Scan",
-                    className: "font-mono text-xs",
-                    cell: (r) => String(r.scan_id),
-                  },
-                  {
-                    id: "expiry",
-                    header: "Expires",
-                    cell: (r) => (
-                      <Timestamp
-                        value={
-                          typeof r.expires_at === "string"
-                            ? r.expires_at
-                            : undefined
-                        }
-                        label="expiry"
-                      />
-                    ),
-                  },
+                items={[
+                  { label: "Tokens", value: page.total },
+                  { label: "Types", value: page.distinct_types },
+                  ...Object.entries(page.by_type)
+                    .sort(([a], [b]) => a.localeCompare(b))
+                    .map(([type, count]) => ({ label: type, value: count })),
                 ]}
               />
-            ) : (
-              <Empty
-                title="No PII tokens"
-                body="No PII metadata is stored for this tenant."
-              />
             )}
-            <Pager page={page} onChange={setOffset} />
+            <Section aria-label="PII token list">
+              {page.items.length ? (
+                <ResourceTable
+                  emptyMessage="No records in this scope."
+                  rows={page.items}
+                  rowKey={(r) => r.id}
+                  columns={[
+                    {
+                      id: "id",
+                      header: "Token",
+                      className: "font-mono text-xs",
+                      cell: (r) => r.id,
+                    },
+                    {
+                      id: "pii_type",
+                      header: "Type",
+                      cell: (r) => String(r.pii_type),
+                    },
+                    {
+                      id: "placeholder",
+                      header: "Placeholder",
+                      cell: (r) => String(r.placeholder),
+                    },
+                    {
+                      id: "scan_id",
+                      header: "Scan",
+                      className: "font-mono text-xs",
+                      cell: (r) => String(r.scan_id),
+                    },
+                    {
+                      id: "expiry",
+                      header: "Expires",
+                      cell: (r) => (
+                        <Timestamp
+                          value={
+                            typeof r.expires_at === "string"
+                              ? r.expires_at
+                              : undefined
+                          }
+                          label="expiry"
+                        />
+                      ),
+                    },
+                  ]}
+                />
+              ) : (
+                <Empty
+                  title="No PII tokens"
+                  body="No PII metadata is stored for this tenant."
+                />
+              )}
+              <Pager page={page} onChange={setOffset} />
+            </Section>
           </>
         )}
       </QueryBoundary>

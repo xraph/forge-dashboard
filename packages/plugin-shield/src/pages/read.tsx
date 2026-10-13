@@ -18,6 +18,7 @@ import {
   SlidersHorizontal,
 } from "@forge-go/dashboard-kit/icons"
 import { ConfirmDialog } from "@forge-go/dashboard-kit/components/confirm-dialog"
+import { DescriptionList } from "@forge-go/dashboard-kit/components/detail-layout"
 import { FilterBar } from "@forge-go/dashboard-kit/components/filter-bar"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import {
@@ -28,6 +29,8 @@ import {
   ResourceTable,
   type Column,
 } from "@forge-go/dashboard-kit/components/resource-table"
+import { Section } from "@forge-go/dashboard-kit/components/section"
+import { StatGrid } from "@forge-go/dashboard-kit/components/stat-grid"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import {
   CoverageNotice,
@@ -194,7 +197,7 @@ export function CollectionPage({
     fn(v)
   }
   return (
-    <section className="flex min-w-0 flex-col gap-3">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title={label(collection)}
         description={
@@ -211,93 +214,99 @@ export function CollectionPage({
         }
       />
       <CoverageNotice />
-      <FilterBar
-        search={
-          editable
-            ? {
-                value: search,
-                onChange: reset(setSearch),
-                label: `Search ${collection}`,
-              }
-            : undefined
+      <Section
+        aria-label={`${label(collection)} list`}
+        actions={
+          <FilterBar
+            search={
+              editable
+                ? {
+                    value: search,
+                    onChange: reset(setSearch),
+                    label: `Search ${collection}`,
+                  }
+                : undefined
+            }
+            filters={[
+              ...(editable
+                ? [
+                    {
+                      id: "enabled",
+                      label: "Status",
+                      value: enabled,
+                      onChange: reset(setEnabled),
+                      options: [
+                        { value: "", label: "All" },
+                        { value: "true", label: "Enabled" },
+                        { value: "false", label: "Disabled" },
+                      ],
+                    },
+                  ]
+                : []),
+              ...(primary
+                ? [
+                    {
+                      id: primary,
+                      label: label(primary),
+                      value,
+                      onChange: reset(setValue),
+                      options: [
+                        { value: "", label: "All" },
+                        ...options.map((v) => ({ value: v, label: label(v) })),
+                      ],
+                    },
+                  ]
+                : []),
+              ...(collection === "scans"
+                ? [
+                    {
+                      id: "direction",
+                      label: "Direction",
+                      value: direction,
+                      onChange: reset(setDirection),
+                      options: [
+                        { value: "", label: "All" },
+                        { value: "input", label: "Input" },
+                        { value: "output", label: "Output" },
+                      ],
+                    },
+                  ]
+                : []),
+            ]}
+          />
         }
-        filters={[
-          ...(editable
-            ? [
-                {
-                  id: "enabled",
-                  label: "Status",
-                  value: enabled,
-                  onChange: reset(setEnabled),
-                  options: [
-                    { value: "", label: "All" },
-                    { value: "true", label: "Enabled" },
-                    { value: "false", label: "Disabled" },
-                  ],
-                },
-              ]
-            : []),
-          ...(primary
-            ? [
-                {
-                  id: primary,
-                  label: label(primary),
-                  value,
-                  onChange: reset(setValue),
-                  options: [
-                    { value: "", label: "All" },
-                    ...options.map((v) => ({ value: v, label: label(v) })),
-                  ],
-                },
-              ]
-            : []),
-          ...(collection === "scans"
-            ? [
-                {
-                  id: "direction",
-                  label: "Direction",
-                  value: direction,
-                  onChange: reset(setDirection),
-                  options: [
-                    { value: "", label: "All" },
-                    { value: "input", label: "Input" },
-                    { value: "output", label: "Output" },
-                  ],
-                },
-              ]
-            : []),
-        ]}
-      />
-      <QueryBoundary title={label(collection)} query={query} keepPreviousData>
-        {(page) => (
-          <>
-            {page.items.length === 0 ? (
-              <Empty
-                title={`No ${collection}`}
-                body={
-                  search || enabled || value || direction
-                    ? "No records match these filters. Adjust the filters to continue."
-                    : "This scope has no stored records yet."
-                }
-                action={
-                  editable && caps.data?.can_manage ? (
-                    <NewLink collection={collection} />
-                  ) : undefined
-                }
-              />
-            ) : (
-              <ResourceTable
-                emptyMessage="No records in this scope."
-                rows={page.items}
-                columns={columns(collection)}
-                rowKey={(r) => r.id}
-                caption={`${page.total} ${collection}`}
-              />
-            )}
-            <Pager page={page} onChange={setOffset} />
-          </>
-        )}
-      </QueryBoundary>
+      >
+        <QueryBoundary title={label(collection)} query={query} keepPreviousData>
+          {(page) => (
+            <>
+              {page.items.length === 0 ? (
+                <Empty
+                  title={`No ${collection}`}
+                  body={
+                    search || enabled || value || direction
+                      ? "No records match these filters. Adjust the filters to continue."
+                      : "This scope has no stored records yet."
+                  }
+                  action={
+                    editable && caps.data?.can_manage ? (
+                      <NewLink collection={collection} />
+                    ) : undefined
+                  }
+                />
+              ) : (
+                <ResourceTable
+                  emptyMessage="No records in this scope."
+                  rows={page.items}
+                  columns={columns(collection)}
+                  rowKey={(r) => r.id}
+                  caption={`${page.total} ${collection}`}
+                />
+              )}
+              <Pager page={page} onChange={setOffset} />
+            </>
+          )}
+        </QueryBoundary>
+      </Section>
       <RefreshStatus query={query} />
     </section>
   )
@@ -308,7 +317,7 @@ export function OverviewPage() {
   usePoll(overview.refetch)
   usePoll(scans.refetch)
   return (
-    <section className="flex min-w-0 flex-col gap-3">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Shield"
         description="Safety configuration and stored record review."
@@ -327,49 +336,52 @@ export function OverviewPage() {
         keepPreviousData
       >
         {(o) => (
-          <div className="flex flex-wrap gap-2">
-            {o.sections.map((s) => (
+          <StatGrid
+            aria-label="Configuration summary"
+            items={o.sections.map((s) => ({
+              label: label(s.collection),
+              value: s.available ? s.total : "Unavailable",
+              href: path(s.collection),
+            }))}
+            renderLink={(href, cell) => (
               <PluginLink
-                key={s.collection}
-                to={path(s.collection)}
-                className="flex items-center gap-3 rounded-md border px-3 py-2 text-xs"
+                to={href}
+                className="grid outline-none hover:bg-muted/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
               >
-                <span className="text-muted-foreground">
-                  {label(s.collection)}
-                </span>
-                <span className="font-mono font-medium">
-                  {s.available ? s.total : "Unavailable"}
-                </span>
+                {cell}
               </PluginLink>
-            ))}
-          </div>
+            )}
+          />
         )}
       </QueryBoundary>
-      <div className="flex items-center justify-between">
-        <h2 className="text-sm font-medium">Recent stored scans</h2>
-        <PluginLink to="/scans" className="text-xs underline">
-          All scans
-        </PluginLink>
-      </div>
-      <QueryBoundary title="Stored scans" query={scans} keepPreviousData>
-        {(p) =>
-          p.items.length ? (
-            <ResourceTable
-              emptyMessage="No records in this scope."
-              rows={p.items}
-              columns={columns("scans").filter(
-                (c) => !["pii_count", "profile_used"].includes(c.id)
-              )}
-              rowKey={(r) => r.id}
-            />
-          ) : (
-            <Empty
-              title="No stored scans"
-              body="No historical scans have been stored in this scope. Live evaluation is unavailable."
-            />
-          )
+      <Section
+        title="Recent stored scans"
+        actions={
+          <PluginLink to="/scans" className="text-xs underline">
+            All scans
+          </PluginLink>
         }
-      </QueryBoundary>
+      >
+        <QueryBoundary title="Stored scans" query={scans} keepPreviousData>
+          {(p) =>
+            p.items.length ? (
+              <ResourceTable
+                emptyMessage="No records in this scope."
+                rows={p.items}
+                columns={columns("scans").filter(
+                  (c) => !["pii_count", "profile_used"].includes(c.id)
+                )}
+                rowKey={(r) => r.id}
+              />
+            ) : (
+              <Empty
+                title="No stored scans"
+                body="No historical scans have been stored in this scope. Live evaluation is unavailable."
+              />
+            )
+          }
+        </QueryBoundary>
+      </Section>
       <PluginSlot name="shield.overview.widgets" />
       <RefreshStatus query={scans} />
     </section>
@@ -457,8 +469,7 @@ function Assignments({ id, caps }: { id: string; caps: Capabilities }) {
   const assign = useCommand("policies.assign")
   const unassign = useCommand("policies.unassign")
   return (
-    <section className="rounded-md border px-3 py-2">
-      <h2 className="mb-1.5 text-xs font-medium">Tenant assignment</h2>
+    <Section title="Tenant assignment" inset>
       <QueryBoundary query={q} title="Policy assignment">
         {(a) => (
           <div className="flex flex-wrap items-center gap-3 text-sm">
@@ -486,7 +497,7 @@ function Assignments({ id, caps }: { id: string; caps: Capabilities }) {
         error={assign.error ?? unassign.error}
         title="Could not update assignment"
       />
-    </section>
+    </Section>
   )
 }
 function ReferenceUsage({
@@ -501,8 +512,7 @@ function ReferenceUsage({
     name: row.name,
   })
   return (
-    <section className="rounded-md border px-3 py-2">
-      <h2 className="mb-1.5 text-xs font-medium">Referenced by profiles</h2>
+    <Section title="Referenced by profiles" inset>
       <QueryBoundary title="Profile references" query={q}>
         {(refs) =>
           refs.length ? (
@@ -524,7 +534,7 @@ function ReferenceUsage({
           )
         }
       </QueryBoundary>
-    </section>
+    </Section>
   )
 }
 function RecordFields({ row }: { row: Row }) {
@@ -550,52 +560,51 @@ function RecordFields({ row }: { row: Row }) {
   const structured = populated.filter(([, v]) => typeof v === "object")
   const missing = entries.filter(([, v]) => empty(v))
   return (
-    <div className="grid min-w-0 gap-2">
-      {scalar.length > 0 && (
-        <dl className="grid min-w-0 gap-x-6 gap-y-2 rounded-md border px-3 py-2 sm:grid-cols-2">
-          {scalar.map(([key, value]) => (
+    <>
+      {(scalar.length > 0 || missing.length > 0) && (
+        <Section title="Details" inset>
+          {scalar.length > 0 && (
+            <DescriptionList
+              items={scalar.map(([key, value]) => ({
+                term: label(key),
+                value: <Value value={value} field={key} />,
+              }))}
+            />
+          )}
+          {missing.length > 0 && (
             <div
-              key={key}
-              className="grid min-w-0 grid-cols-[7rem_minmax(0,1fr)] items-baseline gap-2"
+              className={`flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground ${scalar.length > 0 ? "mt-3" : ""}`}
             >
-              <dt className="text-xs text-muted-foreground">{label(key)}</dt>
-              <dd className="min-w-0 text-xs">
-                <Value value={value} field={key} />
-              </dd>
+              {missing.map(([key]) => (
+                <span key={key}>
+                  {label(key)} <span className="opacity-60">None</span>
+                </span>
+              ))}
             </div>
-          ))}
-        </dl>
+          )}
+        </Section>
       )}
       {structured.length > 0 && (
-        <div className="grid min-w-0 items-start gap-2 sm:grid-cols-2">
+        <div className="grid min-w-0 items-start gap-4 sm:grid-cols-2">
           {structured.map(([key, value]) => (
-            <section
+            <Section
               key={key}
-              className="grid min-w-0 gap-2 rounded-md border p-2.5"
-            >
-              <h2 className="text-xs font-medium">
-                {label(key)}
-                {Array.isArray(value) && (
-                  <span className="ml-1.5 text-muted-foreground">
+              title={label(key)}
+              actions={
+                Array.isArray(value) ? (
+                  <span className="text-xs text-muted-foreground">
                     {value.length}
                   </span>
-                )}
-              </h2>
+                ) : undefined
+              }
+              inset
+            >
               <Value value={value} field={key} />
-            </section>
+            </Section>
           ))}
         </div>
       )}
-      {missing.length > 0 && (
-        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-          {missing.map(([key]) => (
-            <span key={key}>
-              {label(key)} <span className="opacity-60">None</span>
-            </span>
-          ))}
-        </div>
-      )}
-    </div>
+    </>
   )
 }
 export function DetailPage({
@@ -616,7 +625,7 @@ export function DetailPage({
     collection as (typeof collections)[number]
   )
   return (
-    <section className="flex min-w-0 flex-col gap-3">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title={
           q.data?.name ??
@@ -625,6 +634,17 @@ export function DetailPage({
             : collection === "compliance"
               ? "Stored report"
               : label(collection))
+        }
+        meta={
+          q.data ? (
+            <>
+              <code className="text-xs break-all">{q.data.id}</code>
+              {editable && <Status enabled={q.data.enabled} />}
+              <span className="text-xs text-muted-foreground">
+                <Timestamp value={q.data.created_at} label="created" />
+              </span>
+            </>
+          ) : undefined
         }
         actions={
           <>
@@ -643,11 +663,6 @@ export function DetailPage({
       <QueryBoundary title="Resource" query={q} keepPreviousData>
         {(row) => (
           <>
-            <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-              <code className="break-all">{row.id}</code>
-              {editable && <Status enabled={row.enabled} />}
-              <Timestamp value={row.created_at} label="created" />
-            </div>
             <RecordFields row={row} />
             {editable &&
               collection !== "profiles" &&
@@ -659,47 +674,48 @@ export function DetailPage({
       </QueryBoundary>
       {collection === "policies" && caps.data && (
         <Assignments id={id} caps={caps.data} />
-      )}{" "}
+      )}
       {collection === "scans" && (
-        <QueryBoundary title="PII metadata" query={tokens}>
-          {(page) => (
-            <section>
-              <h2 className="mb-1.5 text-xs font-medium">PII metadata</h2>
-              {page.items.length ? (
-                <ResourceTable
-                  emptyMessage="No records in this scope."
-                  rows={page.items}
-                  columns={[
-                    {
-                      id: "type",
-                      header: "Type",
-                      cell: (r) => String(r.pii_type),
-                    },
-                    {
-                      id: "placeholder",
-                      header: "Placeholder",
-                      cell: (r) => String(r.placeholder),
-                    },
-                    {
-                      id: "expiry",
-                      header: "Expires",
-                      cell: (r) => (
-                        <Value value={r.expires_at} field="expires_at" />
-                      ),
-                    },
-                  ]}
-                  rowKey={(r) => r.id}
-                />
-              ) : (
-                <Empty
-                  title="No PII metadata"
-                  body="No tokens are stored for this scan."
-                />
-              )}
-              <Pager page={page} onChange={setTokenOffset} />
-            </section>
-          )}
-        </QueryBoundary>
+        <Section title="PII metadata">
+          <QueryBoundary title="PII metadata" query={tokens}>
+            {(page) => (
+              <>
+                {page.items.length ? (
+                  <ResourceTable
+                    emptyMessage="No records in this scope."
+                    rows={page.items}
+                    columns={[
+                      {
+                        id: "type",
+                        header: "Type",
+                        cell: (r) => String(r.pii_type),
+                      },
+                      {
+                        id: "placeholder",
+                        header: "Placeholder",
+                        cell: (r) => String(r.placeholder),
+                      },
+                      {
+                        id: "expiry",
+                        header: "Expires",
+                        cell: (r) => (
+                          <Value value={r.expires_at} field="expires_at" />
+                        ),
+                      },
+                    ]}
+                    rowKey={(r) => r.id}
+                  />
+                ) : (
+                  <Empty
+                    title="No PII metadata"
+                    body="No tokens are stored for this scan."
+                  />
+                )}
+                <Pager page={page} onChange={setTokenOffset} />
+              </>
+            )}
+          </QueryBoundary>
+        </Section>
       )}
       {collection === "scans" && (
         <PluginSlot name="shield.scan.detail" params={{ scanId: id }} />
@@ -713,26 +729,28 @@ export function DetailPage({
 export function SettingsPage() {
   const q = useQuery<Record<string, unknown>>("config.detail")
   return (
-    <section className="flex min-w-0 flex-col gap-3">
+    <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Shield settings"
         description="Effective server configuration. Runtime editing and persistent settings are unavailable."
       />
       <CoverageNotice />
-      <QueryBoundary title="Effective configuration" query={q}>
-        {(row) => (
-          <Value
-            value={{
-              ...row,
-              shutdown_timeout_ms:
-                typeof row.shutdown_timeout === "number"
-                  ? row.shutdown_timeout / 1e6
-                  : undefined,
-              shutdown_timeout: undefined,
-            }}
-          />
-        )}
-      </QueryBoundary>
+      <Section title="Effective configuration" inset>
+        <QueryBoundary title="Effective configuration" query={q}>
+          {(row) => (
+            <Value
+              value={{
+                ...row,
+                shutdown_timeout_ms:
+                  typeof row.shutdown_timeout === "number"
+                    ? row.shutdown_timeout / 1e6
+                    : undefined,
+                shutdown_timeout: undefined,
+              }}
+            />
+          )}
+        </QueryBoundary>
+      </Section>
       <PluginSlot name="shield.settings" />
     </section>
   )

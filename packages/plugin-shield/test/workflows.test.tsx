@@ -250,6 +250,8 @@ it("shows tenant-wide PII totals even on a metadata page", async () => {
       },
     })
   )
-  expect(await screen.findByText("31 tokens · 2 types")).toBeTruthy()
-  expect(screen.getByText("phone")).toBeTruthy()
+  const totals = within(await screen.findByLabelText("PII type totals"))
+  expect(totals.getByText("Tokens").nextElementSibling?.textContent).toBe("31")
+  expect(totals.getByText("Types").nextElementSibling?.textContent).toBe("2")
+  expect(totals.getByText("phone").nextElementSibling?.textContent).toBe("3")
 })
