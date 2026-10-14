@@ -88,14 +88,13 @@ describe("NavRail", () => {
     })
   })
 
-  it("puts scope switching at the top, then context and search, with the account at the foot", () => {
+  it("puts context and search at the top, with the account at the foot", () => {
     renderRail()
     const order = within(rail())
       .getAllByRole("button")
       .map((b) => b.textContent)
       .filter((t) => t && !/navigation/.test(t))
     expect(order).toEqual([
-      "Switch scope",
       "Platform / Production",
       "Search pages",
       "Account menu",
@@ -117,6 +116,33 @@ describe("NavRail", () => {
     expect(
       within(rail()).getAllByRole("button", { name: "Switch scope" })
     ).toHaveLength(1)
+  })
+
+  it("shows the scope's mark in place of the switcher while collapsed", () => {
+    const { onToggle } = renderRail({
+      mark: <span data-testid="scope-mark">N</span>,
+    })
+    expect(
+      within(rail()).queryByRole("button", { name: "Switch scope" })
+    ).toBeNull()
+    const toggle = within(rail()).getByRole("button", {
+      name: "Expand navigation",
+    })
+    expect(within(toggle).getByTestId("scope-mark")).toBeTruthy()
+    // The toggle icon is there too, revealed on hover and focus.
+    expect(toggle.querySelector("svg")?.getAttribute("class")).toContain(
+      "group-hover/brand-toggle:block"
+    )
+    fireEvent.click(toggle)
+    expect(onToggle).toHaveBeenCalledTimes(1)
+  })
+
+  it("keeps the mark out of the header once expanded", () => {
+    renderRail({
+      expanded: true,
+      mark: <span data-testid="scope-mark">N</span>,
+    })
+    expect(within(rail()).queryByTestId("scope-mark")).toBeNull()
   })
 
   it("links every entry with the query string and marks the active one", () => {

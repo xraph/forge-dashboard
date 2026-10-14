@@ -25,6 +25,8 @@ export interface RailGroup {
 export interface NavRailProps {
   /** The scope switcher in the compact brand header. */
   switcher?: ReactNode
+  /** The active scope's mark, standing in for the switcher while collapsed. */
+  mark?: ReactNode
   /** The scope's context control (App / Environment). Absent for a scope with none. */
   context?: ReactNode
   /** The search trigger. */
@@ -112,6 +114,7 @@ const SEARCH_SLOT_WIDE = "[&>button]:h-8 [&>button]:w-full [&>button]:px-2"
  */
 export function NavRail({
   switcher,
+  mark,
   context,
   searchControl,
   account,
@@ -144,6 +147,7 @@ export function NavRail({
         expanded={expanded}
         onToggle={onToggle}
         switcher={switcher}
+        mark={mark}
       />
       <div
         className={cn(
@@ -151,11 +155,6 @@ export function NavRail({
           expanded ? "px-3 pt-[18px] pb-[9px]" : "items-center px-2 py-2"
         )}
       >
-        {!expanded && switcher ? (
-          <RailSlot expanded={expanded} title="Switch scope">
-            {switcher}
-          </RailSlot>
-        ) : null}
         {context ? (
           <RailSlot expanded={expanded} title="App and environment">
             {context}

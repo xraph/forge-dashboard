@@ -9,8 +9,14 @@ export function SidebarBrand({
   onToggle,
   toggleLabel,
   switcher,
+  mark,
 }: {
   switcher?: ReactNode
+  /**
+   * Shown in place of the toggle icon while collapsed, so the narrow rail
+   * still says which scope it is. Hover or focus swaps the icon back in.
+   */
+  mark?: ReactNode
   expanded?: boolean
   onToggle: () => void
   toggleLabel?: string
@@ -42,11 +48,29 @@ export function SidebarBrand({
         title={name}
         onClick={onToggle}
         className={cn(
-          "grid size-6 shrink-0 place-items-center rounded-sm text-muted-foreground hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:outline-none",
-          expanded && "ml-auto"
+          "group/brand-toggle grid shrink-0 place-items-center text-muted-foreground hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:outline-none",
+          expanded ? "ml-auto size-6 rounded-sm" : "size-8 rounded-md",
+          !expanded &&
+            mark &&
+            "text-sidebar-foreground hover:text-muted-foreground"
         )}
       >
-        <PanelLeftIcon className="size-3.5 stroke-[1.5]" />
+        {!expanded && mark ? (
+          <span
+            data-slot="sidebar-brand-mark"
+            className="grid place-items-center group-hover/brand-toggle:hidden group-focus-visible/brand-toggle:hidden"
+          >
+            {mark}
+          </span>
+        ) : null}
+        <PanelLeftIcon
+          className={cn(
+            "size-3.5 stroke-[1.5]",
+            !expanded &&
+              mark &&
+              "hidden size-4 group-hover/brand-toggle:block group-focus-visible/brand-toggle:block"
+          )}
+        />
       </button>
     </div>
   )

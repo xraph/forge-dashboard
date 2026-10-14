@@ -1,4 +1,5 @@
 import type { CSSProperties, ReactNode } from "react"
+import { LayersIcon } from "lucide-react"
 
 import { SidebarBrand } from "@forge-go/dashboard-kit/components/sidebar-brand"
 
@@ -9,7 +10,10 @@ import { NavRail } from "@forge-go/dashboard-kit/components/nav-rail"
 import type { RailGroup } from "@forge-go/dashboard-kit/components/nav-rail"
 import type { NavArea } from "@forge-go/dashboard-kit/components/nav-tree"
 import { NavUser } from "@forge-go/dashboard-kit/components/nav-user"
-import { ScopeGridSwitcher } from "@forge-go/dashboard-kit/components/scope-grid-switcher"
+import {
+  ScopeGridSwitcher,
+  ScopeTile,
+} from "@forge-go/dashboard-kit/components/scope-grid-switcher"
 import type {
   ScopeOption,
   ScopeSwitcherProps,
@@ -157,11 +161,24 @@ export function DashboardShell({
         activeId={activeScopeId}
         onSelect={onScopeSelect}
         home={scopeHome}
-        menuSide="bottom"
+        menuSide="right"
         compact
         header
       />
     ) : null
+  const activeScope = scopes.find((scope) => scope.id === activeScopeId)
+  const markLabel = activeScope?.label ?? scopeHome?.label
+  const mark = markLabel ? (
+    <ScopeTile
+      // The same fallback the compact header trigger draws, so the mark
+      // does not change between the collapsed and expanded rail.
+      icon={
+        (activeScope ? activeScope.icon : scopeHome?.icon) ?? <LayersIcon />
+      }
+      label={markLabel}
+      className="size-5 rounded-sm border-0 bg-transparent text-current [&>svg]:size-5 [&>svg]:stroke-[1.5]"
+    />
+  ) : undefined
   const account = <NavUser user={user} onSignOut={onSignOut} compact />
   const isMobile = useIsMobile()
   const areas = pane.areas ?? []
@@ -218,6 +235,7 @@ export function DashboardShell({
     >
       <NavRail
         switcher={switcher}
+        mark={mark}
         context={context}
         searchControl={searchControl}
         account={account}
