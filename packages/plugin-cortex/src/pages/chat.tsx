@@ -32,6 +32,7 @@ import {
   useAccess,
   Value,
 } from "../components"
+import { OutcomeSummary, liveOutcome, type ExecutionOutcome } from "../outcome"
 import { FormFields, type Draft } from "../form"
 import { schemas } from "../schema"
 import { AgentPicker } from "./operations"
@@ -45,14 +46,14 @@ import type {
   Runtime,
   Session,
 } from "../types"
-function LiveRun({
+export function LiveRun({
   id,
   onDone,
-  state,
+  outcome,
 }: {
   id: string
   onDone: () => void
-  state?: string
+  outcome?: ExecutionOutcome
 }) {
   const client = usePluginClient(),
     [events, setEvents] = useState<LiveEvent[]>([]),
@@ -114,18 +115,7 @@ function LiveRun({
           {id}
         </PluginLink>
         <div className="flex items-center gap-2">
-          <State
-            value={
-              done
-                ? (state ??
-                  (events.some((e) => e.event === "suspended")
-                    ? "suspended"
-                    : events.some((e) => e.event === "error")
-                      ? "failed"
-                      : "completed"))
-                : "running"
-            }
-          />
+          <OutcomeSummary outcome={liveOutcome(events, done, outcome)} />
           {!done && (
             <IconAction
               label={stopping ? "Stopping…" : "Stop"}
@@ -147,6 +137,9 @@ function LiveRun({
           onClick={() => {
             setError(undefined)
             setEvents([])
+            setDone(false)
+            setPartial(false)
+            setAvailable(true)
             setRetry(retry + 1)
           }}
           label="Retry live events"
@@ -477,7 +470,7 @@ function ChatPane({
           <LiveRun
             key={runId}
             id={runId}
-            state={detail.data?.run.state}
+            outcome={detail.data?.run}
             onDone={() => {
               setActive(false)
               void detail.refetch()

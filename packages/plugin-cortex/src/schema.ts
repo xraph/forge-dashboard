@@ -320,6 +320,7 @@ export const schemas: Record<
       ]),
       object("settings", "Settings", [
         number("max_concurrency", "Maximum concurrency"),
+        number("plan_repair_attempts", "Plan repair attempts", 0, 1),
         number("rounds", "Rounds"),
         ref("manager", "Manager", "agents"),
         ref("judge", "Judge", "agents"),

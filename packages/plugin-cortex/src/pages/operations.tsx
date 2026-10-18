@@ -1,3 +1,4 @@
+import { OutcomeSummary } from "../outcome"
 import { CircleStop } from "@forge-go/dashboard-kit/icons"
 import { Pencil, Eraser, Trash2 } from "@forge-go/dashboard-kit/icons"
 import { ChevronLeft, ChevronRight } from "@forge-go/dashboard-kit/icons"
@@ -77,7 +78,7 @@ export const runColumns: Column<Run>[] = [
       </PluginLink>
     ),
   },
-  { id: "state", header: "State", cell: (r) => <State value={r.state} /> },
+  { id: "state", header: "State", cell: (r) => <OutcomeSummary outcome={r} /> },
   { id: "steps", header: "Steps", cell: (r) => r.step_count },
   { id: "tokens", header: "Tokens", cell: (r) => r.tokens_used },
   {
@@ -284,7 +285,7 @@ export function RunPage({ id }: { id: string }) {
               description={data.run.id}
               meta={
                 <>
-                  <State value={data.run.state} />
+                  <OutcomeSummary outcome={data.run} />
                   <PluginLink
                     to={`/agents/${data.run.agent_id}`}
                     className="underline"

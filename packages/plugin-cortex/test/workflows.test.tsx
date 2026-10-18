@@ -17,6 +17,7 @@ import plugin from "../src/index"
 import { changedFields, FieldControl } from "../src/form"
 import { schemas, type Field } from "../src/schema"
 import { ConfigEdit, ConfigList } from "../src/pages/configuration"
+import { LiveRun } from "../src/pages/chat"
 import { CatalogPage } from "../src/pages/integrations"
 
 vi.mock("../src/editor", () => ({
@@ -241,4 +242,16 @@ it("edits arbitrary nested action values and blocks malformed JSON", async () =>
     "disabled",
     false
   )
+})
+
+it("does not mark an expired live feed completed", async () => {
+  mount(<LiveRun id="arun_closed" onDone={vi.fn()} />, () =>
+    ok({ events: [], next: 0, done: true, available: false, lost: false })
+  )
+  await screen.findByText(
+    "The live feed has expired or the server restarted.",
+    { exact: false }
+  )
+  expect(screen.queryByText("completed")).toBeNull()
+  expect(screen.getByText("unknown")).toBeTruthy()
 })

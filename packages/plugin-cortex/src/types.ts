@@ -126,6 +126,10 @@ export interface Run {
   session_id?: string
   scope: Scope
   state: string
+  stop_reason?: string
+  verification_status?: string
+  result_ref?: string
+  provenance?: { publication_status?: string }
   input: string
   output?: string
   error?: string
@@ -208,6 +212,15 @@ export interface Memory {
   complete: boolean
 }
 export interface Runtime {
+  assurance?: {
+    prepared_execution: boolean
+    atomic_source_snapshot: boolean
+    contextual_verification: boolean
+    publication_gate_installed: boolean
+    publication_mode: string
+    publication_required: boolean
+    incremental_gate_installed: boolean
+  }
   scope: Scope
   llm: boolean
   execution_label: string

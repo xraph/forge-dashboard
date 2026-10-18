@@ -508,8 +508,8 @@ function AgentActivity({ agent }: { agent: Agent }) {
           <p className="border-b px-4 py-3 text-sm text-muted-foreground">
             {data.total} runs · {data.completed} completed ·{" "}
             {data.success_rate === null
-              ? "No success rate yet"
-              : `${(data.success_rate * 100).toFixed(1)}% success`}
+              ? "No completion rate yet"
+              : `${(data.success_rate * 100).toFixed(1)}% completed`}
             {data.last_run && (
               <>
                 {" "}

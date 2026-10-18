@@ -276,7 +276,11 @@ func (s *cortexDemoStream) Next(ctx context.Context) (*llm.Chunk, error) {
 	}
 	word := s.words[s.index]
 	s.index++
-	return &llm.Chunk{Content: word}, nil
+	chunk := &llm.Chunk{Content: word}
+	if s.index == len(s.words) {
+		chunk.FinishReason = s.response.FinishReason
+	}
+	return chunk, nil
 }
 func (*cortexDemoStream) Close() error        { return nil }
 func (s *cortexDemoStream) Usage() *llm.Usage { return &s.response.Usage }

@@ -375,7 +375,7 @@ describe("Cortex pages follow the shared layout", () => {
     await screen.findByRole("heading", { level: 1, name: "reviewer" })
     // The two queries behind the agent's activity block arrive on their own.
     await screen.findByText("run_01")
-    await screen.findByText(/75\.0% success/)
+    await screen.findByText(/75\.0% completed/)
     expectLayout(container, "Execution", "Details")
   })
 

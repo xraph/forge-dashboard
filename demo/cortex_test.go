@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"io"
 	"path/filepath"
 	"testing"
 
@@ -32,7 +33,9 @@ func cortexTestEngine(t *testing.T, file string) *engine.Engine {
 	if err := st.Migrate(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	eng, err := engine.New(engine.WithStore(st), engine.WithLLM(cortexDemoLLM{}))
+	eng, err := engine.New(engine.WithStore(st), engine.WithLLM(cortexDemoLLM{}), engine.WithTool(llm.Tool{Name: "demo_lookup"}, func(context.Context, cortex.Invocation) (string, error) {
+		return "", errors.New("unexpected tool invocation in seed fixture")
+	}))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -94,5 +97,29 @@ func TestCortexDemoProviderUsesLatestTurn(t *testing.T) {
 	page, err := cortexDemoModels(context.Background(), map[string]any{"search": "no-match"})
 	if err != nil || page.(map[string]any)["total"] != 0 {
 		t.Fatalf("filter: %+v %v", page, err)
+	}
+}
+
+func TestCortexDemoStreamHasTerminalFinishReason(t *testing.T) {
+	stream, err := (cortexDemoLLM{}).CompleteStream(context.Background(), &llm.Request{Messages: []llm.Message{{Role: "user", Content: "answer"}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer stream.Close()
+	finish := ""
+	for {
+		chunk, nextErr := stream.Next(context.Background())
+		if errors.Is(nextErr, io.EOF) {
+			break
+		}
+		if nextErr != nil {
+			t.Fatal(nextErr)
+		}
+		if chunk.FinishReason != "" {
+			finish = chunk.FinishReason
+		}
+	}
+	if finish != "stop" {
+		t.Fatalf("stream ended without completion: %q", finish)
 	}
 }

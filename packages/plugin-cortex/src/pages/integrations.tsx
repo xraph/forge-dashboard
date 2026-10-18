@@ -521,6 +521,7 @@ export function SettingsPage() {
                 value={{
                   llm: data.llm,
                   safety_scanner: data.safety,
+                  assurance: data.assurance ?? "Unavailable on this server",
                   knowledge_provider: data.knowledge,
                   tool_authorizer: data.tool_authorizer,
                   audit_recorder: data.audit,
