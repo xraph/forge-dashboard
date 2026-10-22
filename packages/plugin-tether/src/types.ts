@@ -8,6 +8,16 @@
  * the tenant tabs that arrive next read them and the shapes belong in one file.
  */
 
+/**
+ * `session.info`: whether the signed-in user is an operator (every tenant, and
+ * tenant management) or a tenant user confined to `tenantId`. An operator's
+ * `tenantId` is there only when their session names a tenant too.
+ */
+export interface SessionInfo {
+  operator: boolean
+  tenantId?: string
+}
+
 /** A tenant's limits. Every number is 0 for "default or unlimited". */
 export interface Limits {
   maxConnections: number

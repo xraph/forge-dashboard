@@ -33,9 +33,16 @@ function answer(value: Answer, arg?: unknown): unknown {
  * same intent answer differently on its second call.
  */
 export function stubClient(
-  answers: Record<string, Answer>,
+  given: Record<string, Answer>,
   commands: Record<string, Answer> = {}
 ): ScopedClient {
+  // Pages ask session.info before anything else. Unless a test says
+  // otherwise the caller is an operator, which is what the fixture server
+  // answers by default too.
+  const answers: Record<string, Answer> = {
+    "session.info": { operator: true },
+    ...given,
+  }
   return {
     extension: "tether",
     query: async (intent: string, params?: unknown) => {

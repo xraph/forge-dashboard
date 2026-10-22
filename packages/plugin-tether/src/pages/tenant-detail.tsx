@@ -18,6 +18,7 @@ import { DevicesPanel } from "./devices"
 import { RolesPanel } from "./role-topics"
 import { Counters } from "../components/counters"
 import { formatCount, formatSeconds, tenantLabel } from "../format"
+import { useSession } from "../session"
 import type { Limits, Stats, Tenant } from "../types"
 
 const POLL_MS = 10_000
@@ -81,19 +82,28 @@ function details(tenant: Tenant, limits: Limits = tenant.limits) {
 
 export const TenantDetailPage: ComponentType<PluginPageProps> = ({
   params,
-}) => {
-  const tenantId = params.tenantId ?? ""
+}) => <TenantDetail tenantId={params.tenantId ?? ""} />
+
+/**
+ * One tenant: its record, live counters and tabs. It is also what a tenant
+ * user gets at `/` and at `/tenants`, so the link back to the tenant list is
+ * only drawn for an operator, the one caller who can read that list.
+ */
+export function TenantDetail({ tenantId }: { tenantId: string }) {
+  const session = useSession()
   const tenant = useQuery<Tenant>("tenants.get", { tenantId })
   const stats = useQuery<Stats>("overview.stats", { tenantId })
   usePoll(stats.refetch, POLL_MS)
 
   return (
     <section className="flex min-w-0 flex-col gap-4">
-      <p className="text-sm">
-        <PluginLink to="/tenants" className="underline underline-offset-4">
-          All tenants
-        </PluginLink>
-      </p>
+      {session.data?.operator && (
+        <p className="text-sm">
+          <PluginLink to="/tenants" className="underline underline-offset-4">
+            All tenants
+          </PluginLink>
+        </p>
+      )}
       <PageHeader
         title={tenant.data ? tenantLabel(tenant.data) : "Tenant"}
         description="Limits and live counters for this tenant."

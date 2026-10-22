@@ -15,7 +15,12 @@ import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { TetherBoundary, TetherCommandAlert } from "../components/boundary"
 import { CreateTenantDialog } from "../components/create-tenant-dialog"
 import { limitsSummary, tenantLabel, tenantPath } from "../format"
+import { SessionGate } from "../session"
 import type { Ack, Tenant, TenantsList, UpdateTenantInput } from "../types"
+import { TenantDetail } from "./tenant-detail"
+
+const DESCRIPTION =
+  "Each tenant is an isolated MQTT namespace with its own devices, roles and limits."
 
 /** A tenant the enable/disable button was last pressed for. */
 interface Toggled {
@@ -23,7 +28,24 @@ interface Toggled {
   enabling: boolean
 }
 
-export const TenantsPage: ComponentType<PluginPageProps> = () => {
+/**
+ * The tenant list, for an operator. A tenant user has one tenant and may not
+ * list the others, so for them this is that tenant's page: the plugin's nav
+ * is fixed when it is defined and cannot hide the entry per session.
+ */
+export const TenantsPage: ComponentType<PluginPageProps> = () => (
+  <SessionGate title="Tenants" description={DESCRIPTION}>
+    {(session) =>
+      session.operator ? (
+        <TenantList />
+      ) : (
+        <TenantDetail tenantId={session.tenantId ?? ""} />
+      )
+    }
+  </SessionGate>
+)
+
+function TenantList() {
   const query = useQuery<TenantsList>("tenants.list")
   const update = useCommand<Tenant>("tenants.update")
   const remove = useCommand<Ack>("tenants.delete")
@@ -109,7 +131,7 @@ export const TenantsPage: ComponentType<PluginPageProps> = () => {
     <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Tenants"
-        description="Each tenant is an isolated MQTT namespace with its own devices, roles and limits."
+        description={DESCRIPTION}
         actions={<Button onClick={() => setCreating(true)}>New tenant</Button>}
       />
       <TetherCommandAlert

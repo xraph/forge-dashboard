@@ -4,7 +4,7 @@
 //
 // Mirrors forgery/tether/extension/contract (types.go, errors.go,
 // handlers_*.go, manifest.yaml and llm.txt). Field names are the Go JSON tags.
-// All 23 intents are here: 9 queries and 14 commands. Every write changes the
+// All 24 intents are here: 10 queries and 14 commands. Every write changes the
 // state the next read answers from.
 //
 // The module is self-contained. The one thing it needs from server.mjs is the
@@ -13,7 +13,13 @@
 //
 // The fixture's own stand-ins:
 //   - There is no principal, so the contract's UNAUTHENTICATED admission check
-//     is not modelled: every request is a signed-in admin.
+//     is not modelled: every request is a signed-in user. By default that user
+//     is an operator (WithDashboardOperators): any tenant, and tenants.create,
+//     update and delete. FIXTURE_TETHER_SESSION=tenant makes it a tenant user
+//     of the seeded acme tenant instead, scoped the way the Go gate scopes
+//     one: an omitted tenantId is acme, another tenant is PERMISSION_DENIED,
+//     tenants.list holds acme alone, tenant management is refused, and
+//     overview.stats without a tenantId is acme's counters.
 //   - There is no broker. Clients and retained messages are rows in the state;
 //     stats count them. messagesIn and messagesOut are seeded and do not move.
 //     FIXTURE_TETHER_BROKER_DOWN=1 stands in for a broker that is not running,
@@ -316,13 +322,31 @@ export function createTetherHandlers(FixtureError) {
     if (brokerDown()) throw new FixtureError(503, "UNAVAILABLE", "the broker is not running")
   }
 
-  /** tenantID (errors.go): empty is PERMISSION_DENIED, malformed BAD_REQUEST. */
+  const denied = (message) => new FixtureError(403, "PERMISSION_DENIED", message)
+
+  /** The caller's own tenant, or null for an operator (caller.go's gate). */
+  const sessionTenant = () => (process.env.FIXTURE_TETHER_SESSION === "tenant" ? TETHER_IDS.acme : null)
+
+  /** operatorOnly: tenant management is refused to a tenant user. */
+  function requireOperator() {
+    if (sessionTenant() !== null) throw denied("managing tenants is for operators")
+  }
+
+  /**
+   * gate.tenantFor then tenantID (caller.go, errors.go): a malformed tenantId
+   * is BAD_REQUEST; a tenant user gets their own tenant, and another one is
+   * PERMISSION_DENIED; an operator with no tenantId is PERMISSION_DENIED.
+   */
   function tenantIdOf(raw) {
-    if (raw === undefined || raw === null || raw === "") {
-      throw new FixtureError(403, "PERMISSION_DENIED", "tenantId is required")
+    const given = raw !== undefined && raw !== null && raw !== ""
+    if (given && !parseTypeId(raw, "ttnt")) throw badRequest("malformed tenantId")
+    const own = sessionTenant()
+    if (own === null) {
+      if (!given) throw denied("tenantId is required")
+      return raw
     }
-    if (!parseTypeId(raw, "ttnt")) throw badRequest("malformed tenantId")
-    return raw
+    if (given && raw !== own) throw denied("that tenant is outside your scope")
+    return own
   }
 
   /** loadTenant: an unknown tenant is NOT_FOUND. */
@@ -461,12 +485,20 @@ export function createTetherHandlers(FixtureError) {
   return {
     // ----- Queries -----
 
+    "session.info": {
+      kind: "query",
+      handler: () => {
+        const own = sessionTenant()
+        return own === null ? { operator: true } : { operator: false, tenantId: own }
+      },
+    },
+
     "overview.stats": {
       kind: "query",
       handler: (params) => {
         requireBroker()
         const raw = params?.tenantId
-        if (raw !== undefined && raw !== null && raw !== "") {
+        if ((raw !== undefined && raw !== null && raw !== "") || sessionTenant() !== null) {
           const t = loadTenant(raw)
           return { scope: "tenant", tenantId: t.id, ...counters(t.id) }
         }
@@ -483,6 +515,11 @@ export function createTetherHandlers(FixtureError) {
       kind: "query",
       handler: (params) => {
         const { limit, offset } = page(params)
+        const own = sessionTenant()
+        if (own !== null) {
+          const t = tether.tenants.get(own)
+          return { items: t && offset === 0 ? [projectTenant(t)] : [], limit, offset }
+        }
         const all = [...tether.tenants.values()].sort((a, b) => a.createdAt - b.createdAt)
         return { items: all.slice(offset, offset + limit).map(projectTenant), limit, offset }
       },
@@ -567,6 +604,7 @@ export function createTetherHandlers(FixtureError) {
       kind: "command",
       invalidates: ["tenants.list", "overview.stats"],
       handler: (params) => {
+        requireOperator()
         const appId = str(params?.appId).trim()
         if (appId === "") throw badRequest("app ID is required")
         const externalId = str(params?.externalId).trim()
@@ -601,6 +639,7 @@ export function createTetherHandlers(FixtureError) {
       kind: "command",
       invalidates: TENANT_INVALIDATES,
       handler: (params) => {
+        requireOperator()
         const t = loadTenant(params?.tenantId)
         // Validate everything before changing anything.
         const limits = params?.limits === undefined || params?.limits === null ? null : toLimits(params.limits)
@@ -624,6 +663,7 @@ export function createTetherHandlers(FixtureError) {
       kind: "command",
       invalidates: TENANT_INVALIDATES,
       handler: (params) => {
+        requireOperator()
         const t = loadTenant(params?.tenantId)
         const n = tenantDevices(t.id).length
         if (n > 0) throw conflict(`tenant ${t.id} still has ${n} devices`)

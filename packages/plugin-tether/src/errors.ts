@@ -16,10 +16,12 @@ export interface ExplainedError {
  * retryable, and the retry button the boundary draws is the right answer, so
  * this only names what is down.
  *
- * PERMISSION_DENIED is three different refusals under one code: a request with
- * no tenant ID, a tenant that is disabled, and a caller who is not authorized
- * for the tenant. The server's own words say which, so they stay first and the
- * sentence added names the two an operator can act on.
+ * PERMISSION_DENIED covers several refusals under one code: a tenant that is
+ * disabled, a tenant outside the caller's own (a dashboard user who is not an
+ * operator reaches only the tenant their session names), a session that names
+ * no Tether tenant at all, and tenant management by someone who is not an
+ * operator. The server's own words say which, so they stay first and the
+ * sentence added names the ones a person can act on.
  */
 export function explainError(error: ExplainedError): ExplainedError
 export function explainError(
@@ -43,7 +45,7 @@ export function explainError(
     case "PERMISSION_DENIED":
       return {
         code: error.code,
-        message: `${error.message}. The tenant may be disabled, or you may not be authorized to use it.`,
+        message: `${error.message}. The tenant may be disabled, or you may not be authorized to use it: unless Tether makes you an operator, you reach only the tenant your session belongs to.`,
       }
     default:
       return error

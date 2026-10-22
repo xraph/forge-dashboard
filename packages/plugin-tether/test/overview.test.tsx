@@ -49,26 +49,27 @@ describe("OverviewPage", () => {
     const { client, queries } = recordingClient({ "overview.stats": NODE })
     renderPage(OverviewPage, client)
     await screen.findByText("Sessions")
-    expect(queries).toHaveLength(1)
-    expect(queries[0].intent).toBe("overview.stats")
-    expect(queries[0].params ?? {}).not.toHaveProperty("tenantId")
+    const stats = queries.filter((q) => q.intent === "overview.stats")
+    expect(stats).toHaveLength(1)
+    expect(stats[0].params ?? {}).not.toHaveProperty("tenantId")
   })
 
   it("polls overview.stats every 10 seconds", async () => {
     vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] })
     const { client, queries } = recordingClient({ "overview.stats": NODE })
+    const stats = () => queries.filter((q) => q.intent === "overview.stats")
     renderPage(OverviewPage, client)
     await screen.findByText("Sessions")
-    expect(queries).toHaveLength(1)
+    expect(stats()).toHaveLength(1)
 
     await act(async () => {
       vi.advanceTimersByTime(9_999)
     })
-    expect(queries).toHaveLength(1)
+    expect(stats()).toHaveLength(1)
     await act(async () => {
       vi.advanceTimersByTime(1)
     })
-    expect(queries).toHaveLength(2)
+    expect(stats()).toHaveLength(2)
   })
 
   it("keeps the counters on screen while a poll is in flight", async () => {

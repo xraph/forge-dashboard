@@ -30,6 +30,7 @@ export type {
   RetainedList,
   Role,
   RolesList,
+  SessionInfo,
   Stats,
   Tenant,
   TenantsList,
@@ -49,6 +50,11 @@ export type {
  * Every Tether intent refuses with UNAUTHENTICATED unless the dashboard user
  * is signed in, so a dashboard with auth off shows the pages' sign-in message
  * rather than data.
+ *
+ * The pages read `session.info` first. An operator gets the node overview and
+ * the tenant list; a tenant user gets their own tenant's page at `/` and at
+ * `/tenants`, because the nav is fixed here and cannot drop the Tenants entry
+ * for one session.
  *
  * No `requires` range: a range the host skips for a contributor that reports
  * no version reads as a guarantee and enforces nothing.
