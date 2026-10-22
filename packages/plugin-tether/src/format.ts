@@ -57,6 +57,9 @@ export function limitsSummary(limits: Limits): string | null {
       `${formatSeconds(limits.maxSessionExpirySeconds)} session expiry`
     )
   }
+  if (limits.maxSessions > 0) {
+    parts.push(`${formatCount(limits.maxSessions)} sessions`)
+  }
   return parts.length === 0 ? null : parts.join(", ")
 }
 

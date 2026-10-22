@@ -117,7 +117,7 @@ function seedTetherState() {
     externalId: "acme",
     name: "Acme Fleet",
     enabled: true,
-    limits: { maxConnections: 500, messagesPerSecond: 200, burst: 400, maxSessionExpirySeconds: 86_400 },
+    limits: { maxConnections: 500, messagesPerSecond: 200, burst: 400, maxSessionExpirySeconds: 86_400, maxSessions: 1_000 },
     createdAt: now - 60 * day,
     updatedAt: now - 5 * day,
   })
@@ -127,7 +127,7 @@ function seedTetherState() {
     externalId: "globex",
     name: "Globex Metering",
     enabled: true,
-    limits: { maxConnections: 0, messagesPerSecond: 0, burst: 0, maxSessionExpirySeconds: 0 },
+    limits: { maxConnections: 0, messagesPerSecond: 0, burst: 0, maxSessionExpirySeconds: 0, maxSessions: 0 },
     createdAt: now - 20 * day,
   })
 
@@ -402,11 +402,12 @@ export function createTetherHandlers(FixtureError) {
       messagesPerSecond: n(raw?.messagesPerSecond),
       burst: n(raw?.burst),
       maxSessionExpirySeconds: n(raw?.maxSessionExpirySeconds),
+      maxSessions: n(raw?.maxSessions),
     }
     for (const v of Object.values(l)) {
       if (typeof v !== "number" || !Number.isFinite(v)) throw badRequest("limits must be numbers")
     }
-    if (l.maxConnections < 0 || l.messagesPerSecond < 0 || l.burst < 0) {
+    if (l.maxConnections < 0 || l.messagesPerSecond < 0 || l.burst < 0 || l.maxSessions < 0) {
       throw badRequest("limits must not be negative")
     }
     l.maxSessionExpirySeconds = seconds("maxSessionExpirySeconds", l.maxSessionExpirySeconds)

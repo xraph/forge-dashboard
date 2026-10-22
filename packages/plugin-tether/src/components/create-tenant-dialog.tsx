@@ -34,6 +34,7 @@ const LIMIT_FIELDS: {
     label: "Max session expiry (seconds)",
     whole: true,
   },
+  { key: "maxSessions", label: "Max sessions", whole: true },
 ]
 
 /**
@@ -49,6 +50,7 @@ function readLimits(
     messagesPerSecond: 0,
     burst: 0,
     maxSessionExpirySeconds: 0,
+    maxSessions: 0,
   }
   let any = false
   for (const field of LIMIT_FIELDS) {
@@ -132,6 +134,7 @@ function CreateTenantForm({
     messagesPerSecond: "",
     burst: "",
     maxSessionExpirySeconds: "",
+    maxSessions: "",
   })
   const [problem, setProblem] = useState<string | null>(null)
   // Set synchronously, so a second Enter in the same tick cannot slip past a

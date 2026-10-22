@@ -22,6 +22,7 @@ function tenant(over: Partial<Tenant>): Tenant {
       messagesPerSecond: 0,
       burst: 0,
       maxSessionExpirySeconds: 0,
+      maxSessions: 0,
     },
     createdAt: "2026-10-01T09:00:00Z",
     updatedAt: "2026-10-01T09:00:00Z",
@@ -41,6 +42,7 @@ const GLOBEX = tenant({
     messagesPerSecond: 50,
     burst: 100,
     maxSessionExpirySeconds: 86400,
+    maxSessions: 300,
   },
 })
 
@@ -104,6 +106,7 @@ describe("TenantsPage list", () => {
     expect(within(acme).getByLabelText("no custom limits")).toBeTruthy()
     expect(within(globex).getByText(/500 connections/)).toBeTruthy()
     expect(within(globex).getByText(/50 msg\/s/)).toBeTruthy()
+    expect(within(globex).getByText(/300 sessions/)).toBeTruthy()
   })
 
   it("names an empty list", async () => {
@@ -148,6 +151,7 @@ describe("TenantsPage create", () => {
     type(dialog, "External ID", "org_initech")
     type(dialog, "Max connections", "250")
     type(dialog, "Messages per second", "12.5")
+    type(dialog, "Max sessions", "40")
     fireEvent.click(
       within(dialog).getByRole("button", { name: "Create tenant" })
     )
@@ -164,6 +168,7 @@ describe("TenantsPage create", () => {
           messagesPerSecond: 12.5,
           burst: 0,
           maxSessionExpirySeconds: 0,
+          maxSessions: 40,
         },
       },
     })

@@ -22,6 +22,7 @@ const ACME: Tenant = {
     messagesPerSecond: 0,
     burst: 0,
     maxSessionExpirySeconds: 0,
+    maxSessions: 0,
   },
   createdAt: "2026-10-01T09:00:00Z",
   updatedAt: "2026-10-01T09:00:00Z",

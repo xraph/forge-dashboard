@@ -24,6 +24,11 @@ export interface Limits {
   messagesPerSecond: number
   burst: number
   maxSessionExpirySeconds: number
+  /**
+   * Open connections plus the sessions persistent clients left behind. A
+   * client coming back to its own session is never refused by it.
+   */
+  maxSessions: number
 }
 
 export interface Tenant {

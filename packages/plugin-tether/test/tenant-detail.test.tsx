@@ -16,6 +16,7 @@ const GLOBEX: Tenant = {
     messagesPerSecond: 50,
     burst: 0,
     maxSessionExpirySeconds: 86400,
+    maxSessions: 300,
   },
   createdAt: "2026-10-01T09:00:00Z",
   updatedAt: "2026-10-02T09:00:00Z",
@@ -58,6 +59,8 @@ describe("TenantDetailPage", () => {
     expect(screen.getByText("500")).toBeTruthy()
     expect(screen.getByText("50 / s")).toBeTruthy()
     expect(screen.getByText("1 day")).toBeTruthy()
+    const sessions = screen.getByText("Max sessions")
+    expect(sessions.nextElementSibling?.textContent).toBe("300")
   })
 
   it("says default for a limit of zero", async () => {

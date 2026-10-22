@@ -69,6 +69,7 @@ function details(tenant: Tenant, limits: Limits = tenant.limits) {
       term: "Max session expiry",
       value: limit(limits.maxSessionExpirySeconds, formatSeconds),
     },
+    { term: "Max sessions", value: limit(limits.maxSessions, formatCount) },
     {
       term: "Created",
       value: <Timestamp value={tenant.createdAt} label="creation time" />,
