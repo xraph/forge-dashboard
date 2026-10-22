@@ -50,6 +50,8 @@ export function DevicesPanel({ tenantId }: { tenantId: string }) {
   const forDevice = (kind: Action["kind"]) =>
     action?.kind === kind ? action.device : null
 
+  // The device and key IDs are long TypeIDs, and with them the row actions
+  // ran off a 1280px screen. They are on the device's page, one click away.
   const columns: Column<Device>[] = [
     {
       id: "name",
@@ -63,16 +65,6 @@ export function DevicesPanel({ tenantId }: { tenantId: string }) {
           {deviceLabel(d)}
         </PluginLink>
       ),
-    },
-    {
-      id: "id",
-      header: "Device ID",
-      cell: (d) => <span className="font-mono text-xs">{d.id}</span>,
-    },
-    {
-      id: "key",
-      header: "Key ID",
-      cell: (d) => <span className="font-mono text-xs">{d.keyId}</span>,
     },
     {
       id: "client",

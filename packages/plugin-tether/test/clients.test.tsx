@@ -43,17 +43,54 @@ describe("ClientsPanel list", () => {
 
   it("renders IDs in font-mono text-xs and the caption count", async () => {
     renderPage(Panel, stubClient(READS))
-    for (const id of [
-      "thermo-1",
-      "gate-1",
-      "akey_01thermo",
-      "10.0.0.7:51234",
-    ]) {
+    for (const id of ["thermo-1", "gate-1", "10.0.0.7:51234"]) {
       const cell = await screen.findByText(id)
       expect(cell.className, id).toContain("font-mono")
       expect(cell.className, id).toContain("text-xs")
     }
     expect(screen.getByText("2 clients")).toBeTruthy()
+  })
+
+  // At 1280px every column and the row actions fit without scrolling: no
+  // username column (it is the device's key ID, on the device page), the
+  // remote address under the client ID, the device ID cut short with the
+  // whole ID in its title.
+  it("fits a 1280px screen: compact columns, actions on every row", async () => {
+    renderPage(Panel, stubClient(READS))
+    await screen.findByText("thermo-1")
+    const headers = screen
+      .getAllByRole("columnheader")
+      .map((h) => h.textContent)
+    expect(headers).toEqual([
+      "Client ID",
+      "State",
+      "Device",
+      "Protocol",
+      "Subscriptions",
+      "Connected",
+      "Session expiry",
+      "Actions",
+    ])
+    expect(screen.queryByText("akey_01thermo")).toBeNull()
+    const remote = within(row("thermo-1")).getByText("10.0.0.7:51234")
+    expect(remote.closest("td")).toBe(
+      screen.getByText("thermo-1").closest("td")
+    )
+    const device = within(row("thermo-1")).getByRole("link", {
+      name: "tdev_01thermo",
+    })
+    expect(device.className).toContain("truncate")
+    expect(device.closest("[title]")?.getAttribute("title")).toBe(
+      "tdev_01thermo"
+    )
+    for (const id of ["thermo-1", "gate-1"]) {
+      expect(
+        within(row(id)).getByRole("button", { name: `Delete session ${id}` })
+      ).toBeTruthy()
+    }
+    expect(
+      within(row("thermo-1")).getByRole("button", { name: "Kick thermo-1" })
+    ).toBeTruthy()
   })
 
   it("marks connected and offline sessions", async () => {
@@ -95,7 +132,7 @@ describe("ClientsPanel list", () => {
     expect(within(row("gate-1")).getByText("Ends on disconnect")).toBeTruthy()
   })
 
-  it("shows none for a client with no device or username", async () => {
+  it("shows none for a client with no device", async () => {
     renderPage(
       Panel,
       stubClient({
@@ -110,7 +147,6 @@ describe("ClientsPanel list", () => {
       "tr"
     ) as HTMLElement
     expect(within(online).getByLabelText("no device")).toBeTruthy()
-    expect(within(online).getByLabelText("no username")).toBeTruthy()
   })
 
   it("names an empty list", async () => {

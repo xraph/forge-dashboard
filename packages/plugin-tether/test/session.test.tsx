@@ -39,7 +39,12 @@ const NODE: Stats = {
   messagesOut: 20,
 }
 
-const OWN: Stats = { ...NODE, scope: "tenant", tenantId: TENANT_ID, tenants: undefined }
+const OWN: Stats = {
+  ...NODE,
+  scope: "tenant",
+  tenantId: TENANT_ID,
+  tenants: undefined,
+}
 
 /** Every read a tenant user's tenant page makes. */
 function memberAnswers() {
@@ -72,7 +77,9 @@ describe("an operator", () => {
       { tenantId: TENANT_ID }
     )
     await screen.findByRole("heading", { name: "Acme" })
-    expect(await screen.findByRole("link", { name: "All tenants" })).toBeTruthy()
+    expect(
+      await screen.findByRole("link", { name: "All tenants" })
+    ).toBeTruthy()
   })
 })
 

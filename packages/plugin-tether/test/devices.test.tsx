@@ -77,20 +77,47 @@ describe("DevicesPanel list", () => {
     expect(queries.map((q) => q.intent)).not.toContain("roles.list")
   })
 
-  it("renders IDs in font-mono text-xs and the caption count", async () => {
+  it("renders the client ID in font-mono text-xs and the caption count", async () => {
     renderPage(Panel, stubClient(READS))
+    const cell = await screen.findByText("gate-1")
+    expect(cell.className).toContain("font-mono")
+    expect(cell.className).toContain("text-xs")
+    expect(screen.getByText("2 devices")).toBeTruthy()
+  })
+
+  // At 1280px every column and the row actions fit without scrolling: the
+  // device and key IDs (long TypeIDs) are on the device's page instead.
+  it("fits a 1280px screen: no ID columns, actions on every row", async () => {
+    renderPage(Panel, stubClient(READS))
+    await screen.findByText("Thermostat")
+    const headers = screen
+      .getAllByRole("columnheader")
+      .map((h) => h.textContent)
+    expect(headers).toEqual([
+      "Name",
+      "Client ID",
+      "Roles",
+      "Created",
+      "Actions",
+    ])
     for (const id of [
       "tdev_01thermo",
       "akey_01thermo",
       "tdev_02gate",
       "akey_02gate",
-      "gate-1",
     ]) {
-      const cell = await screen.findByText(id)
-      expect(cell.className, id).toContain("font-mono")
-      expect(cell.className, id).toContain("text-xs")
+      expect(screen.queryByText(id), id).toBeNull()
     }
-    expect(screen.getByText("2 devices")).toBeTruthy()
+    for (const name of ["Thermostat", "Gate controller"]) {
+      for (const label of [
+        `Edit roles of ${name}`,
+        `Rotate key of ${name}`,
+        `Revoke ${name}`,
+        `Delete ${name}`,
+      ]) {
+        expect(screen.getByRole("button", { name: label })).toBeTruthy()
+      }
+    }
   })
 
   it("links each name to the device page", async () => {
@@ -104,15 +131,17 @@ describe("DevicesPanel list", () => {
   it("shows roles as tags, and none when a device has none", async () => {
     renderPage(Panel, stubClient(READS))
     await screen.findByText("Thermostat")
-    expect(within(row("tdev_01thermo")).getByText("sensor")).toBeTruthy()
-    expect(within(row("tdev_02gate")).getByLabelText("no roles")).toBeTruthy()
+    expect(within(row("Thermostat")).getByText("sensor")).toBeTruthy()
+    expect(
+      within(row("Gate controller")).getByLabelText("no roles")
+    ).toBeTruthy()
   })
 
   it("shows none for a device that is not locked to a client ID", async () => {
     renderPage(Panel, stubClient(READS))
     await screen.findByText("Thermostat")
     expect(
-      within(row("tdev_01thermo")).getByLabelText("no client ID")
+      within(row("Thermostat")).getByLabelText("no client ID")
     ).toBeTruthy()
   })
 

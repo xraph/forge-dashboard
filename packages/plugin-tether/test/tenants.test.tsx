@@ -66,18 +66,44 @@ function type(dialog: HTMLElement, label: string, value: string) {
 describe("TenantsPage list", () => {
   it("renders every tenant with its IDs in font-mono text-xs", async () => {
     renderPage(TenantsPage, stubClient({ "tenants.list": list(ACME, GLOBEX) }))
-    for (const id of [
-      "ttnt_01acme",
-      "ttnt_02globex",
-      "app_01main",
-      "app_02other",
-      "org_acme",
-      "org_globex",
-    ]) {
+    for (const id of ["app_01main", "app_02other", "org_acme", "org_globex"]) {
       const cell = await screen.findByText(id)
       expect(cell.className, id).toContain("font-mono")
       expect(cell.className, id).toContain("text-xs")
     }
+  })
+
+  // At 1280px every column and the row actions fit without scrolling: the
+  // tenant ID (a long TypeID) is on the tenant's page, not in the list, and
+  // the limits summary wraps.
+  it("fits a 1280px screen: no ID column, actions on every row", async () => {
+    renderPage(TenantsPage, stubClient({ "tenants.list": list(ACME, GLOBEX) }))
+    await screen.findByText("org_acme")
+    const headers = screen
+      .getAllByRole("columnheader")
+      .map((h) => h.textContent)
+    expect(headers).toEqual([
+      "Name",
+      "App",
+      "External ID",
+      "Limits",
+      "State",
+      "Created",
+      "Actions",
+    ])
+    expect(screen.queryByText("ttnt_01acme")).toBeNull()
+    for (const name of ["Acme", "Globex"]) {
+      expect(
+        screen.getByRole("button", { name: new RegExp(`able ${name}$`) })
+      ).toBeTruthy()
+      expect(
+        screen.getByRole("button", { name: `Delete ${name}` })
+      ).toBeTruthy()
+    }
+    const limits = within(
+      screen.getByText("org_globex").closest("tr")!
+    ).getByText(/500 connections/)
+    expect(limits.closest("td")?.className).toContain("whitespace-normal")
   })
 
   it("links each name to its detail page", async () => {
@@ -93,16 +119,16 @@ describe("TenantsPage list", () => {
 
   it("marks the disabled tenant, and says enabled for the others", async () => {
     renderPage(TenantsPage, stubClient({ "tenants.list": list(ACME, GLOBEX) }))
-    const acme = (await screen.findByText("ttnt_01acme")).closest("tr")!
-    const globex = screen.getByText("ttnt_02globex").closest("tr")!
+    const acme = (await screen.findByText("org_acme")).closest("tr")!
+    const globex = screen.getByText("org_globex").closest("tr")!
     expect(within(acme).getByText("enabled")).toBeTruthy()
     expect(within(globex).getByText("disabled")).toBeTruthy()
   })
 
   it("summarises limits, and says defaults when none are set", async () => {
     renderPage(TenantsPage, stubClient({ "tenants.list": list(ACME, GLOBEX) }))
-    const acme = (await screen.findByText("ttnt_01acme")).closest("tr")!
-    const globex = screen.getByText("ttnt_02globex").closest("tr")!
+    const acme = (await screen.findByText("org_acme")).closest("tr")!
+    const globex = screen.getByText("org_globex").closest("tr")!
     expect(within(acme).getByLabelText("no custom limits")).toBeTruthy()
     expect(within(globex).getByText(/500 connections/)).toBeTruthy()
     expect(within(globex).getByText(/50 msg\/s/)).toBeTruthy()
@@ -144,7 +170,7 @@ describe("TenantsPage create", () => {
       { "tenants.create": ACME }
     )
     renderPage(TenantsPage, client)
-    await screen.findByText("ttnt_01acme")
+    await screen.findByText("org_acme")
     const dialog = await openCreate()
     type(dialog, "Name", "  Initech ")
     type(dialog, "App ID", "app_01main")
@@ -251,7 +277,7 @@ describe("TenantsPage create", () => {
       }
     )
     renderPage(TenantsPage, client)
-    await screen.findByText("ttnt_01acme")
+    await screen.findByText("org_acme")
     const dialog = await openCreate()
     type(dialog, "App ID", "app_01main")
     type(dialog, "External ID", "org_acme")
@@ -278,7 +304,7 @@ describe("TenantsPage create", () => {
       }
     )
     renderPage(TenantsPage, client)
-    await screen.findByText("ttnt_01acme")
+    await screen.findByText("org_acme")
     let dialog = await openCreate()
     type(dialog, "App ID", "app_01main")
     type(dialog, "External ID", "org_acme")
@@ -307,7 +333,7 @@ describe("TenantsPage create", () => {
       }
     )
     renderPage(TenantsPage, client)
-    await screen.findByText("ttnt_01acme")
+    await screen.findByText("org_acme")
     const dialog = await openCreate()
     type(dialog, "App ID", "app_01main")
     type(dialog, "External ID", "org_x")

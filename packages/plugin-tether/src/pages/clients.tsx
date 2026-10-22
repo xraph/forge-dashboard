@@ -71,7 +71,20 @@ export function ClientsPanel({ tenantId }: { tenantId: string }) {
       id: "client",
       header: "Client ID",
       className: "font-medium",
-      cell: (c) => <ID>{c.clientId}</ID>,
+      // The remote address sits under the client ID rather than in a
+      // column of its own, so the row fits a 1280px screen.
+      cell: (c) => (
+        <div className="flex flex-col">
+          <ID>{c.clientId}</ID>
+          {c.remote ? (
+            <span className="font-mono text-xs font-normal text-muted-foreground">
+              {c.remote}
+            </span>
+          ) : (
+            <NoneCell label="remote address" />
+          )}
+        </div>
+      ),
     },
     {
       id: "state",
@@ -89,27 +102,19 @@ export function ClientsPanel({ tenantId }: { tenantId: string }) {
       header: "Device",
       cell: (c) =>
         c.deviceId ? (
-          <PluginLink
-            to={devicePath(tenantId, c.deviceId)}
-            className="font-mono text-xs underline underline-offset-4"
-          >
-            {c.deviceId}
-          </PluginLink>
+          // Cut short: the whole ID is a long TypeID. The title and the
+          // device page carry all of it.
+          <span title={c.deviceId} className="block max-w-36">
+            <PluginLink
+              to={devicePath(tenantId, c.deviceId)}
+              className="block truncate font-mono text-xs underline underline-offset-4"
+            >
+              {c.deviceId}
+            </PluginLink>
+          </span>
         ) : (
           <NoneCell label="device" />
         ),
-    },
-    {
-      id: "username",
-      header: "Username",
-      cell: (c) =>
-        c.username ? <ID>{c.username}</ID> : <NoneCell label="username" />,
-    },
-    {
-      id: "remote",
-      header: "Remote",
-      cell: (c) =>
-        c.remote ? <ID>{c.remote}</ID> : <NoneCell label="remote address" />,
     },
     {
       id: "protocol",

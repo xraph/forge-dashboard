@@ -72,6 +72,8 @@ function TenantList() {
     if (result !== undefined) setPendingDelete(null)
   }
 
+  // The tenant ID is a long TypeID, and with it the row actions ran off a
+  // 1280px screen. It is on the tenant's page, one click away.
   const columns: Column<Tenant>[] = [
     {
       id: "name",
@@ -87,11 +89,6 @@ function TenantList() {
       ),
     },
     {
-      id: "id",
-      header: "ID",
-      cell: (t) => <span className="font-mono text-xs">{t.id}</span>,
-    },
-    {
       id: "app",
       header: "App",
       cell: (t) => <span className="font-mono text-xs">{t.appId}</span>,
@@ -104,6 +101,9 @@ function TenantList() {
     {
       id: "limits",
       header: "Limits",
+      // The summary can name five limits: let it wrap rather than push the
+      // row actions off the screen.
+      className: "min-w-40 whitespace-normal",
       cell: (t) => {
         const summary = limitsSummary(t.limits)
         return summary ?? <NoneCell label="custom limits" />
