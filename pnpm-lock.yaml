@@ -220,6 +220,9 @@ importers:
       '@forge-go/dashboard-plugin-streaming':
         specifier: workspace:*
         version: link:../../packages/plugin-streaming
+      '@forge-go/dashboard-plugin-tether':
+        specifier: workspace:*
+        version: link:../../packages/plugin-tether
       '@forge-go/dashboard-plugin-trove':
         specifier: workspace:*
         version: link:../../packages/plugin-trove

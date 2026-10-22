@@ -29,6 +29,9 @@
 //                          mirrors relay/extension/contract; endpoints here,
 //                          the rest in relay-fixtures.mjs
 //   - nexus               (packages/plugin-nexus)            12 queries, 6 commands
+//   - tether              (packages/plugin-tether)           9 queries, 14 commands
+//                          mirrors tether/extension/contract; see
+//                          tether-fixtures.mjs
 //   - bastion             (packages/plugin-bastion)          9 queries
 //   - sentinel            (packages/plugin-sentinel)         18 queries, 14 commands
 //                          mirrors sentinel/extension/contract; see
@@ -50,6 +53,7 @@ import { createSentinelHandlers, resetSentinel } from "./sentinel-fixtures.mjs"
 import { createHeraldHandlers, resetHerald } from "./herald-fixtures.mjs"
 import { createWeaveHandlers, resetWeave } from "./weave-fixtures.mjs"
 import { createNexusHandlers, resetNexus } from "./nexus-fixtures.mjs"
+import { createTetherHandlers, resetTether } from "./tether-fixtures.mjs"
 import { createShieldHandlers, resetShield } from "./shield-fixtures.mjs"
 import { createConduitHandlers, resetConduit } from "./conduit-fixtures.mjs"
 
@@ -2894,6 +2898,7 @@ const CONTRIBUTORS = [
   { name: "shield", envPrefix: "SHIELD", handlers: createShieldHandlers(FixtureError) },
   { name: "weave", envPrefix: "WEAVE", handlers: createWeaveHandlers(FixtureError) },
   { name: "nexus", envPrefix: "NEXUS", handlers: createNexusHandlers(FixtureError) },
+  { name: "tether", envPrefix: "TETHER", handlers: createTetherHandlers(FixtureError) },
   ...SETTINGS_ONLY_EXTENSIONS.map((extension) => ({
     name: extension,
     envPrefix: extension.toUpperCase(),
@@ -3190,6 +3195,7 @@ function handleReset(res) {
   resetHerald()
   resetWeave()
   resetNexus()
+  resetTether()
   resetShield()
   resetConduit()
   csrfTokens.clear()

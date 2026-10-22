@@ -21,6 +21,7 @@ import chroniclePlugin from "@forge-go/dashboard-plugin-chronicle"
 import sentinelPlugin from "@forge-go/dashboard-plugin-sentinel"
 import heraldPlugin from "@forge-go/dashboard-plugin-herald"
 import nexusPlugin from "@forge-go/dashboard-plugin-nexus"
+import tetherPlugin from "@forge-go/dashboard-plugin-tether"
 
 // The Go handler injects window.__FORGE_DASHBOARD__ before this bundle loads,
 // so the shell works on any BasePath. `pnpm dev` has no such handler, hence
@@ -47,6 +48,7 @@ const plugins = [
   vaultPlugin,
   trovePlugin,
   keysmithPlugin,
+  tetherPlugin,
   chroniclePlugin,
   relayPlugin,
   ledgerPlugin,

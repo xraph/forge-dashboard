@@ -11,6 +11,7 @@
 @source "../../../packages/plugin-bastion/src";
 @source "../../../packages/plugin-chronicle/src";
 @source "../../../packages/plugin-keysmith/src";
+@source "../../../packages/plugin-tether/src";
 @source "../../../packages/plugin-herald/src";
 @source "../../../packages/plugin-trove/src";
 @source "../../../packages/plugin-sentinel/src";
