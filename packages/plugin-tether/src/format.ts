@@ -59,3 +59,27 @@ export function limitsSummary(limits: Limits): string | null {
   }
   return parts.length === 0 ? null : parts.join(", ")
 }
+
+/** The scope-relative path of a device's page. */
+export function devicePath(tenantId: string, deviceId: string): string {
+  return `${tenantPath(tenantId)}/devices/${encodeURIComponent(deviceId)}`
+}
+
+/**
+ * Where this device's keysmith key is. Absolute on purpose: a path starting
+ * with the scope sigil is passed through by `PluginLink`, which is how a page
+ * links into another plugin. Keysmith mounts at "/@keysmith" and routes its key
+ * page at "/keys/:id".
+ */
+export function keysmithKeyPath(keyId: string): string {
+  return `/@keysmith/keys/${encodeURIComponent(keyId)}`
+}
+
+/**
+ * The warden subject a device's key is granted its roles as: warden's
+ * `api_key` subject kind and the key ID. Warden mounts at "/@warden" and routes
+ * "/subjects/:kind/:id".
+ */
+export function wardenSubjectPath(keyId: string): string {
+  return `/@warden/subjects/api_key/${encodeURIComponent(keyId)}`
+}

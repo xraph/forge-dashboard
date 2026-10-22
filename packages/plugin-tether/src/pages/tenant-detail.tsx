@@ -13,20 +13,24 @@ import {
 } from "@forge-go/dashboard-kit/components/tabs"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { TetherBoundary } from "../components/boundary"
+import { ClientsPanel } from "./clients"
+import { DevicesPanel } from "./devices"
+import { RolesPanel } from "./role-topics"
 import { Counters } from "../components/counters"
 import { formatCount, formatSeconds, tenantLabel } from "../format"
 import type { Limits, Stats, Tenant } from "../types"
 
 const POLL_MS = 10_000
 
-/**
- * The panels under the header. Each tab's content is the device, role or
- * client view for this tenant; until those land the panels are empty.
- */
-const TABS = [
-  { value: "devices", label: "Devices" },
-  { value: "roles", label: "Roles & topics" },
-  { value: "clients", label: "Clients" },
+/** The panels under the header, each a view of this tenant. */
+const TABS: {
+  value: string
+  label: string
+  Panel: ComponentType<{ tenantId: string }>
+}[] = [
+  { value: "devices", label: "Devices", Panel: DevicesPanel },
+  { value: "roles", label: "Roles & topics", Panel: RolesPanel },
+  { value: "clients", label: "Clients", Panel: ClientsPanel },
 ]
 
 const ID = ({ children }: { children: string }) => (
@@ -124,8 +128,14 @@ export const TenantDetailPage: ComponentType<PluginPageProps> = ({
             </TabsTrigger>
           ))}
         </TabsList>
+        {/*
+          Base UI mounts only the selected panel, so the roles and clients
+          reads, and the clients poll, start when their tab is opened.
+        */}
         {TABS.map((tab) => (
-          <TabsContent key={tab.value} value={tab.value} />
+          <TabsContent key={tab.value} value={tab.value}>
+            <tab.Panel tenantId={tenantId} />
+          </TabsContent>
         ))}
       </Tabs>
     </section>

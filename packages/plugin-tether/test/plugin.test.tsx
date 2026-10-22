@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 import { resolvePluginState } from "@forge-go/dashboard-plugin"
 import type { Capabilities } from "@forge-go/dashboard-plugin"
 import tetherPlugin, {
+  DeviceDetailPage,
   OverviewPage,
   TenantDetailPage,
   TenantsPage,
@@ -74,11 +75,14 @@ describe("tetherPlugin", () => {
     expect(element("/")).toBe(OverviewPage)
     expect(element("/tenants")).toBe(TenantsPage)
     expect(element("/tenants/:tenantId")).toBe(TenantDetailPage)
+    expect(element("/tenants/:tenantId/devices/:deviceId")).toBe(
+      DeviceDetailPage
+    )
   })
 
   it("keeps the tenant page out of the nav", () => {
-    expect((tetherPlugin.nav ?? []).map((n) => n.to)).not.toContain(
-      "/tenants/:tenantId"
-    )
+    const to = (tetherPlugin.nav ?? []).map((n) => n.to)
+    expect(to).not.toContain("/tenants/:tenantId")
+    expect(to).not.toContain("/tenants/:tenantId/devices/:deviceId")
   })
 })

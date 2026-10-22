@@ -4,12 +4,19 @@ import {
   HouseIcon,
   RadioTowerIcon,
 } from "@forge-go/dashboard-kit/icons"
+import { DeviceDetailPage } from "./pages/device-detail"
 import { OverviewPage } from "./pages/overview"
 import { TenantDetailPage } from "./pages/tenant-detail"
 import { TenantsPage } from "./pages/tenants"
 
-export { OverviewPage, TenantDetailPage, TenantsPage }
-export { formatCount, formatSeconds, limitsSummary, tenantPath } from "./format"
+export { DeviceDetailPage, OverviewPage, TenantDetailPage, TenantsPage }
+export {
+  devicePath,
+  formatCount,
+  formatSeconds,
+  limitsSummary,
+  tenantPath,
+} from "./format"
 export type {
   Ack,
   Client,
@@ -61,6 +68,8 @@ export const tetherPlugin = definePlugin({
     // No nav entry: a sidebar link to "a tenant" with none chosen points
     // nowhere. It is reached from the list's name links.
     { path: "/tenants/:tenantId", element: TenantDetailPage },
+    // Reached from the Devices and Clients tabs, so no nav entry either.
+    { path: "/tenants/:tenantId/devices/:deviceId", element: DeviceDetailPage },
   ],
 })
 
