@@ -1,3 +1,4 @@
+import { ProtectedResult, contentProtected } from "../result"
 import { OutcomeSummary } from "../outcome"
 import { CircleStop } from "@forge-go/dashboard-kit/icons"
 import { Pencil, Eraser, Trash2 } from "@forge-go/dashboard-kit/icons"
@@ -332,10 +333,23 @@ export function RunPage({ id }: { id: string }) {
             />
             <div className="grid min-w-0 gap-4 lg:grid-cols-2">
               <Section title="Input" inset>
-                <Code text={data.run.input} label="Run input" />
+                {contentProtected(data.run) ? (
+                  <p className="text-sm text-muted-foreground">
+                    Private run input is withheld from this view.
+                  </p>
+                ) : (
+                  <Code text={data.run.input} label="Run input" />
+                )}
               </Section>
               <Section title="Output" inset>
-                <Code text={data.run.output ?? ""} label="Run output" />
+                {contentProtected(data.run) ? (
+                  <ProtectedResult
+                    runId={data.run.id}
+                    resultId={data.run.result_ref}
+                  />
+                ) : (
+                  <Code text={data.run.output ?? ""} label="Run output" />
+                )}
               </Section>
             </div>
             {data.run.error && (

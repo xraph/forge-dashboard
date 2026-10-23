@@ -6,7 +6,8 @@ export interface ExecutionOutcome {
   stop_reason?: string
   verification_status?: string
   result_ref?: string
-  provenance?: { publication_status?: string }
+  provenance?: { publication_status?: string; verification_required?: boolean }
+  metadata?: Record<string, unknown>
 }
 
 const terminalStates = [

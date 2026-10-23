@@ -51,6 +51,16 @@ Runtime settings are read-only because the engine's update service changes unsyn
 
 Live events use a bounded cursor feed. Saved run and conversation records survive feed expiry and server restart. Cancelling a live run persists the domain cancellation and stops its provider context. Approval and resume commands retain the engine's suspension claim and authorization checks.
 
+## Protected results
+
+Protected runs use `runs.replay` for durable lifecycle metadata and `runs.result` for committed text. You need the guarded result reader configured in Cortex, plus current permission to read that result. A passed verification badge records the committed candidate's outcome; it does not grant access to its text.
+
+The result view keeps text outside the shared query cache. It clears text before each refresh, when the authority context changes and when the tab becomes hidden. Successful reads refresh after 15 seconds; an error leaves the content unavailable until you retry. Each read has a 10-second client deadline. These limits bound local display and waiting time, not the lifetime of a server-side grant. Your dashboard host must still enforce response cache controls and delivery deadlines.
+
+Redacted content is labelled as a projection of the verified candidate. The view renders it as literal text and retains revision numbers as decimal strings. It never restores an earlier answer after a denied or stale read.
+
+Live monitoring refreshes the saved run before accepting a replay cursor, including after expired events. It retains at most 256 metadata events, shows the most recent eight, and pauses after five minutes. You can check again or stop the run. The legacy event feed switches to this path when the server reports that guarded reads are required.
+
 ## Extension points
 
 You can contribute to `cortex.overview.widgets`, `cortex.settings.tabs`, agent/persona/run detail sections, the chat toolbar and message actions, and playground panels or tabs through the shared plugin registry. Prompts and structured JSON use a lazy CodeMirror editor with the dashboard theme tokens.

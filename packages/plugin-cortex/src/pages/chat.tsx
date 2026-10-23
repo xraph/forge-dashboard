@@ -1,9 +1,12 @@
+import { DurableLiveRun } from "../replay"
+import { contentProtected } from "../result"
 import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { Columns2, X, Eye, CircleStop } from "@forge-go/dashboard-kit/icons"
 import { ChevronLeft, ChevronRight } from "@forge-go/dashboard-kit/icons"
-import { useEffect, useState } from "react"
+import { useEffect, useState, useSyncExternalStore } from "react"
 import {
   ContractError,
+  queryStore,
   PluginLink,
   PluginSlot,
   useCommand,
@@ -46,15 +49,31 @@ import type {
   Runtime,
   Session,
 } from "../types"
-export function LiveRun({
-  id,
-  onDone,
-  outcome,
-}: {
+interface LiveRunProps {
   id: string
   onDone: () => void
   outcome?: ExecutionOutcome
-}) {
+}
+export function LiveRun(props: LiveRunProps) {
+  const version = useSyncExternalStore(
+    queryStore.subscribeContext,
+    queryStore.contextSnapshot,
+    queryStore.contextSnapshot
+  )
+  return <LiveRunSession key={`${props.id}:${version}`} {...props} />
+}
+function LiveRunSession(props: LiveRunProps) {
+  const [protectedRead, setProtectedRead] = useState(false)
+  if (protectedRead || contentProtected(props.outcome))
+    return <DurableLiveRun id={props.id} onDone={props.onDone} />
+  return <LegacyLiveRun {...props} onProtected={() => setProtectedRead(true)} />
+}
+function LegacyLiveRun({
+  id,
+  onDone,
+  outcome,
+  onProtected,
+}: LiveRunProps & { onProtected: () => void }) {
   const client = usePluginClient(),
     [events, setEvents] = useState<LiveEvent[]>([]),
     [error, setError] = useState<ContractError>(),
@@ -93,7 +112,16 @@ export function LiveRun({
         }
         timer = setTimeout(pump, 350)
       } catch (err) {
-        if (!stopped) setError(err as ContractError)
+        if (!stopped) {
+          if (
+            err instanceof ContractError &&
+            err.details?.code === "protected_replay_requires_guarded_reads"
+          ) {
+            onProtected()
+            return
+          }
+          setError(err as ContractError)
+        }
       }
     }
     void pump()

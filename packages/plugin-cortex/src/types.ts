@@ -129,7 +129,7 @@ export interface Run {
   stop_reason?: string
   verification_status?: string
   result_ref?: string
-  provenance?: { publication_status?: string }
+  provenance?: { publication_status?: string; verification_required?: boolean }
   input: string
   output?: string
   error?: string
