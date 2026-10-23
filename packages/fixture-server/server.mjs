@@ -29,7 +29,7 @@
 //                          mirrors relay/extension/contract; endpoints here,
 //                          the rest in relay-fixtures.mjs
 //   - nexus               (packages/plugin-nexus)            12 queries, 6 commands
-//   - tether              (packages/plugin-tether)           9 queries, 14 commands
+//   - tether              (packages/plugin-tether)           10 queries, 14 commands
 //                          mirrors tether/extension/contract; see
 //                          tether-fixtures.mjs
 //   - bastion             (packages/plugin-bastion)          9 queries
