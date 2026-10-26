@@ -16,6 +16,12 @@ import {
   SessionsPage,
 } from "./pages/operations"
 import type { Resource } from "./types"
+const Improvements = lazy(() =>
+  import("./pages/improvements").then((m) => ({ default: m.ImprovementsPage }))
+)
+const Learning = lazy(() =>
+  import("./pages/learning").then((m) => ({ default: m.LearningPage }))
+)
 const Chat = lazy(() =>
   import("./pages/chat").then((m) => ({ default: m.ChatPage }))
 )
@@ -99,6 +105,12 @@ export const cortexPlugin = definePlugin({
     },
     { label: "Runs", to: "/runs", group: "Execution", priority: 32 },
     {
+      label: "Governed lessons",
+      to: "/learning",
+      group: "Execution",
+      priority: 38,
+    },
+    {
       label: "Pending approvals",
       to: "/checkpoints",
       group: "Execution",
@@ -127,6 +139,12 @@ export const cortexPlugin = definePlugin({
       to: "/conversations",
       group: "Execution",
       priority: 37,
+    },
+    {
+      label: "Improvement review",
+      to: "/improvements",
+      group: "Execution",
+      priority: 39,
     },
     { label: "Tools", to: "/tools", group: "Integrations", priority: 50 },
     { label: "Models", to: "/models", group: "Integrations", priority: 51 },
@@ -159,6 +177,8 @@ export const cortexPlugin = definePlugin({
     { path: "/", element: OverviewPage },
     ...routes,
     { path: "/runs", element: () => <RunsPage /> },
+    { path: "/learning", element: Learning },
+    { path: "/improvements", element: Improvements },
     {
       path: "/runs/agent/:agentId",
       element: ({ params }) => <RunsPage agentId={params.agentId} />,

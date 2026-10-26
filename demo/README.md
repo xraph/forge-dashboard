@@ -394,3 +394,48 @@ one with `DEMO_CORTEX_TENANT=isolated` on port 8939. Pass
 `CORTEX_ISOLATED_URL=http://127.0.0.1:8939` to the Python check. It verifies that
 the reader can read the original agent but cannot update it, and the isolated
 tenant cannot read that agent. Without both endpoints this part reports not run.
+
+### Verify a captured record before publication
+
+Set `DEMO_CORTEX_VERIFICATION=true` with the Ollama provider to install the
+bounded warehouse-record workflow. It accepts the two qualification inputs in
+`verify-cortex-verified.py`, captures the original candidate privately, checks
+its JSON schema, compares the record with a separately captured expected value,
+and checks the source and authority revisions before committing the result.
+General demo tools are not registered in this mode.
+
+```sh
+PORT=8937 DEMO_CORTEX=true DEMO_CORTEX_PROVIDER=ollama \
+  DEMO_CORTEX_VERIFICATION=true DEMO_CORTEX_DB=/tmp/cortex-verified.db \
+  GOWORK=off go run .
+```
+
+Run `python3 verify-cortex-verified.py` from this directory. Use
+`CORTEX_VERIFY_RECEIPT=/tmp/cortex-verified-receipt.json` to retain the run and
+result identities. The script checks guarded content reads, metadata replay,
+lesson acceptance and revocation, and rejection of a deliberately wrong answer.
+Supply the two principal URLs above to run the reader and foreign-scope checks.
+Those hosts also need verification enabled. Keep the isolated tenant on its own
+disposable database.
+
+The host keeps a private authority file beside the database. All copies serving
+the same scope share its file lock. To test source rotation, stop the operator
+host and restart it with `DEMO_CORTEX_RECORD_REVISION=demo-record-v2`. Run the
+script with `CORTEX_VERIFY_REVOKED_RESULT=/tmp/cortex-verified-receipt.json`.
+The old content must be denied. `DEMO_CORTEX_AUTHORITY_REVISION` provides a
+separate grant-revision check. Do not edit authority files while hosts are running.
+A deployment with other source or grant writers must include those writers in
+its own fence.
+
+You can inspect the checked result on its run page, open the decision history,
+and review lesson publications under Governed lessons. Historical verification
+and current recall eligibility are separate. The improvement-review page uses
+host-provided catalog, evaluation and activation commands; an absent optimizer
+or missing grant produces an explicit error, never a simulated experiment.
+
+The local record checks passed with the pinned installed Qwen3 model. They also
+rejected a real model response with the wrong unit count. This is evidence for
+the configured workflow, not a general accuracy measurement. Source observations
+expire after fifteen minutes. Recovery reopens the original retained evaluation
+report and cannot repeat generation. The demo does not qualify Linux sandbox
+isolation, a production identity service or published dependency installation.

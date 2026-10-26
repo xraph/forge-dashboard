@@ -1,5 +1,6 @@
 import { ProtectedResult, contentProtected } from "../result"
 import { OutcomeSummary } from "../outcome"
+import { CognitiveRunReview } from "./cognitive"
 import { CircleStop } from "@forge-go/dashboard-kit/icons"
 import { Pencil, Eraser, Trash2 } from "@forge-go/dashboard-kit/icons"
 import { ChevronLeft, ChevronRight } from "@forge-go/dashboard-kit/icons"
@@ -361,6 +362,7 @@ export function RunPage({ id }: { id: string }) {
               </p>
             )}
             <ResumePanel detail={data} />
+            <CognitiveRunReview key={id} runId={id} />
             <Section title="Steps and tool calls" inset={data.steps.length > 0}>
               {data.steps.length ? (
                 <div className="grid min-w-0 gap-3">

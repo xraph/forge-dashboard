@@ -83,6 +83,10 @@ func registerCortexDemo(app forge.App, dash *dashboard.Extension) (resultErr err
 		return fmt.Errorf("invalid DEMO_CORTEX_TENANT")
 	}
 	scope := cortex.Scope{Levels: []cortex.Level{{Key: "tenant", Value: "cortex-demo-" + tenant}, {Key: "app", Value: "cortex"}}}
+	verificationHost, err := configureCortexDemoVerification(store, scope, path)
+	if err != nil {
+		return err
+	}
 	deps := ccontract.Deps{Audit: func(ctx context.Context, event ccontract.AuditEvent) error { return audit.append(event) }, ExecutionLabel: label, ResolveScope: func(_ context.Context, p dc.Principal) (cortex.Scope, error) {
 		if p.Claims["cortex_demo_scope"] != scope.Canonical() {
 			return cortex.Scope{}, &dc.Error{Code: dc.CodePermissionDenied, Message: "Cortex demo scope is invalid"}
@@ -91,21 +95,37 @@ func registerCortexDemo(app forge.App, dash *dashboard.Extension) (resultErr err
 	}, Catalogs: map[string]ccontract.CatalogQuery{}}
 	deps.Catalogs["models.list"] = cortexDemoModels
 	deps.Catalogs["models.detail"] = cortexDemoModels
+	if verificationHost != nil {
+		deps.Learning = verificationHost.Learning
+		deps.AdaptiveReview = verificationHost.AdaptiveReview
+		deps.ExecutionBudget = verificationHost.Budget
+		deps.AgentMutationFence = verificationHost.AgentMutationFence
+	}
 	cfg := cext.DefaultConfig()
 	cfg.DefaultModel = "demo-local"
 	cfg.DefaultMaxSteps = 8
-	ext := cext.New(cext.WithConfig(cfg), cext.WithStore(store), cext.WithDisableRoutes(), cext.WithDashboard(deps), cext.WithEngineOption(engine.WithLLM(client)), cext.WithEngineOption(engine.WithToolAuthorizer(cortexDemoAuthorizer{})), cext.WithEngineOption(engine.WithA2A(a2a.Options{})), cext.WithEngineOption(engine.WithTool(llm.Tool{Name: "demo_lookup", Description: "Read the local demo record", Parameters: map[string]any{"type": "object", "properties": map[string]any{}}}, func(_ context.Context, inv cortex.Invocation) (string, error) {
-		if inv.Principal == nil {
-			return "", errors.New("principal required")
-		}
-		return `{"source":"local-demo","status":"reviewed"}`, nil
-	})), cext.WithExtension(audithook.New(audithook.RecorderFunc(func(ctx context.Context, event *audithook.AuditEvent) error {
+	ext := cext.New(cext.WithConfig(cfg), cext.WithStore(store), cext.WithDisableRoutes(), cext.WithDashboard(deps), cext.WithEngineOption(engine.WithLLM(client)), cext.WithEngineOption(engine.WithToolAuthorizer(cortexDemoAuthorizer{})), cext.WithExtension(audithook.New(audithook.RecorderFunc(func(ctx context.Context, event *audithook.AuditEvent) error {
 		return audit.append(map[string]any{"at": time.Now().UTC(), "scope": cortex.ScopeFromContext(ctx), "event": event})
 	}))))
+	if verificationHost == nil {
+		for _, option := range []cext.ExtOption{cext.WithEngineOption(engine.WithA2A(a2a.Options{})), cext.WithEngineOption(engine.WithTool(llm.Tool{Name: "demo_lookup", Description: "Read the local demo record", Parameters: map[string]any{"type": "object", "properties": map[string]any{}}}, func(_ context.Context, inv cortex.Invocation) (string, error) {
+			if inv.Principal == nil {
+				return "", errors.New("principal required")
+			}
+			return `{"source":"local-demo","status":"reviewed"}`, nil
+		}))} {
+			option(ext)
+		}
+	}
 	for _, option := range safetyOptions {
 		cext.WithEngineOption(option)(ext)
 	}
-	return app.RegisterExtension(&cortexDemoExtension{Extension: ext, dash: dash, path: path, scope: scope, shutdown: shutdown, providerLabel: label})
+	if verificationHost != nil {
+		for _, option := range verificationHost.Options {
+			cext.WithEngineOption(option)(ext)
+		}
+	}
+	return app.RegisterExtension(&cortexDemoExtension{Extension: ext, dash: dash, path: path, scope: scope, shutdown: shutdown, providerLabel: label, verification: verificationHost})
 }
 
 func cortexDemoModels(_ context.Context, raw map[string]any) (any, error) {
@@ -142,7 +162,11 @@ func cortexDemoModels(_ context.Context, raw map[string]any) (any, error) {
 	}
 	items := []map[string]any{}
 	if total == 1 && in.Offset == 0 {
-		items = append(items, map[string]any{"id": "demo-local", "name": "Deterministic local demo", "provider": "local-demo", "context_window": 0, "max_output": 0, "pricing": map[string]any{"free": true}, "capabilities": map[string]bool{"chat": true, "streaming": true, "tools": true}, "availability": "Local simulation. No remote provider is configured."})
+		availability := "Local deterministic simulation. No remote provider is configured."
+		if providerName == "ollama" {
+			availability = "Installed local model. Verification requires the configured verification host."
+		}
+		items = append(items, map[string]any{"id": "demo-local", "name": modelName, "provider": providerName, "context_window": 0, "max_output": 0, "pricing": map[string]any{"free": true}, "capabilities": map[string]bool{"chat": true, "streaming": true, "tools": true}, "availability": availability})
 	}
 	if os.Getenv("DEMO_CORTEX_PROVIDER") == "ollama" && len(items) > 0 {
 		items[0]["name"] = "Local Qwen3 4B"
@@ -159,6 +183,25 @@ type cortexDemoExtension struct {
 	scope         cortex.Scope
 	shutdown      func(context.Context) error
 	providerLabel string
+	verification  *cortexDemoVerificationHost
+}
+
+func (e *cortexDemoExtension) Start(ctx context.Context) error {
+	serviceCtx := ctx
+	if e.verification != nil {
+		serviceCtx = e.verification.ServiceContext(ctx)
+	}
+	if err := e.Extension.Start(serviceCtx); err != nil {
+		return err
+	}
+	if e.verification != nil {
+		if err := e.verification.Activate(ctx); err != nil {
+			stopCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
+			defer cancel()
+			return errors.Join(err, e.Extension.Stop(stopCtx))
+		}
+	}
+	return nil
 }
 
 func (e *cortexDemoExtension) Stop(ctx context.Context) error {
