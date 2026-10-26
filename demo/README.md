@@ -344,3 +344,53 @@ that run and leaves seeded PII intact. The separate
 `node packages/fixture-server/shield-verify.mjs` starts its own synthetic server
 and exercises all 67 intents; that is development contract coverage, not live
 Shield qualification.
+
+## Cortex with a local model
+
+You can run Cortex against an installed Ollama model through the real Nexus
+adapter. You'll need Go 1.26.9 and Ollama listening on `127.0.0.1:11434`.
+
+```sh
+ollama pull qwen3:4b
+PORT=8937 DEMO_CORTEX=true DEMO_CORTEX_PROVIDER=ollama \
+  DEMO_CORTEX_DB=/tmp/cortex-local.db \
+  GOWORK=off GOTOOLCHAIN=go1.26.9 go run .
+```
+
+The model identity is pinned to
+`359d7dd4bcdab3d86b87d73ac27966f4dbb9f5efdfcc75d34a8764a09474fae7`.
+Startup and each request check the installed digest. A missing or changed model
+fails the request. You won't get a deterministic answer as a fallback.
+Leaving `DEMO_CORTEX_PROVIDER` unset keeps the deterministic demo provider.
+
+This host uses the explicit `local-publication-1` rule policy: private key
+headers and credential patterns are blocked, email addresses are redacted, and
+buffered streaming releases content only after the publication gate approves it.
+You can inspect the patterns in `cortex_provider.go`. These patterns do not
+qualify arbitrary secret detection, semantic safety, prompt injection resistance
+or factual accuracy. A model answer remains unchecked until independent
+verification succeeds.
+
+From this directory, qualify the installed model and HTTP transport with:
+
+```sh
+CORTEX_QUALIFY_OLLAMA=1 GOWORK=off GOTOOLCHAIN=go1.26.9 \
+  go test -race -count=1 -run TestCortexInstalledOllama .
+python3 verify-cortex-live.py
+```
+
+The HTTP check creates a fresh agent and retained runs in your configured demo
+database. It checks model output, publication redaction, credential denial, tool approval
+and resume, last-step exhaustion, truncated generation and cancellation.
+Use a disposable database for qualification. Set `CORTEX_URL` if you choose a
+port other than 8937. This local demo keeps the development identity and contract
+security settings described above; these checks do not qualify production
+identity, the Linux sandbox or a published dependency installation.
+
+For the additional principal checks, start two copies of the demo against the
+same disposable database, one with `DEMO_CORTEX_ROLE=reader` on port 8938 and
+one with `DEMO_CORTEX_TENANT=isolated` on port 8939. Pass
+`CORTEX_READER_URL=http://127.0.0.1:8938` and
+`CORTEX_ISOLATED_URL=http://127.0.0.1:8939` to the Python check. It verifies that
+the reader can read the original agent but cannot update it, and the isolated
+tenant cannot read that agent. Without both endpoints this part reports not run.

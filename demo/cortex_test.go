@@ -18,7 +18,7 @@ import (
 	"github.com/xraph/grove/drivers/sqlitedriver"
 )
 
-func cortexTestEngine(t *testing.T, file string) *engine.Engine {
+func cortexTestEngine(t *testing.T, file string, extra ...engine.Option) *engine.Engine {
 	t.Helper()
 	drv := sqlitedriver.New()
 	if err := drv.Open(context.Background(), file); err != nil {
@@ -33,9 +33,11 @@ func cortexTestEngine(t *testing.T, file string) *engine.Engine {
 	if err := st.Migrate(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	eng, err := engine.New(engine.WithStore(st), engine.WithLLM(cortexDemoLLM{}), engine.WithTool(llm.Tool{Name: "demo_lookup"}, func(context.Context, cortex.Invocation) (string, error) {
+	options := []engine.Option{engine.WithStore(st), engine.WithLLM(cortexDemoLLM{}), engine.WithTool(llm.Tool{Name: "demo_lookup"}, func(context.Context, cortex.Invocation) (string, error) {
 		return "", errors.New("unexpected tool invocation in seed fixture")
-	}))
+	})}
+	options = append(options, extra...)
+	eng, err := engine.New(options...)
 	if err != nil {
 		t.Fatal(err)
 	}

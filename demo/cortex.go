@@ -38,12 +38,23 @@ import (
 	_ "github.com/xraph/grove/drivers/sqlitedriver/sqlitemigrate"
 )
 
-// Cortex uses the real engine and disk store. Its local completion provider is
-// deterministic demonstration code, never a claim of remote model availability.
-func registerCortexDemo(app forge.App, dash *dashboard.Extension) error {
+// Cortex uses the real engine and disk store. Provider selection is explicit;
+// installed local-model failures never fall back to deterministic output.
+func registerCortexDemo(app forge.App, dash *dashboard.Extension) (resultErr error) {
 	if !envBool("DEMO_CORTEX", false) {
 		return nil
 	}
+	client, label, safetyOptions, shutdown, err := cortexDemoProvider()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if resultErr != nil && shutdown != nil {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			resultErr = errors.Join(resultErr, shutdown(ctx))
+		}
+	}()
 	path := os.Getenv("DEMO_CORTEX_DB")
 	if path == "" {
 		path = filepath.Join(os.TempDir(), "forge-dashboard-cortex", "cortex.db")
@@ -72,7 +83,7 @@ func registerCortexDemo(app forge.App, dash *dashboard.Extension) error {
 		return fmt.Errorf("invalid DEMO_CORTEX_TENANT")
 	}
 	scope := cortex.Scope{Levels: []cortex.Level{{Key: "tenant", Value: "cortex-demo-" + tenant}, {Key: "app", Value: "cortex"}}}
-	deps := ccontract.Deps{Audit: func(ctx context.Context, event ccontract.AuditEvent) error { return audit.append(event) }, ExecutionLabel: "Deterministic local demo provider, no remote LLM", ResolveScope: func(_ context.Context, p dc.Principal) (cortex.Scope, error) {
+	deps := ccontract.Deps{Audit: func(ctx context.Context, event ccontract.AuditEvent) error { return audit.append(event) }, ExecutionLabel: label, ResolveScope: func(_ context.Context, p dc.Principal) (cortex.Scope, error) {
 		if p.Claims["cortex_demo_scope"] != scope.Canonical() {
 			return cortex.Scope{}, &dc.Error{Code: dc.CodePermissionDenied, Message: "Cortex demo scope is invalid"}
 		}
@@ -83,7 +94,7 @@ func registerCortexDemo(app forge.App, dash *dashboard.Extension) error {
 	cfg := cext.DefaultConfig()
 	cfg.DefaultModel = "demo-local"
 	cfg.DefaultMaxSteps = 8
-	ext := cext.New(cext.WithConfig(cfg), cext.WithStore(store), cext.WithDisableRoutes(), cext.WithDashboard(deps), cext.WithEngineOption(engine.WithLLM(cortexDemoLLM{})), cext.WithEngineOption(engine.WithToolAuthorizer(cortexDemoAuthorizer{})), cext.WithEngineOption(engine.WithA2A(a2a.Options{})), cext.WithEngineOption(engine.WithTool(llm.Tool{Name: "demo_lookup", Description: "Read the local demo record", Parameters: map[string]any{"type": "object", "properties": map[string]any{}}}, func(_ context.Context, inv cortex.Invocation) (string, error) {
+	ext := cext.New(cext.WithConfig(cfg), cext.WithStore(store), cext.WithDisableRoutes(), cext.WithDashboard(deps), cext.WithEngineOption(engine.WithLLM(client)), cext.WithEngineOption(engine.WithToolAuthorizer(cortexDemoAuthorizer{})), cext.WithEngineOption(engine.WithA2A(a2a.Options{})), cext.WithEngineOption(engine.WithTool(llm.Tool{Name: "demo_lookup", Description: "Read the local demo record", Parameters: map[string]any{"type": "object", "properties": map[string]any{}}}, func(_ context.Context, inv cortex.Invocation) (string, error) {
 		if inv.Principal == nil {
 			return "", errors.New("principal required")
 		}
@@ -91,7 +102,10 @@ func registerCortexDemo(app forge.App, dash *dashboard.Extension) error {
 	})), cext.WithExtension(audithook.New(audithook.RecorderFunc(func(ctx context.Context, event *audithook.AuditEvent) error {
 		return audit.append(map[string]any{"at": time.Now().UTC(), "scope": cortex.ScopeFromContext(ctx), "event": event})
 	}))))
-	return app.RegisterExtension(&cortexDemoExtension{Extension: ext, dash: dash, path: path, scope: scope})
+	for _, option := range safetyOptions {
+		cext.WithEngineOption(option)(ext)
+	}
+	return app.RegisterExtension(&cortexDemoExtension{Extension: ext, dash: dash, path: path, scope: scope, shutdown: shutdown, providerLabel: label})
 }
 
 func cortexDemoModels(_ context.Context, raw map[string]any) (any, error) {
@@ -118,22 +132,41 @@ func cortexDemoModels(_ context.Context, raw map[string]any) (any, error) {
 	if in.ID != "" && in.ID != "demo-local" {
 		return nil, &dc.Error{Code: dc.CodeNotFound, Message: "Model was not found"}
 	}
+	providerName, modelName := "local-demo", "Deterministic local demo"
+	if os.Getenv("DEMO_CORTEX_PROVIDER") == "ollama" {
+		providerName, modelName = "ollama", "Local Qwen3 4B"
+	}
 	total := 1
-	if (in.Provider != "" && in.Provider != "local-demo") || (in.Search != "" && !strings.Contains(strings.ToLower("demo-local Deterministic local demo"), strings.ToLower(in.Search))) {
+	if (in.Provider != "" && in.Provider != providerName) || (in.Search != "" && !strings.Contains(strings.ToLower("demo-local "+modelName), strings.ToLower(in.Search))) {
 		total = 0
 	}
 	items := []map[string]any{}
 	if total == 1 && in.Offset == 0 {
 		items = append(items, map[string]any{"id": "demo-local", "name": "Deterministic local demo", "provider": "local-demo", "context_window": 0, "max_output": 0, "pricing": map[string]any{"free": true}, "capabilities": map[string]bool{"chat": true, "streaming": true, "tools": true}, "availability": "Local simulation. No remote provider is configured."})
 	}
+	if os.Getenv("DEMO_CORTEX_PROVIDER") == "ollama" && len(items) > 0 {
+		items[0]["name"] = "Local Qwen3 4B"
+		items[0]["provider"] = "ollama"
+		items[0]["availability"] = "Installed local model. Publication uses credential and email rules."
+	}
 	return map[string]any{"available": true, "complete": true, "total": total, "limit": in.Limit, "offset": in.Offset, "items": items}, nil
 }
 
 type cortexDemoExtension struct {
 	*cext.Extension
-	dash  *dashboard.Extension
-	path  string
-	scope cortex.Scope
+	dash          *dashboard.Extension
+	path          string
+	scope         cortex.Scope
+	shutdown      func(context.Context) error
+	providerLabel string
+}
+
+func (e *cortexDemoExtension) Stop(ctx context.Context) error {
+	err := e.Extension.Stop(ctx)
+	if e.shutdown != nil {
+		return errors.Join(err, e.shutdown(ctx))
+	}
+	return err
 }
 
 func (e *cortexDemoExtension) Register(app forge.App) error {
@@ -188,7 +221,7 @@ func (e *cortexDemoExtension) Register(app forge.App) error {
 		return user, nil
 	}))
 	e.dash.EnableAuth()
-	log.Printf("[cortex] real SQLite engine=%s role=%s scope=%s; local completion provider is simulated", e.path, role, e.scope.Canonical())
+	log.Printf("[cortex] real SQLite engine=%s role=%s scope=%s; %s", e.path, role, e.scope.Canonical(), e.providerLabel)
 	return nil
 }
 
