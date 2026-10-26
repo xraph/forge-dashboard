@@ -42,6 +42,9 @@ function mount(
     stale?: boolean
     partialRoute?: boolean
     failCommand?: boolean
+    retained?: boolean
+    partialBaseline?: boolean
+    nullBaseline?: boolean
   } = {}
 ) {
   const requests: ContractEnvelopeRequest[] = []
@@ -98,12 +101,61 @@ function mount(
             revision: options.stale ? 8 : 7,
             decision: {
               ...decision,
+              ...(options.retained
+                ? {
+                    outcome: "retain",
+                    evidence_class: "exploratory",
+                    reasons: null,
+                  }
+                : {}),
               comparison: {
                 ...decision.comparison,
-                complete: !options.incomplete,
+                complete: !options.incomplete && !options.retained,
+                ...(options.retained
+                  ? {
+                      baseline_ids: Array.from(
+                        { length: 20 },
+                        (_, i) => `eval_${i}`
+                      ),
+                      required_failures: null,
+                      missing_reasons: [
+                        "The finalist is the unchanged baseline.",
+                      ],
+                    }
+                  : {}),
               },
             },
-            evaluations: { items: [], complete: true },
+            evaluations: {
+              items: options.nullBaseline
+                ? null
+                : options.retained
+                  ? [
+                      {
+                        id: "discovery",
+                        complete: true,
+                        criteria: [{ required: true, passed: true }],
+                      },
+                      ...Array.from(
+                        { length: options.partialBaseline ? 19 : 20 },
+                        (_, i) => ({
+                          id: `eval_${i}`,
+                          complete: true,
+                          criteria: [{ required: true, passed: i < 16 }],
+                          errors: null,
+                        })
+                      ),
+                    ]
+                  : [],
+              complete: !options.partialBaseline,
+            },
+          }
+          break
+        case "optimization.candidates.list":
+          data = {
+            items: options.retained
+              ? [{ id: "ocan_empty", accepted: false, proposal: { edits: [] } }]
+              : [],
+            complete: true,
           }
           break
         case "optimization.activations.list":
@@ -168,10 +220,52 @@ async function review() {
   await screen.findByText(/Recommendation:/)
 }
 describe("improvement review", () => {
+  it("renders nullable retained evidence and the exact validation roster without inventing a measured delta", async () => {
+    const requests = mount({ retained: true })
+    await review()
+    expect(
+      await screen.findByText(
+        "Baseline validation: 16 / 20 passed required checks."
+      )
+    ).toBeTruthy()
+    expect(
+      await screen.findByText(
+        /Rejected candidate: ocan_empty.*0 edits.*No edits proposed/
+      )
+    ).toBeTruthy()
+    expect(screen.getByText(/No complete paired comparison/)).toBeTruthy()
+    expect(screen.queryByText(/Measured delta/)).toBeNull()
+    fireEvent.change(await screen.findByLabelText("Review reason"), {
+      target: { value: "Review retained baseline" },
+    })
+    expect(
+      screen.getByRole<HTMLButtonElement>("button", {
+        name: "Activate reviewed version",
+      }).disabled
+    ).toBe(true)
+    expect(requests.some((r) => r.kind === "command")).toBe(false)
+  })
+  it.each([{ partialBaseline: true }, { nullBaseline: true }])(
+    "does not summarize an unavailable baseline roster %j",
+    async (options) => {
+      mount({ retained: true, ...options })
+      await review()
+      expect(
+        await screen.findByText(/Baseline validation summary unavailable/)
+      ).toBeTruthy()
+      expect(
+        screen.queryByText(
+          "Baseline validation: 16 / 20 passed required checks."
+        )
+      ).toBeNull()
+    }
+  )
+
   it("keeps unknown cost explicit and sends the reviewed generation with stable retries", async () => {
     const requests = mount({ failCommand: true })
     await review()
     expect(await screen.findByText(/Cost ratio: unknown/)).toBeTruthy()
+    expect(await screen.findByText("No candidate proposals")).toBeTruthy()
     fireEvent.change(await screen.findByLabelText("Review reason"), {
       target: { value: "Validated record improvement" },
     })

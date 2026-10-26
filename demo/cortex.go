@@ -14,6 +14,14 @@ import (
 	"sync"
 	"time"
 
+	"github.com/xraph/forge"
+	"github.com/xraph/forge/extensions/dashboard"
+	dashauth "github.com/xraph/forge/extensions/dashboard/auth"
+	dc "github.com/xraph/forge/extensions/dashboard/contract"
+	"github.com/xraph/grove"
+	"github.com/xraph/grove/drivers/sqlitedriver"
+	_ "github.com/xraph/grove/drivers/sqlitedriver/sqlitemigrate"
+
 	"github.com/xraph/cortex"
 	"github.com/xraph/cortex/a2a"
 	"github.com/xraph/cortex/agent"
@@ -29,13 +37,6 @@ import (
 	"github.com/xraph/cortex/skill"
 	sqlitestore "github.com/xraph/cortex/store/sqlite"
 	"github.com/xraph/cortex/trait"
-	"github.com/xraph/forge"
-	"github.com/xraph/forge/extensions/dashboard"
-	dashauth "github.com/xraph/forge/extensions/dashboard/auth"
-	dc "github.com/xraph/forge/extensions/dashboard/contract"
-	"github.com/xraph/grove"
-	"github.com/xraph/grove/drivers/sqlitedriver"
-	_ "github.com/xraph/grove/drivers/sqlitedriver/sqlitemigrate"
 )
 
 // Cortex uses the real engine and disk store. Provider selection is explicit;
@@ -87,12 +88,45 @@ func registerCortexDemo(app forge.App, dash *dashboard.Extension) (resultErr err
 	if err != nil {
 		return err
 	}
+	if verificationHost != nil && (envBool("DEMO_CORTEX_OPTIMIZATION", false) || envBool("DEMO_CORTEX_PLANNING", false)) {
+		if err = verificationHost.Activate(context.Background()); err != nil {
+			return err
+		}
+	}
+	optimizationHost, err := configureCortexDemoOptimization(verificationHost, path)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if resultErr != nil && optimizationHost != nil {
+			cleanup, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			resultErr = errors.Join(resultErr, optimizationHost.Stop(cleanup))
+		}
+	}()
+	planningHost, err := configureCortexDemoPlanning(verificationHost, client, path, safetyOptions)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if resultErr != nil && planningHost != nil {
+			cleanup, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			resultErr = errors.Join(resultErr, planningHost.Stop(cleanup))
+		}
+	}()
 	deps := ccontract.Deps{Audit: func(ctx context.Context, event ccontract.AuditEvent) error { return audit.append(event) }, ExecutionLabel: label, ResolveScope: func(_ context.Context, p dc.Principal) (cortex.Scope, error) {
 		if p.Claims["cortex_demo_scope"] != scope.Canonical() {
 			return cortex.Scope{}, &dc.Error{Code: dc.CodePermissionDenied, Message: "Cortex demo scope is invalid"}
 		}
 		return scope, nil
 	}, Catalogs: map[string]ccontract.CatalogQuery{}}
+	if optimizationHost != nil {
+		deps.Optimization = optimizationHost.Optimizer
+	}
+	if planningHost != nil {
+		deps.Planning = planningHost.Operator
+	}
 	deps.Catalogs["models.list"] = cortexDemoModels
 	deps.Catalogs["models.detail"] = cortexDemoModels
 	if verificationHost != nil {
@@ -125,7 +159,7 @@ func registerCortexDemo(app forge.App, dash *dashboard.Extension) (resultErr err
 			cext.WithEngineOption(option)(ext)
 		}
 	}
-	return app.RegisterExtension(&cortexDemoExtension{Extension: ext, dash: dash, path: path, scope: scope, shutdown: shutdown, providerLabel: label, verification: verificationHost})
+	return app.RegisterExtension(&cortexDemoExtension{Extension: ext, dash: dash, path: path, scope: scope, shutdown: shutdown, providerLabel: label, verification: verificationHost, optimization: optimizationHost, planning: planningHost})
 }
 
 func cortexDemoModels(_ context.Context, raw map[string]any) (any, error) {
@@ -184,9 +218,18 @@ type cortexDemoExtension struct {
 	shutdown      func(context.Context) error
 	providerLabel string
 	verification  *cortexDemoVerificationHost
+	optimization  *cortexDemoOptimizationHost
+	planning      *cortexDemoPlanningHost
 }
 
-func (e *cortexDemoExtension) Start(ctx context.Context) error {
+func (e *cortexDemoExtension) Start(ctx context.Context) (resultErr error) {
+	defer func() {
+		if resultErr != nil {
+			cleanup, cancel := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
+			defer cancel()
+			resultErr = errors.Join(resultErr, e.Stop(cleanup))
+		}
+	}()
 	serviceCtx := ctx
 	if e.verification != nil {
 		serviceCtx = e.verification.ServiceContext(ctx)
@@ -196,16 +239,34 @@ func (e *cortexDemoExtension) Start(ctx context.Context) error {
 	}
 	if e.verification != nil {
 		if err := e.verification.Activate(ctx); err != nil {
-			stopCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
-			defer cancel()
-			return errors.Join(err, e.Extension.Stop(stopCtx))
+			return err
+		}
+	}
+	if e.planning != nil {
+		if err := e.planning.Start(ctx); err != nil {
+			return err
+		}
+	}
+	if e.optimization != nil {
+		if err := e.optimization.Start(ctx); err != nil {
+			return err
 		}
 	}
 	return nil
 }
 
 func (e *cortexDemoExtension) Stop(ctx context.Context) error {
-	err := e.Extension.Stop(ctx)
+	var err error
+	if e.planning != nil {
+		err = e.planning.Stop(ctx)
+	}
+	if e.optimization != nil {
+		err = errors.Join(err, e.optimization.Stop(ctx))
+	}
+	if err != nil {
+		return err
+	}
+	err = e.Extension.Stop(ctx)
 	if e.shutdown != nil {
 		return errors.Join(err, e.shutdown(ctx))
 	}
@@ -250,9 +311,15 @@ func (e *cortexDemoExtension) Register(app forge.App) error {
 		}
 		if role != "denied" {
 			scopes = append(scopes, "cortex.read")
+			if e.optimization != nil {
+				scopes = append(scopes, "cortex.optimization.read")
+			}
 		}
 		if role == "operator" {
 			scopes = append(scopes, "cortex.manage", "cortex.run", "cortex.approve", "cortex.overlay")
+			if e.optimization != nil {
+				scopes = append(scopes, "cortex.optimization.manage", "cortex.optimization.run", "cortex.optimization.activate")
+			}
 		}
 		user.Scopes = scopes
 		claims := map[string]any{}

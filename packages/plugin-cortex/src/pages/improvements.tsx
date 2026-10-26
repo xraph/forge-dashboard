@@ -26,11 +26,12 @@ interface Decision {
   evidence_class: string
   selection_kind: string
   candidate: Ref
-  reasons: string[]
+  reasons: string[] | null
   comparison: {
     complete: boolean
-    missing_reasons: string[]
-    required_failures: string[]
+    baseline_ids?: string[] | null
+    missing_reasons: string[] | null
+    required_failures: string[] | null
     mean_delta: number
     lower_bound: number
     upper_bound: number
@@ -41,8 +42,55 @@ interface Decision {
 interface Comparison {
   revision: number
   decision?: Decision
-  evaluations: Page<unknown>
+  evaluations: Page<Evaluation>
   retained_baseline?: unknown
+}
+interface Evaluation {
+  id: string
+  complete: boolean
+  criteria?: { required: boolean; passed: boolean }[] | null
+  errors?: unknown[] | null
+}
+interface Candidate {
+  id: string
+  accepted: boolean
+  rejection?: string
+  proposal: { edits?: unknown[] | null }
+}
+function BaselineValidation({ value }: { value: Comparison }) {
+  const ids = value.decision?.comparison.baseline_ids ?? []
+  if (!ids.length) return null
+  const roster = new Set(ids)
+  const rows = (value.evaluations.items ?? []).filter((row) =>
+    roster.has(row.id)
+  )
+  const complete =
+    roster.size === ids.length &&
+    new Set(rows.map((row) => row.id)).size === ids.length &&
+    rows.length === ids.length &&
+    rows.every((row) => row.complete)
+  if (!complete)
+    return (
+      <p className="text-xs">
+        Baseline validation summary unavailable: the complete retained roster is
+        not present in this page.
+      </p>
+    )
+  const passed = rows.filter((row) => {
+    const required = (row.criteria ?? []).filter(
+      (criterion) => criterion.required
+    )
+    return (
+      required.length > 0 &&
+      required.every((criterion) => criterion.passed) &&
+      !row.errors?.length
+    )
+  }).length
+  return (
+    <p className="text-sm">
+      Baseline validation: {passed} / {ids.length} passed required checks.
+    </p>
+  )
 }
 interface Capabilities {
   permissions: Record<string, boolean>
@@ -265,6 +313,10 @@ function ExperimentReview({ experiment }: { experiment: Experiment }) {
   const capabilities = useQuery<Capabilities>("optimization.capabilities", {
     experiment_id: experiment.id,
   })
+  const candidates = useQuery<Page<Candidate>>("optimization.candidates.list", {
+    id: experiment.id,
+    limit: 25,
+  })
   const [pending, setPending] = useState<Pending>()
   const propose = (value: Omit<Pending, "key">) =>
     setPending({ ...value, key: crypto.randomUUID() })
@@ -350,26 +402,35 @@ function ExperimentReview({ experiment }: { experiment: Experiment }) {
                           ? "comparison complete"
                           : "comparison incomplete"}
                       </p>
-                      <p className="text-xs">
-                        Measured delta {value.decision.comparison.mean_delta} (
-                        {value.decision.comparison.lower_bound} to{" "}
-                        {value.decision.comparison.upper_bound}). Cost ratio:{" "}
-                        {value.decision.comparison.cost_ratio ?? "unknown"}.
-                        Latency ratio:{" "}
-                        {value.decision.comparison.latency_ratio ?? "unknown"}.
-                      </p>
+                      <BaselineValidation value={value} />
+                      {value.decision.comparison.complete ? (
+                        <p className="text-xs">
+                          Measured delta {value.decision.comparison.mean_delta}{" "}
+                          ({value.decision.comparison.lower_bound} to{" "}
+                          {value.decision.comparison.upper_bound}). Cost ratio:{" "}
+                          {value.decision.comparison.cost_ratio ?? "unknown"}.
+                          Latency ratio:{" "}
+                          {value.decision.comparison.latency_ratio ?? "unknown"}
+                          .
+                        </p>
+                      ) : (
+                        <p className="text-xs">
+                          No complete paired comparison. Improvement and
+                          confidence bounds are not established.
+                        </p>
+                      )}
                       {[
-                        ...value.decision.reasons,
-                        ...value.decision.comparison.missing_reasons,
-                        ...value.decision.comparison.required_failures,
+                        ...(value.decision.reasons ?? []),
+                        ...(value.decision.comparison.missing_reasons ?? []),
+                        ...(value.decision.comparison.required_failures ?? []),
                       ].map((reason, i) => (
                         <p className="text-xs break-words" key={i}>
                           {reason}
                         </p>
                       ))}
                       <p className="text-xs text-muted-foreground">
-                        {value.evaluations.items.length} evaluation records in
-                        this page
+                        {(value.evaluations.items ?? []).length} evaluation
+                        records in this page
                         {value.evaluations.complete
                           ? ""
                           : "; more records retained"}
@@ -396,6 +457,38 @@ function ExperimentReview({ experiment }: { experiment: Experiment }) {
                     </>
                   )
                 }
+              </QueryBoundary>
+              <QueryBoundary title="Candidate proposals" query={candidates}>
+                {(page) => (
+                  <div className="grid gap-2">
+                    {!page.items?.length && (
+                      <ZeroState
+                        title="No candidate proposals"
+                        body="This page contains no retained proposals to review. Refresh the experiment after evaluation progresses."
+                      />
+                    )}
+                    {(page.items ?? []).map((candidate) => (
+                      <p className="text-xs break-words" key={candidate.id}>
+                        {candidate.accepted
+                          ? "Accepted candidate"
+                          : "Rejected candidate"}
+                        : {candidate.id} ·{" "}
+                        {(candidate.proposal.edits ?? []).length} edits.
+                        {!candidate.accepted &&
+                        !(candidate.proposal.edits ?? []).length
+                          ? " No edits proposed."
+                          : candidate.rejection
+                            ? ` ${candidate.rejection}`
+                            : ""}
+                      </p>
+                    ))}
+                    {!page.complete && (
+                      <p className="text-xs text-muted-foreground">
+                        More candidate records are retained.
+                      </p>
+                    )}
+                  </div>
+                )}
               </QueryBoundary>
             </>
           )}

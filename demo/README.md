@@ -439,3 +439,51 @@ the configured workflow, not a general accuracy measurement. Source observations
 expire after fifteen minutes. Recovery reopens the original retained evaluation
 report and cannot repeat generation. The demo does not qualify Linux sandbox
 isolation, a production identity service or published dependency installation.
+
+### Review a local team and improvement experiment
+
+Enable `DEMO_CORTEX_PLANNING=true` alongside verification to install the bounded
+warehouse team. The Team plans page shows the retained graph, ownership, budget
+and current acceptance. Propose a planner revision, review it, then explicitly
+accept it before claiming the producer task. Reconcile the completed task to run
+its independent review. Acknowledgments alone do not mark the task accepted.
+The fixed host exposes initial claims; retry and reassignment remain unavailable
+until a host installs those capabilities.
+
+The private `.team` directory beside the database retains agent identities and
+prepared work before dispatch. Restart uses those identities. It cannot repeat an
+uncertain call or refresh an expired plan's budget. Use a fresh disposable database
+for a new qualification session. The `local-warehouse-team/v2` host requests
+structural JSON output for each role. It still checks the generated plan, record
+and review independently. The schema cannot force a correct unit count or a
+supporting review. Earlier team journals require a fresh session instead of
+silently adopting the new output policy.
+
+Enable `DEMO_CORTEX_OPTIMIZATION=true` to install the Improvement review catalog.
+The fixed synthetic benchmark has two discovery records and twenty separate
+held-out records. Create and start an experiment from the approved catalog, then
+inspect its comparison before making a routing decision. The default statistical
+requirements remain in force. An inconclusive comparison keeps activation blocked.
+These arithmetic records do not establish general model quality. Baseline and
+candidate runs use the same structural JSON constraints and output budget. The
+controller receives bounded discovery excerpts with original evidence references,
+digests and explicit truncation metadata. The full records stay retained. An empty
+edit is rejected as a candidate and cannot become a claimed improvement.
+
+The optimizer retains dispatch intent, captured output and usage evidence in a
+private `.optimization` directory beside the database. Unknown provider outcomes
+keep their full reservation and are not dispatched again. Tool-less local
+execution and model-context bounds do not establish Linux process isolation.
+
+Run the opt-in real-model qualification separately from ordinary fixture tests:
+
+```sh
+CORTEX_QUALIFY_OPTIMIZATION=1 \
+  CORTEX_QUALIFY_OPTIMIZATION_DB=/tmp/cortex-optimizer-qualification.db \
+  GOWORK=off go test -v -run '^TestCortexOptimizationInstalledOllama$' -timeout 20m ./...
+```
+
+The selected database path must be fresh. Retain it to inspect the same comparison
+in the dashboard afterward. The test uses the actual installed model and only
+invokes an active version when the retained decision qualifies. Fixture lifecycle
+tests separately cover activation, next-run version pins, rollback and denial.

@@ -16,6 +16,12 @@ import {
   SessionsPage,
 } from "./pages/operations"
 import type { Resource } from "./types"
+const Planning = lazy(() =>
+  import("./pages/planning").then((m) => ({ default: m.PlanningPage }))
+)
+const PlanningDetail = lazy(() =>
+  import("./pages/planning").then((m) => ({ default: m.PlanningDetailPage }))
+)
 const Improvements = lazy(() =>
   import("./pages/improvements").then((m) => ({ default: m.ImprovementsPage }))
 )
@@ -104,6 +110,7 @@ export const cortexPlugin = definePlugin({
       priority: 31,
     },
     { label: "Runs", to: "/runs", group: "Execution", priority: 32 },
+    { label: "Team plans", to: "/planning", group: "Execution", priority: 39 },
     {
       label: "Governed lessons",
       to: "/learning",
@@ -178,6 +185,8 @@ export const cortexPlugin = definePlugin({
     ...routes,
     { path: "/runs", element: () => <RunsPage /> },
     { path: "/learning", element: Learning },
+    { path: "/planning", element: Planning },
+    { path: "/planning/:id", element: PlanningDetail },
     { path: "/improvements", element: Improvements },
     {
       path: "/runs/agent/:agentId",

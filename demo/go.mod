@@ -4,13 +4,16 @@ go 1.26.9
 
 require (
 	github.com/xraph/authsome v0.0.0-00010101000000-000000000000
-	github.com/xraph/cortex v1.8.1-0.20261025225257-d0eb82f6ed68
+	github.com/xraph/cortex v1.8.1-0.20261026225530-ad21480595d2
+	github.com/xraph/cortex/optimization v0.0.0-20261026225530-ad21480595d2
+	github.com/xraph/cortex/sentinel v0.0.0-20261026225530-ad21480595d2
 	github.com/xraph/ctrlplane v0.0.0-00010101000000-000000000000
 	github.com/xraph/forge v1.13.2-0.20261026124101-97dbf04160fd
 	github.com/xraph/forge/extensions/streaming v1.12.0
 	github.com/xraph/go-utils v1.5.0
 	github.com/xraph/nexus v1.8.0
 	github.com/xraph/nexus/providers/ollama v1.8.0
+	github.com/xraph/sentinel v1.10.0
 	github.com/xraph/warden v1.8.0
 )
 
@@ -19,10 +22,7 @@ require (
 	github.com/grafana/pyroscope-go v1.4.3 // indirect
 	github.com/grafana/pyroscope-go/godeltaprof v0.1.11 // indirect
 	github.com/shopspring/decimal v1.4.0 // indirect
-	github.com/xraph/cortex/optimization v0.0.0-20261026160546-1b6f6bc9f367 // indirect
-	github.com/xraph/cortex/sentinel v1.6.1 // indirect
 	github.com/xraph/nexus/providers/openai v1.8.0 // indirect
-	github.com/xraph/sentinel v1.10.0 // indirect
 	github.com/xraph/weave v1.8.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.70.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp v0.21.0 // indirect
@@ -125,7 +125,7 @@ require (
 	github.com/xdg-go/stringprep v1.0.4 // indirect
 	github.com/xlab/treeprint v1.2.0 // indirect
 	github.com/xraph/confy v1.1.0 // indirect
-	github.com/xraph/cortex/extension v1.6.1
+	github.com/xraph/cortex/extension v0.0.0-20261026225530-ad21480595d2
 	github.com/xraph/forge/extensions/auth v1.12.9 // indirect
 	github.com/xraph/grove v1.9.0
 	github.com/xraph/grove/drivers/mongodriver v1.9.0 // indirect
