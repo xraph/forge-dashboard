@@ -4,7 +4,7 @@ on:
   # Branches only. A version tag runs this same check through release.yml,
   # which waits on it before publishing anything.
   push:
-    branches: ['**']
+    branches: ["**"]
   pull_request:
   workflow_call:
 
@@ -16,6 +16,35 @@ permissions:
   contents: read
 
 jobs:
+  demo:
+    name: Go demo
+    runs-on: ubuntu-latest
+    env:
+      GOWORK: "off"
+    defaults:
+      run:
+        working-directory: demo
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: demo/go.mod
+          cache-dependency-path: demo/go.sum
+      - name: Verify published dependencies
+        run: |
+          go mod tidy
+          git diff --exit-code -- go.mod go.sum
+          go list -m -json all > "$RUNNER_TEMP/demo-modules.json"
+          jq -es 'all(.[]; .Replace == null)' "$RUNNER_TEMP/demo-modules.json"
+      - name: Format and vet
+        run: |
+          test -z "$(gofmt -l .)"
+          go vet ./...
+      - name: Test
+        run: go test -race -count=1 -timeout=15m -v ./...
+      - name: Build
+        run: go build -o "$RUNNER_TEMP/forge-dashboard-demo" .
+
   check:
     name: typecheck, lint, test, build
     uses: xraph/workflows/.github/workflows/node-ci.yml@v1

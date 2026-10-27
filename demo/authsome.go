@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
+	"errors"
 	"fmt"
 	"log"
 
@@ -12,6 +14,7 @@ import (
 	"github.com/xraph/forge/extensions/dashboard/contract/dispatcher"
 
 	authsome "github.com/xraph/authsome"
+	"github.com/xraph/authsome/bridge"
 	authcontract "github.com/xraph/authsome/extension/contract"
 	"github.com/xraph/authsome/plugins/password"
 	authmemory "github.com/xraph/authsome/store/memory"
@@ -20,42 +23,9 @@ import (
 	wardenmemory "github.com/xraph/warden/store/memory"
 )
 
-// ---------------------------------------------------------------------------
-// Real authsome contributor.
-//
-// This does NOT go through github.com/xraph/authsome/extension (the full
-// Forge-extension wrapper). That wrapper auto-discovers a grove.DB, a
-// chronicle.Emitter, and -- critically -- a *warden.Engine from the app's DI
-// container, and fails registration outright if warden isn't already there
-// (see authsome/extension/extension.go's init(): "warden extension is
-// required but not found in DI container"). Forge has no published
-// extensions/warden wrapper to register for that, so satisfying it would
-// mean either hand-rolling one or reaching into vessel manually.
-//
-// Rather than do either, this builds the engine directly with
-// authsome.NewEngine, the same primitive authsome/testutil.NewTestServer
-// uses for its own in-memory test server: an in-memory store
-// (authsome/store/memory), an in-memory warden engine
-// (warden.NewEngine(warden.WithStore(wardenmemory.New()))), and
-// WithBootstrap() to seed a "Platform" app + default environments. No
-// external infrastructure, no migrations (the memory store has none), no
-// network calls. That sidesteps the DI auto-discovery path entirely and
-// gives authcontract.Register (extension/contract/contract.go) the one
-// thing it actually requires: Deps.Engine.
-//
-// It is built eagerly, before any app.RegisterExtension call, specifically
-// so it does NOT depend on Forge's extension Register/Start ordering. The
-// dashboard extension auto-discovers ContractContributorAware by scanning
-// app.Extensions() during its own Start() -- if that scan reaches this
-// extension before this extension's own Register() has run, and the engine
-// were built lazily in Register(), RegisterContractContributor would be
-// called with a nil engine and authcontract.Register would fail outright
-// (unlike the real streaming extension, whose handlers are closures
-// resolved at request time, authcontract.Register checks deps.Engine ==
-// nil immediately). Building the engine up front removes that race
-// entirely, the same way auth.go's synthetic demoAuthStore is seeded at
-// package-init time rather than inside RegisterContractContributor.
-// ---------------------------------------------------------------------------
+// The standalone host constructs Authsome before dashboard discovery. Its
+// identity, policy and audit stores are in memory, so no sibling checkout or
+// external infrastructure is needed. Production hosts need persistent adapters.
 
 // RealAuthsomeExtension wraps a real, in-memory authsome engine as a
 // dashboard contract contributor.
@@ -71,6 +41,15 @@ type RealAuthsomeExtension struct {
 // whole demo.
 func newRealAuthsomeExtension() (*RealAuthsomeExtension, error) {
 	store := authmemory.New()
+	// The key and identity store share the lifetime of this demo process.
+	key := make([]byte, 32)
+	if _, err := rand.Read(key); err != nil {
+		return nil, fmt.Errorf("create authsome token key: %w", err)
+	}
+	encryptor, err := bridge.NewAESGCMEncryptor(key)
+	if err != nil {
+		return nil, fmt.Errorf("create authsome token encryptor: %w", err)
+	}
 
 	wardenEng, err := warden.NewEngine(warden.WithStore(wardenmemory.New()))
 	if err != nil {
@@ -81,6 +60,8 @@ func newRealAuthsomeExtension() (*RealAuthsomeExtension, error) {
 		authsome.WithStore(store),
 		authsome.WithLogger(golog.NewNoopLogger()),
 		authsome.WithWarden(wardenEng),
+		authsome.WithChronicle(bridge.NewMemoryChronicle()),
+		authsome.WithTokenEncryptor(encryptor),
 		authsome.WithDisableMigrate(), // memory store has no migrations to run
 		authsome.WithBootstrap(),      // seeds a "Platform" app + dev/staging/prod envs
 		authsome.WithPlugin(password.New()),
@@ -103,6 +84,11 @@ func newRealAuthsomeExtension() (*RealAuthsomeExtension, error) {
 		),
 		engine: engine,
 	}, nil
+}
+
+// Stop drains the in-memory auth engine's background work on demo shutdown.
+func (e *RealAuthsomeExtension) Stop(ctx context.Context) error {
+	return errors.Join(e.engine.Stop(ctx), e.BaseExtension.Stop(ctx))
 }
 
 // RegisterContractContributor implements dashboard.ContractContributorAware.

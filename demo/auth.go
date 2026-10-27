@@ -168,14 +168,14 @@ func newAuthStore() *authStore {
 
 	s.sessions["sess_1"] = &SessionSummary{
 		ID: "sess_1", UserID: "user_1", IPAddress: "203.0.113.10",
-		UserAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Safari/605.1.15",
+		UserAgent:      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Safari/605.1.15",
 		LastActivityAt: now.Add(-5 * time.Minute).Format(time.RFC3339),
 		ExpiresAt:      now.Add(23 * time.Hour).Format(time.RFC3339),
 		CreatedAt:      now.Add(-1 * time.Hour).Format(time.RFC3339),
 	}
 	s.sessions["sess_2"] = &SessionSummary{
 		ID: "sess_2", UserID: "user_2", IPAddress: "198.51.100.24",
-		UserAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/128.0",
+		UserAgent:      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/128.0",
 		LastActivityAt: now.Add(-2 * time.Hour).Format(time.RFC3339),
 		ExpiresAt:      now.Add(22 * time.Hour).Format(time.RFC3339),
 		CreatedAt:      now.Add(-2 * time.Hour).Format(time.RFC3339),
@@ -412,14 +412,30 @@ func (e *AuthContributorExtension) RegisterContractContributor(
 		fn     func() error
 	}
 	regs := []reg1{
-		{"auth.config", func() error { return dispatcher.RegisterQuery(disp, authContributorName, "auth.config", 1, authConfigHandler) }},
-		{"auth.login", func() error { return dispatcher.RegisterCommand(disp, authContributorName, "auth.login", 1, authLoginHandler) }},
-		{"auth.logout", func() error { return dispatcher.RegisterCommand(disp, authContributorName, "auth.logout", 1, authLogoutHandler) }},
-		{"users.list", func() error { return dispatcher.RegisterQuery(disp, authContributorName, "users.list", 1, usersListHandler) }},
-		{"users.detail", func() error { return dispatcher.RegisterQuery(disp, authContributorName, "users.detail", 1, usersDetailHandler) }},
-		{"users.ban", func() error { return dispatcher.RegisterCommand(disp, authContributorName, "users.ban", 1, usersBanHandler) }},
-		{"users.unban", func() error { return dispatcher.RegisterCommand(disp, authContributorName, "users.unban", 1, usersUnbanHandler) }},
-		{"sessions.list", func() error { return dispatcher.RegisterQuery(disp, authContributorName, "sessions.list", 1, sessionsListHandler) }},
+		{"auth.config", func() error {
+			return dispatcher.RegisterQuery(disp, authContributorName, "auth.config", 1, authConfigHandler)
+		}},
+		{"auth.login", func() error {
+			return dispatcher.RegisterCommand(disp, authContributorName, "auth.login", 1, authLoginHandler)
+		}},
+		{"auth.logout", func() error {
+			return dispatcher.RegisterCommand(disp, authContributorName, "auth.logout", 1, authLogoutHandler)
+		}},
+		{"users.list", func() error {
+			return dispatcher.RegisterQuery(disp, authContributorName, "users.list", 1, usersListHandler)
+		}},
+		{"users.detail", func() error {
+			return dispatcher.RegisterQuery(disp, authContributorName, "users.detail", 1, usersDetailHandler)
+		}},
+		{"users.ban", func() error {
+			return dispatcher.RegisterCommand(disp, authContributorName, "users.ban", 1, usersBanHandler)
+		}},
+		{"users.unban", func() error {
+			return dispatcher.RegisterCommand(disp, authContributorName, "users.unban", 1, usersUnbanHandler)
+		}},
+		{"sessions.list", func() error {
+			return dispatcher.RegisterQuery(disp, authContributorName, "sessions.list", 1, sessionsListHandler)
+		}},
 		{"sessions.revoke", func() error {
 			return dispatcher.RegisterCommand(disp, authContributorName, "sessions.revoke", 1, sessionsRevokeHandler)
 		}},

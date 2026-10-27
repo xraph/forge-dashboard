@@ -75,19 +75,15 @@ func main() {
 			log.Fatalf("register streaming-contract contributor (synthetic): %v", err)
 		}
 	} else if ok, detail := checkRealStreamingManifest(); !ok && !envBool("DEMO_STREAMING_FORCE_REAL", false) {
-		// See streamingcheck.go: the real streaming extension's own bundled
-		// manifest.yaml fails the dashboard's own contract validator (a
-		// genuine, pre-existing defect, not something this demo caused), so
-		// registering it for real would leave streaming-contract silently
-		// missing from /capabilities. Fall back to the synthetic contributor
-		// so the shell still has a working streaming scope, and say why.
+		// Validate the installed contract before selecting the real contributor.
+		// Keep the explicit fixture fallback visible in the startup log.
 		warnRealStreamingManifestInvalid(detail)
 		if err := app.RegisterExtension(NewStreamingContributorExtension()); err != nil {
 			log.Fatalf("register streaming-contract contributor (synthetic fallback): %v", err)
 		}
 	} else {
 		if err := app.RegisterExtension(streaming.NewExtension()); err != nil {
-			log.Fatalf("register streaming-contract contributor (real): %v", err)
+			log.Fatalf("register streaming contributor (real): %v", err)
 		}
 	}
 

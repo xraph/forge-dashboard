@@ -87,6 +87,26 @@ func TestCortexSeedAndRunSurviveRestart(t *testing.T) {
 	if _, err := eng.GetRun(foreign, result.ID); !errors.Is(err, cortex.ErrRunNotFound) {
 		t.Fatalf("foreign run visible: %v", err)
 	}
+	parent := cortex.WithScope(ctx, cortex.Scope{Levels: []cortex.Level{{Key: "tenant", Value: "cortex-demo-northwind"}}})
+	children, err := eng.ListAgents(parent, nil)
+	if err != nil || len(children) != 2 {
+		t.Fatalf("ancestor listing: %v %v", children, err)
+	}
+	changed := *again
+	changed.Description = "unauthorized ancestor update"
+	if err := eng.UpdateAgent(parent, &changed); err == nil {
+		t.Fatal("ancestor scope updated a child agent")
+	}
+	if err := eng.DeleteAgent(parent, again.ID); err == nil {
+		t.Fatal("ancestor scope deleted a child agent")
+	}
+	if _, err := eng.RunAgent(parent, again.Name, "unauthorized ancestor execution", nil); err == nil {
+		t.Fatal("ancestor scope executed a child agent")
+	}
+	retained, err := eng.GetAgent(ctx, again.ID)
+	if err != nil || retained.Description != again.Description {
+		t.Fatalf("denied mutation changed saved agent: %+v %v", retained, err)
+	}
 }
 func TestCortexDemoProviderUsesLatestTurn(t *testing.T) {
 	response, err := (cortexDemoLLM{}).Complete(context.Background(), &llm.Request{Messages: []llm.Message{{Role: "tool", Content: "old lookup"}, {Role: "user", Content: "new question"}}})

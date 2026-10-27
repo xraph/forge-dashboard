@@ -5,18 +5,18 @@ go 1.26.9
 require (
 	github.com/testcontainers/testcontainers-go v0.44.0
 	github.com/testcontainers/testcontainers-go/modules/postgres v0.44.0
-	github.com/xraph/authsome v0.0.0-00010101000000-000000000000
-	github.com/xraph/cortex v1.8.1-0.20261026225530-ad21480595d2
-	github.com/xraph/cortex/optimization v0.0.0-20261026225530-ad21480595d2
-	github.com/xraph/cortex/sentinel v0.0.0-20261026225530-ad21480595d2
-	github.com/xraph/ctrlplane v0.0.0-00010101000000-000000000000
+	github.com/xraph/authsome v1.8.3
+	github.com/xraph/cortex v1.9.0
+	github.com/xraph/cortex/optimization v1.9.0
+	github.com/xraph/cortex/sentinel v1.9.0
+	github.com/xraph/ctrlplane v1.8.1
 	github.com/xraph/forge v1.13.2-0.20261026124101-97dbf04160fd
-	github.com/xraph/forge/extensions/streaming v1.12.0
+	github.com/xraph/forge/extensions/streaming v1.13.1
 	github.com/xraph/go-utils v1.5.0
-	github.com/xraph/nexus v1.8.0
-	github.com/xraph/nexus/providers/ollama v1.8.0
+	github.com/xraph/nexus v1.9.0
+	github.com/xraph/nexus/providers/ollama v1.9.0
 	github.com/xraph/sentinel v1.10.0
-	github.com/xraph/warden v1.8.0
+	github.com/xraph/warden v1.8.1
 )
 
 require (
@@ -57,8 +57,8 @@ require (
 	github.com/stretchr/testify v1.12.1 // indirect
 	github.com/tklauser/go-sysconf v0.4.0 // indirect
 	github.com/tklauser/numcpus v0.12.0 // indirect
-	github.com/xraph/nexus/providers/openai v1.8.0 // indirect
-	github.com/xraph/weave v1.8.0 // indirect
+	github.com/xraph/nexus/providers/openai v1.9.0 // indirect
+	github.com/xraph/weave v1.8.1 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.70.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp v0.21.0 // indirect
@@ -158,15 +158,15 @@ require (
 	github.com/xdg-go/stringprep v1.0.4 // indirect
 	github.com/xlab/treeprint v1.2.0 // indirect
 	github.com/xraph/confy v1.1.0 // indirect
-	github.com/xraph/cortex/extension v0.0.0-20261026225530-ad21480595d2
-	github.com/xraph/forge/extensions/auth v1.12.9 // indirect
-	github.com/xraph/grove v1.9.0
-	github.com/xraph/grove/drivers/mongodriver v1.9.0 // indirect
-	github.com/xraph/grove/drivers/pgdriver v1.9.0
-	github.com/xraph/grove/drivers/sqlitedriver v1.9.0
-	github.com/xraph/keysmith v1.8.0 // indirect
-	github.com/xraph/ledger v1.8.0 // indirect
-	github.com/xraph/shield v1.8.0
+	github.com/xraph/cortex/extension v1.9.0
+	github.com/xraph/forge/extensions/auth v1.13.1 // indirect
+	github.com/xraph/grove v1.10.0
+	github.com/xraph/grove/drivers/mongodriver v1.10.0 // indirect
+	github.com/xraph/grove/drivers/pgdriver v1.10.0
+	github.com/xraph/grove/drivers/sqlitedriver v1.10.0
+	github.com/xraph/keysmith v1.8.1 // indirect
+	github.com/xraph/ledger v1.8.1 // indirect
+	github.com/xraph/shield v1.8.1
 	github.com/xraph/vessel v1.0.4 // indirect
 	github.com/youmark/pkcs8 v0.0.0-20240726163527-a2c0da244d78 // indirect
 	go.jetify.com/typeid/v2 v2.0.0-alpha.3 // indirect
@@ -215,42 +215,3 @@ require (
 	sigs.k8s.io/structured-merge-diff/v6 v6.4.2 // indirect
 	sigs.k8s.io/yaml v1.6.0 // indirect
 )
-
-// Local development only. This points the demo at the forge checkout that
-// lives next to forge-dashboard on disk instead of a published forge
-// version, so day-to-day dashboard-shell work doesn't need a release cut
-// every time forge's contract package changes underneath it.
-//
-// This replace must be removed (or pinned to a real published forge
-// version) before this demo proves anything about the genuine external-
-// consumer path. With the replace in place, a successful `go build` here
-// only proves the demo compiles against whatever is on disk in
-// ../../forge right now -- it says nothing about what a real downstream
-// consumer pulling `github.com/xraph/forge` from the module proxy would
-// get.
-replace github.com/xraph/forge => ../../forge
-
-// Same rationale as the forge replace above: extensions/streaming is a
-// separate Go module inside the forge repo (its own go.mod), and its
-// go.mod's own forge requirement predates the branch checked out at
-// ../../forge, so it needs the same on-disk override to build against
-// what's actually there.
-replace github.com/xraph/forge/extensions/streaming => ../../forge/extensions/streaming
-
-// authsome is a private, unpublished-at-HEAD sibling module (no tag covers
-// the commit this demo needs), so it is pulled from the checkout next to
-// forge and forge-dashboard on disk, the same pattern as the forge replace.
-// See README.md "Which authsome checkout you need".
-replace github.com/xraph/authsome => ../../forgery/authsome
-
-replace github.com/xraph/ctrlplane => ../../controlplane
-
-replace github.com/xraph/warden => ../../forgery/warden
-
-replace github.com/xraph/shield => ../../forgery/shield
-
-replace github.com/xraph/cortex => ../../forgery/cortex
-
-replace github.com/xraph/cortex/extension => ../../forgery/cortex/extension
-
-replace github.com/xraph/cortex/sentinel => ../../forgery/cortex/sentinel
