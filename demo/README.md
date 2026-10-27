@@ -345,6 +345,39 @@ that run and leaves seeded PII intact. The separate
 and exercises all 67 intents; that is development contract coverage, not live
 Shield qualification.
 
+## Ctrlplane persistence
+
+Set `DEMO_CTRLPLANE=true` and `DEMO_CTRLPLANE_DATABASE_URL` to a dedicated local
+PostgreSQL database before starting the demo. Startup migrates that database and
+seeds the review data. Provider operations remain simulated.
+
+```sh
+PORT=8202 DEMO_CTRLPLANE=true \
+  DEMO_CTRLPLANE_DATABASE_URL='postgres://demo:demo@127.0.0.1:55432/ctrlplane_demo?sslmode=disable' \
+  GOWORK=off go run -mod=readonly .
+```
+
+Create the database first and replace the example connection settings with yours.
+Use a database reserved for this demo. Workloads, instances and deployments share
+the PostgreSQL store and one authorization policy object, as required by
+Ctrlplane's managed-ownership guards.
+
+The old Badger store does not support those guards. If you used
+`DEMO_CTRLPLANE_PATH`, preserve that directory and unset the variable before
+configuring PostgreSQL. Startup rejects the old setting even when a database URL
+is also present. There is no automatic Badger data migration.
+
+With Docker running, you can run the full demo Go suite from `demo/`:
+
+```sh
+GOWORK=off go test -race -count=1 -timeout 20m ./...
+```
+
+The Ctrlplane restart test starts its own disposable PostgreSQL container. It
+checks that reseeding preserves edits and that tenants cannot read each other's
+workloads. This test skips when Docker is unavailable; use verbose test output
+to distinguish a passing persistence check from a skip.
+
 ## Cortex with a local model
 
 You can run Cortex against an installed Ollama model through the real Nexus

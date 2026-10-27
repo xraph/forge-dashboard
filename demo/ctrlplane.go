@@ -7,13 +7,14 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/xraph/forge"
 	"github.com/xraph/forge/extensions/dashboard"
 	dashauth "github.com/xraph/forge/extensions/dashboard/auth"
+	"github.com/xraph/grove"
+	"github.com/xraph/grove/drivers/pgdriver"
 
 	ctrlplane "github.com/xraph/ctrlplane"
 	"github.com/xraph/ctrlplane/admin"
@@ -27,7 +28,7 @@ import (
 	"github.com/xraph/ctrlplane/network"
 	"github.com/xraph/ctrlplane/provider"
 	"github.com/xraph/ctrlplane/secrets"
-	"github.com/xraph/ctrlplane/store/badger"
+	"github.com/xraph/ctrlplane/store/postgres"
 	"github.com/xraph/ctrlplane/template"
 	"github.com/xraph/ctrlplane/workload"
 )
@@ -38,26 +39,51 @@ func registerCtrlplaneDemo(fapp forge.App, dash *dashboard.Extension) error {
 	if !envBool("DEMO_CTRLPLANE", false) {
 		return nil
 	}
-	path := os.Getenv("DEMO_CTRLPLANE_PATH")
-	if path == "" {
-		path = filepath.Join(os.TempDir(), "forge-dashboard-ctrlplane")
+	dsn, err := ctrlplaneDemoDatabaseURL()
+	if err != nil {
+		return err
 	}
-	store, err := badger.New(badger.Config{Path: path, SyncWrites: true})
+	store, err := openCtrlplaneDemoStore(context.Background(), dsn)
 	if err != nil {
 		return err
 	}
 	cfg := cpext.DefaultConfig()
 	cfg.DefaultProvider = "demo-local"
 	cfg.AuditEnabled = true
-	ext := cpext.New(cpext.WithConfig(cfg), cpext.WithStore(store), cpext.WithAuthProvider(ctrlplaneDemoPolicy{}), cpext.WithProvider("demo-local", &ctrlplaneDemoProvider{store: store}), cpext.WithDisableRoutes())
+	ext := cpext.New(cpext.WithConfig(cfg), cpext.WithStore(store), cpext.WithAuthProvider(&ctrlplaneDemoPolicy{}), cpext.WithProvider("demo-local", &ctrlplaneDemoProvider{store: store}), cpext.WithDisableRoutes())
 
-	return fapp.RegisterExtension(&ctrlplaneDemoExtension{Extension: ext, dash: dash, path: path})
+	if err := fapp.RegisterExtension(&ctrlplaneDemoExtension{Extension: ext, dash: dash}); err != nil {
+		return errors.Join(err, store.Close())
+	}
+	return nil
+}
+
+func ctrlplaneDemoDatabaseURL() (string, error) {
+	if os.Getenv("DEMO_CTRLPLANE_PATH") != "" {
+		return "", errors.New("DEMO_CTRLPLANE_PATH uses unsupported Badger storage; preserve that directory and configure a separate PostgreSQL database with DEMO_CTRLPLANE_DATABASE_URL")
+	}
+	dsn := strings.TrimSpace(os.Getenv("DEMO_CTRLPLANE_DATABASE_URL"))
+	if dsn == "" {
+		return "", errors.New("DEMO_CTRLPLANE_DATABASE_URL is required for the persistent Ctrlplane demo")
+	}
+	return dsn, nil
+}
+
+func openCtrlplaneDemoStore(ctx context.Context, dsn string) (*postgres.Store, error) {
+	driver := pgdriver.New()
+	if err := driver.Open(ctx, dsn); err != nil {
+		return nil, fmt.Errorf("open ctrlplane demo database: %w", err)
+	}
+	db, err := grove.Open(driver)
+	if err != nil {
+		return nil, errors.Join(err, driver.Close())
+	}
+	return postgres.New(db), nil
 }
 
 type ctrlplaneDemoExtension struct {
 	*cpext.Extension
 	dash   *dashboard.Extension
-	path   string
 	cancel context.CancelFunc
 }
 
@@ -67,7 +93,6 @@ func (e *ctrlplaneDemoExtension) Register(fapp forge.App) error {
 	}
 	ext := e.Extension
 	dash := e.dash
-	path := e.path
 
 	cp := ext.CtrlPlane()
 	tenant, err := seedCtrlplaneDemo(cp)
@@ -99,22 +124,24 @@ func (e *ctrlplaneDemoExtension) Register(fapp forge.App) error {
 	}))
 	dash.EnableAuth()
 	cp.Health.RegisterChecker(ctrlplaneDemoChecker{})
-	log.Printf("[ctrlplane] local demo tenant=%s role=%s store=%s; provider operations are simulated", tenant, role, path)
+	log.Printf("[ctrlplane] local demo tenant=%s role=%s store=postgresql; provider operations are simulated", tenant, role)
 	return nil
 }
 
-type ctrlplaneDemoPolicy struct{}
+// The nonzero size gives each policy allocation a distinct identity for the
+// workload, instance and deployment services' shared-authority checks.
+type ctrlplaneDemoPolicy struct{ _ byte }
 
-func (ctrlplaneDemoPolicy) Authenticate(context.Context, string) (*auth.Claims, error) {
+func (*ctrlplaneDemoPolicy) Authenticate(context.Context, string) (*auth.Claims, error) {
 	return nil, auth.ErrUnauthorized
 }
-func (ctrlplaneDemoPolicy) GetTenantID(ctx context.Context) string {
+func (*ctrlplaneDemoPolicy) GetTenantID(ctx context.Context) string {
 	if c := auth.ClaimsFrom(ctx); c != nil {
 		return c.TenantID
 	}
 	return ""
 }
-func (ctrlplaneDemoPolicy) Authorize(ctx context.Context, req auth.AuthzRequest) (bool, error) {
+func (*ctrlplaneDemoPolicy) Authorize(ctx context.Context, req auth.AuthzRequest) (bool, error) {
 	c := auth.ClaimsFrom(ctx)
 	return c != nil && c.SubjectID != "" && c.SubjectID == req.SubjectID && c.TenantID == req.TenantID, nil
 }

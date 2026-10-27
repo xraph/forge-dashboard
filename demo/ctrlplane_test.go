@@ -2,28 +2,48 @@ package main
 
 import (
 	"context"
-	"path/filepath"
+	"strings"
 	"testing"
+	"time"
+
+	"github.com/testcontainers/testcontainers-go"
+	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
 
 	ctrlplane "github.com/xraph/ctrlplane"
 	"github.com/xraph/ctrlplane/admin"
 	"github.com/xraph/ctrlplane/app"
 	"github.com/xraph/ctrlplane/auth"
 	"github.com/xraph/ctrlplane/datacenter"
-	"github.com/xraph/ctrlplane/store/badger"
+	"github.com/xraph/ctrlplane/managed"
+	"github.com/xraph/ctrlplane/store/postgres"
 	"github.com/xraph/ctrlplane/template"
 	"github.com/xraph/ctrlplane/workload"
 )
 
 func TestCtrlplaneDemoRestartPreservesEditsAndTenantIsolation(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "ctrlplane")
-	open := func() (*app.CtrlPlane, *badger.Store) {
+	testcontainers.SkipIfProviderIsNotHealthy(t)
+	ctx, cancel := context.WithTimeout(t.Context(), 2*time.Minute)
+	defer cancel()
+	container, err := tcpostgres.Run(ctx, "postgres:16-alpine", tcpostgres.WithDatabase("ctrlplane_demo"), tcpostgres.BasicWaitStrategies())
+	if err != nil {
+		t.Fatal(err)
+	}
+	testcontainers.CleanupContainer(t, container)
+	dsn, err := container.ConnectionString(ctx, "sslmode=disable")
+	if err != nil {
+		t.Fatal(err)
+	}
+	open := func() (*app.CtrlPlane, *postgres.Store) {
 		t.Helper()
-		s, err := badger.New(badger.Config{Path: path, SyncWrites: true})
+		s, err := openCtrlplaneDemoStore(ctx, dsn)
 		if err != nil {
 			t.Fatal(err)
 		}
-		cp, err := app.New(app.WithStore(s), app.WithConfig(ctrlplane.DefaultCtrlPlaneConfig()), app.WithAuth(ctrlplaneDemoPolicy{}), app.WithProvider("demo-local", &ctrlplaneDemoProvider{store: s}), app.WithDefaultProvider("demo-local"))
+		t.Cleanup(func() { _ = s.Close() })
+		if err := s.Migrate(ctx); err != nil {
+			t.Fatal(err)
+		}
+		cp, err := app.New(app.WithStore(s), app.WithConfig(ctrlplane.DefaultCtrlPlaneConfig()), app.WithAuth(&ctrlplaneDemoPolicy{}), app.WithProvider("demo-local", &ctrlplaneDemoProvider{store: s}), app.WithDefaultProvider("demo-local"))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -34,7 +54,7 @@ func TestCtrlplaneDemoRestartPreservesEditsAndTenantIsolation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ctx := auth.WithClaims(context.Background(), &auth.Claims{SubjectID: "test", TenantID: tenantID, Roles: []string{"system:admin"}})
+	ctx = auth.WithClaims(ctx, &auth.Claims{SubjectID: "test", TenantID: tenantID, Roles: []string{"system:admin"}})
 	list, err := cp.Workloads.List(ctx, workload.ListOptions{Limit: 20})
 	if err != nil || len(list.Items) != 1 {
 		t.Fatalf("workloads = %+v, %v", list, err)
@@ -57,11 +77,6 @@ func TestCtrlplaneDemoRestartPreservesEditsAndTenantIsolation(t *testing.T) {
 		t.Fatal(err)
 	}
 	cp, s = open()
-	t.Cleanup(func() {
-		if err := s.Close(); err != nil {
-			t.Error(err)
-		}
-	})
 	again, err := seedCtrlplaneDemo(cp)
 	if err != nil || again != tenantID {
 		t.Fatalf("seed = %q, %v", again, err)
@@ -105,5 +120,41 @@ func TestCtrlplaneDemoRestartPreservesEditsAndTenantIsolation(t *testing.T) {
 		if err != nil || len(metadata) != 1 || metadata[0].Key != "DEMO_TOKEN" {
 			t.Fatalf("secret metadata = %+v, %v", metadata, err)
 		}
+	}
+}
+
+func TestCtrlplaneDemoPolicyIdentity(t *testing.T) {
+	policy := &ctrlplaneDemoPolicy{}
+	if !managed.SameAuthority(policy, policy) {
+		t.Fatal("shared demo policy has no stable identity")
+	}
+	if managed.SameAuthority(policy, &ctrlplaneDemoPolicy{}) {
+		t.Fatal("different demo policies share an identity")
+	}
+	ctx := auth.WithClaims(t.Context(), &auth.Claims{SubjectID: "operator", TenantID: "tenant"})
+	for _, req := range []auth.AuthzRequest{
+		{SubjectID: "other", TenantID: "tenant"},
+		{SubjectID: "operator", TenantID: "foreign"},
+	} {
+		if allowed, err := policy.Authorize(ctx, req); err != nil || allowed {
+			t.Fatalf("mismatched authority allowed: %v, %v", allowed, err)
+		}
+	}
+}
+
+func TestCtrlplaneDemoDatabaseConfiguration(t *testing.T) {
+	t.Setenv("DEMO_CTRLPLANE_PATH", "")
+	t.Setenv("DEMO_CTRLPLANE_DATABASE_URL", "")
+	if _, err := ctrlplaneDemoDatabaseURL(); err == nil {
+		t.Fatal("missing PostgreSQL configuration accepted")
+	}
+	t.Setenv("DEMO_CTRLPLANE_DATABASE_URL", "postgres://demo:private@localhost/demo")
+	t.Setenv("DEMO_CTRLPLANE_PATH", t.TempDir())
+	if _, err := ctrlplaneDemoDatabaseURL(); err == nil || !strings.Contains(err.Error(), "Badger") || strings.Contains(err.Error(), "private") {
+		t.Fatalf("legacy storage configuration error: %v", err)
+	}
+	t.Setenv("DEMO_CTRLPLANE_PATH", "")
+	if dsn, err := ctrlplaneDemoDatabaseURL(); err != nil || dsn != "postgres://demo:private@localhost/demo" {
+		t.Fatalf("database configuration = %q, %v", dsn, err)
 	}
 }

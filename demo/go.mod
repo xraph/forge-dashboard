@@ -3,6 +3,8 @@ module github.com/xraph/forge-dashboard/demo
 go 1.26.9
 
 require (
+	github.com/testcontainers/testcontainers-go v0.44.0
+	github.com/testcontainers/testcontainers-go/modules/postgres v0.44.0
 	github.com/xraph/authsome v0.0.0-00010101000000-000000000000
 	github.com/xraph/cortex v1.8.1-0.20261026225530-ad21480595d2
 	github.com/xraph/cortex/optimization v0.0.0-20261026225530-ad21480595d2
@@ -18,12 +20,46 @@ require (
 )
 
 require (
+	dario.cat/mergo v1.0.2 // indirect
+	github.com/Azure/go-ansiterm v0.0.0-20261006220739-8c912ac31dd4 // indirect
+	github.com/Microsoft/go-winio v0.6.2 // indirect
+	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
+	github.com/containerd/errdefs v1.0.0 // indirect
+	github.com/containerd/errdefs/pkg v0.3.0 // indirect
+	github.com/containerd/log v0.1.0 // indirect
+	github.com/containerd/platforms v0.2.1 // indirect
+	github.com/cpuguy83/dockercfg v0.3.2 // indirect
+	github.com/distribution/reference v0.6.0 // indirect
+	github.com/docker/go-connections v0.8.2 // indirect
+	github.com/docker/go-units v0.5.0 // indirect
+	github.com/ebitengine/purego v0.10.1 // indirect
 	github.com/felixge/httpsnoop v1.1.0 // indirect
+	github.com/go-ole/go-ole v1.3.0 // indirect
 	github.com/grafana/pyroscope-go v1.4.3 // indirect
 	github.com/grafana/pyroscope-go/godeltaprof v0.1.11 // indirect
+	github.com/lufia/plan9stats v0.0.0-20260330125221-c963978e514e // indirect
+	github.com/magiconair/properties v1.8.10 // indirect
+	github.com/moby/docker-image-spec v1.3.1 // indirect
+	github.com/moby/go-archive v0.3.3 // indirect
+	github.com/moby/moby/api v1.56.1 // indirect
+	github.com/moby/moby/client v0.6.2 // indirect
+	github.com/moby/patternmatcher v0.6.1 // indirect
+	github.com/moby/sys/sequential v0.7.0 // indirect
+	github.com/moby/sys/user v0.4.1 // indirect
+	github.com/moby/sys/userns v0.1.0 // indirect
+	github.com/moby/term v0.5.2 // indirect
+	github.com/opencontainers/go-digest v1.0.0 // indirect
+	github.com/opencontainers/image-spec v1.1.1 // indirect
+	github.com/power-devops/perfstat v0.0.0-20240221224432-82ca36839d55 // indirect
+	github.com/shirou/gopsutil/v4 v4.26.6 // indirect
 	github.com/shopspring/decimal v1.4.0 // indirect
+	github.com/sirupsen/logrus v1.9.4 // indirect
+	github.com/stretchr/testify v1.12.1 // indirect
+	github.com/tklauser/go-sysconf v0.4.0 // indirect
+	github.com/tklauser/numcpus v0.12.0 // indirect
 	github.com/xraph/nexus/providers/openai v1.8.0 // indirect
 	github.com/xraph/weave v1.8.0 // indirect
+	github.com/yusufpapurcu/wmi v1.2.4 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.70.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp v0.21.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp v1.45.0 // indirect
@@ -41,8 +77,6 @@ require (
 	github.com/cenkalti/backoff/v5 v5.0.3 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
-	github.com/dgraph-io/badger/v4 v4.9.1 // indirect
-	github.com/dgraph-io/ristretto/v2 v2.2.0 // indirect
 	github.com/dunglas/httpsfv v1.1.0 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/emicklei/go-restful/v3 v3.13.0 // indirect
@@ -76,7 +110,6 @@ require (
 	github.com/gobwas/ws v1.4.0 // indirect
 	github.com/gofrs/uuid/v5 v5.5.1 // indirect
 	github.com/golang-jwt/jwt/v5 v5.3.1 // indirect
-	github.com/google/flatbuffers v25.2.10+incompatible // indirect
 	github.com/google/gnostic-models v0.7.1 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.30.0 // indirect
@@ -129,7 +162,7 @@ require (
 	github.com/xraph/forge/extensions/auth v1.12.9 // indirect
 	github.com/xraph/grove v1.9.0
 	github.com/xraph/grove/drivers/mongodriver v1.9.0 // indirect
-	github.com/xraph/grove/drivers/pgdriver v1.9.0 // indirect
+	github.com/xraph/grove/drivers/pgdriver v1.9.0
 	github.com/xraph/grove/drivers/sqlitedriver v1.9.0
 	github.com/xraph/keysmith v1.8.0 // indirect
 	github.com/xraph/ledger v1.8.0 // indirect
