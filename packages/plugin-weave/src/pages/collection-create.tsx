@@ -141,8 +141,8 @@ export const CollectionCreatePage: ComponentType<PluginPageProps> = () => {
                 onChange={(e) => setName(e.target.value)}
               />
               <p className="text-xs text-muted-foreground">
-                Unique within its tenant. The dashboard creates collections with
-                no tenant.
+                Unique within your tenant, which is where the dashboard creates
+                it.
               </p>
             </div>
             <div className="flex min-w-0 flex-col gap-1.5">

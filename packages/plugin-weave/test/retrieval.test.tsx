@@ -22,7 +22,7 @@ function chunk(
     id,
     document_id,
     collection_id: COL,
-    tenant_id: "",
+    tenant_id: "acme",
     content,
     index,
     start_offset: index * 160,
@@ -169,7 +169,9 @@ const COMPONENTS = {
 }
 
 const COLLECTIONS = {
-  items: [{ id: COL, name: "support-articles", tenant_id: "", metadata: {} }],
+  items: [
+    { id: COL, name: "support-articles", tenant_id: "acme", metadata: {} },
+  ],
   total: 1,
   limit: 100,
   offset: 0,
@@ -223,22 +225,20 @@ describe("RetrievalPage", () => {
     )
   })
 
-  it("adds a collection and a tenant only when they are picked", async () => {
+  it("adds a collection when one is picked, and never a tenant", async () => {
     const { client, sent } = scriptedClient(queries(), { "retrieval.run": RUN })
     renderPage(RetrievalPage, client)
     await screen.findByRole("option", { name: "support-articles" })
+    expect(screen.queryByLabelText("Tenant")).toBeNull()
+    expect(screen.queryByLabelText("Tenant ID")).toBeNull()
     fireEvent.change(screen.getByLabelText("Collection"), {
       target: { value: COL },
-    })
-    fireEvent.change(screen.getByLabelText("Tenant"), {
-      target: { value: "none" },
     })
     await ask()
     await waitFor(() =>
       expect(sent[0]?.payload).toEqual({
         query: "how long do refunds take",
         collection_id: COL,
-        tenant: "",
         top_k: 0,
         min_score: 0,
         max_tokens: 0,

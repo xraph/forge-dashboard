@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 // The fixture is plain .mjs with no types, and it is a dev tool rather than a
 // shipped module, so the imports below carry no declaration and are cast.
@@ -20,6 +20,7 @@ type Handler = {
 type Fixture = {
   createWeaveHandlers: (e: typeof FixtureError) => Record<string, Handler>
   resetWeave: () => void
+  WEAVE_TENANT: string
 }
 type Verify = { WEAVE_INPUT: Record<string, Record<string, unknown>> }
 
@@ -85,5 +86,68 @@ describe("the weave fixture", () => {
       leaks(out, intent, found)
     }
     expect(found).toEqual([])
+  })
+})
+
+/** The error a handler throws, or undefined when it answers. */
+function refusal(run: () => unknown): FixtureError | undefined {
+  try {
+    run()
+  } catch (e) {
+    return e as FixtureError
+  }
+  return undefined
+}
+
+describe("the weave fixture's tenant scope", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs()
+  })
+
+  it('answers scope "tenant" and counts only the resolved tenant\'s rows', () => {
+    const handlers = fixture.createWeaveHandlers(FixtureError)
+    const overview = handlers["system.overview"].handler({}) as {
+      scope: string
+      collections: number
+    }
+    expect(overview.scope).toBe("tenant")
+    expect(overview.collections).toBe(2)
+    const list = handlers["collections.list"].handler({}) as {
+      items: { tenant_id: string }[]
+    }
+    expect(list.items.map((c) => c.tenant_id)).toEqual([
+      fixture.WEAVE_TENANT,
+      fixture.WEAVE_TENANT,
+    ])
+  })
+
+  it("refuses a tenant field naming any other tenant, and allows your own", () => {
+    const handlers = fixture.createWeaveHandlers(FixtureError)
+    for (const intent of [
+      "system.overview",
+      "collections.list",
+      "documents.list",
+    ]) {
+      for (const tenant of ["acme", ""])
+        expect(refusal(() => handlers[intent].handler({ tenant }))?.code).toBe(
+          "PERMISSION_DENIED"
+        )
+      expect(
+        refusal(() =>
+          handlers[intent].handler({ tenant: fixture.WEAVE_TENANT })
+        )
+      ).toBeUndefined()
+    }
+  })
+
+  it("refuses every intent when the host resolves no tenant", () => {
+    vi.stubEnv("FIXTURE_WEAVE_TENANT", "")
+    const handlers = fixture.createWeaveHandlers(FixtureError)
+    for (const [intent, h] of Object.entries(handlers))
+      expect(
+        refusal(() => h.handler(verify.WEAVE_INPUT[`weave::${intent}`] ?? {}))
+          ?.code,
+        intent
+      ).toBe("PERMISSION_DENIED")
   })
 })

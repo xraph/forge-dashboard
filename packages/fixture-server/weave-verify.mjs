@@ -2,7 +2,7 @@
 // Go handlers enforce, checked over HTTP rather than "it answered".
 // verify.mjs carries an import, `...WEAVE_INPUT` and one call; everything
 // else lives here so weave never edits the shared file twice.
-import { WEAVE_IDS as I } from "./weave-fixtures.mjs"
+import { WEAVE_IDS as I, WEAVE_TENANT, OTHER_WEAVE_TENANT } from "./weave-fixtures.mjs"
 
 /** Inputs keyed "weave::<intent>". A missing key sends {}. */
 export const WEAVE_INPUT = {
@@ -49,13 +49,29 @@ export async function verifyWeave({ dispatch, getCSRF, failures, base }) {
   const code = (r) => r.body?.error?.code
   const ids = (r) => (data(r)?.items ?? []).map((x) => x.id).sort()
 
-  // Tenant: absent is every tenant, "" is only untenanted, a name is exact.
+  // Tenant: every intent answers for the resolved tenant only. The field can
+  // repeat it and nothing else.
+  const mine = [I.support, I.scratch].sort().join()
   const all = await q("collections.list")
-  const none = await q("collections.list", { tenant: "" })
-  const acme = await q("collections.list", { tenant: "acme" })
-  check("no tenant field lists every tenant", ids(all).join() === [I.support, I.handbook, I.scratch].sort().join(), all.body)
-  check('tenant "" lists only untenanted collections', ids(none).join() === [I.support, I.scratch].sort().join(), none.body)
-  check('tenant "acme" lists only acme\'s collection', ids(acme).join() === I.handbook, acme.body)
+  const same = await q("collections.list", { tenant: WEAVE_TENANT })
+  check("no tenant field lists only your tenant's collections", ids(all).join() === mine, all.body)
+  check("naming your own tenant lists the same", ids(same).join() === mine, same.body)
+  for (const intent of ["collections.list", "documents.list", "system.overview"]) {
+    for (const tenant of [OTHER_WEAVE_TENANT, ""]) {
+      const r = await q(intent, { tenant })
+      check(`${intent} naming tenant ${JSON.stringify(tenant)} is PERMISSION_DENIED`, code(r) === "PERMISSION_DENIED", r.body)
+    }
+  }
+  const foreignChunks = await q("chunks.list", { collection_id: I.support, tenant: OTHER_WEAVE_TENANT })
+  check("chunks.list naming another tenant is PERMISSION_DENIED", code(foreignChunks) === "PERMISSION_DENIED", foreignChunks.body)
+  const foreignRun = await c("retrieval.run", { query: "refund", tenant: OTHER_WEAVE_TENANT })
+  check("retrieval.run naming another tenant is PERMISSION_DENIED", code(foreignRun) === "PERMISSION_DENIED", foreignRun.body)
+  for (const [intent, id] of [["collections.get", I.handbook], ["documents.get", I.onboarding], ["documents.spans", I.onboarding]]) {
+    const r = await q(intent, { id })
+    check(`${intent} of another tenant's row is NOT_FOUND`, code(r) === "NOT_FOUND", r.body)
+  }
+  const handbookChunks = await q("chunks.list", { collection_id: I.handbook })
+  check("another tenant's collection lists no chunks", data(handbookChunks)?.total === 0, handbookChunks.body)
 
   // Lists: newest first, clamped and echoed, negative refused.
   const clamped = await q("documents.list", { limit: 500 })
@@ -71,6 +87,8 @@ export async function verifyWeave({ dispatch, getCSRF, failures, base }) {
   // The states the page has to draw.
   const overview = await q("system.overview")
   check("the overview counts one stalled document", data(overview)?.stalled === 1, overview.body)
+  check('the overview says its scope is "tenant"', data(overview)?.scope === "tenant", overview.body)
+  check("the overview counts only your tenant's collections", data(overview)?.collections === 2, overview.body)
   const failed = await q("documents.get", { id: I.warranty })
   check("a failed document carries its stored error", data(failed)?.state === "failed" && typeof data(failed)?.error === "string", failed.body)
   const failedChunks = await q("chunks.list", { document_id: I.warranty })
@@ -91,18 +109,20 @@ export async function verifyWeave({ dispatch, getCSRF, failures, base }) {
   check("the same content again is CONFLICT naming a failed or stalled copy", code(dup) === "CONFLICT" && dup.body?.error?.message.includes("failed or stalled"), dup.body)
   const failing = await c("documents.ingest", { collection_id: I.support, content: "FIXTURE_FAIL_EMBED spot check" })
   check("a failed ingest is an answer, not an error", data(failing)?.state === "failed" && data(failing)?.chunk_count === 0 && typeof data(failing)?.error === "string", failing.body)
-  const tenanted = await c("documents.ingest", { collection_id: I.handbook, content: "Spot check: badges are collected from reception." })
-  const acmeDocs = await q("documents.list", { tenant: "acme" })
-  const untenanted = await q("documents.list", { tenant: "" })
-  const docId = data(tenanted)?.document_id
-  check("an ingest lands in the collection's tenant", ids(acmeDocs).includes(docId) && !ids(untenanted).includes(docId), { acme: ids(acmeDocs), none: ids(untenanted) })
+  const foreign = await c("documents.ingest", { collection_id: I.handbook, content: "Spot check: badges are collected from reception." })
+  check("an ingest into another tenant's collection is NOT_FOUND", code(foreign) === "NOT_FOUND", foreign.body)
+  const docId = data(ingest)?.document_id
+  const ingested = await q("documents.get", { id: docId })
+  check("an ingest lands in your tenant", data(ingested)?.tenant_id === WEAVE_TENANT, ingested.body)
   await c("documents.delete", { id: docId })
-  check("a delete shrinks the list", !ids(await q("documents.list", { tenant: "acme" })).includes(docId))
+  check("a delete shrinks the list", !ids(await q("documents.list", { collection_id: I.support })).includes(docId))
 
   // Collections: the effective-value message, per-tenant names, rename invalidation.
   const overlap = await c("collections.create", { name: "too-small", chunk_size: 40 })
   check("an overlap refusal names the effective values", overlap.body?.error?.message === "chunk overlap 50 (the default) must be smaller than chunk size 40", overlap.body)
   check("a duplicate name in the same tenant is CONFLICT", code(await c("collections.create", { name: "support-articles" })) === "CONFLICT")
+  const reused = await c("collections.create", { name: "acme-handbook" })
+  check("a name another tenant uses is free in yours, and the new collection is yours", data(reused)?.tenant_id === WEAVE_TENANT, reused.body)
   const blank = await c("collections.update", { id: I.scratch, name: "   " })
   check("a blank rename is BAD_REQUEST", code(blank) === "BAD_REQUEST", blank.body)
   const rename = await c("collections.update", { id: I.scratch, name: "scratch-two" })
