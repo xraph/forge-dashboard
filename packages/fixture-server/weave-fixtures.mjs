@@ -1,7 +1,14 @@
 // weave-fixtures.mjs: in-memory state and intent handlers for the weave
 // contributor (packages/plugin-weave). Mirrors forgery/weave
-// extension/contract at 5495ebb: field names are the Go JSON tags and every
+// extension/contract at v1.9.2: field names are the Go JSON tags and every
 // refusal uses the Go text.
+//
+// Every intent answers for one tenant, as Weave v1.9's dashboard does. The
+// signed-in user's tenant is WEAVE_TENANT ("northwind"). Another tenant's
+// rows ("acme" owns the handbook) are seeded but never listed, counted or
+// searched, and a get by their ID is NOT_FOUND. A `tenant` field on the
+// overview, a list or retrieval.run can only repeat the resolved tenant;
+// any other value, "" included, is PERMISSION_DENIED.
 //
 // Self-contained: it imports nothing from server.mjs. server.mjs hands over
 // its FixtureError class, because the dispatcher tells a refusal from a crash
@@ -33,6 +40,10 @@
 //   FIXTURE_WEAVE_REINDEX    "fail" makes every reindex answer INTERNAL after
 //                            it started, leaving the collection partly
 //                            indexed as far as the page can tell.
+//   FIXTURE_WEAVE_TENANT     the tenant the dashboard resolves for you.
+//                            Unset is WEAVE_TENANT; "acme" shows acme's
+//                            handbook instead; "" is a host with no tenant
+//                            for you, and every intent is PERMISSION_DENIED.
 
 import { createHash } from "node:crypto"
 
@@ -43,6 +54,15 @@ const SPAN_CAP = 5000
 const DUPLICATE =
   "this collection already has a document with exactly the same content (including a failed or stalled one; delete it to ingest again)"
 const STATES = ["pending", "processing", "ready", "failed"]
+const NO_TENANT = "this dashboard request has no Weave tenant"
+const OTHER_TENANT = "this request names a tenant other than the one the dashboard resolved for you"
+/** The intents whose input carries the client's `tenant` field. */
+const TENANT_FIELD = new Set(["system.overview", "collections.list", "documents.list", "chunks.list", "retrieval.run"])
+
+/** The signed-in user's tenant, unless FIXTURE_WEAVE_TENANT says otherwise. */
+export const WEAVE_TENANT = "northwind"
+/** Another tenant. Its rows exist, and the dashboard never shows them. */
+export const OTHER_WEAVE_TENANT = "acme"
 
 const B32 = "0123456789abcdefghjkmnpqrstvwxyz"
 function b32(n) {
@@ -169,8 +189,8 @@ function seed() {
       id,
       name: fields.name,
       ...(fields.description ? { description: fields.description } : {}),
-      tenant_id: fields.tenant_id ?? "",
-      app_id: fields.app_id ?? "",
+      tenant_id: fields.tenant_id ?? WEAVE_TENANT,
+      app_id: fields.app_id ?? "support-app",
       embedding_model: config.default_embedding_model,
       embedding_dims: 1536,
       chunk_strategy: config.default_chunk_strategy,
@@ -182,7 +202,7 @@ function seed() {
     })
   }
   collection(I.support, { name: "support-articles", description: "Help centre articles the support assistant answers from.", chunk_size: 48, chunk_overlap: 8, metadata: { team: "support" }, age: 60 * 24 * 30 })
-  collection(I.handbook, { name: "acme-handbook", tenant_id: "acme", app_id: "acme-app", chunk_size: 64, chunk_overlap: 0, age: 60 * 24 * 12 })
+  collection(I.handbook, { name: "acme-handbook", tenant_id: OTHER_WEAVE_TENANT, app_id: "acme-app", chunk_size: 64, chunk_overlap: 0, age: 60 * 24 * 12 })
   collection(I.scratch, { name: "scratch", chunk_size: 512, chunk_overlap: 50, age: 60 * 24 * 2 })
 
   const addChunks = (doc, text, { vectors = true, trim } = {}) => {
@@ -242,7 +262,7 @@ function seed() {
   // A chunk row whose document row is gone. chunks.get opens it with an empty
   // document_title; its vector still answers searches.
   const orphanRow = {
-    id: I.orphanChunk, document_id: I.goneDocument, collection_id: I.support, tenant_id: "",
+    id: I.orphanChunk, document_id: I.goneDocument, collection_id: I.support, tenant_id: WEAVE_TENANT,
     content: "Store credit never expires and can be spent on anything in the shop.",
     index: 0, start_offset: 0, end_offset: 68, token_count: 17, metadata: {}, created_at: ago(60 * 24 * 20),
   }
@@ -252,7 +272,7 @@ function seed() {
   s.vectors.set(I.orphanVector, {
     id: I.orphanVector,
     content: "Gift card refunds are paid as store credit within 14 days, and the credit never expires.",
-    metadata: { collection_id: I.support, document_id: I.goneDocument, tenant_id: "", chunk_index: "1" },
+    metadata: { collection_id: I.support, document_id: I.goneDocument, tenant_id: WEAVE_TENANT, chunk_index: "1" },
   })
   return s
 }
@@ -276,6 +296,7 @@ export function createWeaveHandlers(FixtureError) {
   const notFound = (m) => new FixtureError(404, "NOT_FOUND", m)
   const conflict = (m) => new FixtureError(409, "CONFLICT", m)
   const unavailable = (m) => new FixtureError(503, "UNAVAILABLE", m)
+  const permissionDenied = (m) => new FixtureError(403, "PERMISSION_DENIED", m)
   const internal = () => new FixtureError(500, "INTERNAL", "an internal error occurred")
 
   const noEmbedder = () => envOff("FIXTURE_WEAVE_EMBEDDER", "none")
@@ -295,9 +316,16 @@ export function createWeaveHandlers(FixtureError) {
     return { items: rows.slice(offset, offset + limit), total: rows.length, limit, offset }
   }
 
-  /** null is every tenant; a string, "" included, is an exact match. */
-  const tenantOf = (input) => (input?.tenant === undefined || input?.tenant === null ? null : String(input.tenant))
-  const inTenant = (row, tenant) => tenant === null || row.tenant_id === tenant
+  /** The tenant this request runs under. Read per call so a running server can be flipped. */
+  const resolveTenant = () => {
+    const tenant = process.env.FIXTURE_WEAVE_TENANT ?? WEAVE_TENANT
+    if (tenant === "") throw permissionDenied(NO_TENANT)
+    return tenant
+  }
+  // Set by the wrapper at the bottom before each handler runs. Handlers are
+  // synchronous, so one request never sees another's tenant.
+  let current = WEAVE_TENANT
+  const mine = (row) => row !== undefined && row.tenant_id === current
 
   const NOUN = { col: "collection", doc: "document", chk: "chunk" }
   function parseId(prefix, field, value) {
@@ -412,14 +440,14 @@ export function createWeaveHandlers(FixtureError) {
   function getCollection(input) {
     const id = parseId("col", "id", input?.id)
     const c = state.collections.get(id)
-    if (!c) throw notFound("collection not found")
+    if (!mine(c)) throw notFound("collection not found")
     return c
   }
 
   function getDocument(input) {
     const id = parseId("doc", "id", input?.id)
     const d = state.documents.get(id)
-    if (!d) throw notFound("document not found")
+    if (!mine(d)) throw notFound("document not found")
     return d
   }
 
@@ -439,22 +467,21 @@ export function createWeaveHandlers(FixtureError) {
 
   const COLLECTION_CHANGED = ["collections.list", "collections.get", "documents.list", "documents.get", "system.overview"]
 
-  return {
+  const handlers = {
     "system.overview": {
       kind: "query",
-      handler: (input) => {
-        const tenant = tenantOf(input)
-        const docs = [...state.documents.values()].filter((d) => inTenant(d, tenant))
+      handler: () => {
+        const docs = [...state.documents.values()].filter(mine)
         return {
-          collections: [...state.collections.values()].filter((c) => inTenant(c, tenant)).length,
+          collections: [...state.collections.values()].filter(mine).length,
           documents: docs.length,
           documents_by_state: countStates(docs),
-          chunks: [...state.chunks.values()].filter((k) => inTenant(k, tenant)).length,
+          chunks: [...state.chunks.values()].filter(mine).length,
           stalled: docs.filter(isStalled).length,
           stalled_after_seconds: STALLED_AFTER_SECONDS,
           newest_documents: [...docs].sort(newest).slice(0, 10).map(documentRow),
           components: components(),
-          scope: "all",
+          scope: "tenant",
         }
       },
     },
@@ -472,10 +499,9 @@ export function createWeaveHandlers(FixtureError) {
     "collections.list": {
       kind: "query",
       handler: (input) => {
-        const tenant = tenantOf(input)
         const search = typeof input?.search === "string" ? input.search.toLowerCase() : ""
         const rows = [...state.collections.values()]
-          .filter((c) => inTenant(c, tenant) && (search === "" || c.name.toLowerCase().includes(search)))
+          .filter((c) => mine(c) && (search === "" || c.name.toLowerCase().includes(search)))
           .sort(newest)
           .map(collectionRow)
         return list(rows, input)
@@ -496,10 +522,9 @@ export function createWeaveHandlers(FixtureError) {
         const colId = optionalId("col", "collection_id", input?.collection_id)
         const st = typeof input?.state === "string" ? input.state : ""
         if (st !== "" && !STATES.includes(st)) throw badRequest("state must be pending, processing, ready or failed")
-        const tenant = tenantOf(input)
         const search = typeof input?.search === "string" ? input.search.toLowerCase() : ""
         const rows = [...state.documents.values()]
-          .filter((d) => (colId === "" || d.collection_id === colId) && (st === "" || d.state === st) && inTenant(d, tenant))
+          .filter((d) => (colId === "" || d.collection_id === colId) && (st === "" || d.state === st) && mine(d))
           .filter((d) => search === "" || (d.title ?? "").toLowerCase().includes(search))
           .sort(newest)
           .map(documentRow)
@@ -528,9 +553,8 @@ export function createWeaveHandlers(FixtureError) {
         const docId = optionalId("doc", "document_id", input?.document_id)
         const colId = optionalId("col", "collection_id", input?.collection_id)
         if (docId === "" && colId === "") throw badRequest("list chunks needs a document or a collection")
-        const tenant = tenantOf(input)
         const rows = [...state.chunks.values()]
-          .filter((k) => (docId === "" || k.document_id === docId) && (colId === "" || k.collection_id === colId) && inTenant(k, tenant))
+          .filter((k) => (docId === "" || k.document_id === docId) && (colId === "" || k.collection_id === colId) && mine(k))
           .sort((a, b) => (a.document_id === b.document_id ? a.index - b.index : a.document_id < b.document_id ? -1 : 1))
           .map((k) => ({ ...k, metadata: { ...k.metadata } }))
         return { items: rows.slice(offset, offset + limit), total: rows.length, limit, offset }
@@ -541,7 +565,7 @@ export function createWeaveHandlers(FixtureError) {
       handler: (input) => {
         const id = parseId("chk", "id", input?.id)
         const k = state.chunks.get(id)
-        if (!k) throw notFound("chunk not found")
+        if (!mine(k)) throw notFound("chunk not found")
         const doc = state.documents.get(k.document_id)
         const sibling = (index) =>
           [...state.chunks.values()].find((x) => x.document_id === k.document_id && x.index === index)?.id ?? ""
@@ -563,13 +587,13 @@ export function createWeaveHandlers(FixtureError) {
           const from = (given) => (given === 0 ? " (the default)" : "")
           throw badRequest(`chunk overlap ${overlap}${from(overlapIn)} must be smaller than chunk size ${size}${from(sizeIn)}`)
         }
-        if (nameTaken(name, "", "")) throw conflict("a collection with this name already exists")
+        if (nameTaken(name, current, "")) throw conflict("a collection with this name already exists")
         const id = idOf("col", serial++)
         const at = iso(Date.now())
         const c = {
           id, name,
           ...(typeof input?.description === "string" && input.description !== "" ? { description: input.description } : {}),
-          tenant_id: "", app_id: "",
+          tenant_id: current, app_id: "",
           embedding_model: config.default_embedding_model,
           embedding_dims: noEmbedder() ? 0 : 1536,
           chunk_strategy: config.default_chunk_strategy,
@@ -590,7 +614,7 @@ export function createWeaveHandlers(FixtureError) {
         const renamed = typeof input?.name === "string" ? input.name.trim() : null
         if (renamed === "") throw badRequest("collection name cannot be blank")
         const c = state.collections.get(id)
-        if (!c) throw notFound("collection not found")
+        if (!mine(c)) throw notFound("collection not found")
         if (renamed !== null) {
           if (nameTaken(renamed, c.tenant_id, c.id)) throw conflict("a collection with this name already exists")
           c.name = renamed
@@ -624,7 +648,7 @@ export function createWeaveHandlers(FixtureError) {
         if (content.trim() === "") throw badRequest("content is empty")
         if (bytes(content) > MIB) throw badRequest("content is larger than 1 MiB; the dashboard ingests up to 1 MiB")
         const col = state.collections.get(colId)
-        if (!col) throw notFound("collection not found")
+        if (!mine(col)) throw notFound("collection not found")
         if (noEmbedder()) throw unavailable("Weave has no embedder configured, so it cannot ingest or search")
         const hash = sha256(content)
         if ([...state.documents.values()].some((d) => d.collection_id === colId && d.content_hash === hash)) throw conflict(DUPLICATE)
@@ -693,14 +717,13 @@ export function createWeaveHandlers(FixtureError) {
         const maxTokens = maxTokensOf(input?.max_tokens)
         const colId = optionalId("col", "collection_id", input?.collection_id)
         if (noEmbedder()) throw unavailable("retrieval needs Weave's own embedder and vector store; this deployment has no embedder configured")
-        const tenant = tenantOf(input)
         const minScore = typeof input?.min_score === "number" ? input.min_score : 0
         if (topK === 0) topK = config.default_top_k
         topK = Math.min(topK, 50)
         const window = Math.max(3 * topK, 50)
 
         const raw = [...state.vectors.values()]
-          .filter((v) => (colId === "" || v.metadata.collection_id === colId) && (tenant === null || v.metadata.tenant_id === tenant))
+          .filter((v) => (colId === "" || v.metadata.collection_id === colId) && v.metadata.tenant_id === current)
           .map((v) => ({ v, score: similarity(query, v.content, v.id) }))
           .sort((a, b) => (b.score === a.score ? (a.v.id < b.v.id ? -1 : 1) : b.score - a.score))
           .slice(0, window)
@@ -774,4 +797,18 @@ export function createWeaveHandlers(FixtureError) {
       },
     },
   }
+
+  // Every intent runs under the resolved tenant, and one with no tenant is
+  // refused before its handler runs, as Weave's withTenant wrapper does.
+  for (const [intent, def] of Object.entries(handlers)) {
+    const run = def.handler
+    def.handler = (input) => {
+      const tenant = resolveTenant()
+      const named = input?.tenant
+      if (TENANT_FIELD.has(intent) && named !== undefined && named !== null && named !== tenant) throw permissionDenied(OTHER_TENANT)
+      current = tenant
+      return run(input)
+    }
+  }
+  return handlers
 }
