@@ -18,7 +18,9 @@ const COL = "col_01k70000000000000000000001"
 const GONE = "col_01k70000000000000000000777"
 
 const COLLECTIONS = {
-  items: [{ id: COL, name: "support-articles", tenant_id: "", metadata: {} }],
+  items: [
+    { id: COL, name: "support-articles", tenant_id: "acme", metadata: {} },
+  ],
   total: 1,
   limit: 100,
   offset: 0,
@@ -30,7 +32,7 @@ function doc(over: Record<string, unknown> = {}) {
     updated_at: "2026-10-07T09:00:00Z",
     id: "doc_01k70000000000000000000001",
     collection_id: COL,
-    tenant_id: "",
+    tenant_id: "acme",
     title: "Refund policy",
     content_hash: "ab".repeat(32),
     content_length: 812,
@@ -74,7 +76,7 @@ afterEach(() => {
 })
 
 describe("DocumentsPage", () => {
-  it("asks for the newest documents of every tenant with no filters", async () => {
+  it("asks for the newest documents of your tenant, naming no tenant", async () => {
     const { client, queried } = scriptedClient({
       "documents.list": PAGE,
       "collections.list": COLLECTIONS,
@@ -128,32 +130,26 @@ describe("DocumentsPage", () => {
     )
   })
 
-  it("sends tenant only when one is picked", async () => {
+  it("offers no tenant filter and never sends a tenant", async () => {
     const { client, queried } = scriptedClient({
       "documents.list": PAGE,
       "collections.list": COLLECTIONS,
     })
     renderAt("/@weave/documents", client)
     await screen.findByText("Refund policy")
-    fireEvent.change(screen.getByLabelText("Tenant"), {
-      target: { value: "named" },
+    expect(screen.queryByLabelText("Tenant")).toBeNull()
+    expect(screen.queryByLabelText("Tenant ID")).toBeNull()
+    expect(screen.queryByText("All tenants")).toBeNull()
+    fireEvent.change(screen.getByLabelText("State"), {
+      target: { value: "ready" },
     })
-    fireEvent.change(screen.getByLabelText("Tenant ID"), {
-      target: { value: "acme" },
-    })
-    await waitFor(() =>
-      expect(queried.at(-1)?.params).toEqual({
-        limit: 25,
-        offset: 0,
-        tenant: "acme",
-      })
-    )
-    fireEvent.change(screen.getByLabelText("Tenant"), {
-      target: { value: "all" },
+    fireEvent.change(screen.getByLabelText("Search documents"), {
+      target: { value: "refund" },
     })
     await waitFor(() =>
-      expect(queried.at(-1)?.params).toEqual({ limit: 25, offset: 0 })
+      expect(queried.at(-1)?.params).toMatchObject({ search: "refund" })
     )
+    for (const q of queried) expect(q.params).not.toHaveProperty("tenant")
   })
 
   it("searches titles after typing stops", async () => {

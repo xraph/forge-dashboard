@@ -10,11 +10,9 @@ import { ResourceTable } from "@forge-go/dashboard-kit/components/resource-table
 import { Section } from "@forge-go/dashboard-kit/components/section"
 import { useCollectionOptions } from "../collection-options"
 import { documentColumns } from "../components/document-columns"
-import { TenantFilter } from "../components/tenant-filter"
 import { plural } from "../format"
 import { useSearchParam, useSetSearchParams } from "../links"
 import { PAGE_SIZE, offsetFor, pageOf } from "../paging"
-import { withTenant } from "../tenant"
 import type { DocumentRow, ListOutput } from "../types"
 import { useDebounced } from "../use-debounced"
 
@@ -30,39 +28,30 @@ const STATES = [
 
 /**
  * Collection and state live in the address, so a link from an ingest
- * conflict or a collection page lands filtered. Search, tenant and paging are
- * the page's own.
+ * conflict or a collection page lands filtered. Search and paging are the
+ * page's own.
  */
 export const DocumentsPage: ComponentType<PluginPageProps> = () => {
   const collectionId = useSearchParam("collection_id")
   const state = useSearchParam("state")
   const setParams = useSetSearchParams("/documents")
   const [search, setSearch] = useState("")
-  const [tenant, setTenant] = useState<string | null>(null)
   const [offset, setOffset] = useState(0)
-  // Bumped by "Clear filters" so the tenant picker forgets its own mode.
-  const [clears, setClears] = useState(0)
   const term = useDebounced(search.trim(), 300)
 
   const collections = useCollectionOptions(collectionId, "All collections")
-  const params = withTenant(
-    {
-      limit: PAGE_SIZE,
-      offset,
-      ...(collectionId !== "" ? { collection_id: collectionId } : {}),
-      ...(state !== "" ? { state } : {}),
-      ...(term !== "" ? { search: term } : {}),
-    },
-    tenant
-  )
+  const params = {
+    limit: PAGE_SIZE,
+    offset,
+    ...(collectionId !== "" ? { collection_id: collectionId } : {}),
+    ...(state !== "" ? { state } : {}),
+    ...(term !== "" ? { search: term } : {}),
+  }
   const list = useQuery<ListOutput<DocumentRow>>("documents.list", params)
-  const filtered =
-    collectionId !== "" || state !== "" || term !== "" || tenant !== null
+  const filtered = collectionId !== "" || state !== "" || term !== ""
 
   function clear() {
     setSearch("")
-    setTenant(null)
-    setClears((n) => n + 1)
     setOffset(0)
     setParams({ collection_id: "", state: "" })
   }
@@ -118,16 +107,6 @@ export const DocumentsPage: ComponentType<PluginPageProps> = () => {
                 },
               },
             ]}
-            actions={
-              <TenantFilter
-                key={clears}
-                value={tenant}
-                onChange={(t) => {
-                  setTenant(t)
-                  setOffset(0)
-                }}
-              />
-            }
           />
         }
       >

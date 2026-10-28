@@ -160,8 +160,11 @@ export interface Overview {
   stalled_after_seconds: number
   newest_documents: DocumentRow[]
   components: Components
-  /** Always "all": the dashboard resolves no tenant. */
-  scope: string
+  /**
+   * "tenant" from Weave v1.9: every count and row is the signed-in user's
+   * tenant alone. The dashboard can't see across tenants.
+   */
+  scope: "tenant"
 }
 
 export interface Span {

@@ -4,7 +4,6 @@ import { PluginLink, useQuery } from "@forge-go/dashboard-plugin"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
 import { buttonVariants } from "@forge-go/dashboard-kit/components/button"
 import { FilterBar } from "@forge-go/dashboard-kit/components/filter-bar"
-import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
 import {
@@ -13,12 +12,10 @@ import {
 } from "@forge-go/dashboard-kit/components/resource-table"
 import { Section } from "@forge-go/dashboard-kit/components/section"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
-import { Id, IdLink } from "../components/id"
-import { TenantFilter } from "../components/tenant-filter"
+import { IdLink } from "../components/id"
 import { formatCount, plural } from "../format"
 import { collectionPath } from "../links"
 import { PAGE_SIZE, offsetFor, pageOf } from "../paging"
-import { withTenant } from "../tenant"
 import type { Collection, ListOutput } from "../types"
 import { useDebounced } from "../use-debounced"
 
@@ -51,16 +48,6 @@ const columns: Column<Collection>[] = [
         label={`Open collection ${c.id}`}
       />
     ),
-  },
-  {
-    id: "tenant",
-    header: "Tenant",
-    cell: (c) =>
-      c.tenant_id !== "" ? (
-        <Id value={c.tenant_id} />
-      ) : (
-        <NoneCell label="tenant" />
-      ),
   },
   {
     id: "documents",
@@ -99,16 +86,16 @@ const columns: Column<Collection>[] = [
 
 export const CollectionsPage: ComponentType<PluginPageProps> = () => {
   const [search, setSearch] = useState("")
-  const [tenant, setTenant] = useState<string | null>(null)
   const [offset, setOffset] = useState(0)
   const term = useDebounced(search.trim(), 300)
 
-  const params = withTenant(
-    { limit: PAGE_SIZE, offset, ...(term !== "" ? { search: term } : {}) },
-    tenant
-  )
+  const params = {
+    limit: PAGE_SIZE,
+    offset,
+    ...(term !== "" ? { search: term } : {}),
+  }
   const list = useQuery<ListOutput<Collection>>("collections.list", params)
-  const filtered = term !== "" || tenant !== null
+  const filtered = term !== ""
 
   return (
     <section className="flex min-w-0 flex-col gap-4">
@@ -134,15 +121,6 @@ export const CollectionsPage: ComponentType<PluginPageProps> = () => {
               placeholder: "Search by name",
               label: "Search collections",
             }}
-            actions={
-              <TenantFilter
-                value={tenant}
-                onChange={(t) => {
-                  setTenant(t)
-                  setOffset(0)
-                }}
-              />
-            }
           />
         }
       >

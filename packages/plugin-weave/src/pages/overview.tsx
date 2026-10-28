@@ -52,6 +52,15 @@ export function ComponentsStrip({ components }: { components: Components }) {
 
 const columns = documentColumns({ withCollection: true })
 
+/**
+ * The subtitle says whose data the counts are once the server says so.
+ * Weave v1.9 answers `scope: "tenant"`: the signed-in user's tenant only.
+ */
+function subtitleFor(scope: Overview["scope"] | undefined): string {
+  const base = "What Weave holds and what it runs"
+  return scope === "tenant" ? `${base}, for your tenant only.` : `${base}.`
+}
+
 export const OverviewPage: ComponentType<PluginPageProps> = () => {
   const overview = useQuery<Overview>("system.overview", {})
 
@@ -59,7 +68,7 @@ export const OverviewPage: ComponentType<PluginPageProps> = () => {
     <section className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Overview"
-        description="What Weave holds and what it runs. This dashboard sees every tenant's data."
+        description={subtitleFor(overview.data?.scope)}
       />
       <QueryBoundary title="Overview" query={overview} skeletonRows={6}>
         {(data) => (

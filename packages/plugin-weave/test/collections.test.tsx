@@ -11,8 +11,8 @@ function collection(over: Record<string, unknown> = {}) {
     id: "col_01k70000000000000000000001",
     name: "support-articles",
     description: "Help centre articles the support assistant answers from.",
-    tenant_id: "",
-    app_id: "",
+    tenant_id: "acme",
+    app_id: "acme-app",
     embedding_model: "text-embedding-3-small",
     embedding_dims: 1536,
     chunk_strategy: "recursive",
@@ -30,9 +30,8 @@ const TWO = {
     collection(),
     collection({
       id: "col_01k70000000000000000000002",
-      name: "acme-handbook",
+      name: "staff-handbook",
       description: undefined,
-      tenant_id: "acme",
       document_count: 1,
       chunk_count: 2,
     }),
@@ -47,7 +46,7 @@ function rowWith(text: string): HTMLElement {
 }
 
 describe("CollectionsPage", () => {
-  it("asks for the first page of every tenant's collections", async () => {
+  it("asks for the first page of your tenant's collections, naming no tenant", async () => {
     const { client, queried } = scriptedClient({ "collections.list": TWO })
     renderPage(CollectionsPage, client)
     await screen.findByText("support-articles")
@@ -67,12 +66,17 @@ describe("CollectionsPage", () => {
     expect(
       within(support).getByText("col_01k70000000000000000000001").className
     ).toContain("font-mono")
-    expect(within(support).getByLabelText("no tenant")).toBeTruthy()
     expect(within(support).getByText("21")).toBeTruthy()
     expect(within(support).getByText("48 / 8")).toBeTruthy()
-    expect(
-      within(rowWith("acme-handbook")).getByText("acme").className
-    ).toContain("font-mono")
+    expect(within(rowWith("staff-handbook")).getByText("2")).toBeTruthy()
+  })
+
+  it("has no tenant column, because every row is your tenant's", async () => {
+    const { client } = scriptedClient({ "collections.list": TWO })
+    renderPage(CollectionsPage, client)
+    await screen.findByText("support-articles")
+    expect(screen.queryByRole("columnheader", { name: "Tenant" })).toBeNull()
+    expect(screen.queryByText("acme")).toBeNull()
   })
 
   it("searches by name after typing stops, from the first page", async () => {
@@ -80,31 +84,41 @@ describe("CollectionsPage", () => {
     renderPage(CollectionsPage, client)
     await screen.findByText("support-articles")
     fireEvent.change(screen.getByLabelText("Search collections"), {
-      target: { value: " acme " },
+      target: { value: " staff " },
     })
     await waitFor(() =>
       expect(queried.at(-1)?.params).toEqual({
         limit: 25,
         offset: 0,
-        search: "acme",
+        search: "staff",
       })
     )
   })
 
-  it("sends tenant only when one is picked", async () => {
-    const { client, queried } = scriptedClient({ "collections.list": TWO })
+  it("offers no tenant filter and never sends a tenant", async () => {
+    const { client, queried } = scriptedClient({
+      "collections.list": (input: Record<string, unknown>) => ({
+        ...TWO,
+        total: 30,
+        offset: input.offset as number,
+      }),
+    })
     renderPage(CollectionsPage, client)
     await screen.findByText("support-articles")
-    fireEvent.change(screen.getByLabelText("Tenant"), {
-      target: { value: "none" },
+    expect(screen.queryByLabelText("Tenant")).toBeNull()
+    expect(screen.queryByLabelText("Tenant ID")).toBeNull()
+    expect(screen.queryByText("All tenants")).toBeNull()
+    fireEvent.change(screen.getByLabelText("Search collections"), {
+      target: { value: "staff" },
     })
     await waitFor(() =>
-      expect(queried.at(-1)?.params).toEqual({
-        limit: 25,
-        offset: 0,
-        tenant: "",
-      })
+      expect(queried.at(-1)?.params).toMatchObject({ search: "staff" })
     )
+    fireEvent.click(screen.getByRole("button", { name: "Next page" }))
+    await waitFor(() =>
+      expect(queried.at(-1)?.params).toMatchObject({ offset: 25 })
+    )
+    for (const q of queried) expect(q.params).not.toHaveProperty("tenant")
   })
 
   it("pages with the limit the server applied", async () => {
@@ -138,8 +152,8 @@ describe("CollectionsPage", () => {
     })
     renderPage(CollectionsPage, client)
     await screen.findByText("0 collections")
-    fireEvent.change(screen.getByLabelText("Tenant"), {
-      target: { value: "none" },
+    fireEvent.change(screen.getByLabelText("Search collections"), {
+      target: { value: "nothing" },
     })
     expect(
       await screen.findByText(/No collections match these filters/)

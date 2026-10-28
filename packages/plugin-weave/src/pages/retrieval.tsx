@@ -29,14 +29,12 @@ import {
   TabsList,
   TabsTrigger,
 } from "@forge-go/dashboard-kit/components/tabs"
-import { TenantFilter } from "../components/tenant-filter"
 import { formatMs, formatScore, plural, utf8Length } from "../format"
 import { ContextView } from "../retrieval/context-view"
 import { Inspector } from "../retrieval/inspector"
 import { emptiness, emptinessCopy, noReorderingCopy } from "../retrieval/model"
 import { RankingTable, SourceCell } from "../retrieval/ranking-table"
 import { retrieverSentence, scoreHeader } from "../score"
-import { withTenant } from "../tenant"
 import { useCollectionOptions } from "../collection-options"
 import type {
   AssembledContext,
@@ -108,7 +106,6 @@ export const RetrievalPage: ComponentType<PluginPageProps> = () => {
   const [query, setQuery] = useState("")
   const [collectionId, setCollectionId] = useState("")
   const picker = useCollectionOptions(collectionId, "All collections")
-  const [tenant, setTenant] = useState<string | null>(null)
   const [topK, setTopK] = useState("")
   const [minScore, setMinScore] = useState("")
   const [maxTokens, setMaxTokens] = useState("")
@@ -131,15 +128,9 @@ export const RetrievalPage: ComponentType<PluginPageProps> = () => {
     // Enter submits the form, so this checks again rather than trusting the
     // disabled button.
     if (!canRun) return
-    const payload = withTenant(
-      {
-        query,
-        ...(collectionId !== "" ? { collection_id: collectionId } : {}),
-      },
-      tenant
-    )
     const answer = await run.execute({
-      ...payload,
+      query,
+      ...(collectionId !== "" ? { collection_id: collectionId } : {}),
       top_k: topKN,
       min_score: minScoreN,
       max_tokens: maxTokensN,
@@ -212,7 +203,6 @@ export const RetrievalPage: ComponentType<PluginPageProps> = () => {
                   </p>
                 ) : null}
               </div>
-              <TenantFilter value={tenant} onChange={setTenant} />
               <div className="flex min-w-0 flex-col gap-1">
                 <Label htmlFor="retrieval-topk">Top K</Label>
                 <Input

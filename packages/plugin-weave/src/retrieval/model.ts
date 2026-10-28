@@ -89,7 +89,7 @@ export function emptiness(
 export function emptinessCopy(e: Emptiness): string {
   switch (e.kind) {
     case "no-vectors":
-      return "Vector search found nothing. This collection has no vectors yet, or the tenant filter excludes every one."
+      return "Vector search found nothing. There are no vectors in your tenant for this search yet."
     case "all-filtered":
       return `Min score ${e.minScore} removed all ${e.matches} vector matches; the best was ${e.best.toFixed(3)}.`
     case "none-returned":

@@ -4,6 +4,7 @@ import { ContractError } from "@forge-go/dashboard-plugin"
 import { OverviewPage } from "../src/pages/overview"
 import {
   failingClient,
+  pendingClient,
   recordingQueryClient,
   renderPage,
   stubClient,
@@ -35,7 +36,7 @@ function doc(over: Record<string, unknown> = {}) {
     updated_at: "2026-10-07T09:00:00Z",
     id: "doc_01k70000000000000000000001",
     collection_id: "col_01k70000000000000000000001",
-    tenant_id: "",
+    tenant_id: "acme",
     title: "Refund policy",
     content_hash: "ab".repeat(32),
     content_length: 4812,
@@ -73,7 +74,7 @@ function overview(over: Record<string, unknown> = {}) {
       }),
     ],
     components: COMPONENTS,
-    scope: "all",
+    scope: "tenant",
     ...over,
   }
 }
@@ -83,14 +84,30 @@ function rowWith(text: string): HTMLElement {
 }
 
 describe("OverviewPage", () => {
-  it("asks system.overview with no tenant, because the dashboard sees every tenant", async () => {
+  it("asks system.overview naming no tenant, since Weave resolves yours", async () => {
     const { client, sent } = recordingQueryClient({
       "system.overview": overview(),
     })
     renderPage(OverviewPage, client)
     await screen.findByText("Refund policy")
     expect(sent.find((s) => s.intent === "system.overview")?.params).toEqual({})
-    expect(screen.getByText(/sees every tenant's data/)).toBeTruthy()
+  })
+
+  it("says it shows your tenant only once the server answers scope tenant", async () => {
+    renderPage(OverviewPage, stubClient({ "system.overview": overview() }))
+    expect(
+      await screen.findByText(
+        "What Weave holds and what it runs, for your tenant only."
+      )
+    ).toBeTruthy()
+    expect(screen.queryByText(/every tenant/)).toBeNull()
+    expect(screen.queryByLabelText("Tenant")).toBeNull()
+  })
+
+  it("claims no scope before the overview arrives", () => {
+    renderPage(OverviewPage, pendingClient())
+    expect(screen.getByText("What Weave holds and what it runs.")).toBeTruthy()
+    expect(screen.queryByText(/tenant/)).toBeNull()
   })
 
   it("counts collections, documents by state, chunks and stalled documents", async () => {

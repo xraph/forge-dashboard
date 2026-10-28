@@ -32,8 +32,10 @@ const DocumentDetailPage = lazy(() => import("./pages/document-detail"))
  *
  * `extension` is "weave", the contributor name weave/extension/contract's
  * manifest registers, and test/plugin.test.tsx checks it by resolving against
- * a capabilities document. The dashboard is operator-wide: Weave resolves no
- * tenant on this path, so every page sees every tenant unless it filters.
+ * a capabilities document. Every page answers for one tenant: Weave resolves
+ * the signed-in user's tenant on each request, refuses a request it can't
+ * place in one, and refuses a `tenant` field naming any other. So no page
+ * sends `tenant` or offers a tenant filter.
  */
 export const weavePlugin = definePlugin({
   extension: "weave",
