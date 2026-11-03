@@ -382,6 +382,32 @@ describe("oauth2 client create", () => {
     expect(own.intents.filter((i) => i !== "oauth2.clients.create")).toEqual([])
   })
 
+  it("asks before leaving the create reveal", async () => {
+    const own = subStubClient(
+      {},
+      {
+        "oauth2.clients.create": {
+          id: "cli_9",
+          clientId: "conf-new",
+          clientSecret: "s3cr3t-value",
+        },
+      }
+    )
+    renderCreate(own)
+    fireEvent.change(screen.getByLabelText("Name"), {
+      target: { value: "Backend 2" },
+    })
+    fireEvent.click(screen.getByRole("button", { name: /create client/i }))
+    expect(await screen.findByText("s3cr3t-value")).toBeTruthy()
+    fireEvent.click(screen.getByRole("button", { name: "Open client" }))
+    expect(await screen.findByText("Close this panel?")).toBeTruthy()
+    fireEvent.click(screen.getByRole("button", { name: /^cancel$/i }))
+    await waitFor(() =>
+      expect(screen.queryByText("Close this panel?")).toBeNull()
+    )
+    expect(screen.getByText("s3cr3t-value")).toBeTruthy()
+  })
+
   it("creates a public client without a secret panel", async () => {
     const own = subStubClient(
       {},
@@ -500,6 +526,38 @@ describe("oauth2 client detail", () => {
       intent: "oauth2.clients.rotateSecret",
       payload: { id: "cli_2" },
     })
+  })
+
+  it("asks before dismissing the rotated secret", async () => {
+    const own = subStubClient(
+      { "oauth2.clients.detail": detail },
+      {
+        "oauth2.clients.rotateSecret": {
+          id: "cli_2",
+          clientId: "conf-xyz",
+          clientSecret: "new-secret",
+        },
+      }
+    )
+    renderDetail(own)
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: "Backend" })).toBeTruthy()
+    )
+    fireEvent.click(screen.getByRole("button", { name: /rotate secret/i }))
+    fireEvent.click(screen.getByRole("button", { name: /^rotate$/i }))
+    expect(await screen.findByText("new-secret")).toBeTruthy()
+
+    fireEvent.click(screen.getByRole("button", { name: "Done" }))
+    expect(await screen.findByText("Close this panel?")).toBeTruthy()
+    fireEvent.click(screen.getByRole("button", { name: /^cancel$/i }))
+    await waitFor(() =>
+      expect(screen.queryByText("Close this panel?")).toBeNull()
+    )
+    expect(screen.getByText("new-secret")).toBeTruthy()
+
+    fireEvent.click(screen.getByRole("button", { name: "Done" }))
+    fireEvent.click(await screen.findByRole("button", { name: /^close$/i }))
+    await waitFor(() => expect(screen.queryByText("new-secret")).toBeNull())
   })
 
   it("saves edited redirect URIs", async () => {

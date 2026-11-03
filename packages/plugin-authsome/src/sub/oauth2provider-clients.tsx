@@ -128,13 +128,21 @@ function SecretReveal({
   title,
   clientId,
   secret,
-  action,
+  actionLabel,
+  actionVariant = "outline",
+  confirmLabel,
+  onAction,
 }: {
   title: string
   clientId: string
   secret?: string
-  action: React.ReactNode
+  actionLabel: string
+  actionVariant?: "default" | "outline"
+  confirmLabel: string
+  onAction: () => void
 }) {
+  const [confirming, setConfirming] = useState(false)
+
   return (
     <Section title={title} inset className="max-w-3xl">
       <div className="flex min-w-0 flex-col gap-3">
@@ -155,7 +163,29 @@ function SecretReveal({
             This is a public client, so it has no client secret.
           </p>
         )}
-        <div>{action}</div>
+        <div>
+          <Button
+            variant={actionVariant}
+            // A public client has no secret to lose, so there is nothing to
+            // confirm.
+            onClick={() => (secret ? setConfirming(true) : onAction())}
+          >
+            {actionLabel}
+          </Button>
+        </div>
+
+        <ConfirmDialog
+          open={confirming}
+          onOpenChange={(open) => !open && setConfirming(false)}
+          title="Close this panel?"
+          description="The secret cannot be recovered once you close this panel. If you lose it, the only way back is to rotate the secret for a new one."
+          confirmLabel={confirmLabel}
+          pending={false}
+          onConfirm={() => {
+            setConfirming(false)
+            onAction()
+          }}
+        />
       </div>
     </Section>
   )
@@ -165,6 +195,7 @@ function SecretReveal({
 
 export function OAuth2ClientCreatePage() {
   const create = useCommand<CreatedClient>("oauth2.clients.create")
+  const navigate = useNavigateTo()
   const [name, setName] = useState("")
   const [isPublic, setIsPublic] = useState(false)
   const [firstParty, setFirstParty] = useState(false)
@@ -197,14 +228,10 @@ export function OAuth2ClientCreatePage() {
           title="Client created"
           clientId={created.clientId}
           secret={created.clientSecret}
-          action={
-            <PluginLink
-              to={`/auth/oauth2/clients/${created.id}`}
-              className="text-sm underline underline-offset-4"
-            >
-              Open client
-            </PluginLink>
-          }
+          actionLabel="Open client"
+          actionVariant="default"
+          confirmLabel="Open client"
+          onAction={() => navigate(`/auth/oauth2/clients/${created.id}`)}
         />
       </section>
     )
@@ -415,7 +442,8 @@ function ClientDetailBody({ id }: { id: string }) {
     const result = await del.execute({ id })
     if (result === undefined) return
     setDeleted(true)
-    navigate("/auth/oauth2")
+    // Replace, so Back does not land on this now-missing detail page.
+    navigate("/auth/oauth2", { replace: true })
   }
 
   if (deleted) {
@@ -431,6 +459,21 @@ function ClientDetailBody({ id }: { id: string }) {
 
   return (
     <section className="flex min-w-0 flex-col gap-4">
+      {/* Outside the boundary: a failed refetch must not hide a secret that
+          can never be fetched again. */}
+      {rotated && (
+        <SecretReveal
+          title="Secret rotated"
+          clientId={rotated.clientId}
+          secret={rotated.clientSecret}
+          actionLabel="Done"
+          confirmLabel="Close"
+          onAction={() => {
+            setRotated(null)
+            rotate.reset()
+          }}
+        />
+      )}
       <QueryBoundary title="OAuth2 client" query={query} skeletonRows={5}>
         {(client) => (
           <>
@@ -464,18 +507,6 @@ function ClientDetailBody({ id }: { id: string }) {
                 </div>
               }
             />
-            {rotated && (
-              <SecretReveal
-                title="Secret rotated"
-                clientId={rotated.clientId}
-                secret={rotated.clientSecret}
-                action={
-                  <Button variant="outline" onClick={() => setRotated(null)}>
-                    Done
-                  </Button>
-                }
-              />
-            )}
             <Section
               title="Details"
               inset
