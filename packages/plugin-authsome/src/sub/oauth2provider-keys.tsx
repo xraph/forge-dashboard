@@ -91,7 +91,8 @@ export function IssuerSection() {
             />
             <p className="text-sm text-muted-foreground">
               Switch between a per-app and a deployment issuer with the
-              &ldquo;app issuer&rdquo; setting in the OAuth2 tab of Settings.
+              &ldquo;Per-app OIDC issuer&rdquo; setting, in the &ldquo;OpenID
+              Connect&rdquo; category of the OAuth2 tab in Settings.
             </p>
           </div>
         )}
