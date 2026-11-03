@@ -9,6 +9,7 @@ import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary
 import { Section } from "@forge-go/dashboard-kit/components/section"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { ResourceTable, type Column } from "../components/presentation"
+import { NAV_CLUSTERS } from "./settings-only"
 import { SETTINGS_INTENTS, settingsPanelFor } from "./settings-panel"
 
 /**
@@ -153,6 +154,7 @@ export const oauth2providerSubPlugin = defineSubPlugin({
       to: "/auth/oauth2",
       group: "Authentication",
       priority: 7,
+      cluster: NAV_CLUSTERS.federation,
     },
   ],
   routes: [

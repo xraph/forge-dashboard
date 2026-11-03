@@ -55,6 +55,7 @@ describe("oauth2provider sub-plugin shape", () => {
         to: "/auth/oauth2",
         group: "Authentication",
         priority: 7,
+        cluster: expect.objectContaining({ label: "Federation" }),
       },
     ])
     expect(sub.routes.map((r) => r.path)).toEqual([

@@ -8,7 +8,7 @@ import {
 } from "@forge-go/dashboard-kit/icons"
 import { SETTINGS_INTENTS, settingsPanelFor } from "./settings-panel"
 
-const NAV_CLUSTERS = {
+export const NAV_CLUSTERS = {
   detection: { label: "Threat detection", icon: <ShieldAlertIcon /> },
   location: { label: "Location security", icon: <MapPinIcon /> },
   passwordless: { label: "Passwordless", icon: <FingerprintIcon /> },
