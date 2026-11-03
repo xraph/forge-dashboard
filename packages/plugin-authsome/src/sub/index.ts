@@ -6,6 +6,7 @@ import { consentSubPlugin } from "./consent"
 import { subscriptionSubPlugin } from "./subscription"
 import { passwordSubPlugin } from "./password"
 import { notificationSubPlugin } from "./notification"
+import { oauth2providerSubPlugin } from "./oauth2provider"
 import { settingsOnlySubPlugins } from "./settings-only"
 
 export {
@@ -16,6 +17,7 @@ export {
   subscriptionSubPlugin,
   passwordSubPlugin,
   notificationSubPlugin,
+  oauth2providerSubPlugin,
   settingsOnlySubPlugins,
 }
 
@@ -35,5 +37,6 @@ export const authsomeSubPlugins: ForgeSubPlugin[] = [
   subscriptionSubPlugin,
   passwordSubPlugin,
   notificationSubPlugin,
+  oauth2providerSubPlugin,
   ...settingsOnlySubPlugins,
 ]

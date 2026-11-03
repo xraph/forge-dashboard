@@ -6,7 +6,7 @@ The React dashboard reads the Forge dashboard contract. Authsome's old dashboard
 
 The Settings page reads `settings.namespaces` and gives you an editor for every namespace returned by the server. It uses the plugin's contributed editor when one exists, and the shared `settings.namespace` and `settings.update` editor for the rest. Authsome currently has 21 plugins with `DeclareSettings`. This includes Shared Signals, API key, and subscription settings even when they do not contribute a settings tab. The fixture now seeds their actual setting keys and defaults.
 
-Email and Passkey register editable settings and appear in the shared editor. OAuth2 Provider does not register settings definitions, so its React settings route has no editable fields from `settings.namespace`. Add a read intent for its current configuration, or register settings and wire them into plugin behavior, before removing that panel. Consent, Organization, and Waitlist also have no registered settings definitions; their management pages use their own intents.
+Email and Passkey register editable settings and appear in the shared editor. OAuth2 Provider registers one setting, `oauth2.app_issuer` ("Per-app OIDC issuer"), which appears in the shared editor. Its own pages under `/auth/oauth2` read and manage clients, the issuer and signing keys through plugin intents. Consent, Organization, and Waitlist also have no registered settings definitions; their management pages use their own intents.
 
 The shared editor currently writes at app scope. Global, organization, and user scope controls from the old settings editor still need an explicit React workflow and authorization review.
 
@@ -21,7 +21,8 @@ A registered field does not prove the plugin uses its saved value. API key limit
 | Subscription | Plans, pricing tiers, entitlements, feature catalog, subscriptions, usage, invoices, and coupons have contract-backed React pages and write actions | Verify live Ledger behavior, provider effects, and the remaining old route details before deleting templ pages |
 | MFA and Passkey | Registered settings when available | Enrollment and credential management pages have no plugin intents |
 | Notification | Templates, locale versions, preview, test send, live send, defaults, event mappings, and registered settings have contract-backed React pages | The Herald bridge exposes no delivery-history query. Verify the live Herald adapter and each configured channel before removing templ pages |
-| OAuth2 Provider, Social, SSO | Registered settings where available | Client and provider management pages have no plugin intents |
+| OAuth2 Provider | Client list, create, detail, edit, secret rotation and delete; issuer details; signing key list and rotation; the `oauth2.app_issuer` setting | Verify against a live OIDC deployment, including operator-managed keys and the per-app issuer switch |
+| Social, SSO | Registered settings where available | Provider management pages have no plugin intents |
 | SCIM | Registered settings | Provisioning views and logs have no plugin intents |
 | Security plugins | Registered settings | Compare each old status and provider detail view; their contract manifests expose no plugin intents |
 | Shared Signals | Five registered settings through the Authsome settings registry | Admin stream management uses its own HTTP routes and has no dashboard contributor |

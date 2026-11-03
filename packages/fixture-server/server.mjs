@@ -19,10 +19,10 @@
 //   - core-contract       (packages/plugin-core)            1 query
 //   - streaming-contract  (packages/plugin-streaming)        9 queries, 5 commands
 //   - auth                (packages/plugin-authsome)         query+command surface
-//   - organization, apikey, waitlist, consent, subscription, password
-//                          (packages/plugin-authsome/src/sub) each its own
+//   - organization, apikey, oauth2provider, waitlist, consent, subscription,
+//     password (packages/plugin-authsome/src/sub) each its own
 //                          contributor, own intents
-//   - eighteen settings-only sub-plugins (sub/settings-only.tsx): each its
+//   - seventeen settings-only sub-plugins (sub/settings-only.tsx): each its
 //     own contributor name, `intents: []`, reachable only through auth's
 //     settings.namespace/settings.update via the host-intent allowlist.
 //   - relay               (packages/plugin-relay)            14 queries, 12 commands
@@ -150,6 +150,7 @@ function resetIdCounters() {
     org: 2,
     member: 2,
     apikey: 2,
+    oauth2client: 2,
     waitlist: 7,
     consent: 7,
     room: 2,
@@ -674,11 +675,11 @@ function platformAppId() {
 // ---------------------------------------------------------------------------
 // In-memory state — settings (served through auth's settings.namespace /
 // settings.update / settings.enforce / settings.unenforce, and read by the
-// eighteen settings-only sub-plugins through the host-intent allowlist).
+// seventeen settings-only sub-plugins through the host-intent allowlist).
 // ---------------------------------------------------------------------------
 
 function seedSettingsState() {
-  // Real categories for several of the eighteen namespaces, plus `password`
+  // Real categories for several of the seventeen namespaces, plus `password`
   // (the settings-editor link `password.tsx` points at) so the panels have
   // something to render. Deliberately includes, across this set, at least
   // one enforced field (riskengine.mode), one read-only field
@@ -813,6 +814,32 @@ function seedSettingsState() {
                 isEnforced: false,
                 canOverride: true,
                 order: 2,
+              },
+            ],
+          },
+        ],
+      },
+    ],
+    [
+      "oauth2provider",
+      {
+        displayName: "OAuth2 Provider",
+        categories: [
+          {
+            name: "OpenID Connect",
+            settings: [
+              {
+                key: "oauth2.app_issuer",
+                displayName: "Per-app OIDC issuer",
+                description:
+                  "Give this app its own issuer at {issuer}/apps/{slug}. Turning this on or off, or renaming the app's slug, changes the issuer for every OAuth2 client of this app, and they will reject tokens until they are reconfigured.",
+                type: "bool",
+                default: false,
+                effectiveValue: false,
+                isOverridden: false,
+                isEnforced: false,
+                canOverride: true,
+                order: 1,
               },
             ],
           },
@@ -1042,6 +1069,79 @@ function seedApikeyState() {
 }
 
 let apikey = seedApikeyState()
+
+// ---------------------------------------------------------------------------
+// In-memory state — oauth2provider
+// ---------------------------------------------------------------------------
+
+const OAUTH2_HOUR_MS = 60 * 60 * 1000
+const OAUTH2_DAY_MS = 24 * OAUTH2_HOUR_MS
+
+function seedOauth2providerState() {
+  const clients = new Map([
+    [
+      "oc_1",
+      {
+        id: "oc_1",
+        clientId: "web_storefront",
+        name: "Storefront web",
+        public: false,
+        firstParty: true,
+        redirectUris: ["https://shop.example.com/callback"],
+        scopes: ["openid", "profile", "email"],
+        grantTypes: ["authorization_code", "refresh_token"],
+        resources: [],
+        authMethod: "client_secret_basic",
+        dpopMode: "off",
+        createdAt: START,
+        updatedAt: START,
+      },
+    ],
+    [
+      "oc_2",
+      {
+        id: "oc_2",
+        clientId: "mobile_app",
+        name: "Mobile app",
+        public: true,
+        firstParty: false,
+        redirectUris: ["com.example.app://callback"],
+        scopes: ["openid", "offline_access"],
+        grantTypes: ["authorization_code", "refresh_token"],
+        resources: [],
+        authMethod: "none",
+        dpopMode: "off",
+        createdAt: START,
+        updatedAt: START,
+      },
+    ],
+  ])
+  // One managed key that has been active for a day (so rotate is allowed) and
+  // one retiring key still published until its retiresAt.
+  const now = Date.now()
+  const keys = [
+    {
+      kid: "key-active-1",
+      alg: "ES256",
+      // FIXTURE_OAUTH2PROVIDER_OPERATOR_KEY=1 makes the deployment key an
+      // operator (config-supplied) key, which keys.rotate refuses to touch.
+      source: envBool("FIXTURE_OAUTH2PROVIDER_OPERATOR_KEY", false) ? "operator" : "managed",
+      status: "active",
+      createdAt: new Date(now - OAUTH2_DAY_MS).toISOString(),
+    },
+    {
+      kid: "key-retiring-0",
+      alg: "ES256",
+      source: "managed",
+      status: "retiring",
+      createdAt: new Date(now - 30 * OAUTH2_DAY_MS).toISOString(),
+      retiresAt: new Date(now + 3 * OAUTH2_DAY_MS).toISOString(),
+    },
+  ]
+  return { clients, keys }
+}
+
+let oauth2provider = seedOauth2providerState()
 
 // ---------------------------------------------------------------------------
 // In-memory state — waitlist
@@ -2170,7 +2270,7 @@ const authHandlers = {
     },
   },
 
-  // -- settings (also reached by the 18 settings-only sub-plugins via their
+  // -- settings (also reached by the 17 settings-only sub-plugins via their
   // hostIntents allowlist: settings.namespace, settings.update,
   // settings.enforce, settings.unenforce) --------------------------------
   "settings.namespaces": {
@@ -2417,6 +2517,174 @@ const apikeyHandlers = {
 }
 
 // ---------------------------------------------------------------------------
+// oauth2provider intents (its own contributor, "oauth2provider")
+// ---------------------------------------------------------------------------
+
+const OAUTH2_DEPLOYMENT_ISSUER = process.env.FIXTURE_OAUTH2PROVIDER_ISSUER ?? `http://localhost:${PORT}`
+
+function oauth2AppIssuerOn() {
+  const field = findSettingField("oauth2provider", "oauth2.app_issuer")
+  return field?.effectiveValue === true
+}
+
+function oauth2CurrentIssuer() {
+  if (!oauth2AppIssuerOn()) return { issuer: OAUTH2_DEPLOYMENT_ISSUER, appIssuer: false }
+  const app = auth.apps.get(currentAppId ?? platformAppId())
+  return { issuer: `${OAUTH2_DEPLOYMENT_ISSUER}/apps/${app?.slug ?? "app"}`, appIssuer: true }
+}
+
+function oauth2ClientSummary(c) {
+  return {
+    id: c.id,
+    clientId: c.clientId,
+    name: c.name,
+    public: c.public,
+    firstParty: c.firstParty,
+    redirectUris: c.redirectUris,
+    scopes: c.scopes,
+    grantTypes: c.grantTypes,
+    createdAt: c.createdAt,
+  }
+}
+
+function oauth2Client(id) {
+  const c = oauth2provider.clients.get(id)
+  if (!c) throw notFound("client", id)
+  return c
+}
+
+function oauth2KeyList() {
+  return { issuer: oauth2CurrentIssuer().issuer, keys: oauth2provider.keys.map((k) => ({ ...k })) }
+}
+
+const oauth2providerHandlers = {
+  "oauth2.clients.list": {
+    kind: "query",
+    handler: () => ({ clients: [...oauth2provider.clients.values()].map(oauth2ClientSummary) }),
+  },
+  "oauth2.clients.detail": {
+    kind: "query",
+    handler: (params) => {
+      const c = oauth2Client(params?.id)
+      return { ...oauth2ClientSummary(c), resources: c.resources, authMethod: c.authMethod, dpopMode: c.dpopMode, updatedAt: c.updatedAt }
+    },
+  },
+  "oauth2.clients.create": {
+    kind: "command",
+    // The plaintext clientSecret is answered once; the dispatcher keeps a
+    // tombstone for the idempotency key, never this answer.
+    secret: true,
+    invalidates: ["oauth2.clients.list"],
+    handler: (payload) => {
+      if (!payload?.name) throw new FixtureError(400, CODE.BAD_REQUEST, "name is required", { field: "name" })
+      const id = nextId("oauth2client", "oc")
+      const clientId = `client_${randomBytes(6).toString("hex")}`
+      const now = new Date().toISOString()
+      const isPublic = payload.public === true
+      oauth2provider.clients.set(id, {
+        id,
+        clientId,
+        name: payload.name,
+        public: isPublic,
+        firstParty: payload.firstParty === true,
+        redirectUris: payload.redirectUris ?? [],
+        scopes: payload.scopes ?? [],
+        grantTypes: payload.grantTypes ?? [],
+        resources: payload.resources ?? [],
+        authMethod: isPublic ? "none" : "client_secret_basic",
+        dpopMode: "off",
+        createdAt: now,
+        updatedAt: now,
+      })
+      // The ONLY response carrying the plaintext secret, and only for
+      // confidential clients.
+      return isPublic ? { id, clientId } : { id, clientId, clientSecret: `cs_${randomBytes(24).toString("hex")}` }
+    },
+  },
+  "oauth2.clients.update": {
+    kind: "command",
+    invalidates: ["oauth2.clients.list", "oauth2.clients.detail"],
+    handler: (payload) => {
+      const c = oauth2Client(payload?.id)
+      for (const f of ["name", "redirectUris", "scopes", "grantTypes", "resources"]) {
+        if (payload?.[f] !== undefined) c[f] = payload[f]
+      }
+      c.updatedAt = new Date().toISOString()
+      return { ...oauth2ClientSummary(c), resources: c.resources, authMethod: c.authMethod, dpopMode: c.dpopMode, updatedAt: c.updatedAt }
+    },
+  },
+  "oauth2.clients.delete": {
+    kind: "command",
+    invalidates: ["oauth2.clients.list", "oauth2.clients.detail"],
+    handler: (payload) => {
+      const c = oauth2Client(payload?.id)
+      oauth2provider.clients.delete(c.id)
+      return { ok: true, id: c.id }
+    },
+  },
+  "oauth2.clients.rotateSecret": {
+    kind: "command",
+    secret: true,
+    invalidates: ["oauth2.clients.detail"],
+    handler: (payload) => {
+      const c = oauth2Client(payload?.id)
+      if (c.public) throw new FixtureError(400, CODE.BAD_REQUEST, "public clients have no secret to rotate")
+      c.updatedAt = new Date().toISOString()
+      return { id: c.id, clientId: c.clientId, clientSecret: `cs_${randomBytes(24).toString("hex")}` }
+    },
+  },
+  "oauth2.issuer.info": {
+    kind: "query",
+    handler: () => {
+      const { issuer, appIssuer } = oauth2CurrentIssuer()
+      return {
+        issuer,
+        discoveryUrl: `${issuer}/.well-known/openid-configuration`,
+        jwksUri: `${issuer}/v1/oauth/jwks`,
+        appIssuer,
+        algs: ["ES256"],
+      }
+    },
+  },
+  "oauth2.keys.list": {
+    kind: "query",
+    handler: () => oauth2KeyList(),
+  },
+  "oauth2.keys.rotate": {
+    kind: "command",
+    invalidates: ["oauth2.keys.list", "oauth2.issuer.info"],
+    handler: () => {
+      const { appIssuer } = oauth2CurrentIssuer()
+      const active = oauth2provider.keys.find((k) => k.status === "active")
+      // Same order as authsome's RotateSigningKey: operator key, shared
+      // deployment key, then the age check.
+      if (!appIssuer && active?.source === "operator") {
+        throw new FixtureError(400, CODE.BAD_REQUEST, "the signing key for this issuer is managed by configuration")
+      }
+      if (!appIssuer) {
+        throw new FixtureError(400, CODE.BAD_REQUEST, "the deployment issuer's signing key is shared by every app and rotates on its own schedule")
+      }
+      if (active && Date.now() - Date.parse(active.createdAt) < OAUTH2_HOUR_MS) {
+        throw new FixtureError(400, CODE.BAD_REQUEST, "the current signing key is less than an hour old; try again later")
+      }
+      const now = Date.now()
+      if (active) {
+        active.status = "retiring"
+        active.retiresAt = new Date(now + 7 * OAUTH2_DAY_MS).toISOString()
+      }
+      oauth2provider.keys.unshift({
+        kid: `key-${randomBytes(4).toString("hex")}`,
+        alg: "ES256",
+        source: "managed",
+        status: "active",
+        createdAt: new Date(now).toISOString(),
+      })
+      return oauth2KeyList()
+    },
+  },
+}
+
+// ---------------------------------------------------------------------------
 // waitlist intents (its own contributor, "waitlist")
 // ---------------------------------------------------------------------------
 
@@ -2611,7 +2879,7 @@ const passwordHandlers = {
 }
 
 // ---------------------------------------------------------------------------
-// The eighteen settings-only sub-plugins. Copied from
+// The seventeen settings-only sub-plugins. Copied from
 // packages/plugin-authsome/src/sub/settings-only.tsx's SETTINGS_ONLY table
 // (itself copied from each plugin's contract/manifest.yaml) — extension name
 // is the join key, and every one of these declares `intents: []` in Go: all
@@ -2635,7 +2903,6 @@ const SETTINGS_ONLY_EXTENSIONS = [
   "mfa",
   "passkey",
   "social",
-  "oauth2provider",
   "scim",
   "sso",
   "notification",
@@ -2882,6 +3149,7 @@ const CONTRIBUTORS = [
   { name: "auth", envPrefix: "AUTH", handlers: authHandlers },
   { name: "organization", envPrefix: "ORGANIZATION", handlers: organizationHandlers },
   { name: "apikey", envPrefix: "APIKEY", handlers: apikeyHandlers },
+  { name: "oauth2provider", envPrefix: "OAUTH2PROVIDER", handlers: oauth2providerHandlers },
   { name: "waitlist", envPrefix: "WAITLIST", handlers: waitlistHandlers },
   { name: "consent", envPrefix: "CONSENT", handlers: consentHandlers },
   { name: "subscription", envPrefix: "SUBSCRIPTION", handlers: subscriptionHandlers },
@@ -3180,6 +3448,7 @@ function handleReset(res) {
   settingsData = seedSettingsState()
   organization = seedOrganizationState()
   apikey = seedApikeyState()
+  oauth2provider = seedOauth2providerState()
   waitlist = seedWaitlistState()
   consent = seedConsentState()
   subscription = seedSubscriptionState()

@@ -29,15 +29,15 @@ function capabilities(names: string[]): Capabilities {
   }
 }
 
-describe("the seventeen settings-only sub-plugins", () => {
-  it("declares all seventeen, with unique routes and unique extensions", () => {
-    expect(settingsOnlySubPlugins).toHaveLength(17)
+describe("the sixteen settings-only sub-plugins", () => {
+  it("declares all sixteen, with unique routes and unique extensions", () => {
+    expect(settingsOnlySubPlugins).toHaveLength(16)
     const routes = settingsOnlySubPlugins.flatMap((s) =>
       s.routes.map((r) => r.path)
     )
     expect(new Set(routes).size).toBe(routes.length)
     const extensions = settingsOnlySubPlugins.map((s) => s.extension)
-    expect(new Set(extensions).size).toBe(17)
+    expect(new Set(extensions).size).toBe(16)
   })
 
   it("mounts every one inside authsome, and never inside itself", () => {
@@ -49,7 +49,7 @@ describe("the seventeen settings-only sub-plugins", () => {
 
   it("declares exactly the four settings intents and nothing else", () => {
     for (const sub of settingsOnlySubPlugins) {
-      // The allowlist is the entire scoping guarantee for these eighteen. A
+      // The allowlist is the entire scoping guarantee for these sixteen. A
       // fifth intent here is a sub-plugin quietly reading users.list through
       // its host.
       expect([...sub.hostIntents].sort()).toEqual([
