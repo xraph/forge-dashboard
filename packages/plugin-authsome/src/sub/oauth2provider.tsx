@@ -8,6 +8,10 @@ import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
 import { Section } from "@forge-go/dashboard-kit/components/section"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
+import {
+  OAuth2ClientCreatePage,
+  OAuth2ClientDetailPage,
+} from "./oauth2provider-clients"
 import { ResourceTable, type Column } from "../components/presentation"
 import { NAV_CLUSTERS } from "./settings-only"
 import { SETTINGS_INTENTS, settingsPanelFor } from "./settings-panel"
@@ -114,16 +118,6 @@ function ClientsSection() {
       </QueryBoundary>
     </Section>
   )
-}
-
-/** Placeholder until Task 2 adds the create form. */
-function OAuth2ClientCreatePage() {
-  return <PageHeader title="New OAuth2 client" />
-}
-
-/** Placeholder until Task 2 adds the detail page. */
-function OAuth2ClientDetailPage() {
-  return <PageHeader title="OAuth2 client" />
 }
 
 export function OAuth2OverviewPage() {

@@ -134,7 +134,13 @@ function LastUsedCell({ value }: { value?: string }) {
  * A value the operator may need to paste somewhere else: the public key on
  * the detail page, and the secret on the create page's one-shot reveal.
  */
-function CopyableValue({ value, label }: { value: string; label: string }) {
+export function CopyableValue({
+  value,
+  label,
+}: {
+  value: string
+  label: string
+}) {
   const [copied, setCopied] = useState(false)
 
   async function copy() {
