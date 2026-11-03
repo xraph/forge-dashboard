@@ -12,6 +12,7 @@ import {
   OAuth2ClientCreatePage,
   OAuth2ClientDetailPage,
 } from "./oauth2provider-clients"
+import { IssuerSection, KeysSection } from "./oauth2provider-keys"
 import { ResourceTable, type Column } from "../components/presentation"
 import { NAV_CLUSTERS } from "./settings-only"
 import { SETTINGS_INTENTS, settingsPanelFor } from "./settings-panel"
@@ -124,9 +125,8 @@ export function OAuth2OverviewPage() {
   return (
     <section className="flex min-w-0 flex-col gap-4">
       <PageHeader title="OAuth2 Provider" />
-      {/* Task 3 fills the issuer and signing key sections. */}
-      <Section title="Issuer" aria-label="Issuer" />
-      <Section title="Signing keys" aria-label="Signing keys" />
+      <IssuerSection />
+      <KeysSection />
       <ClientsSection />
     </section>
   )

@@ -34,8 +34,41 @@ const clients = {
   ],
 }
 
+const issuer = {
+  issuer: "https://auth.test/app_1",
+  discoveryUrl: "https://auth.test/app_1/.well-known/openid-configuration",
+  jwksUri: "https://auth.test/app_1/.well-known/jwks.json",
+  appIssuer: true,
+  algs: ["ES256", "RS256"],
+}
+
+const keyList = {
+  issuer: issuer.issuer,
+  keys: [
+    {
+      kid: "kid-active-0123456789abcdef",
+      alg: "ES256",
+      source: "managed",
+      status: "active",
+      createdAt: "2026-10-01T00:00:00Z",
+    },
+    {
+      kid: "kid-previous",
+      alg: "ES256",
+      source: "managed",
+      status: "previous",
+      createdAt: "2026-09-01T00:00:00Z",
+      retiresAt: "2026-10-08T00:00:00Z",
+    },
+  ],
+}
+
 function renderOverview(
-  own = subStubClient({ "oauth2.clients.list": clients })
+  own = subStubClient({
+    "oauth2.clients.list": clients,
+    "oauth2.issuer.info": issuer,
+    "oauth2.keys.list": keyList,
+  })
 ) {
   renderSubPage(OAuth2OverviewPage, {
     client: own.client,
@@ -110,11 +143,159 @@ describe("oauth2 overview clients section", () => {
     )
   })
 
-  it("keeps Issuer and Signing keys sections for later tasks", async () => {
+  it("keeps the Issuer, Signing keys and Clients sections", async () => {
     renderOverview()
     expect(screen.getByRole("heading", { name: "Issuer" })).toBeTruthy()
     expect(screen.getByRole("heading", { name: "Signing keys" })).toBeTruthy()
     expect(screen.getByRole("heading", { name: "Clients" })).toBeTruthy()
+  })
+})
+
+/* ------------------------------------------------- issuer and keys */
+
+function rotateButton() {
+  return screen.getByRole("button", { name: "Rotate now" }) as HTMLButtonElement
+}
+
+describe("oauth2 overview issuer and keys", () => {
+  it("shows issuer, discovery and JWKS URLs", async () => {
+    renderOverview()
+    expect(await screen.findByText(issuer.issuer)).toBeTruthy()
+    expect(screen.getByText(issuer.discoveryUrl)).toBeTruthy()
+    expect(screen.getByText(issuer.jwksUri)).toBeTruthy()
+    expect(screen.getByRole("button", { name: "Copy issuer" })).toBeTruthy()
+    expect(
+      screen.getByRole("button", { name: "Copy discovery URL" })
+    ).toBeTruthy()
+    expect(screen.getByRole("button", { name: "Copy JWKS URI" })).toBeTruthy()
+    expect(screen.getAllByText("ES256").length).toBeGreaterThan(0)
+    expect(screen.getByText("RS256")).toBeTruthy()
+  })
+
+  it("labels a per-app issuer", async () => {
+    renderOverview()
+    expect(await screen.findByText("Per-app issuer")).toBeTruthy()
+    expect(screen.queryByText("Deployment issuer")).toBeNull()
+  })
+
+  it("lists keys with their status", async () => {
+    renderOverview()
+    const active = await screen.findByText("kid-active-0123456789abcdef")
+    expect(active.getAttribute("title")).toBe("kid-active-0123456789abcdef")
+    expect(screen.getByText("kid-previous")).toBeTruthy()
+    expect(screen.getByText("active")).toBeTruthy()
+    expect(screen.getByText("previous")).toBeTruthy()
+  })
+
+  it("disables rotate for an operator key", async () => {
+    const own = subStubClient({
+      "oauth2.clients.list": clients,
+      "oauth2.issuer.info": issuer,
+      "oauth2.keys.list": {
+        ...keyList,
+        keys: [{ ...keyList.keys[0], source: "operator" }],
+      },
+    })
+    renderOverview(own)
+    await screen.findByText("kid-active-0123456789abcdef")
+    expect(
+      screen.getAllByText("Managed by configuration").length
+    ).toBeGreaterThan(0)
+    expect(rotateButton().disabled).toBe(true)
+  })
+
+  it("disables rotate on the shared deployment issuer", async () => {
+    renderOverview(
+      subStubClient({
+        "oauth2.clients.list": clients,
+        "oauth2.issuer.info": { ...issuer, appIssuer: false },
+        "oauth2.keys.list": keyList,
+      })
+    )
+    expect(await screen.findByText("Deployment issuer")).toBeTruthy()
+    await screen.findByText("kid-previous")
+    expect(rotateButton().disabled).toBe(true)
+    expect(screen.getByText(/shared by every app/i)).toBeTruthy()
+  })
+
+  it("rotates only after confirming", async () => {
+    const own = subStubClient(
+      {
+        "oauth2.clients.list": clients,
+        "oauth2.issuer.info": issuer,
+        "oauth2.keys.list": keyList,
+      },
+      { "oauth2.keys.rotate": keyList }
+    )
+    renderOverview(own)
+    await screen.findByText("kid-previous")
+    await waitFor(() => expect(rotateButton().disabled).toBe(false))
+    fireEvent.click(rotateButton())
+    expect(screen.getByText(/7 days/)).toBeTruthy()
+    expect(own.payloads).toHaveLength(0)
+    fireEvent.click(screen.getByRole("button", { name: /^rotate$/i }))
+    await waitFor(() => expect(own.payloads).toHaveLength(1))
+    expect(own.payloads[0]).toEqual({
+      intent: "oauth2.keys.rotate",
+      payload: {},
+    })
+  })
+
+  it("explains an empty key list and creates the first key", async () => {
+    const own = subStubClient(
+      {
+        "oauth2.clients.list": clients,
+        "oauth2.issuer.info": issuer,
+        "oauth2.keys.list": { issuer: issuer.issuer, keys: [] },
+      },
+      { "oauth2.keys.rotate": keyList }
+    )
+    renderOverview(own)
+    expect(await screen.findByText(/first key is created/i)).toBeTruthy()
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Create key now" })
+    )
+    await waitFor(() => expect(own.payloads).toHaveLength(1))
+    expect(own.payloads[0]).toEqual({
+      intent: "oauth2.keys.rotate",
+      payload: {},
+    })
+  })
+
+  it("offers no create button on an empty deployment issuer", async () => {
+    renderOverview(
+      subStubClient({
+        "oauth2.clients.list": clients,
+        "oauth2.issuer.info": { ...issuer, appIssuer: false },
+        "oauth2.keys.list": { issuer: issuer.issuer, keys: [] },
+      })
+    )
+    expect(await screen.findByText(/first key is created/i)).toBeTruthy()
+    await screen.findByText("Deployment issuer")
+    expect(screen.queryByRole("button", { name: "Create key now" })).toBeNull()
+  })
+
+  it("shows the server's error when rotation is refused", async () => {
+    const own = subStubClient(
+      {
+        "oauth2.clients.list": clients,
+        "oauth2.issuer.info": issuer,
+        "oauth2.keys.list": keyList,
+      },
+      {
+        "oauth2.keys.rotate": new ContractError(
+          "BAD_REQUEST",
+          "the current signing key is less than an hour old; try again later"
+        ),
+      }
+    )
+    renderOverview(own)
+    await screen.findByText("kid-previous")
+    await waitFor(() => expect(rotateButton().disabled).toBe(false))
+    fireEvent.click(rotateButton())
+    fireEvent.click(screen.getByRole("button", { name: /^rotate$/i }))
+    const alert = await screen.findByRole("alert")
+    expect(alert.textContent).toMatch(/less than an hour old/)
   })
 })
 
