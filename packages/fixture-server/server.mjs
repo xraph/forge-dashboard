@@ -826,11 +826,11 @@ function seedSettingsState() {
         displayName: "OAuth2 Provider",
         categories: [
           {
-            name: "Issuer",
+            name: "OpenID Connect",
             settings: [
               {
                 key: "oauth2.app_issuer",
-                displayName: "Per-app issuer",
+                displayName: "Per-app OIDC issuer",
                 description:
                   "Give this app its own issuer at {issuer}/apps/{slug}. Turning this on or off, or renaming the app's slug, changes the issuer for every OAuth2 client of this app, and they will reject tokens until they are reconfigured.",
                 type: "bool",
@@ -2610,7 +2610,7 @@ const oauth2providerHandlers = {
         if (payload?.[f] !== undefined) c[f] = payload[f]
       }
       c.updatedAt = new Date().toISOString()
-      return { ok: true, id: c.id }
+      return { ...oauth2ClientSummary(c), resources: c.resources, authMethod: c.authMethod, dpopMode: c.dpopMode, updatedAt: c.updatedAt }
     },
   },
   "oauth2.clients.delete": {
@@ -2640,7 +2640,7 @@ const oauth2providerHandlers = {
       return {
         issuer,
         discoveryUrl: `${issuer}/.well-known/openid-configuration`,
-        jwksUri: `${issuer}/.well-known/jwks.json`,
+        jwksUri: `${issuer}/v1/oauth/jwks`,
         appIssuer,
         algs: ["ES256"],
       }
