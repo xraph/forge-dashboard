@@ -19,8 +19,8 @@
 //   - core-contract       (packages/plugin-core)            1 query
 //   - streaming-contract  (packages/plugin-streaming)        9 queries, 5 commands
 //   - auth                (packages/plugin-authsome)         query+command surface
-//   - organization, apikey, waitlist, consent, subscription, password
-//                          (packages/plugin-authsome/src/sub) each its own
+//   - organization, apikey, oauth2provider, waitlist, consent, subscription,
+//     password (packages/plugin-authsome/src/sub) each its own
 //                          contributor, own intents
 //   - seventeen settings-only sub-plugins (sub/settings-only.tsx): each its
 //     own contributor name, `intents: []`, reachable only through auth's
@@ -1123,7 +1123,9 @@ function seedOauth2providerState() {
     {
       kid: "key-active-1",
       alg: "ES256",
-      source: "managed",
+      // FIXTURE_OAUTH2PROVIDER_OPERATOR_KEY=1 makes the deployment key an
+      // operator (config-supplied) key, which keys.rotate refuses to touch.
+      source: envBool("FIXTURE_OAUTH2PROVIDER_OPERATOR_KEY", false) ? "operator" : "managed",
       status: "active",
       createdAt: new Date(now - OAUTH2_DAY_MS).toISOString(),
     },
@@ -2569,6 +2571,9 @@ const oauth2providerHandlers = {
   },
   "oauth2.clients.create": {
     kind: "command",
+    // The plaintext clientSecret is answered once; the dispatcher keeps a
+    // tombstone for the idempotency key, never this answer.
+    secret: true,
     invalidates: ["oauth2.clients.list"],
     handler: (payload) => {
       if (!payload?.name) throw new FixtureError(400, CODE.BAD_REQUEST, "name is required", { field: "name" })
@@ -2619,6 +2624,7 @@ const oauth2providerHandlers = {
   },
   "oauth2.clients.rotateSecret": {
     kind: "command",
+    secret: true,
     invalidates: ["oauth2.clients.detail"],
     handler: (payload) => {
       const c = oauth2Client(payload?.id)
@@ -2648,10 +2654,16 @@ const oauth2providerHandlers = {
     kind: "command",
     invalidates: ["oauth2.keys.list", "oauth2.issuer.info"],
     handler: () => {
-      if (!oauth2CurrentIssuer().appIssuer) {
+      const { appIssuer } = oauth2CurrentIssuer()
+      const active = oauth2provider.keys.find((k) => k.status === "active")
+      // Same order as authsome's RotateSigningKey: operator key, shared
+      // deployment key, then the age check.
+      if (!appIssuer && active?.source === "operator") {
+        throw new FixtureError(400, CODE.BAD_REQUEST, "the signing key for this issuer is managed by configuration")
+      }
+      if (!appIssuer) {
         throw new FixtureError(400, CODE.BAD_REQUEST, "the deployment issuer's signing key is shared by every app and rotates on its own schedule")
       }
-      const active = oauth2provider.keys.find((k) => k.status === "active")
       if (active && Date.now() - Date.parse(active.createdAt) < OAUTH2_HOUR_MS) {
         throw new FixtureError(400, CODE.BAD_REQUEST, "the current signing key is less than an hour old; try again later")
       }
