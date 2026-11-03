@@ -73,7 +73,7 @@ export function flattenCategories(
  *
  * This is the one place the two shapes meet, deliberately. Kit owns its
  * descriptor and knows nothing about any contract, which is what lets all
- * eighteen settings-only sub-plugins share one renderer. Widening kit to
+ * sixteen settings-only sub-plugins share one renderer. Widening kit to
  * understand `SettingField` would trade that away for nothing.
  */
 export function toDescriptors(

@@ -18,7 +18,7 @@ const NAV_CLUSTERS = {
 interface SettingsOnlyRow {
   /** The Go contributor name. Decides whether any of this renders. */
   extension: string
-  /** The settings namespace. Equal to `extension` in all eighteen today. */
+  /** The settings namespace. Equal to `extension` in all sixteen today. */
   namespace: string
   label: string
   route: string
@@ -175,16 +175,6 @@ export const SETTINGS_ONLY: SettingsOnlyRow[] = [
     cluster: "federation",
   },
   {
-    extension: "oauth2provider",
-    namespace: "oauth2provider",
-    label: "OAuth2 Provider",
-    route: "/auth/oauth2",
-    group: "Authentication",
-    priority: 7,
-    tab: "OAuth2",
-    cluster: "federation",
-  },
-  {
     extension: "scim",
     namespace: "scim",
     label: "SCIM",
@@ -205,7 +195,7 @@ export const SETTINGS_ONLY: SettingsOnlyRow[] = [
 ]
 
 /**
- * Eighteen declarations, one component each.
+ * Sixteen declarations, one component each.
  *
  * `settingsPanelFor` is called once per row and the SAME component instance is
  * used for the route and for the settings tab. Two calls would give two
